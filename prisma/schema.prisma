@@ -1,0 +1,188 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  sessions     Session[]
+  applications Application[]
+  contacts     Contact[]
+  reminders    Reminder[]
+  interviews   Interview[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+enum Status {
+  SAVED
+  APPLIED
+  SCREENING
+  INTERVIEW
+  OFFER
+  ACCEPTED
+  REJECTED
+  WITHDRAWN
+  GHOSTED
+}
+
+enum WorkMode {
+  REMOTE
+  HYBRID
+  ONSITE
+  UNKNOWN
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+model Application {
+  id          String   @id @default(cuid())
+  userId      String
+  company     String
+  title       String
+  location    String?
+  workMode    WorkMode @default(UNKNOWN)
+  status      Status   @default(SAVED)
+  priority    Priority @default(MEDIUM)
+  source      String?
+  url         String?
+  description String?  @db.Text
+  salaryMin   Int?
+  salaryMax   Int?
+  currency    String?  @default("USD")
+  appliedAt   DateTime?
+  archived    Boolean  @default(false)
+  boardOrder  Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  events     StatusEvent[]
+  interviews Interview[]
+  notes      Note[]
+  contacts   Contact[]
+  reminders  Reminder[]
+
+  @@index([userId, status])
+  @@index([userId, archived])
+}
+
+model StatusEvent {
+  id            String   @id @default(cuid())
+  applicationId String
+  from          Status?
+  to            Status
+  note          String?
+  createdAt     DateTime @default(now())
+
+  application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@index([applicationId])
+}
+
+enum InterviewType {
+  PHONE_SCREEN
+  TECHNICAL
+  BEHAVIORAL
+  ONSITE
+  FINAL
+  OTHER
+}
+
+enum InterviewOutcome {
+  PENDING
+  PASSED
+  FAILED
+  CANCELED
+}
+
+model Interview {
+  id            String           @id @default(cuid())
+  userId        String
+  applicationId String
+  type          InterviewType    @default(PHONE_SCREEN)
+  scheduledAt   DateTime
+  durationMins  Int              @default(60)
+  location      String?
+  interviewers  String?
+  notes         String?          @db.Text
+  outcome       InterviewOutcome @default(PENDING)
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@index([userId, scheduledAt])
+  @@index([applicationId])
+}
+
+model Contact {
+  id            String   @id @default(cuid())
+  userId        String
+  applicationId String?
+  name          String
+  title         String?
+  email         String?
+  phone         String?
+  linkedin      String?
+  notes         String?  @db.Text
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  application Application? @relation(fields: [applicationId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+}
+
+model Note {
+  id            String   @id @default(cuid())
+  applicationId String
+  body          String   @db.Text
+  createdAt     DateTime @default(now())
+
+  application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@index([applicationId])
+}
+
+model Reminder {
+  id            String    @id @default(cuid())
+  userId        String
+  applicationId String?
+  title         String
+  dueAt         DateTime
+  done          Boolean   @default(false)
+  completedAt   DateTime?
+  createdAt     DateTime  @default(now())
+
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  application Application? @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@index([userId, done, dueAt])
+}
