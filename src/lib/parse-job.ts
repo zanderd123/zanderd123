@@ -201,8 +201,14 @@ async function fetchText(
   }
 }
 
+type AtsRef =
+  | { kind: "greenhouse"; slug: string; id: string }
+  | { kind: "lever"; slug: string; id: string }
+  | { kind: "ashby"; slug: string; id: string }
+  | { kind: "workday"; origin: string; tenant: string; site: string; path: string };
+
 /** Recognises the ATS platforms that publish a structured public API. */
-function matchAts(url: URL): { kind: "greenhouse" | "lever"; slug: string; id: string } | null {
+function matchAts(url: URL): AtsRef | null {
   const host = url.hostname.replace(/^www\./, "");
   const parts = url.pathname.split("/").filter(Boolean);
 
@@ -221,6 +227,29 @@ function matchAts(url: URL): { kind: "greenhouse" | "lever"; slug: string; id: s
   // jobs.lever.co/acme/<uuid>
   if (host.endsWith("lever.co") && parts[0] && parts[1]) {
     return { kind: "lever", slug: parts[0], id: parts[1] };
+  }
+
+  // jobs.ashbyhq.com/acme/<uuid>[/application]
+  if (host.endsWith("ashbyhq.com") && parts[0] && parts[1]) {
+    return { kind: "ashby", slug: parts[0], id: parts[1] };
+  }
+
+  // acme.wd1.myworkdayjobs.com/en-US/<site>/details/<slug>
+  // acme.wd5.myworkdayjobs.com/en-US/<site>/job/<location>/<slug>
+  if (host.endsWith("myworkdayjobs.com")) {
+    const tenant = host.split(".")[0];
+    const rest = parts.slice();
+
+    // An optional locale segment sits in front of the site name.
+    if (rest[0] && /^[a-z]{2}(-[A-Za-z]{2})?$/.test(rest[0])) rest.shift();
+
+    const site = rest.shift();
+    const marker = rest.findIndex((p) => p === "job" || p === "details");
+    const tail = marker === -1 ? rest : rest.slice(marker + 1);
+
+    if (tenant && site && tail.length) {
+      return { kind: "workday", origin: url.origin, tenant, site, path: tail.join("/") };
+    }
   }
 
   return null;
@@ -314,6 +343,111 @@ async function fromLever(slug: string, id: string): Promise<ParsedJob | null> {
 }
 
 /**
+ * Ashby serves each board as JSON. There's no per-job endpoint, so we pull the
+ * board and pick out the posting the URL points at.
+ */
+async function fromAshby(slug: string, id: string): Promise<ParsedJob | null> {
+  const res = await fetchText(
+    `https://api.ashbyhq.com/posting-api/job-board/${encodeURIComponent(slug)}?includeCompensation=true`,
+    "application/json",
+  );
+  if (!res.ok) return null;
+
+  let board: Record<string, any>;
+  try {
+    board = JSON.parse(res.body);
+  } catch {
+    return null;
+  }
+
+  const jobs: any[] = Array.isArray(board?.jobs) ? board.jobs : [];
+  const job = jobs.find((j) => j?.id === id) ?? jobs.find((j) => String(j?.jobUrl ?? "").includes(id));
+  if (!job || typeof job.title !== "string") return null;
+
+  const out: ParsedJob = { source: "Ashby", title: job.title.trim() };
+
+  const orgName = board?.organizationName ?? board?.name;
+  if (typeof orgName === "string" && orgName.trim()) out.company = orgName.trim();
+
+  const locations = [job.location, ...(Array.isArray(job.secondaryLocations) ? job.secondaryLocations : [])]
+    .map((l) => (typeof l === "string" ? l : l?.location))
+    .filter((l): l is string => typeof l === "string" && l.trim().length > 0);
+  if (locations.length) out.location = [...new Set(locations.map((l) => l.trim()))].join(", ");
+
+  if (typeof job.descriptionHtml === "string" && job.descriptionHtml) {
+    out.description = htmlToText(job.descriptionHtml).slice(0, 20_000);
+  } else if (typeof job.descriptionPlain === "string") {
+    out.description = job.descriptionPlain.slice(0, 20_000);
+  }
+
+  // Compensation arrives as summary components; take the salary band if present.
+  const components: any[] = Array.isArray(job.compensation?.summaryComponents)
+    ? job.compensation.summaryComponents
+    : [];
+  const salaryBand = components.find((c) => /salary/i.test(String(c?.compensationType ?? "")));
+  if (salaryBand) {
+    const min = Number(salaryBand.minValue);
+    const max = Number(salaryBand.maxValue);
+    if (Number.isFinite(min) && min > 0) out.salaryMin = Math.round(min);
+    if (Number.isFinite(max) && max > 0) out.salaryMax = Math.round(max);
+  }
+
+  out.workMode =
+    job.isRemote === true
+      ? "REMOTE"
+      : inferWorkMode(`${out.location ?? ""} ${(out.description ?? "").slice(0, 4000)}`);
+
+  return out;
+}
+
+/**
+ * Workday tenants serve their careers site from a JSON endpoint (CXS) behind
+ * the same host as the posting, which avoids scraping the single-page app.
+ */
+async function fromWorkday(ref: {
+  origin: string;
+  tenant: string;
+  site: string;
+  path: string;
+}): Promise<ParsedJob | null> {
+  const res = await fetchText(
+    `${ref.origin}/wday/cxs/${encodeURIComponent(ref.tenant)}/${encodeURIComponent(ref.site)}/job/${ref.path}`,
+    "application/json",
+  );
+  if (!res.ok) return null;
+
+  let data: Record<string, any>;
+  try {
+    data = JSON.parse(res.body);
+  } catch {
+    return null;
+  }
+
+  const info = data?.jobPostingInfo ?? data;
+  if (!info || typeof info.title !== "string") return null;
+
+  const out: ParsedJob = { source: "Workday", title: info.title.trim() };
+
+  const locations = [info.location, ...(Array.isArray(info.additionalLocations) ? info.additionalLocations : [])]
+    .filter((l): l is string => typeof l === "string" && l.trim().length > 0)
+    .map((l) => l.trim());
+  if (locations.length) out.location = [...new Set(locations)].join(", ");
+
+  if (typeof info.jobDescription === "string" && info.jobDescription) {
+    out.description = htmlToText(info.jobDescription).slice(0, 20_000);
+  }
+
+  const remote = String(info.remoteType ?? "");
+  out.workMode = /remote/i.test(remote)
+    ? "REMOTE"
+    : /hybrid|flex/i.test(remote)
+      ? "HYBRID"
+      : inferWorkMode(`${out.location ?? ""} ${remote} ${(out.description ?? "").slice(0, 4000)}`);
+
+  return out;
+}
+
+/**
  * Best-effort read of a job posting URL. Never throws — on any failure the
  * caller still gets whatever could be derived from the URL itself, so the
  * form degrades to plain manual entry.
@@ -343,7 +477,11 @@ export async function parseJobUrl(rawUrl: string): Promise<ParsedJob> {
     const viaApi =
       ats.kind === "greenhouse"
         ? await fromGreenhouse(ats.slug, ats.id)
-        : await fromLever(ats.slug, ats.id);
+        : ats.kind === "lever"
+          ? await fromLever(ats.slug, ats.id)
+          : ats.kind === "ashby"
+            ? await fromAshby(ats.slug, ats.id)
+            : await fromWorkday(ats);
 
     if (viaApi) {
       // Keep the slug-derived company only if the API didn't name one.

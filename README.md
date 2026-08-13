@@ -15,7 +15,20 @@ place instead of a spreadsheet and twelve browser tabs.
 - **Contacts** — recruiters, hiring managers, and referrals, optionally linked to a specific application.
 - **Reminders** — per-application or standalone follow-ups, with overdue highlighting.
 - **Dashboard** — response rate, interview rate, offer count, upcoming interviews, open follow-ups, and a "gone quiet" list of live applications with no movement in 14+ days.
-- **Paste-a-URL autofill** — paste a job posting link and TrackWise reads schema.org `JobPosting` JSON-LD (used by Greenhouse, Lever, Ashby, Workday and most boards), falling back to OpenGraph and `<title>` parsing. It only fills blank fields, never overwrites what you typed, and degrades to manual entry when a site blocks scraping.
+- **Paste-a-URL autofill** — paste a job posting link and TrackWise fills in the company, title, location, description, and salary where it can. It only fills blank fields, never overwrites what you typed, and degrades to manual entry when a site blocks automated requests.
+
+  It reads each source in order of reliability:
+
+  | Source | How it's read |
+  | --- | --- |
+  | Greenhouse | `boards-api.greenhouse.io` — job + board endpoints (the board gives the correctly spelled company name) |
+  | Lever | `api.lever.co` posting API, including the split description/lists/additional fields |
+  | Ashby | `api.ashbyhq.com` public job board, including the salary band |
+  | Workday | the tenant's own CXS JSON endpoint, same origin as the posting |
+  | Everything else | schema.org `JobPosting` JSON-LD, then OpenGraph, then `<title>` |
+
+  The four named platforms render their postings client-side and return 403 to
+  scrapers, so reading their APIs is the only way to get real data out of them.
 
 ## Stack
 
