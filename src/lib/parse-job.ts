@@ -173,10 +173,153 @@ function parseSalary(job: Record<string, any>) {
   return out;
 }
 
+const BROWSER_HEADERS = {
+  // Many boards return a stub page to non-browser agents.
+  "User-Agent":
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0 Safari/537.36",
+  "Accept-Language": "en-US,en;q=0.9",
+};
+
+async function fetchText(
+  url: string,
+  accept: string,
+): Promise<{ ok: true; body: string } | { ok: false; status?: number }> {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10_000);
+
+    const res = await fetch(url, {
+      signal: controller.signal,
+      redirect: "follow",
+      headers: { ...BROWSER_HEADERS, Accept: accept },
+    }).finally(() => clearTimeout(timeout));
+
+    if (!res.ok) return { ok: false, status: res.status };
+    return { ok: true, body: (await res.text()).slice(0, 1_500_000) };
+  } catch {
+    return { ok: false };
+  }
+}
+
+/** Recognises the ATS platforms that publish a structured public API. */
+function matchAts(url: URL): { kind: "greenhouse" | "lever"; slug: string; id: string } | null {
+  const host = url.hostname.replace(/^www\./, "");
+  const parts = url.pathname.split("/").filter(Boolean);
+
+  // boards.greenhouse.io/acme/jobs/123 | job-boards.greenhouse.io/acme/jobs/123
+  if (host.endsWith("greenhouse.io")) {
+    const jobsAt = parts.indexOf("jobs");
+    if (jobsAt > 0 && parts[jobsAt + 1]) {
+      const id = parts[jobsAt + 1].split(/[^0-9]/)[0];
+      if (id) return { kind: "greenhouse", slug: parts[0], id };
+    }
+    // Some links carry the id as ?gh_jid=123
+    const jid = url.searchParams.get("gh_jid");
+    if (parts[0] && jid) return { kind: "greenhouse", slug: parts[0], id: jid };
+  }
+
+  // jobs.lever.co/acme/<uuid>
+  if (host.endsWith("lever.co") && parts[0] && parts[1]) {
+    return { kind: "lever", slug: parts[0], id: parts[1] };
+  }
+
+  return null;
+}
+
 /**
- * Best-effort scrape of a job posting URL. Never throws — on any failure the
+ * Greenhouse publishes every board over a public JSON API, which is far more
+ * reliable than scraping the React-rendered page.
+ */
+async function fromGreenhouse(slug: string, id: string): Promise<ParsedJob | null> {
+  const res = await fetchText(
+    `https://boards-api.greenhouse.io/v1/boards/${encodeURIComponent(slug)}/jobs/${encodeURIComponent(id)}`,
+    "application/json",
+  );
+  if (!res.ok) return null;
+
+  let job: Record<string, any>;
+  try {
+    job = JSON.parse(res.body);
+  } catch {
+    return null;
+  }
+  if (!job || typeof job.title !== "string") return null;
+
+  const out: ParsedJob = { source: "Greenhouse", title: job.title.trim() };
+
+  const location = job.location?.name ?? job.offices?.[0]?.name;
+  if (typeof location === "string" && location.trim()) out.location = location.trim();
+
+  // `content` is HTML, entity-encoded a second time by the API.
+  if (typeof job.content === "string" && job.content) {
+    out.description = htmlToText(decodeEntities(job.content)).slice(0, 20_000);
+  }
+
+  // The board endpoint carries the properly spelled company name
+  // ("rocketlab" -> "Rocket Lab"), which the URL slug can't give us.
+  const board = await fetchText(
+    `https://boards-api.greenhouse.io/v1/boards/${encodeURIComponent(slug)}`,
+    "application/json",
+  );
+  if (board.ok) {
+    try {
+      const name = JSON.parse(board.body)?.name;
+      if (typeof name === "string" && name.trim()) out.company = name.trim();
+    } catch {
+      // Fall through to the slug-derived name.
+    }
+  }
+
+  out.workMode = inferWorkMode(
+    `${out.location ?? ""} ${(out.description ?? "").slice(0, 4000)}`,
+  );
+  return out;
+}
+
+/** Lever exposes the same kind of public posting API. */
+async function fromLever(slug: string, id: string): Promise<ParsedJob | null> {
+  const res = await fetchText(
+    `https://api.lever.co/v0/postings/${encodeURIComponent(slug)}/${encodeURIComponent(id)}`,
+    "application/json",
+  );
+  if (!res.ok) return null;
+
+  let job: Record<string, any>;
+  try {
+    job = JSON.parse(res.body);
+  } catch {
+    return null;
+  }
+  if (!job || typeof job.text !== "string") return null;
+
+  const out: ParsedJob = { source: "Lever", title: job.text.trim() };
+
+  const loc = job.categories?.location;
+  if (typeof loc === "string" && loc.trim()) out.location = loc.trim();
+
+  const body = [
+    job.description ?? "",
+    ...(Array.isArray(job.lists)
+      ? job.lists.map((l: any) => `${l?.text ?? ""}\n${l?.content ?? ""}`)
+      : []),
+    job.additional ?? "",
+  ].join("\n");
+  if (body.trim()) out.description = htmlToText(body).slice(0, 20_000);
+
+  const commitment = job.categories?.commitment;
+  out.workMode = inferWorkMode(
+    `${out.location ?? ""} ${typeof commitment === "string" ? commitment : ""} ${(out.description ?? "").slice(0, 4000)}`,
+  );
+  return out;
+}
+
+/**
+ * Best-effort read of a job posting URL. Never throws — on any failure the
  * caller still gets whatever could be derived from the URL itself, so the
  * form degrades to plain manual entry.
+ *
+ * Order of preference: the board's own public API (most reliable), then
+ * schema.org JSON-LD embedded in the page, then OpenGraph/<title> guessing.
  */
 export async function parseJobUrl(rawUrl: string): Promise<ParsedJob> {
   const fallback: ParsedJob = {
@@ -194,37 +337,30 @@ export async function parseJobUrl(rawUrl: string): Promise<ParsedJob> {
     return { warning: "That doesn't look like a valid URL." };
   }
 
-  let html: string;
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 10_000);
+  // Prefer the board's own API when we recognise the platform.
+  const ats = matchAts(url);
+  if (ats) {
+    const viaApi =
+      ats.kind === "greenhouse"
+        ? await fromGreenhouse(ats.slug, ats.id)
+        : await fromLever(ats.slug, ats.id);
 
-    const res = await fetch(url.toString(), {
-      signal: controller.signal,
-      redirect: "follow",
-      headers: {
-        // Many boards return a stub page to non-browser agents.
-        "User-Agent":
-          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0 Safari/537.36",
-        Accept: "text/html,application/xhtml+xml",
-        "Accept-Language": "en-US,en;q=0.9",
-      },
-    }).finally(() => clearTimeout(timeout));
-
-    if (!res.ok) {
-      return {
-        ...fallback,
-        warning: `The site returned ${res.status}. Fill in the details manually.`,
-      };
+    if (viaApi) {
+      // Keep the slug-derived company only if the API didn't name one.
+      return { ...fallback, ...viaApi, company: viaApi.company ?? fallback.company };
     }
-    html = (await res.text()).slice(0, 1_500_000);
-  } catch {
+  }
+
+  const page = await fetchText(url.toString(), "text/html,application/xhtml+xml");
+  if (!page.ok) {
     return {
       ...fallback,
-      warning:
-        "Couldn't reach that page (many job boards block automated requests). Paste the description below instead.",
+      warning: page.status
+        ? `The site returned ${page.status} — it's blocking automated requests. Copy the title and description in by hand.`
+        : "Couldn't reach that page. Copy the title and description in by hand.",
     };
   }
+  const html = page.body;
 
   const out: ParsedJob = { ...fallback };
   const job = jsonLdJobPosting(html);
