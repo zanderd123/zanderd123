@@ -78,8 +78,13 @@ src/app/(app)/            authenticated pages
 src/components/           client components
 ```
 
-Every query is scoped by `userId`, so one account can never read another's data —
-requesting someone else's application returns 404.
+## Security
+
+- Every query is scoped by `userId`, so one account can never read another's data — requesting someone else's application returns 404.
+- Passwords are bcrypt-hashed (cost 12); sessions are opaque tokens in httpOnly, SameSite=Lax cookies, marked `secure` in production.
+- Sign-in is rate limited to 8 attempts per IP + email per 15 minutes. The counter lives in process memory, so it resets on deploy and is per-instance — move it to Postgres or Redis before running several instances behind a load balancer.
+- The job-posting importer fetches user-supplied URLs, so it runs behind an SSRF guard (`src/lib/safe-fetch.ts`): hostnames are resolved and checked against loopback, private, link-local, and CGNAT ranges before connecting, and redirects are followed by hand so every hop is re-checked. This is what stops a pasted `http://169.254.169.254/` from reading cloud metadata back through the form.
+- Only `http(s)` URLs can be stored on an application, so a saved link is always safe to render as an href.
 
 ## Not built yet
 

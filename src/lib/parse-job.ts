@@ -1,5 +1,7 @@
 import "server-only";
 
+import { safeFetchText } from "@/lib/safe-fetch";
+
 export type ParsedJob = {
   company?: string;
   title?: string;
@@ -173,33 +175,11 @@ function parseSalary(job: Record<string, any>) {
   return out;
 }
 
-const BROWSER_HEADERS = {
-  // Many boards return a stub page to non-browser agents.
-  "User-Agent":
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0 Safari/537.36",
-  "Accept-Language": "en-US,en;q=0.9",
-};
-
-async function fetchText(
-  url: string,
-  accept: string,
-): Promise<{ ok: true; body: string } | { ok: false; status?: number }> {
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 10_000);
-
-    const res = await fetch(url, {
-      signal: controller.signal,
-      redirect: "follow",
-      headers: { ...BROWSER_HEADERS, Accept: accept },
-    }).finally(() => clearTimeout(timeout));
-
-    if (!res.ok) return { ok: false, status: res.status };
-    return { ok: true, body: (await res.text()).slice(0, 1_500_000) };
-  } catch {
-    return { ok: false };
-  }
-}
+/**
+ * All outbound requests go through the SSRF guard, because every URL here
+ * originates from whatever a user pasted into the form.
+ */
+const fetchText = (url: string, accept: string) => safeFetchText(url, accept);
 
 type AtsRef =
   | { kind: "greenhouse"; slug: string; id: string }
@@ -493,9 +473,11 @@ export async function parseJobUrl(rawUrl: string): Promise<ParsedJob> {
   if (!page.ok) {
     return {
       ...fallback,
-      warning: page.status
-        ? `The site returned ${page.status} — it's blocking automated requests. Copy the title and description in by hand.`
-        : "Couldn't reach that page. Copy the title and description in by hand.",
+      warning: page.blocked
+        ? "That address isn't a public web page, so it can't be imported."
+        : page.status
+          ? `The site returned ${page.status} — it's blocking automated requests. Copy the title and description in by hand.`
+          : "Couldn't reach that page. Copy the title and description in by hand.",
     };
   }
   const html = page.body;

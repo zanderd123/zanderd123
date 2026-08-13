@@ -3,7 +3,10 @@
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
+import { headers } from "next/headers";
+
 import { prisma } from "@/lib/db";
+import { checkRateLimit, recordFailure, clearRateLimit } from "@/lib/rate-limit";
 import {
   createSession,
   destroySession,
@@ -53,6 +56,16 @@ const loginSchema = z.object({
   password: z.string().min(1, "Enter your password."),
 });
 
+/** Identifies the caller for rate limiting: client IP plus the email tried. */
+async function attemptKey(email: string) {
+  const h = await headers();
+  const ip =
+    h.get("x-forwarded-for")?.split(",")[0].trim() ??
+    h.get("x-real-ip") ??
+    "unknown";
+  return `${ip}:${email}`;
+}
+
 export async function login(
   _prev: AuthState,
   formData: FormData,
@@ -67,13 +80,29 @@ export async function login(
   }
 
   const { email, password } = parsed.data;
+  const key = await attemptKey(email);
+
+  const verdict = checkRateLimit(key);
+  if (!verdict.allowed) {
+    const mins = Math.ceil(verdict.retryAfterSec / 60);
+    return {
+      error: `Too many sign-in attempts. Try again in ${mins} minute${mins === 1 ? "" : "s"}.`,
+    };
+  }
+
   const user = await prisma.user.findUnique({ where: { email } });
 
   // Same message either way so the form can't be used to enumerate accounts.
   if (!user || !(await verifyPassword(password, user.passwordHash))) {
-    return { error: "Incorrect email or password." };
+    const nowBlocked = recordFailure(key);
+    return {
+      error: nowBlocked
+        ? "Too many sign-in attempts. Try again in 15 minutes."
+        : "Incorrect email or password.",
+    };
   }
 
+  clearRateLimit(key);
   await createSession(user.id);
   redirect("/dashboard");
 }

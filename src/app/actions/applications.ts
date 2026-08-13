@@ -20,11 +20,34 @@ const optionalString = z
 const optionalInt = z
   .string()
   .trim()
-  .transform((v) => (v === "" ? undefined : Number(v.replace(/[^0-9.]/g, ""))))
+  .transform((v) => {
+    if (v === "") return undefined;
+    // Tolerate "$120,000" and "120k" but not free text.
+    const cleaned = v.replace(/[$,\s]/g, "").replace(/k$/i, "000");
+    return /^\d+(\.\d+)?$/.test(cleaned) ? Number(cleaned) : NaN;
+  })
   .refine((v) => v === undefined || (Number.isFinite(v) && v >= 0), {
-    message: "Salary must be a positive number.",
+    message: "Enter salaries as plain numbers, for example 120000.",
   })
   .optional();
+
+/** Accepts only http(s) links, so a stored URL is always safe to render. */
+const webUrl = z
+  .string()
+  .trim()
+  .transform((v) => (v === "" ? undefined : v))
+  .optional()
+  .refine(
+    (v) => {
+      if (!v) return true;
+      try {
+        return ["http:", "https:"].includes(new URL(v).protocol);
+      } catch {
+        return false;
+      }
+    },
+    { message: "Enter a full http:// or https:// link, or leave the URL blank." },
+  );
 
 const applicationSchema = z.object({
   company: z.string().trim().min(1, "Company is required.").max(160),
@@ -46,7 +69,7 @@ const applicationSchema = z.object({
     .default("SAVED"),
   priority: z.enum(["LOW", "MEDIUM", "HIGH"]).default("MEDIUM"),
   source: optionalString,
-  url: optionalString,
+  url: webUrl,
   description: optionalString,
   salaryMin: optionalInt,
   salaryMax: optionalInt,
