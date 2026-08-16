@@ -1,0 +1,194 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// Every record below hangs off an Agency. Nothing is queried without it.
+model Agency {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  /// Minimum acceptable gross margin, as a fraction of bill.
+  marginFloor Float  @default(0.22)
+  /// Employer burden (payroll tax, comp, insurance) on taxable wages.
+  burdenRate  Float  @default(0.19)
+  /// Days of recruiter silence before a traveler is flagged.
+  quietDays   Int    @default(14)
+  createdAt DateTime @default(now())
+
+  users       User[]
+  travelers   Traveler[]
+  facilities  Facility[]
+  assignments Assignment[]
+  imports     ImportBatch[]
+}
+
+enum Role {
+  OWNER
+  MANAGER
+  RECRUITER
+  COMPLIANCE
+}
+
+model User {
+  id           String   @id @default(cuid())
+  agencyId     String
+  email        String   @unique
+  passwordHash String
+  name         String?
+  role         Role     @default(RECRUITER)
+  createdAt    DateTime @default(now())
+
+  agency     Agency      @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  sessions   Session[]
+  travelers  Traveler[]  @relation("RecruiterTravelers")
+  touchpoints Touchpoint[]
+
+  @@index([agencyId])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Facility {
+  id       String @id @default(cuid())
+  agencyId String
+  name     String
+  city     String?
+  state    String?
+
+  agency      Agency       @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  assignments Assignment[]
+
+  @@unique([agencyId, name])
+  @@index([agencyId])
+}
+
+model Traveler {
+  id          String  @id @default(cuid())
+  agencyId    String
+  name        String
+  specialty   String?
+  email       String?
+  phone       String?
+  recruiterId String?
+  /// Identifier in the source system, so re-imports update instead of duplicating.
+  externalId  String?
+  source      String  @default("MANUAL")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  agency      Agency       @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  recruiter   User?        @relation("RecruiterTravelers", fields: [recruiterId], references: [id], onDelete: SetNull)
+  credentials Credential[]
+  assignments Assignment[]
+  touchpoints Touchpoint[]
+
+  @@unique([agencyId, externalId])
+  @@index([agencyId])
+}
+
+model Credential {
+  id         String   @id @default(cuid())
+  travelerId String
+  name       String
+  kind       String   @default("CERT")
+  expiresAt  DateTime?
+
+  traveler Traveler @relation(fields: [travelerId], references: [id], onDelete: Cascade)
+
+  @@index([travelerId])
+}
+
+enum AssignmentStatus {
+  PENDING
+  ACTIVE
+  ENDED
+  CANCELLED
+}
+
+enum ExtensionStatus {
+  NOT_ASKED
+  INTERESTED
+  SIGNED
+  DECLINED
+  NO_RESPONSE
+}
+
+model Assignment {
+  id         String @id @default(cuid())
+  agencyId   String
+  travelerId String
+  facilityId String
+
+  startsAt     DateTime
+  endsAt       DateTime
+  hoursPerWeek Float  @default(36)
+
+  /// Pay package. Rates are per hour; stipends per week.
+  billRate            Float
+  taxableRate         Float
+  housingWeekly       Float @default(0)
+  mieWeekly           Float @default(0)
+  travelReimbursement Float @default(0)
+  completionBonus     Float @default(0)
+
+  status          AssignmentStatus @default(ACTIVE)
+  extensionStatus ExtensionStatus  @default(NOT_ASKED)
+  /// Free text describing what is lined up next, if anything.
+  nextStep   String?
+  externalId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  agency   Agency   @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  traveler Traveler @relation(fields: [travelerId], references: [id], onDelete: Cascade)
+  facility Facility @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+
+  @@unique([agencyId, externalId])
+  @@index([agencyId, status, endsAt])
+  @@index([travelerId])
+}
+
+model Touchpoint {
+  id         String   @id @default(cuid())
+  travelerId String
+  userId     String?
+  kind       String   @default("CALL")
+  note       String?
+  occurredAt DateTime @default(now())
+
+  traveler Traveler @relation(fields: [travelerId], references: [id], onDelete: Cascade)
+  user     User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([travelerId, occurredAt])
+}
+
+model ImportBatch {
+  id        String   @id @default(cuid())
+  agencyId  String
+  source    String
+  created   Int      @default(0)
+  updated   Int      @default(0)
+  skipped   Int      @default(0)
+  errors    String?
+  createdAt DateTime @default(now())
+
+  agency Agency @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+
+  @@index([agencyId])
+}
