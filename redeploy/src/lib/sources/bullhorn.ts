@@ -227,7 +227,7 @@ export class BullhornSource implements DataSource {
 
     if (assignments.some((a) => a.housingWeekly === 0 && a.mieWeekly === 0)) {
       warnings.push(
-        "Stipends came through as zero. Bullhorn stores these in agency-specific custom fields — map them in Settings so margin is accurate.",
+        "Stipends came through as zero, so margin is understated. Bullhorn keeps these in agency-specific custom fields, which need mapping before these figures can be trusted — see docs/INTEGRATIONS.md.",
       );
     }
 

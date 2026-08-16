@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 
 const GROUPS: { label: string; items: { href: string; label: string; key?: string }[] }[] = [
   {
@@ -37,6 +37,7 @@ export function Rail({
   footer: string;
 }) {
   const pathname = usePathname();
+  const params = useSearchParams();
 
   return (
     <aside className="rail">
@@ -46,10 +47,12 @@ export function Rail({
         <div key={g.label}>
           <div className="rail-lbl">{g.label}</div>
           {g.items.map((it) => {
-            const base = it.href.split("?")[0];
-            const active = it.href.includes("?")
-              ? false
-              : pathname === base || pathname.startsWith(base + "/");
+            const [base, query] = it.href.split("?");
+            const onBase = pathname === base || pathname.startsWith(base + "/");
+            // A filtered entry is current only when its filter is the active one.
+            const active = query
+              ? onBase && params.get("filter") === new URLSearchParams(query).get("filter")
+              : onBase && !params.get("filter");
             const n = it.key ? counts[it.key] : 0;
             return (
               <Link

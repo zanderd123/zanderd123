@@ -5,7 +5,7 @@ import { prisma } from "@/lib/db";
 import { loadBook, summarise } from "@/lib/view";
 import { formatMoney, formatPct } from "@/lib/economics";
 import { nextAction } from "@/lib/risk";
-import { Kpi, Panel, RiskPill, Empty, EXT_LABEL } from "@/components/bits";
+import { Kpi, Panel, RiskPill, Empty } from "@/components/bits";
 import { ExtensionPicker, LogContact } from "@/components/row-controls";
 
 export default async function BoardPage({
@@ -144,9 +144,9 @@ export default async function BoardPage({
       </Panel>
 
       <p className="sub2">
-        {EXT_LABEL.NOT_ASKED === "Not asked" ? "" : ""}
         Margin uses this agency&apos;s burden rate of {Math.round(agency.burdenRate * 100)}% on
-        taxable wages. Change it in agency settings.
+        taxable wages, and a floor of {Math.round(agency.marginFloor * 100)}%. Both are stored per
+        agency; there is no settings screen yet, so changing them is a database update.
       </p>
     </div>
   );
