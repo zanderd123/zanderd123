@@ -185,3 +185,50 @@ function revalidatePathsForBook() {
   revalidatePath("/margin");
   revalidatePath("/import");
 }
+
+// ---------------------------------------------------------------- settings
+const settingsSchema = z.object({
+  marginFloor: z.coerce
+    .number()
+    .min(0, "Margin floor can't be negative.")
+    .max(1, "Enter margin floor as a fraction of bill, for example 0.22 for 22%."),
+  burdenRate: z.coerce
+    .number()
+    .min(0, "Burden rate can't be negative.")
+    .max(1, "Enter burden rate as a fraction of taxable wages, for example 0.19 for 19%."),
+  quietDays: z.coerce
+    .number()
+    .int("Enter a whole number of days.")
+    .min(1, "Must be at least 1 day.")
+    .max(90, "90 days is the practical ceiling — beyond that, silence stops being a useful signal."),
+});
+
+export async function updateAgencySettings(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const user = await requireUser();
+  if (user.role !== "OWNER") {
+    return { error: "Only the agency owner can change these settings." };
+  }
+
+  const parsed = settingsSchema.safeParse({
+    marginFloor: formData.get("marginFloorPct")
+      ? Number(formData.get("marginFloorPct")) / 100
+      : NaN,
+    burdenRate: formData.get("burdenRatePct")
+      ? Number(formData.get("burdenRatePct")) / 100
+      : NaN,
+    quietDays: formData.get("quietDays"),
+  });
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+
+  await prisma.agency.update({
+    where: { id: user.agencyId },
+    data: parsed.data,
+  });
+
+  revalidatePath("/settings");
+  revalidatePathsForBook();
+  return { ok: "Settings updated." };
+}

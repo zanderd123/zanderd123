@@ -145,8 +145,11 @@ export default async function BoardPage({
 
       <p className="sub2">
         Margin uses this agency&apos;s burden rate of {Math.round(agency.burdenRate * 100)}% on
-        taxable wages, and a floor of {Math.round(agency.marginFloor * 100)}%. Both are stored per
-        agency; there is no settings screen yet, so changing them is a database update.
+        taxable wages, and a floor of {Math.round(agency.marginFloor * 100)}%. Change either in{" "}
+        <Link href="/settings" style={{ color: "var(--accent)" }}>
+          Settings
+        </Link>
+        .
       </p>
     </div>
   );

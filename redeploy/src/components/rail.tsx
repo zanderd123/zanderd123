@@ -23,6 +23,7 @@ const GROUPS: { label: string; items: { href: string; label: string; key?: strin
     items: [
       { href: "/builder", label: "Package builder" },
       { href: "/import", label: "Import & sync" },
+      { href: "/settings", label: "Settings" },
     ],
   },
 ];

@@ -23,6 +23,7 @@ tied to the fact that nobody had spoken to them in three weeks.
 - **Compliance** — credentials expiring inside 30 days, ranked against the assignment they will block.
 - **Margin** — gross margin per assignment, recruiter and facility, measured against the agency's floor.
 - **Package builder** — build a package against a bill rate and watch margin move as you type, including the highest taxable rate that still clears the floor.
+- **Settings** — margin floor, burden rate, and the gone-quiet threshold, each with a live preview of how a sample package would read before you save. Owner-only; everyone else sees the current values read-only.
 
 ## Getting data in
 
@@ -59,7 +60,9 @@ from the session — never from a request parameter. A user cannot address anoth
 agency's data even by guessing an id.
 
 Roles: `OWNER` and `MANAGER` can edit pay packages and import; `RECRUITER` and
-`COMPLIANCE` are read-plus-activity.
+`COMPLIANCE` are read-plus-activity. Agency settings are `OWNER`-only — a
+narrower gate than package edits, since the margin floor and burden rate
+change how every deal in the agency reads, not just one.
 
 ## Layout
 
@@ -77,5 +80,5 @@ src/app/(app)/              board, compliance, margin, builder, import
 
 - Rate limiting on sign-in is not yet ported over from the sibling app.
 - Credential sync from Bullhorn is not implemented — it costs a call per candidate and needs an incremental job.
-- Stipend custom-field mapping for Bullhorn is a code change, not a settings screen.
+- Stipend custom-field mapping for Bullhorn is still a code change — the settings screen covers the margin floor, burden rate, and quiet-days threshold, not per-integration field mapping.
 - No password reset.
