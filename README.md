@@ -7,7 +7,7 @@ place instead of a spreadsheet and twelve browser tabs.
 
 ## What it does
 
-- **Accounts** — email + password sign-up, hashed with bcrypt, httpOnly session cookies.
+- **Accounts** — email + password sign-up, hashed with bcrypt, httpOnly session cookies, and a full password-reset flow.
 - **Applications** — full CRUD with company, role, location, work mode, salary range, source, priority, and the saved job description.
 - **Pipeline board** — drag cards across Saved → Applied → Screening → Interview → Offer → Rejected. Moves save immediately and update optimistically.
 - **Status timeline** — every status change is recorded per application, so you can see how a role progressed.
@@ -42,6 +42,7 @@ cp .env.example .env          # point DATABASE_URL at your Postgres
 npm run db:push               # create the tables
 npm run db:seed               # optional: demo account with sample data
 npm run dev
+npm test                      # 10 assertions over the reset-token logic
 ```
 
 Open http://localhost:3000.
@@ -51,6 +52,17 @@ The seed creates a demo login:
 ```
 demo@trackwise.app / demopassword
 ```
+
+### Email
+
+Password resets need to send mail. With no provider configured, messages are
+written to `.dev-outbox/emails.jsonl` instead of being sent — so nothing can
+email a real address before you deliberately set one up, and you can read the
+reset link straight out of that file while developing.
+
+To send for real, set `RESEND_API_KEY` and `EMAIL_FROM`. Swapping provider means
+implementing `EmailSender` in `src/lib/email.ts`; nothing else changes.
+
 
 ## Deploying
 
@@ -70,6 +82,8 @@ Sessions cookies are set `secure` automatically when `NODE_ENV=production`.
 prisma/schema.prisma      data model
 prisma/seed.ts            demo data
 src/lib/auth.ts           password hashing, sessions, requireUser()
+src/lib/password-reset.ts reset-token generation and verification (pure, tested)
+src/lib/email.ts          pluggable email sender; writes to a file in dev
 src/lib/parse-job.ts      job posting URL scraper
 src/lib/statuses.ts       status vocabulary, labels, colors
 src/app/actions/          server actions (auth, applications, interviews, contacts, reminders)
@@ -85,8 +99,13 @@ src/components/           client components
 - Sign-in is rate limited to 8 attempts per IP + email per 15 minutes. The counter lives in process memory, so it resets on deploy and is per-instance — move it to Postgres or Redis before running several instances behind a load balancer.
 - The job-posting importer fetches user-supplied URLs, so it runs behind an SSRF guard (`src/lib/safe-fetch.ts`): hostnames are resolved and checked against loopback, private, link-local, and CGNAT ranges before connecting, and redirects are followed by hand so every hop is re-checked. This is what stops a pasted `http://169.254.169.254/` from reading cloud metadata back through the form.
 - Only `http(s)` URLs can be stored on an application, so a saved link is always safe to render as an href.
+- Password reset links are single-use, expire after an hour, and are stored **hashed** — the raw token exists only in the emailed URL, so a database read alone can never produce a working link. Requesting a new link invalidates any earlier one, and completing a reset signs out every other active session.
+- The reset form returns an identical message whether or not the email is registered, so it can't be used to discover which addresses have accounts.
 
 ## Not built yet
+
+Email verification on sign-up is still missing, as is a settings screen. The
+in-process rate limiter still resets on deploy and counts per instance.
 
 Two things from the original vision are deliberately left for a later pass: a live
 job feed of current openings, and resume storage with per-application versioning and

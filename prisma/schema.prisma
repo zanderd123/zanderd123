@@ -20,6 +20,7 @@ model User {
   contacts     Contact[]
   reminders    Reminder[]
   interviews   Interview[]
+  resetTokens  PasswordResetToken[]
 }
 
 model Session {
@@ -28,6 +29,22 @@ model Session {
   userId    String
   expiresAt DateTime
   createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+/// A reset link's token is only ever stored hashed, the same way a password
+/// is — the raw token lives in the emailed URL and nowhere else, so a
+/// database read alone can never produce a usable link.
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 

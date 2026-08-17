@@ -32,6 +32,7 @@ export default function SignupPage() {
               id="name"
               name="name"
               autoComplete="name"
+              defaultValue={state?.values?.name ?? ""}
               className="input"
               placeholder="Alex Rivera"
             />
@@ -47,6 +48,7 @@ export default function SignupPage() {
               type="email"
               autoComplete="email"
               required
+              defaultValue={state?.values?.email ?? ""}
               className="input"
               placeholder="you@example.com"
             />

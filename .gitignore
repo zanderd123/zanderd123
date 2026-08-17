@@ -17,3 +17,6 @@ redeploy/next-env.d.ts
 
 # generated git bundles (delivery artifacts, never committed)
 *.bundle
+
+# dev email outbox
+.dev-outbox
