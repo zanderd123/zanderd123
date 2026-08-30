@@ -1,0 +1,5 @@
+# Installed, not committed — restore with `npm install`.
+node_modules/
+
+# Build scratch.
+.build-bundle.js

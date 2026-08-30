@@ -1,0 +1,8 @@
+{
+  "name": "siege-of-kepler-9",
+  "private": true,
+  "description": "3D real-time space-battle RTS. See README.md for repository state.",
+  "devDependencies": {
+    "playwright": "^1.48.0"
+  }
+}
