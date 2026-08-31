@@ -1,0 +1,359 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+  <title>Siege of Kepler-9 — Space Fleet Command</title>
+  <link rel="stylesheet" href="./styles.css" />
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "./vendor/three.module.js"
+      }
+    }
+  </script>
+</head>
+<body>
+<canvas id="view"></canvas>
+  <div id="selection-box"></div>
+
+  <!-- ==================== LOADING ==================== -->
+  <div id="loading" class="screen">
+    <div class="loading-inner">
+      <div class="logo-mark"></div>
+      <h1>SIEGE OF KEPLER-9</h1>
+      <p class="loading-status">Initialising fleet systems…</p>
+    </div>
+  </div>
+
+  <!-- ==================== SETUP / FLEET BUILDER ==================== -->
+  <div id="setup" class="screen hidden">
+    <div class="setup-shell">
+      <header class="setup-header">
+        <div>
+          <h1>SIEGE OF KEPLER-9</h1>
+          <p class="tagline">Total war, in orbit. Build a fleet. Break a world — or hold it.</p>
+        </div>
+        <div class="budget-block">
+          <label for="budget">FLEET BUDGET</label>
+          <div class="budget-row">
+            <input type="range" id="budget" min="400" max="4000" step="50" value="1000" />
+            <output id="budget-value">1000</output>
+          </div>
+          <span class="budget-hint" id="budget-hint">Skirmish — fast, readable battles</span>
+
+          <label class="diff-label" for="diff-easy">ENEMY COMMANDER</label>
+          <div class="diff-row" id="difficulty" role="radiogroup" aria-label="Difficulty">
+            <button class="diff-opt" id="diff-easy" data-diff="easy" role="radio" aria-checked="false">Easy</button>
+            <button class="diff-opt active" id="diff-medium" data-diff="medium" role="radio" aria-checked="true">Medium</button>
+            <button class="diff-opt" id="diff-hard" data-diff="hard" role="radio" aria-checked="false">Hard</button>
+          </div>
+          <span class="budget-hint" id="diff-hint">Reacts steadily, targets sensibly, and uses abilities when they help.</span>
+
+          <label class="diff-label" for="mode-volume">BATTLE SPACE</label>
+          <div class="diff-row" id="playmode" role="radiogroup" aria-label="Battle space">
+            <button class="diff-opt active" id="mode-volume" data-mode="volume" role="radio" aria-checked="true">Volume</button>
+            <button class="diff-opt" id="mode-flat" data-mode="flat" role="radio" aria-checked="false">Flat</button>
+          </div>
+          <span class="budget-hint" id="mode-hint">Full 3D. Ships manoeuvre through a tall volume and orders are placed at any altitude.</span>
+        </div>
+      </header>
+
+      <section class="side-picker">
+        <button class="side-card" data-side="attack">
+          <span class="side-tag">OFFENSIVE</span>
+          <h2>ATTACK</h2>
+          <p>Break the orbital cordon and burn every emplacement off the surface.
+             You have no ground assets — everything you field has to fly.</p>
+          <span class="side-win">WIN: destroy every defender <em>or</em> bombard the planet to zero</span>
+        </button>
+        <button class="side-card" data-side="defense">
+          <span class="side-tag">DEFENSIVE</span>
+          <h2>DEFEND</h2>
+          <p>Hold the high orbit. You alone may buy ground support — turrets,
+             walkers and repair rigs dug in on the surface below.</p>
+          <span class="side-win">WIN: destroy every attacker, <em>or</em> hold the planet until the clock runs out</span>
+        </button>
+      </section>
+
+      <div class="builder hidden" id="builder">
+        <div class="builder-main">
+          <div class="builder-head">
+            <h3>FLEET COMPOSITION</h3>
+            <div class="spend">
+              <span id="spent">0</span> / <span id="budget-total">1000</span> PTS
+              <div class="spend-bar"><i id="spend-fill"></i></div>
+            </div>
+          </div>
+          <div class="cat-label" id="ships-label">SHIPS</div>
+          <div class="card-grid" id="ship-cards"></div>
+          <div class="cat-label hidden" id="ground-label">
+            GROUND SUPPORT <em>— defenders only</em>
+          </div>
+          <div class="card-grid hidden" id="ground-cards"></div>
+        </div>
+
+        <aside class="builder-side">
+          <h3>YOUR FLEET</h3>
+          <div id="roster-list" class="roster-list">
+            <p class="empty">No units purchased.</p>
+          </div>
+          <div class="roster-stats" id="roster-stats"></div>
+          <div class="setup-actions">
+            <button id="auto-fill" class="btn ghost">Auto-Build</button>
+            <button id="clear-fleet" class="btn ghost">Clear</button>
+          </div>
+          <button id="launch" class="btn primary" disabled>LAUNCH BATTLE</button>
+          <p class="hint-small">Enemy commander spends the same budget.</p>
+        </aside>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== IN-GAME HUD ==================== -->
+  <div id="hud" class="hidden">
+    <!-- top: fleet strength -->
+    <div class="top-bar">
+      <!-- both fleets read across one line, clock between them -->
+      <div class="top-row">
+        <div class="force force-you">
+          <span class="force-name" id="you-name">YOUR FLEET</span>
+          <div class="force-bar" title="Total hull points remaining across your fleet">
+            <i id="you-fill"></i>
+          </div>
+          <span class="force-count" id="you-count">0</span>
+          <span class="force-dps" id="you-dps" title="Damage your fleet is dealing right now">0/s</span>
+        </div>
+        <div class="battle-clock">
+          <span id="clock">10:00</span>
+          <span class="clock-label" id="speed-label">1x</span>
+        </div>
+        <div class="force force-enemy">
+          <span class="force-dps" id="enemy-dps" title="Damage the enemy is dealing right now">0/s</span>
+          <span class="force-count" id="enemy-count">0</span>
+          <div class="force-bar reverse" title="Total hull points remaining across the enemy fleet">
+            <i id="enemy-fill"></i>
+          </div>
+          <span class="force-name" id="enemy-name">ENEMY FLEET</span>
+        </div>
+      </div>
+      <!-- the objective sits centred underneath, between the two fleets -->
+      <div class="top-under">
+        <div class="planet-gauge" id="planet-gauge"
+             title="Planetary integrity — if it reaches zero the defenders lose">
+          <span class="pg-label">KEPLER-9</span>
+          <div class="pg-track"><i id="planet-fill"></i></div>
+          <span class="pg-value" id="planet-value">100%</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- right: the whole fleet at a glance -->
+    <div class="panel roster-panel" id="roster-panel">
+      <div class="roster-head">
+        <span class="roster-title">FLEET STATUS</span>
+        <span class="roster-alarm hidden" id="roster-alarm">0 UNDER FIRE</span>
+        <button class="roster-toggle" id="roster-toggle"
+                title="Minimise the fleet list (Tab)">▸</button>
+      </div>
+      <div class="roster-body" id="roster-body"></div>
+    </div>
+
+    <!-- left: selection detail -->
+    <div class="panel selection-panel hidden" id="sel-panel">
+      <div class="sel-head">
+        <h4 id="sel-title">—</h4>
+        <span id="sel-sub"></span>
+        <input id="sel-rename" class="sel-rename" maxlength="18" spellcheck="false"
+               placeholder="rename squadron" title="Rename this squadron (Enter to confirm)" />
+      </div>
+      <div class="siege-note hidden" id="siege-note">BOMBARDING — will not defend itself</div>
+      <div class="sel-stats" id="sel-stats"></div>
+      <div class="sel-ability" id="sel-ability"></div>
+      <div class="sel-stances">
+        <button class="chip stance on" id="stance-move"
+                title="MOVE (M, or right-click empty space) — go where told and hold formation. Fires at anything that comes inside weapon range, but will not break off to chase.">MOVE</button>
+        <button class="chip stance" id="stance-attack"
+                title="ATTACK (V) — go for the closest enemy ship; answer whoever is shooting you instead; and as the attacker, if the lane to the planet is clear, take the shot and stay on it.">ATTACK</button>
+        <button class="chip stance" id="stance-defend"
+                title="DEFEND (right-click one of your own squadrons, or G for the planet) — escort it, stay with it, and switch fire onto whatever attacks it. No firepower or evasion penalty for holding still.">DEFEND</button>
+        <button class="chip stance" id="stance-hold"
+                title="HOLD (H) — freeze in place. Keeps firing at anything in range.">HOLD</button>
+      </div>
+      <div class="guard-note hidden" id="guard-note"></div>
+      <div class="sel-toggles">
+        <button class="chip" id="toggle-shield"
+                title="Focus Shields (F) — incoming damage drops to 28%, but your own rate of fire drops to 30% and the reserve drains in about 4 seconds. A survival button, not a stance.">SHIELDS</button>
+        <button class="chip" id="toggle-autocast"
+                title="Autocast (T) — let this squadron fire its own special ability when the moment fits. Off means you fire it yourself with Q. On a Spawner this IS its production: autocast on launches a Wasp every 30s.">AUTOCAST</button>
+      </div>
+    </div>
+
+    <!-- bottom-left: tactical map -->
+    <div class="panel minimap-panel hidden" id="minimap-panel">
+      <div class="minimap-head">
+        <span>TACTICAL</span>
+        <span class="minimap-legend">
+          <i class="dot you"></i>you <i class="dot them"></i>enemy
+        </span>
+      </div>
+      <canvas id="minimap" width="210" height="210"
+              title="Click to move the camera · double-click to enlarge"></canvas>
+    </div>
+
+    <!-- hover tooltip -->
+    <div class="hover-card hidden" id="hover-card"></div>
+
+    <!-- transient order feedback -->
+    <div class="flash-msg hidden" id="flash-msg"></div>
+
+    <!-- preparation phase: unlimited time to write the opening orders -->
+    <div class="prep-bar hidden" id="prep-bar">
+      <div class="prep-text">
+        <span class="prep-tag">PREPARATION</span>
+        <strong id="prep-line">Give your fleet its opening orders. Nothing moves until you begin.</strong>
+        <span class="prep-hint">Take as long as you like — the clock is stopped. Right-click to
+          send squadrons, drag up or down to set altitude, <b>V</b> to set ATTACK,
+          <b>G</b> to guard the planet. <b>B</b> toggles the grid.</span>
+      </div>
+      <div class="prep-actions">
+        <button class="btn ghost prep-back" id="prep-back"
+                title="Back to setup — change side, budget, difficulty or battle space (Volume/Flat). Your fleet is kept.">
+          <em>◀</em> BACK TO SETUP
+        </button>
+        <button class="btn primary prep-go" id="prep-go">BEGIN BATTLE <em>↵</em></button>
+      </div>
+    </div>
+
+    <!-- bottom: time controls -->
+    <div class="bottom-bar" id="bottom-bar-el">
+      <button class="ctrl" id="btn-selectall" title="Select your entire fleet (E), then right-click to send it somewhere">
+        <svg viewBox="0 0 24 24"><path d="M3 5h8v6H3zm10 0h8v6h-8zM3 13h8v6H3zm10 0h8v6h-8z"/></svg>
+        <span>ALL FLEET</span>
+      </button>
+
+      <button class="ctrl" id="btn-grid" title="Reference grid and altitude markers (B) — shows where ships really are in 3D">
+        <svg viewBox="0 0 24 24"><path d="M3 3h18v2H3zm0 7h18v2H3zm0 7h18v2H3zM3 3h2v18H3zm7 0h2v18h-2zm7 0h2v18h-2z"/></svg>
+        <span>GRID</span>
+      </button>
+
+      <div class="fps" id="fps" title="Frames per second. Green is comfortable, amber is starting to cost you, red means the look preset is too heavy for this machine — press K to drop back to CLASSIC."><span id="fps-value">--</span><small>FPS</small></div>
+
+      <button class="ctrl" id="btn-look" title="Switch between the CLASSIC and CINEMATIC look (K) — bigger hulls, a closer camera and real shadows">
+        <svg viewBox="0 0 24 24"><path d="M12 5c-5 0-9 4.5-9 7s4 7 9 7 9-4.5 9-7-4-7-9-7zm0 11a4 4 0 110-8 4 4 0 010 8zm0-6.2a2.2 2.2 0 100 4.4 2.2 2.2 0 000-4.4z"/></svg>
+        <span id="btn-look-label">LOOK</span>
+      </button>
+
+      <button class="ctrl" id="btn-pause" title="Pause / Resume (Space)">
+        <svg viewBox="0 0 24 24" class="ic-pause"><rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/></svg>
+        <svg viewBox="0 0 24 24" class="ic-play hidden"><path d="M8 5l11 7-11 7z"/></svg>
+        <span id="pause-label">PAUSE</span>
+      </button>
+
+      <div class="speed-meter">
+        <span class="meter-label">SPEED</span>
+        <div class="ticks" id="speed-ticks"></div>
+        <input type="range" id="speed" min="0" max="4" step="1" value="1" />
+        <span class="meter-value" id="speed-value">1x</span>
+      </div>
+
+      <button class="ctrl" id="btn-reset" title="Restart this battle">
+        <svg viewBox="0 0 24 24"><path d="M12 5V2L8 6l4 4V7a5 5 0 1 1-5 5H5a7 7 0 1 0 7-7z"/></svg>
+        <span>RESET</span>
+      </button>
+      <button class="ctrl subtle" id="btn-newfleet" title="Back to fleet builder">
+        <svg viewBox="0 0 24 24"><path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h10v2H4z"/></svg>
+        <span>NEW FLEET</span>
+      </button>
+
+      <button class="ctrl subtle" id="btn-report"
+              title="Save a bug report of this session — errors, anomalies, your orders and how each battle went. Downloads a text file you can hand over.">
+        <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zm-1 7V3.5L18.5 9zM8 13h8v2H8zm0 4h8v2H8z"/></svg>
+        <span>REPORT</span>
+      </button>
+    </div>
+
+    <div class="help-tab" id="help-tab">
+      <span>CONTROLS</span>
+      <div class="help-body">
+        <p class="help-lead"><strong>MOVE or ATTACK?</strong> Both shoot. The
+          difference is whether a squadron will <em>leave the station you gave
+          it</em>. MOVE flies to the spot you picked and holds there, firing at
+          whatever comes to it. ATTACK hunts — it picks the closest enemy and
+          flies to it, wherever that leads.</p>
+        <dl>
+          <dt><strong>Preparation</strong></dt><dd>Every battle opens paused and untimed. Position
+            your whole fleet, set stances, then <strong>BEGIN BATTLE</strong> (↵). Orders you give
+            now are carried out the instant it starts — and you can still change them mid-fight</dd>
+          <dt><strong>B</strong></dt><dd><strong>Grid</strong> — reference floor plus a stalk under
+            every hull and every destination, so you can tell height from distance</dd>
+          <dt>Left drag</dt><dd>Box-select your squadrons</dd>
+          <dt><strong>V</strong></dt><dd><strong>ATTACK</strong> — go for the <strong>closest</strong> enemy ship; switch to whoever is shooting you instead; and as the attacker, if nothing is inside weapon range and you are near the planet, <strong>commit to bombarding it</strong> and stay on it</dd>
+          <dt><strong>M</strong></dt><dd><strong>MOVE</strong> — hold station and fire at whatever comes into range, without chasing. This is the default, and it is how you hold a firing line</dd>
+          <dt>Right-click <em>a friendly squadron</em></dt><dd><strong>DEFEND</strong> it — escort it, stay with it, and automatically switch fire onto anything that attacks it. No penalty for holding still</dd>
+          <dt><strong>G</strong></dt><dd>Defend the planet</dd>
+          <dt><strong>H</strong></dt><dd><strong>HOLD</strong> — freeze in place, keep firing</dd>
+          <dt>Tab</dt><dd>Minimise / restore the fleet list on the right</dd>
+          <dt>Right click</dt><dd>Move order · on an enemy, attack order · <strong>on the planet, bombard</strong></dd>
+          <dt>Bombarding</dt><dd><strong>Any ship can</strong>, but damage scales with the gun: per 100 points a Bastion does <b>45.7</b>/s to the crust, a Falcon 27.6, a Wasp 15.0, an Aegis 2.3. Only while no enemy is inside range — and once locked they hold station and <strong>will not shoot back</strong> until the planet falls, so light hulls usually die before they finish</dd>
+          <dt>Right <em>drag</em></dt><dd>Move the destination: sideways slides it across the map, up/down sets <strong>altitude</strong></dd>
+          <dt>Middle drag</dt><dd>Orbit camera · Shift+middle to pan</dd>
+          <dt>W A S D</dt><dd>Pan · <strong>R / X</strong> raise &amp; lower · wheel to zoom</dd>
+          <dt>Q</dt><dd>Fire selected unit's ability</dd>
+          <dt>H · T</dt><dd>Hold position · toggle autocast</dd>
+          <dt>E · C</dt><dd>Select whole fleet · centre camera on selection</dd>
+          <dt>L</dt><dd>Cycle squadron name tags: yours / everyone / off</dd>
+          <dt><strong>K</strong></dt><dd><strong>Look</strong> — switch between <strong>CINEMATIC</strong> (the default) and <strong>CLASSIC</strong>. Cinematic draws hulls nearly three times the size, frames the fleet closer, turns on shadow casting and adds panel plating and wear to every hull, so a cruiser reads as a ship rather than a coloured dot. It costs frame rate: <strong>watch the FPS readout</strong> next to this button — if it sits in amber or red, press K for the lighter look. Switches instantly, mid-battle</dd>
+          <dt>Double-click map</dt><dd>Enlarge the tactical map (zoom &amp; pan)</dd>
+          <dt>Ctrl+1-9 · 1-9</dt><dd>Assign / recall control group</dd>
+          <dt>Space · [ ]</dt><dd>Pause · slow down / speed up</dd>
+        </dl>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== ENLARGED TACTICAL MAP ==================== -->
+  <div id="bigmap" class="screen bigmap-screen hidden">
+    <div class="bigmap-box">
+      <div class="bigmap-head">
+        <span>TACTICAL MAP</span>
+        <span class="bigmap-hint">drag to pan · scroll to zoom · click to move the camera</span>
+        <button id="bigmap-close" class="bigmap-close" title="Close (Esc)">✕</button>
+      </div>
+      <canvas id="bigmap-canvas"></canvas>
+      <div class="bigmap-foot">
+        <span class="minimap-legend"><i class="dot you"></i>you <i class="dot them"></i>enemy</span>
+        <button id="bigmap-reset" class="btn ghost">Reset View</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== CONFIRM DIALOG ==================== -->
+  <div id="confirm" class="screen confirm-screen hidden">
+    <div class="confirm-box" role="alertdialog" aria-labelledby="confirm-title"
+         aria-describedby="confirm-body">
+      <h2 id="confirm-title">RESTART BATTLE?</h2>
+      <p id="confirm-body">This battle will start over from the beginning.
+         Everything that has happened so far will be lost.</p>
+      <div class="confirm-actions">
+        <button class="btn ghost" id="confirm-no">Keep Playing</button>
+        <button class="btn primary" id="confirm-yes">Restart</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== END SCREEN ==================== -->
+  <div id="endscreen" class="screen hidden">
+    <div class="end-inner">
+      <h1 id="end-title">VICTORY</h1>
+      <p id="end-sub"></p>
+      <div class="end-stats" id="end-stats"></div>
+      <div class="end-actions">
+        <button class="btn primary" id="end-again">REMATCH</button>
+        <button class="btn ghost" id="end-new">NEW FLEET</button>
+      </div>
+    </div>
+  </div>
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>

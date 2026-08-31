@@ -3,3 +3,7 @@ node_modules/
 
 # Build scratch.
 .build-bundle.js
+
+# Reconstruction working area: the recovered bundle split into parts, kept
+# only as a reference while src/ is rebuilt from it.
+.recover/
