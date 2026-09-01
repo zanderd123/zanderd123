@@ -216,22 +216,36 @@ export class Commander {
    * A sweep route for when nothing is visible: enemy anchor, a ring around the
    * planet, then home. Covers the places a fleet can actually be hiding.
    */
+  /**
+   * Where to look when nothing is visible. The two sides want opposite things
+   * from this, so they get different routes.
+   *
+   * The attacker hunts: start where the enemy ought to be, sweep the planet,
+   * fall back home. The defender patrols, and never leaves the world it is
+   * holding — an earlier version sent it to the ATTACKER'S staging area,
+   * ~3,000 units out, which threw away the position, the ground support and
+   * the objective in one move and handed the attacker an open lane to a planet
+   * nobody was standing in front of.
+   */
   buildSearchPath() {
-    const enemyAnchor = this.faction === FACTION.ATTACK
-      ? WORLD.defenseAnchor : WORLD.attackAnchor;
-    const path = [new THREE.Vector3(...enemyAnchor)];
+    const ring = [];
     const r = WORLD.planetRadius + 900;
     for (let i = 0; i < 6; i++) {
       const a = (i / 6) * Math.PI * 2;
-      path.push(new THREE.Vector3(
+      ring.push(new THREE.Vector3(
         PLANET.x + Math.cos(a) * r,
         PLANET.y + (i % 2 ? 260 : -260) * WORLD.spread,
         PLANET.z + Math.sin(a) * r,
       ));
     }
-    path.push(new THREE.Vector3(...(this.faction === FACTION.ATTACK
-      ? WORLD.attackAnchor : WORLD.defenseAnchor)));
-    return path;
+    if (this.faction === FACTION.ATTACK) {
+      return [
+        new THREE.Vector3(...WORLD.defenseAnchor),
+        ...ring,
+        new THREE.Vector3(...WORLD.attackAnchor),
+      ];
+    }
+    return [new THREE.Vector3(...WORLD.defenseAnchor), ...ring];
   }
 
   get pickets() {

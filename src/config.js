@@ -475,6 +475,28 @@ export function budgetFor(faction, budget) {
     : budget;
 }
 
+/**
+ * Transit cruise.
+ *
+ * `speed` is a COMBAT stat: how a hull manoeuvres in a fight. Using it for the
+ * approach march as well is what made attacking unwinnable. Over the ~3,000
+ * units between the staging areas a Wasp arrives at 27s and a Bastion at 81s,
+ * so an attacking fleet reaches a concentrated defence strung out over a
+ * 79-second window and is destroyed in detail — measured at a 4% attacker win
+ * rate against a defence that simply parks on the objective.
+ *
+ * So a long move is flown at a cruise floor instead: anything slower than
+ * `speed` makes way at `speed` while it is more than `engageDistance` from
+ * where it is going and not in contact. Inside that radius, and in any fight,
+ * the hull's own speed governs exactly as before — a Bastion still wallows
+ * where it matters. This adds no combat power to either side and applies to
+ * both; it only stops the fleet from arriving piecemeal.
+ */
+export const TRANSIT = {
+  cruiseSpeed: 85,
+  engageDistance: 600,
+};
+
 /** Seconds. On expiry the defender wins. */
 export const TIME_LIMIT = 600;
 

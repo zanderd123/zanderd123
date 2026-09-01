@@ -8,7 +8,7 @@
  * reasons about, and what order markers attach to.
  */
 import * as THREE from 'three';
-import { derive, WORLD, GFX, SHIELDS, SIEGE } from './config.js';
+import { derive, WORLD, GFX, SHIELDS, SIEGE, TRANSIT } from './config.js';
 import { makeRng, clamp, steerTowards } from './util.js';
 
 // ---------------------------------------------------------------------------
@@ -551,6 +551,7 @@ export function updateCraftMovement(craft, dt) {
   const target = craft.target;
   const dir = _dir;
   let throttle = 1;
+  let cruising = false;
   const dist = target && target.alive ? craft.pos.distanceTo(target.pos) : Infinity;
   // Only ATTACK actually pursues. Everything else fights from where it stands,
   // which is the whole point of having stances.
@@ -592,6 +593,9 @@ export function updateCraftMovement(craft, dt) {
     _tmp.copy(unit.movePos).add(_slot);
     dir.copy(_tmp).sub(craft.pos);
     const d = dir.length();
+    // A long march, not a local reposition: fly it at the cruise floor so the
+    // fleet arrives together instead of in speed order. See TRANSIT in config.
+    cruising = d > TRANSIT.engageDistance;
     if (d < ARRIVE) {
       // Parked. Keep the nose on the planet rather than drifting aimlessly —
       // an idle ship that slowly rotates forever reads as a bug.
@@ -623,9 +627,10 @@ export function updateCraftMovement(craft, dt) {
   steerTowards(craft.obj, dir, stats.turnRate * dt, craft.bank);
 
   // Accelerate harder than we decelerate, so ships feel like they have mass.
-  const want = stats.maxSpeed * throttle;
+  const top = cruising ? Math.max(stats.maxSpeed, TRANSIT.cruiseSpeed) : stats.maxSpeed;
+  const want = top * throttle;
   craft.speed += clamp(want - craft.speed, -stats.accel * 30 * dt, stats.accel * 22 * dt);
-  craft.speed = clamp(craft.speed, 0, stats.maxSpeed);
+  craft.speed = clamp(craft.speed, 0, top);
 
   _fwd.set(0, 0, -1).applyQuaternion(craft.obj.quaternion);
   craft.vel.copy(_fwd).multiplyScalar(craft.speed);

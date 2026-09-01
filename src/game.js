@@ -77,7 +77,7 @@ export class Game {
   constructor(fleetRenderer, opts = {}) {
     this.fx = fleetRenderer;
     this.units = [];
-    this.projectiles = new Projectiles();
+    this.projectiles = null;   // needs this.rng, built once the seed is set
     this.now = 0;
     this.accumulator = 0;
     this.speed = 1;
@@ -85,6 +85,7 @@ export class Game {
     this.state = 'playing';       // playing | victory | defeat | draw
     this.playerFaction = FACTION.ATTACK;
     this.rng = makeRng(opts.seed || 12345);
+    this.projectiles = new Projectiles(this.rng);
     // Fog is off by default now: both fleets are plotted the whole match, so
     // the strategy is about distance and commitment rather than about not
     // knowing where the enemy is.
@@ -535,7 +536,7 @@ export class Game {
 
     // Accuracy is rolled at the muzzle: a hit is a guided round that will
     // arrive, a miss is an unguided one that visibly goes wide.
-    const hit = Math.random() < accuracy(craft, target);
+    const hit = this.rng() < accuracy(craft, target);
     this.projectiles.fire(craft, target, hit, shotDamage(craft, target));
     if (unit.type.cloak) craft.revealUntil = this.now + 4;
   }
@@ -578,9 +579,9 @@ export class Game {
   onPlanetDestroyed() {
     const at = this.planet.pos;
     for (let i = 0; i < 14; i++) {
-      _v.set(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5)
+      _v.set(this.rng() - 0.5, this.rng() - 0.5, this.rng() - 0.5)
         .normalize()
-        .multiplyScalar(WORLD.planetRadius * (0.9 + Math.random() * 0.3))
+        .multiplyScalar(WORLD.planetRadius * (0.9 + this.rng() * 0.3))
         .add(at);
       this.fx.explode(_v, 26, 0xffb45a);
     }

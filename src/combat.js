@@ -20,10 +20,12 @@ const _tmp = new THREE.Vector3();
 /**
  * Chance for one shot to land, before damage is applied.
  *
- * Note the `isAnchored` exemption on the stationary-target bonus: a squadron
- * on DEFEND keeps full evasion while parked, where every other stance is
- * easier to hit when it stops. That is a large edge — see the balance notes
- * in README.md.
+ * A hull that is barely moving is easier to hit, and that rule applies to
+ * every stance without exception. DEFEND used to be exempt — a parked
+ * defending squadron kept full evasion while everything else lost it — which
+ * made "select everything, press G, do nothing" the strongest way to play the
+ * defence by a wide margin. Standing still is a real trade now: you hold your
+ * ground and your firing line, and you are easier to shoot.
  */
 export function accuracy(craft, target) {
   const weapon = craft.unit.type.weapon;
@@ -35,11 +37,9 @@ export function accuracy(craft, target) {
   let acc = 0.5
     + (craft.unit.stats.tracking - target.unit.type.agility) / COMBAT.accuracySpread;
 
-  if (!target.unit.isAnchored) {
-    const motion = clamp(target.speed / Math.max(1, target.unit.stats.maxSpeed), 0, 1);
-    if (motion < COMBAT.evasionMotionFloor) {
-      acc += (COMBAT.evasionMotionFloor - motion) * 0.9;
-    }
+  const motion = clamp(target.speed / Math.max(1, target.unit.stats.maxSpeed), 0, 1);
+  if (motion < COMBAT.evasionMotionFloor) {
+    acc += (COMBAT.evasionMotionFloor - motion) * 0.9;
   }
   return clamp(acc, COMBAT.accuracyMin, COMBAT.accuracyMax);
 }
@@ -151,8 +151,14 @@ export function acquireTarget(craft, candidates, now) {
 // Projectiles. One flat list, stepped as a whole.
 // ---------------------------------------------------------------------------
 export class Projectiles {
-  constructor() {
+  /**
+   * `rng` is the owning Game's seeded generator. Miss scatter perturbs the
+   * flight path, which decides proximity hits, so it is part of the
+   * simulation and must not reach for `Math.random`.
+   */
+  constructor(rng = Math.random) {
     this.list = [];
+    this.rng = rng;
   }
 
   /**
@@ -165,9 +171,9 @@ export class Projectiles {
     const origin = craft.pos.clone();
     leadPoint(craft.pos, target.pos, target.vel, weapon.speed, _steer);
     if (!guided) {
-      _steer.x += (Math.random() - 0.5) * 34;
-      _steer.y += (Math.random() - 0.5) * 34;
-      _steer.z += (Math.random() - 0.5) * 34;
+      _steer.x += (this.rng() - 0.5) * 34;
+      _steer.y += (this.rng() - 0.5) * 34;
+      _steer.z += (this.rng() - 0.5) * 34;
     }
     const dir = _steer.clone().sub(origin).normalize();
     this.list.push({
