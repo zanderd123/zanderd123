@@ -35,6 +35,16 @@ a non-circular check that no coefficient has drifted.
     node tools/selfplay.mjs        whole matches, AI vs AI, no renderer
     node tools/balance.mjs         balance sweeps (see below)
     node tools/duel.mjs            ship-vs-ship matchup matrices
+    node tools/analyse.mjs         100 matches, per-hull performance
+    node tools/damage.mjs          the damage model, computed from src/
+    node tools/siege-probe.mjs     does bombardment actually function
+
+Two warnings about `analyse.mjs`, both learned the hard way. Damage-per-point
+scores every support hull at zero by construction, so it credits healing too —
+on damage alone the Aegis reads as worthless (0.5/pt) when it is mid-pack
+(7.3/pt). And a Spawner's output is counted as *Wasps*, so its own line reads
+0.1/pt while it is in fact producing ~4.5 hulls a match. Attribution, not
+balance, in both cases.
 
 The simulation is deterministic: same seed, same match, every time. That is
 load-bearing for all of the above, and it is enforced by `src/util.js`'s seeded
