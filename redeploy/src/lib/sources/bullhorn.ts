@@ -32,6 +32,16 @@ export type BullhornConfig = {
   restLoginBase?: string;
 };
 
+/**
+ * Which agency-configured custom fields hold the stipend figures. Every
+ * agency names these differently in their own Bullhorn admin, so there is no
+ * default worth guessing — see StipendMapping below and docs/INTEGRATIONS.md.
+ */
+export type StipendMapping = {
+  housingField?: string | null;
+  mieField?: string | null;
+};
+
 type BullhornPlacement = {
   id: number;
   candidate?: {
@@ -54,9 +64,11 @@ type BullhornPlacement = {
   clientBillRate?: number;
   status?: string;
   hoursPerWeek?: number;
-};
+} & Record<string, unknown>; // agency-specific custom fields arrive as flat top-level properties
 
-const FIELDS = [
+export type BullhornFieldOption = { name: string; label: string };
+
+const BASE_FIELDS = [
   "id",
   "status",
   "dateBegin",
@@ -67,7 +79,33 @@ const FIELDS = [
   "candidate(id,firstName,lastName,email,mobile,occupation)",
   "jobOrder(id,clientCorporation(name),address(city,state))",
   "owner(email)",
-].join(",");
+];
+
+/** Matches Bullhorn's generic custom-field naming across every entity. */
+const CUSTOM_FIELD_NAME = /^custom(Text|Float|Int|Date)\d+$/i;
+
+export type BullhornMeta = { fields?: { name?: string; label?: string }[] };
+
+/**
+ * Filters a Bullhorn meta response down to the agency-configured custom
+ * fields, using whatever label the agency gave each one in their own admin —
+ * pulled out of discoverCustomFields() so the filtering/labelling logic is
+ * testable without a network call.
+ */
+export function parseCustomFields(meta: BullhornMeta): BullhornFieldOption[] {
+  const fields = meta.fields ?? [];
+  return fields
+    .filter((f): f is { name: string; label?: string } => Boolean(f.name && CUSTOM_FIELD_NAME.test(f.name)))
+    .map((f) => ({ name: f.name, label: f.label?.trim() || f.name }))
+    .sort((a, b) => a.label.localeCompare(b.label));
+}
+
+function buildFields(mapping?: StipendMapping) {
+  const fields = new Set(BASE_FIELDS);
+  if (mapping?.housingField) fields.add(mapping.housingField);
+  if (mapping?.mieField) fields.add(mapping.mieField);
+  return [...fields].join(",");
+}
 
 const ACTIVE_STATUSES = new Set(["approved", "offer accepted", "placed", "active"]);
 
@@ -130,17 +168,38 @@ export class BullhornSource implements DataSource {
     return { restUrl: login.restUrl, restToken: login.BhRestToken };
   }
 
+  /**
+   * Lists the custom fields available on Placement, with whatever label the
+   * agency has configured for each in their own Bullhorn admin — so the
+   * mapping UI can show "Housing Stipend" rather than "customFloat3". Every
+   * agency names these differently, which is exactly why this has to be a
+   * discovery call rather than a hardcoded guess.
+   */
+  async discoverCustomFields(): Promise<BullhornFieldOption[]> {
+    const { restUrl, restToken } = await this.login();
+
+    const res = await fetch(
+      `${restUrl}meta/Placement?fields=*&BhRestToken=${encodeURIComponent(restToken)}`,
+    );
+    if (!res.ok) throw new Error(`Bullhorn meta lookup failed (${res.status}).`);
+
+    const meta = (await res.json()) as BullhornMeta;
+    return parseCustomFields(meta);
+  }
+
   /** Pulls current placements, paging until exhausted or the cap is reached. */
-  async fetch(maxRecords = 500): Promise<SourcePayload> {
+  async fetch(opts: { maxRecords?: number; stipends?: StipendMapping } = {}): Promise<SourcePayload> {
     const { restUrl, restToken } = await this.login();
     const warnings: string[] = [];
     const placements: BullhornPlacement[] = [];
+    const maxRecords = opts.maxRecords ?? 500;
+    const fields = buildFields(opts.stipends);
 
     const pageSize = 100;
     for (let start = 0; start < maxRecords; start += pageSize) {
       const url =
         `${restUrl}query/Placement?BhRestToken=${encodeURIComponent(restToken)}` +
-        `&fields=${encodeURIComponent(FIELDS)}` +
+        `&fields=${encodeURIComponent(fields)}` +
         `&where=${encodeURIComponent("status<>'Archive'")}` +
         `&count=${pageSize}&start=${start}&orderBy=-dateEnd`;
 
@@ -155,13 +214,26 @@ export class BullhornSource implements DataSource {
       if (batch.length < pageSize) break;
     }
 
-    return this.normalise(placements, warnings);
+    return this.normalise(placements, warnings, opts.stipends);
   }
 
   /** Exposed separately so it can be tested against recorded payloads. */
-  normalise(placements: BullhornPlacement[], warnings: string[] = []): SourcePayload {
+  normalise(
+    placements: BullhornPlacement[],
+    warnings: string[] = [],
+    stipends?: StipendMapping,
+  ): SourcePayload {
     const travelers = new Map<string, SourceTraveler>();
     const assignments: SourceAssignment[] = [];
+    const mapped = Boolean(stipends?.housingField || stipends?.mieField);
+    let zeroStipendCount = 0;
+
+    const readStipend = (p: BullhornPlacement, field?: string | null) => {
+      if (!field) return 0;
+      const raw = p[field];
+      const n = typeof raw === "number" ? raw : Number(raw);
+      return Number.isFinite(n) && n > 0 ? n : 0;
+    };
 
     for (const p of placements) {
       const c = p.candidate;
@@ -202,6 +274,10 @@ export class BullhornSource implements DataSource {
         warnings.push(`Placement ${p.id} is missing a bill or pay rate.`);
       }
 
+      const housingWeekly = readStipend(p, stipends?.housingField);
+      const mieWeekly = readStipend(p, stipends?.mieField);
+      if (mapped && housingWeekly === 0 && mieWeekly === 0) zeroStipendCount++;
+
       assignments.push({
         externalId: `bh:placement:${p.id}`,
         travelerExternalId,
@@ -212,12 +288,10 @@ export class BullhornSource implements DataSource {
         endsAt: new Date(p.dateEnd),
         hoursPerWeek: Number(p.hoursPerWeek ?? 36),
         billRate: bill,
-        // Bullhorn's payRate is the taxable hourly figure. Stipends live in
-        // custom fields that vary per agency, so they are mapped during setup
-        // rather than assumed here.
+        // Bullhorn's payRate is the taxable hourly figure.
         taxableRate: pay,
-        housingWeekly: 0,
-        mieWeekly: 0,
+        housingWeekly,
+        mieWeekly,
         status: mapStatus(p.status),
         extensionStatus: "NOT_ASKED",
         nextStep: null,
@@ -225,9 +299,13 @@ export class BullhornSource implements DataSource {
       });
     }
 
-    if (assignments.some((a) => a.housingWeekly === 0 && a.mieWeekly === 0)) {
+    if (!mapped && assignments.length > 0) {
       warnings.push(
-        "Stipends came through as zero, so margin is understated. Bullhorn keeps these in agency-specific custom fields, which need mapping before these figures can be trusted — see docs/INTEGRATIONS.md.",
+        "Stipends aren't mapped, so margin is understated. Bullhorn keeps these in agency-specific custom fields — map them in Settings once you've synced.",
+      );
+    } else if (mapped && zeroStipendCount > 0) {
+      warnings.push(
+        `${zeroStipendCount} of ${assignments.length} assignments came back with $0 for both mapped stipend fields — confirm the mapping in Settings points at the right fields.`,
       );
     }
 
@@ -241,5 +319,9 @@ export function bullhornFromEnv(): BullhornSource {
     clientSecret: process.env.BULLHORN_CLIENT_SECRET ?? "",
     username: process.env.BULLHORN_USERNAME,
     password: process.env.BULLHORN_PASSWORD,
+    // Overridable for a sandbox tenant, a self-hosted proxy in front of
+    // Bullhorn, or (as here) a local fixture server in tests.
+    authBase: process.env.BULLHORN_AUTH_BASE,
+    restLoginBase: process.env.BULLHORN_REST_BASE,
   });
 }

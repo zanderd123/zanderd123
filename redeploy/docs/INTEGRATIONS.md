@@ -45,11 +45,35 @@ That monthly budget is why `fetch()` pages through `query/Placement` with a fiel
 mask rather than walking entities one at a time. Cache the session; do not log in
 per request.
 
-**Known gap.** Stipends (housing, M&IE) are not standard Bullhorn fields — every
-agency keeps them in their own custom fields. The adapter deliberately returns
-zero and emits a warning rather than guessing, because a wrong stipend produces a
-wrong margin, which is worse than an obviously missing one. Field mapping belongs
-in agency setup.
+**Stipend field mapping.** Housing and M&IE are not standard Bullhorn fields —
+every agency keeps them in their own custom fields (`customFloat3`, `customText7`,
+whatever they set up years ago), so there is no default worth guessing. The
+owner maps them from **Settings → Bullhorn field mapping**:
+
+1. **Discover fields** calls `GET meta/Placement?fields=*` and lists every
+   `custom(Text|Float|Int|Date)N` field, labelled with whatever the agency
+   named it in their own Bullhorn admin — "Housing Stipend (Weekly)", not
+   `customFloat3`, unless they never renamed it.
+2. Picking a housing and/or M&IE field saves the two raw field names
+   (`Agency.bullhornHousingField` / `bullhornMieField`).
+3. Every sync after that pulls those two fields into the query's field mask
+   and reads them straight into `housingWeekly` / `mieWeekly`.
+
+If neither is mapped, stipends come through as zero and every sync repeats a
+warning saying so — margin is understated, not silently wrong. If a mapped
+field comes back `$0` for some placements, a different warning fires instead
+("N of M assignments came back with $0 for both mapped fields") — that
+usually means the wrong field was picked, not that stipends are genuinely
+zero, so it's called out separately rather than lumped in with "unmapped."
+
+The discovery call, the field-list filtering, and the read-with-mapping path
+are all covered by unit tests in `src/lib/__tests__/run.ts` against fixture
+payloads shaped like Bullhorn's real meta and query responses; the live
+endpoints are unreachable from this sandbox, so the full click-through flow
+(discover → map → save → sync → correct margin) was verified once against a
+local HTTP server standing in for `auth.bullhornstaffing.com` and
+`rest.bullhornstaffing.com`, using `BULLHORN_AUTH_BASE` / `BULLHORN_REST_BASE`
+env overrides that exist for exactly this purpose.
 
 ## Everything else
 

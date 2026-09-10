@@ -1,10 +1,14 @@
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { SettingsForm } from "@/components/settings-form";
+import { BullhornMappingForm } from "@/components/bullhorn-mapping-form";
 
 export default async function SettingsPage() {
   const user = await requireUser();
   const agency = await prisma.agency.findUniqueOrThrow({ where: { id: user.agencyId } });
+  const bullhornConfigured = Boolean(
+    process.env.BULLHORN_CLIENT_ID && process.env.BULLHORN_CLIENT_SECRET,
+  );
 
   return (
     <div className="content">
@@ -22,6 +26,14 @@ export default async function SettingsPage() {
         quietDays={agency.quietDays}
         canEdit={user.role === "OWNER"}
       />
+
+      {bullhornConfigured && (
+        <BullhornMappingForm
+          housingField={agency.bullhornHousingField ?? ""}
+          mieField={agency.bullhornMieField ?? ""}
+          canEdit={user.role === "OWNER"}
+        />
+      )}
     </div>
   );
 }

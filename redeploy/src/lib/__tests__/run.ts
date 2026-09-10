@@ -7,7 +7,7 @@ import assert from "node:assert/strict";
 import { computeEconomics, maxTaxableForFloor, formatMoney } from "../economics";
 import { assessRisk, daysUntil, nextAction } from "../risk";
 import { parseCsv, parseAgencyCsv } from "../sources/csv";
-import { BullhornSource } from "../sources/bullhorn";
+import { BullhornSource, parseCustomFields } from "../sources/bullhorn";
 
 let passed = 0;
 const failures: string[] = [];
@@ -290,6 +290,105 @@ test("bullhorn placements without a candidate or end date are skipped, not crash
 test("an unconfigured bullhorn source reports itself as unconfigured", () => {
   assert.equal(new BullhornSource({ clientId: "", clientSecret: "" }).isConfigured(), false);
   assert.equal(new BullhornSource({ clientId: "a", clientSecret: "b" }).isConfigured(), true);
+});
+
+// ------------------------------------------------- bullhorn stipend mapping
+const PLACEMENT_WITH_CUSTOM_FIELDS = {
+  id: 991,
+  status: "Approved",
+  dateBegin: Date.UTC(2026, 4, 18),
+  dateEnd: Date.UTC(2026, 7, 28),
+  payRate: 24,
+  clientBillRate: 112,
+  hoursPerWeek: 36,
+  candidate: { id: 55, firstName: "Marisa", lastName: "Ortega" },
+  jobOrder: { id: 7, clientCorporation: { name: "St. Vincent" } },
+  customFloat3: 1250, // housing, in this fixture
+  customFloat4: 420, // M&IE, in this fixture
+};
+
+test("mapped stipend fields are read into housing and M&IE", () => {
+  const src = new BullhornSource({ clientId: "x", clientSecret: "y" });
+  const out = src.normalise([PLACEMENT_WITH_CUSTOM_FIELDS], [], {
+    housingField: "customFloat3",
+    mieField: "customFloat4",
+  });
+  assert.equal(out.assignments[0].housingWeekly, 1250);
+  assert.equal(out.assignments[0].mieWeekly, 420);
+  assert.ok(
+    !out.warnings.some((w) => /aren't mapped/.test(w)),
+    "should not repeat the unmapped warning once fields are configured",
+  );
+});
+
+test("with no mapping configured, stipends are zero and the unmapped warning fires", () => {
+  const src = new BullhornSource({ clientId: "x", clientSecret: "y" });
+  const out = src.normalise([PLACEMENT_WITH_CUSTOM_FIELDS], []);
+  assert.equal(out.assignments[0].housingWeekly, 0);
+  assert.equal(out.assignments[0].mieWeekly, 0);
+  assert.ok(out.warnings.some((w) => /aren't mapped/.test(w)));
+});
+
+test("a configured field that comes back $0 is flagged as likely mis-mapped, not silently trusted", () => {
+  const src = new BullhornSource({ clientId: "x", clientSecret: "y" });
+  const out = src.normalise([{ ...PLACEMENT_WITH_CUSTOM_FIELDS, customFloat3: 0, customFloat4: 0 }], [], {
+    housingField: "customFloat3",
+    mieField: "customFloat4",
+  });
+  assert.equal(out.assignments[0].housingWeekly, 0);
+  assert.ok(out.warnings.some((w) => /confirm the mapping/.test(w)));
+});
+
+test("a mapped field holding a non-numeric value degrades to zero rather than NaN", () => {
+  const src = new BullhornSource({ clientId: "x", clientSecret: "y" });
+  const out = src.normalise(
+    [{ ...PLACEMENT_WITH_CUSTOM_FIELDS, customFloat3: "not a number" }],
+    [],
+    { housingField: "customFloat3" },
+  );
+  assert.equal(out.assignments[0].housingWeekly, 0);
+  assert.ok(Number.isFinite(out.assignments[0].housingWeekly));
+});
+
+test("only mapping housing (not M&IE) does not trigger the unmapped warning", () => {
+  const src = new BullhornSource({ clientId: "x", clientSecret: "y" });
+  const out = src.normalise([PLACEMENT_WITH_CUSTOM_FIELDS], [], { housingField: "customFloat3" });
+  assert.equal(out.assignments[0].housingWeekly, 1250);
+  assert.equal(out.assignments[0].mieWeekly, 0);
+  assert.ok(!out.warnings.some((w) => /aren't mapped/.test(w)));
+});
+
+test("parseCustomFields keeps only Bullhorn's generic custom-field names", () => {
+  const out = parseCustomFields({
+    fields: [
+      { name: "id" },
+      { name: "customText1", label: "Notes" },
+      { name: "customFloat3", label: "Housing Stipend" },
+      { name: "customFloat4" }, // no agency label configured
+      { name: "dateAdded" },
+      { name: "customInt1", label: "Priority" },
+    ],
+  });
+  assert.equal(out.length, 4, "id and dateAdded are not custom fields and must be excluded");
+  assert.deepEqual(
+    new Set(out.map((f) => f.name)),
+    new Set(["customText1", "customFloat3", "customFloat4", "customInt1"]),
+  );
+});
+
+test("parseCustomFields falls back to the raw field name when no label is configured", () => {
+  const out = parseCustomFields({ fields: [{ name: "customFloat4" }] });
+  assert.equal(out[0].label, "customFloat4");
+});
+
+test("parseCustomFields sorts by label, not by field name", () => {
+  const out = parseCustomFields({
+    fields: [
+      { name: "customFloat1", label: "Zzz Last" },
+      { name: "customFloat2", label: "Aaa First" },
+    ],
+  });
+  assert.deepEqual(out.map((f) => f.name), ["customFloat2", "customFloat1"]);
 });
 
 // --------------------------------------------------------------------------

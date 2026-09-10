@@ -169,14 +169,75 @@ export async function syncBullhorn(_prev: ActionState, _formData: FormData): Pro
     };
   }
 
+  const agency = await prisma.agency.findUniqueOrThrow({
+    where: { id: user.agencyId },
+    select: { bullhornHousingField: true, bullhornMieField: true },
+  });
+
   try {
-    const payload = await source.fetch();
+    const payload = await source.fetch({
+      stipends: { housingField: agency.bullhornHousingField, mieField: agency.bullhornMieField },
+    });
     const result = await ingest(user.agencyId, payload, "BULLHORN");
     revalidatePathsForBook();
     return { ok: `Synced ${result.created} new and ${result.updated} updated records from Bullhorn.` };
   } catch (err) {
     return { error: `Bullhorn sync failed: ${(err as Error).message}` };
   }
+}
+
+/**
+ * Lists the agency's Bullhorn custom fields so the settings screen can offer
+ * a dropdown of real, agency-labelled fields instead of asking someone to
+ * type a raw name like "customFloat3" from memory.
+ */
+export async function discoverBullhornFields(): Promise<{
+  error?: string;
+  fields?: { name: string; label: string }[];
+}> {
+  const user = await requireUser();
+  if (!canEditPackages(user.role)) return { error: "Only an owner or manager can do this." };
+
+  const source = bullhornFromEnv();
+  if (!source.isConfigured()) return { error: "Bullhorn is not connected." };
+
+  try {
+    return { fields: await source.discoverCustomFields() };
+  } catch (err) {
+    return { error: `Couldn't read Bullhorn's field list: ${(err as Error).message}` };
+  }
+}
+
+const stipendMappingSchema = z.object({
+  housingField: z.string().trim().max(60).optional(),
+  mieField: z.string().trim().max(60).optional(),
+});
+
+export async function updateBullhornStipendMapping(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const user = await requireUser();
+  if (user.role !== "OWNER") {
+    return { error: "Only the agency owner can change the field mapping." };
+  }
+
+  const parsed = stipendMappingSchema.safeParse({
+    housingField: formData.get("housingField") || undefined,
+    mieField: formData.get("mieField") || undefined,
+  });
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+
+  await prisma.agency.update({
+    where: { id: user.agencyId },
+    data: {
+      bullhornHousingField: parsed.data.housingField ?? null,
+      bullhornMieField: parsed.data.mieField ?? null,
+    },
+  });
+
+  revalidatePath("/settings");
+  return { ok: "Field mapping saved. Run Sync now to pull stipends with it." };
 }
 
 function revalidatePathsForBook() {

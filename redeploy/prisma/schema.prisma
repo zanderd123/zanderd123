@@ -18,6 +18,12 @@ model Agency {
   burdenRate  Float  @default(0.19)
   /// Days of recruiter silence before a traveler is flagged.
   quietDays   Int    @default(14)
+  /// Bullhorn custom field name (e.g. "customFloat3") holding the weekly
+  /// housing stipend. Every agency names these differently in their own
+  /// Bullhorn admin, so there is no default — set via Settings.
+  bullhornHousingField String?
+  /// Bullhorn custom field name holding the weekly M&IE stipend.
+  bullhornMieField     String?
   createdAt DateTime @default(now())
 
   users       User[]

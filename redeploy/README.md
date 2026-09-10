@@ -29,7 +29,7 @@ tied to the fact that nobody had spoken to them in three weeks.
 
 Nobody re-types anything. See [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md).
 
-- **Bullhorn** — direct API sync. An agency can obtain OAuth credentials for its own tenant from Bullhorn support, so no partnership is needed to start.
+- **Bullhorn** — direct API sync. An agency can obtain OAuth credentials for its own tenant from Bullhorn support, so no partnership is needed to start. Housing and M&IE stipends live in agency-specific custom fields with no sensible default, so **Settings → Bullhorn field mapping** discovers the agency's real custom fields (labelled the way the agency named them, not as `customFloat3`) and lets the owner pick which two hold the stipends.
 - **Anything else** — CSV import that upserts on external id, so a weekly re-export updates rather than duplicates.
 - **VMS platforms are not required.** A VMS carries inbound job orders; this works on the book you have already placed, which lives in the ATS.
 
@@ -50,8 +50,14 @@ npm run dev               # http://localhost:3100
 Demo login: `dana@northstar.example` / `demopassword`
 
 ```bash
-npm test                  # 24 assertions over the margin, risk and import logic
+npm test                  # 32 assertions over margin, risk, import and Bullhorn field mapping
 ```
+
+To exercise the Bullhorn sync and field-discovery flow locally against a fixture
+server instead of the live API, set `BULLHORN_CLIENT_ID`/`SECRET` plus
+`BULLHORN_AUTH_BASE`/`BULLHORN_REST_BASE` pointing at your own stand-in — those
+two overrides exist for exactly this. `next start` bakes server env into the
+build, so rebuild after changing them, not just restart.
 
 ## Multi-tenancy
 
@@ -80,5 +86,5 @@ src/app/(app)/              board, compliance, margin, builder, import
 
 - Rate limiting on sign-in is not yet ported over from the sibling app.
 - Credential sync from Bullhorn is not implemented — it costs a call per candidate and needs an incremental job.
-- Stipend custom-field mapping for Bullhorn is still a code change — the settings screen covers the margin floor, burden rate, and quiet-days threshold, not per-integration field mapping.
 - No password reset.
+- Redeploy is currently read-only against Bullhorn: contact logs and extension status live only here, not written back to Bullhorn's notes/activity feed.
