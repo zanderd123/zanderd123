@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+summary.txt
+.DS_Store
+
+# data/jobs.db is deliberately NOT ignored — the accumulated history is the
+# most valuable thing here, and committing it keeps it backed up and versioned.

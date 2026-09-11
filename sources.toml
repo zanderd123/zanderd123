@@ -1,0 +1,137 @@
+# ─────────────────────────────────────────────────────────────
+#  COMPANY LIST
+#
+#  This is the only file you need to edit.
+#
+#  To add a company:
+#    1. Copy one of the blocks below.
+#    2. Change the name and the token.
+#    3. Save. The next daily run picks it up automatically.
+#
+#  To find a company's token:
+#    Open their careers page and look at the job links.
+#    A link like  job-boards.greenhouse.io/vardaspace/jobs/123
+#    means the token is  vardaspace
+#
+#  To check a token works, open this in a browser
+#  (replace TOKEN) — you should see a wall of text, not an error:
+#    https://boards-api.greenhouse.io/v1/boards/TOKEN/jobs
+#
+#  To temporarily switch a company off, set  enabled = false
+# ─────────────────────────────────────────────────────────────
+
+# ── Greenhouse boards ────────────────────────────────────────
+
+[[source]]
+company = "SpaceX"
+ats = "greenhouse"
+token = "spacex"
+
+[[source]]
+company = "SpaceX (Global)"
+ats = "greenhouse"
+token = "spacexglobal"
+
+[[source]]
+company = "Anduril Industries"
+ats = "greenhouse"
+token = "andurilindustries"
+
+[[source]]
+company = "Varda Space Industries"
+ats = "greenhouse"
+token = "vardaspace"
+
+[[source]]
+company = "Stoke Space"
+ats = "greenhouse"
+token = "stokespacetechnologies"
+
+[[source]]
+company = "K2 Space"
+ats = "greenhouse"
+token = "k2spacecorporation"
+
+[[source]]
+company = "True Anomaly"
+ats = "greenhouse"
+token = "trueanomalyinc"
+
+[[source]]
+company = "Muon Space"
+ats = "greenhouse"
+token = "muonspace"
+
+[[source]]
+company = "Rocket Factory Augsburg"
+ats = "greenhouse"
+token = "rocketfactoryaugsburgag"
+region = "eu"                      # European Greenhouse boards need this
+
+# ── Ashby boards ─────────────────────────────────────────────
+# Ashby tokens usually have hyphens where Greenhouse squashes words
+# together. Check one in a browser like this:
+#   https://api.ashbyhq.com/posting-api/job-board/reflect-orbital
+
+[[source]]
+company = "Reflect Orbital"
+ats = "ashby"
+token = "reflect-orbital"
+
+[[source]]
+company = "Aetherflux"
+ats = "ashby"
+token = "aetherflux"
+
+# ── Unverified guesses ───────────────────────────────────────
+# These tokens are educated guesses. Run  python3 -m jobfeed.check
+# and it will tell you which ones are real. Delete the ones that fail,
+# then set  enabled = true  on the ones that work.
+
+[[source]]
+company = "Firefly Aerospace"
+ats = "greenhouse"
+token = "fireflyaerospace"
+enabled = false
+
+[[source]]
+company = "Impulse Space"
+ats = "greenhouse"
+token = "impulsespace"
+enabled = false
+
+[[source]]
+company = "Relativity Space"
+ats = "greenhouse"
+token = "relativityspace"
+enabled = false
+
+[[source]]
+company = "Planet Labs"
+ats = "greenhouse"
+token = "planetlabs"
+enabled = false
+
+[[source]]
+company = "Ursa Major"
+ats = "greenhouse"
+token = "ursamajortechnologies"
+enabled = false
+
+[[source]]
+company = "Apex Space"
+ats = "ashby"
+token = "apex"
+enabled = false
+
+[[source]]
+company = "Castelion"
+ats = "ashby"
+token = "castelion"
+enabled = false
+
+[[source]]
+company = "Vast"
+ats = "ashby"
+token = "vast"
+enabled = false

@@ -1,0 +1,53 @@
+name: Daily job scan
+
+on:
+  schedule:
+    # 11:00 UTC — early morning US. GitHub's scheduler can lag by a few
+    # minutes under load, which does not matter for a daily snapshot.
+    - cron: "0 11 * * *"
+  workflow_dispatch:        # adds a "Run workflow" button for manual runs
+
+# Prevent two runs overlapping and both writing to the database.
+concurrency:
+  group: daily-scan
+  cancel-in-progress: false
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write       # needed to commit the updated database back
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # No pip install step: the pipeline uses only the Python standard
+      # library, so there are no dependencies to break.
+
+      - name: Run tests
+        run: |
+          python3 test_adapters.py
+          python3 test_lifecycle.py
+
+      - name: Scan job boards
+        run: python3 -m jobfeed.run | tee summary.txt
+
+      - name: Save the database
+        run: |
+          git config user.name  "job-scanner"
+          git config user.email "actions@github.com"
+          git add data/jobs.db
+          if git diff --staged --quiet; then
+            echo "No changes to record."
+          else
+            git commit -m "Daily scan: $(date -u +%Y-%m-%d)"
+            git push
+          fi
+
+      - name: Publish the summary
+        if: always()
+        run: cat summary.txt >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || true
