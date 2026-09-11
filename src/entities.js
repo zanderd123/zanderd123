@@ -628,7 +628,18 @@ export function updateCraftMovement(craft, dt) {
   // which is the whole point of having stances.
   const pursue = unit.stance === 'attack' && !unit.type.sniper;
 
-  const engaging = target && target.alive && !unit.holdPosition
+  // A bombarding squadron never manoeuvres against ships. It flies to its
+  // standoff over the crust and holds there, shooting back at whatever comes
+  // inside range — tryFire is independent of this, so it still defends itself.
+  //
+  // This has to be checked here, not left to `target` being null. Siege hulls
+  // used to have their target cleared every tick, which made `engaging` false
+  // as a side effect; once they were allowed to keep a target for self-defence,
+  // ATTACK-stance pursuit quietly resumed and dragged them off station. They
+  // closed to ~1,140 units of a 760-unit firing position, stalled there chasing
+  // ships, and fired nothing at the planet for the whole match.
+  const engaging = !unit.siegeLock
+    && target && target.alive && !unit.holdPosition
     && !(unit.type.sniper && dist > stats.range)
     && (pursue || dist <= stats.range * 1.05);
 

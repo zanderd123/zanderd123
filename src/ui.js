@@ -501,23 +501,13 @@ export class Hud {
     $('btn-grid').addEventListener('click', () => app.toggleGrid());
     $('btn-look').addEventListener('click', () => app.toggleLook());
 
-    $('btn-report').addEventListener('click', async () => {
-      const rec = app.recorder;
-      const found = rec.errors.length + rec.anomalies.length;
-      const res = await rec.download();
-      if (!res.ok) {
-        const why = {
-          declined: 'you declined the save prompt.',
-          rate_limited: 'a save prompt was already open — try again.',
-          unavailable: 'saving a file is not available here.',
-        }[res.reason] || 'the save could not be completed.';
-        this.flashMessage(`Session report not saved — ${why}`, 4.5, 'warn');
-        return;
-      }
-      this.flashMessage(found
-        ? `Session report saved — ${rec.errors.length} error(s), ${rec.anomalies.length} anomaly(ies) found.`
-        : 'Session report saved — no errors or anomalies detected.', 4.5, 'info');
-    });
+    // Both the in-battle control and the end screen save the report. The end
+    // screen needs its own because it is a full overlay: with only the HUD
+    // button, the report was reachable *during* a battle and nowhere else —
+    // not after one ended, and not from the builder, which hides the HUD. Every
+    // report anyone could actually export therefore read "still in progress".
+    $('btn-report').addEventListener('click', () => this.saveReport());
+    $('end-report').addEventListener('click', () => this.saveReport());
 
     $('prep-go').addEventListener('click', () => app.beginBattle());
     $('prep-back').addEventListener('click', () => app.backToBuilder());
@@ -563,6 +553,25 @@ export class Hud {
     this.confirmEl = $('confirm');
     this.flashEl = $('flash-msg');
     this.flashTimer = 0;
+  }
+
+  /** Export the session report, and say what happened either way. */
+  async saveReport() {
+    const rec = this.app.recorder;
+    const found = rec.errors.length + rec.anomalies.length;
+    const res = await rec.download();
+    if (!res.ok) {
+      const why = {
+        declined: 'you declined the save prompt.',
+        rate_limited: 'a save prompt was already open — try again.',
+        unavailable: 'saving a file is not available here.',
+      }[res.reason] || 'the save could not be completed.';
+      this.flashMessage(`Session report not saved — ${why}`, 4.5, 'warn');
+      return;
+    }
+    this.flashMessage(found
+      ? `Session report saved — ${rec.errors.length} error(s), ${rec.anomalies.length} anomaly(ies) found.`
+      : 'Session report saved — no errors or anomalies detected.', 4.5, 'info');
   }
 
   commitRename() {
