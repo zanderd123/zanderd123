@@ -8,6 +8,14 @@ import { computeEconomics, maxTaxableForFloor, formatMoney } from "../economics"
 import { assessRisk, daysUntil, nextAction } from "../risk";
 import { parseCsv, parseAgencyCsv } from "../sources/csv";
 import { BullhornSource, parseCustomFields } from "../sources/bullhorn";
+import {
+  generateResetToken,
+  hashResetToken,
+  resetTokensMatch,
+  resetTokenExpiry,
+  isResetTokenLive,
+  RESET_TOKEN_TTL_MS,
+} from "../password-reset";
 
 let passed = 0;
 const failures: string[] = [];
@@ -389,6 +397,68 @@ test("parseCustomFields sorts by label, not by field name", () => {
     ],
   });
   assert.deepEqual(out.map((f) => f.name), ["customFloat2", "customFloat1"]);
+});
+
+// ------------------------------------------------------------ reset tokens
+test("a generated token is 32 random bytes, hex encoded", () => {
+  const { raw } = generateResetToken();
+  assert.equal(raw.length, 64);
+  assert.match(raw, /^[0-9a-f]+$/);
+});
+
+test("two generated tokens never collide", () => {
+  const seen = new Set(Array.from({ length: 200 }, () => generateResetToken().raw));
+  assert.equal(seen.size, 200);
+});
+
+test("the stored hash is not the token itself — a leaked row can't be replayed", () => {
+  const { raw, hash } = generateResetToken();
+  assert.notEqual(raw, hash);
+  assert.equal(hash, hashResetToken(raw));
+});
+
+test("hashing is deterministic, so a link can be looked up by its hash", () => {
+  assert.equal(hashResetToken("abc"), hashResetToken("abc"));
+  assert.notEqual(hashResetToken("abc"), hashResetToken("abd"));
+});
+
+test("resetTokensMatch accepts an identical token", () => {
+  const { hash } = generateResetToken();
+  assert.equal(resetTokensMatch(hash, hash), true);
+});
+
+test("resetTokensMatch rejects a different token of equal length", () => {
+  assert.equal(
+    resetTokensMatch(hashResetToken("one"), hashResetToken("two")),
+    false,
+  );
+});
+
+test("resetTokensMatch rejects unequal lengths instead of throwing", () => {
+  assert.equal(resetTokensMatch("aabb", "aa"), false);
+});
+
+test("a fresh token expires one hour out", () => {
+  const now = Date.now();
+  assert.equal(resetTokenExpiry(now).getTime() - now, RESET_TOKEN_TTL_MS);
+});
+
+test("an unused, unexpired token is live", () => {
+  const now = Date.now();
+  assert.equal(isResetTokenLive({ expiresAt: new Date(now + 1000), usedAt: null }, now), true);
+});
+
+test("an expired token is not live", () => {
+  const now = Date.now();
+  assert.equal(isResetTokenLive({ expiresAt: new Date(now - 1), usedAt: null }, now), false);
+});
+
+test("a used token is not live, even before it expires", () => {
+  const now = Date.now();
+  assert.equal(
+    isResetTokenLive({ expiresAt: new Date(now + 3_600_000), usedAt: new Date(now) }, now),
+    false,
+  );
 });
 
 // --------------------------------------------------------------------------

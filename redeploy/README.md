@@ -82,9 +82,32 @@ src/lib/view.ts             one query for the book, everything derived in memory
 src/app/(app)/              board, compliance, margin, builder, import
 ```
 
+## Accounts
+
+Agencies are provisioned, not self-signup — there is no public registration
+form, because a Redeploy account is a seat inside someone's agency.
+
+Sign-in is rate limited per IP-and-email: eight failed attempts inside fifteen
+minutes locks that pair out for fifteen more. The counter lives in process
+memory (`src/lib/rate-limit.ts`), so it resets on deploy and is per-instance;
+that is enough against online guessing on a single instance, and the interface
+is the one to keep if it ever needs to move into Postgres.
+
+**Password reset** (`/forgot-password`) emails a single-use link that expires
+in an hour. Only the SHA-256 hash of each token is stored, so a leaked database
+row cannot be replayed as a working link, and requesting a new link cancels any
+outstanding one. Both the request form and the sign-in form answer identically
+whether or not the address is registered, so neither can be used to work out
+which recruiters an agency employs. Completing a reset **ends every other
+session on that account** — if someone else's session was the reason the reset
+was needed, that is what actually locks them out of the book of business.
+
+With `RESEND_API_KEY` unset, mail is written to `.dev-outbox/emails.jsonl`
+rather than sent, so nothing can email a real recruiter before a provider is
+deliberately configured.
+
 ## Known gaps
 
-- Rate limiting on sign-in is not yet ported over from the sibling app.
 - Credential sync from Bullhorn is not implemented — it costs a call per candidate and needs an incremental job.
-- No password reset.
 - Redeploy is currently read-only against Bullhorn: contact logs and extension status live only here, not written back to Bullhorn's notes/activity feed.
+- No ATS integration has been exercised against a live tenant. Bullhorn is tested against a fixture built to the documented response shapes, not against Bullhorn itself.

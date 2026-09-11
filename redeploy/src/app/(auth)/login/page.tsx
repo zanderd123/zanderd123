@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import Link from "next/link";
 import { login, type ActionState } from "@/app/actions";
 
 export default function LoginPage() {
@@ -27,7 +28,14 @@ export default function LoginPage() {
 
           <div style={{ marginBottom: 12 }}>
             <label className="f" htmlFor="email">Email</label>
-            <input id="email" name="email" type="email" required autoComplete="email" />
+            <input
+              id="email"
+              name="email"
+              type="email"
+              required
+              autoComplete="email"
+              defaultValue={state?.values?.email ?? ""}
+            />
           </div>
           <div style={{ marginBottom: 16 }}>
             <label className="f" htmlFor="password">Password</label>
@@ -37,6 +45,10 @@ export default function LoginPage() {
           <button type="submit" className="btn btn-primary" style={{ width: "100%" }}>
             Sign in
           </button>
+
+          <p className="sub2" style={{ marginTop: 12, textAlign: "center" }}>
+            <Link href="/forgot-password">Forgot your password?</Link>
+          </p>
 
           <p className="sub2" style={{ marginTop: 14 }}>
             Demo: <code>dana@northstar.example</code> / <code>demopassword</code>

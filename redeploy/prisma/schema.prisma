@@ -53,8 +53,24 @@ model User {
   sessions   Session[]
   travelers  Traveler[]  @relation("RecruiterTravelers")
   touchpoints Touchpoint[]
+  resetTokens PasswordResetToken[]
 
   @@index([agencyId])
+}
+
+/// Only the SHA-256 hash of a reset token is stored, so a leaked database
+/// row cannot be replayed as a working link.
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model Session {

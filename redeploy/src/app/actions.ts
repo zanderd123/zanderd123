@@ -1,19 +1,55 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { prisma } from "@/lib/db";
-import { requireUser, createSession, destroySession, verifyPassword, canEditPackages } from "@/lib/auth";
+import {
+  requireUser,
+  createSession,
+  destroySession,
+  hashPassword,
+  verifyPassword,
+  canEditPackages,
+} from "@/lib/auth";
+import { checkRateLimit, recordFailure, clearRateLimit } from "@/lib/rate-limit";
+import {
+  generateResetToken,
+  hashResetToken,
+  resetTokenExpiry,
+  isResetTokenLive,
+} from "@/lib/password-reset";
+import { getEmailSender, passwordResetEmail } from "@/lib/email";
 import { parseAgencyCsv } from "@/lib/sources/csv";
 import { ingest } from "@/lib/ingest";
 import { bullhornFromEnv } from "@/lib/sources/bullhorn";
 
-export type ActionState = { error?: string; ok?: string } | null;
+/**
+ * `values` echoes back what was submitted. React 19 resets an uncontrolled
+ * form once its action resolves, so without this a failed sign-in would wipe
+ * the email the recruiter already typed.
+ */
+export type ActionState = {
+  error?: string;
+  ok?: string;
+  values?: { email?: string };
+} | null;
 
 // ------------------------------------------------------------------- auth
+
+/** Identifies the caller for rate limiting: client IP plus the email tried. */
+async function attemptKey(scope: string, email: string) {
+  const h = await headers();
+  const ip =
+    h.get("x-forwarded-for")?.split(",")[0].trim() ?? h.get("x-real-ip") ?? "unknown";
+  return `${scope}:${ip}:${email}`;
+}
+
 export async function login(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const values = { email: String(formData.get("email") ?? "") };
+
   const parsed = z
     .object({
       email: z.string().trim().toLowerCase().email("Enter a valid email address."),
@@ -21,13 +57,34 @@ export async function login(_prev: ActionState, formData: FormData): Promise<Act
     })
     .safeParse({ email: formData.get("email"), password: formData.get("password") });
 
-  if (!parsed.success) return { error: parsed.error.issues[0].message };
+  if (!parsed.success) return { error: parsed.error.issues[0].message, values };
 
-  const user = await prisma.user.findUnique({ where: { email: parsed.data.email } });
-  if (!user || !(await verifyPassword(parsed.data.password, user.passwordHash))) {
-    return { error: "Incorrect email or password." };
+  const key = await attemptKey("login", parsed.data.email);
+
+  const verdict = checkRateLimit(key);
+  if (!verdict.allowed) {
+    const mins = Math.ceil(verdict.retryAfterSec / 60);
+    return {
+      error: `Too many sign-in attempts. Try again in ${mins} minute${mins === 1 ? "" : "s"}.`,
+      values,
+    };
   }
 
+  const user = await prisma.user.findUnique({ where: { email: parsed.data.email } });
+
+  // Same message either way, so the form can't be used to work out which
+  // recruiters an agency employs.
+  if (!user || !(await verifyPassword(parsed.data.password, user.passwordHash))) {
+    const nowBlocked = recordFailure(key);
+    return {
+      error: nowBlocked
+        ? "Too many sign-in attempts. Try again in 15 minutes."
+        : "Incorrect email or password.",
+      values,
+    };
+  }
+
+  clearRateLimit(key);
   await createSession(user.id);
   redirect("/board");
 }
@@ -35,6 +92,110 @@ export async function login(_prev: ActionState, formData: FormData): Promise<Act
 export async function logout() {
   await destroySession();
   redirect("/login");
+}
+
+const NEUTRAL_RESET_MESSAGE =
+  "If an account exists for that email, a reset link is on its way.";
+
+/**
+ * Always returns the same message whether or not the email is registered.
+ * A different response would let anyone probe which addresses belong to an
+ * agency's staff, which is exactly what the neutral sign-in error avoids.
+ */
+export async function requestPasswordReset(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const parsed = z
+    .object({ email: z.string().trim().toLowerCase().email("Enter a valid email address.") })
+    .safeParse({ email: formData.get("email") });
+
+  if (!parsed.success) {
+    return {
+      error: parsed.error.issues[0].message,
+      values: { email: String(formData.get("email") ?? "") },
+    };
+  }
+
+  const { email } = parsed.data;
+  const key = await attemptKey("reset-request", email);
+
+  const verdict = checkRateLimit(key);
+  if (!verdict.allowed) {
+    // Still neutral: saying that *this address* is rate limited would itself
+    // confirm the address is registered.
+    return { ok: NEUTRAL_RESET_MESSAGE };
+  }
+  recordFailure(key); // counts the attempt itself, not a failure to authenticate
+
+  const user = await prisma.user.findUnique({ where: { email }, select: { id: true } });
+  if (user) {
+    // Any earlier unused link stops working once a new one is requested.
+    await prisma.passwordResetToken.updateMany({
+      where: { userId: user.id, usedAt: null },
+      data: { usedAt: new Date() },
+    });
+
+    const { raw, hash } = generateResetToken();
+    await prisma.passwordResetToken.create({
+      data: { userId: user.id, tokenHash: hash, expiresAt: resetTokenExpiry() },
+    });
+
+    const origin = (await headers()).get("origin") ?? "";
+    const resetUrl = `${origin}/reset-password/${raw}`;
+    const { subject, text, html } = passwordResetEmail(resetUrl);
+    await getEmailSender().send({ to: email, subject, text, html });
+  }
+
+  return { ok: NEUTRAL_RESET_MESSAGE };
+}
+
+export async function resetPassword(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const parsed = z
+    .object({
+      token: z.string().min(1),
+      password: z.string().min(8, "Password must be at least 8 characters."),
+    })
+    .safeParse({ token: formData.get("token"), password: formData.get("password") });
+
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+
+  const { token, password } = parsed.data;
+
+  const key = await attemptKey("reset-consume", token.slice(0, 16));
+  const verdict = checkRateLimit(key);
+  if (!verdict.allowed) return { error: "Too many attempts. Request a new link." };
+
+  const record = await prisma.passwordResetToken.findUnique({
+    where: { tokenHash: hashResetToken(token) },
+  });
+
+  if (!record || !isResetTokenLive(record)) {
+    recordFailure(key);
+    return { error: "That reset link is invalid or has expired. Request a new one." };
+  }
+
+  await prisma.$transaction([
+    prisma.user.update({
+      where: { id: record.userId },
+      data: { passwordHash: await hashPassword(password) },
+    }),
+    prisma.passwordResetToken.update({
+      where: { id: record.id },
+      data: { usedAt: new Date() },
+    }),
+    // A reset is also the moment to end every other signed-in session — if
+    // someone else's session was the reason a reset was needed, this is what
+    // actually locks them out of the agency's book of business.
+    prisma.session.deleteMany({ where: { userId: record.userId } }),
+  ]);
+
+  clearRateLimit(key);
+  await createSession(record.userId);
+  redirect("/board");
 }
 
 // ------------------------------------------------------------ assignments
