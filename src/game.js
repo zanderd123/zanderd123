@@ -444,7 +444,8 @@ export class Game {
       // Near the planet with a clear lane: commit to the bombardment.
       if (u.faction === FACTION.ATTACK && u.siegeCapital
           && this.planet && this.planet.alive
-          && u.pos.distanceTo(this.planet.pos) < WORLD.planetRadius + u.stats.range * 3.5
+          && u.pos.distanceTo(this.planet.pos)
+             < WORLD.planetRadius + u.stats.range * SIEGE.lockRange
           && u.clearToSiege(enemies) && u.beginSiege()) {
         if (this.onAutoSiege) this.onAutoSiege(u);
         continue;
@@ -521,10 +522,15 @@ export class Game {
     // A bombarding squadron splits its output rather than going blind: most of
     // the rate of fire goes into the crust on its own timer, and SIEGE.selfDefense
     // of it stays here, so the hull can still answer whatever is shooting at it.
+    //
+    // The cost is only paid while the crust is ACTUALLY in range. A hull still
+    // flying to its firing position was surrendering 80% of its guns and
+    // getting nothing for it — a session report showed a Bastion locking on
+    // 1,100 units short of its standoff and dying on the way in, at 91% health
+    // when it committed.
     let rateShare = 1;
     if (unit.siegeLock) {
-      this.trySiegeFire(craft, dt);
-      rateShare = SIEGE.selfDefense;
+      if (this.trySiegeFire(craft, dt)) rateShare = SIEGE.selfDefense;
       if (rateShare <= 0) return;
     }
 
@@ -554,8 +560,11 @@ export class Game {
     const unit = craft.unit;
     const weapon = unit.type.weapon;
     const planet = this.planet;
-    if (!planet || !planet.alive) { unit.siegeLock = false; return; }
-    if (craft.pos.distanceTo(planet.pos) - WORLD.planetRadius > unit.stats.range) return;
+    if (!planet || !planet.alive) { unit.siegeLock = false; return false; }
+    // Out of reach: still closing, so no bombardment and no split-fire cost.
+    if (craft.pos.distanceTo(planet.pos) - WORLD.planetRadius > unit.stats.range) {
+      return false;
+    }
 
     // Its own timer, independent of the anti-ship one, so bombardment and
     // self-defence genuinely run in parallel instead of starving each other.
@@ -563,7 +572,8 @@ export class Game {
       * (unit.fireRateUntil > this.now ? unit.fireRateBonus : 1);
     if (unit.shieldOn) rof *= SHIELDS.fireRate;
     craft.siegeTimer -= dt;
-    if (craft.siegeTimer > 0) return;
+    // In range but between rounds: the split-fire cost still applies.
+    if (craft.siegeTimer > 0) return true;
     craft.siegeTimer += 1 / rof;
 
     // Against the crust it is penetration that matters, not tracking — every
@@ -571,6 +581,7 @@ export class Game {
     const pen = Math.max(SIEGE.minPenetration, weapon.penetration ?? 0.5);
     const dmg = (unit.stats.dps / weapon.rof) * pen * SIEGE.damageMultiplier;
     this.projectiles.fire(craft, planet, true, dmg);
+    return true;
   }
 
   onProjectileHit(p) {

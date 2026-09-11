@@ -15,21 +15,40 @@ import { makeRng, clamp, steerTowards } from './util.js';
 // Callsigns
 // ---------------------------------------------------------------------------
 let nextId = 1;
-const CALLSIGNS = [
-  'Alpha', 'Bravo', 'Charlie', 'Delta', 'Echo', 'Foxtrot', 'Golf', 'Hotel',
-  'India', 'Juliet', 'Kilo', 'Lima', 'Mike', 'November', 'Oscar', 'Papa',
-  'Quebec', 'Romeo', 'Sierra', 'Tango', 'Uniform', 'Victor', 'Whiskey',
-  'X-ray', 'Yankee', 'Zulu',
-];
+/**
+ * Callsigns, one pool per side.
+ *
+ * Both fleets used to draw from the same NATO list, and both counters started
+ * at zero — so a battle had two squadrons called Alpha, two called Bravo, and
+ * a HUD that cheerfully reported "Alpha -> target: Alpha". A session report
+ * showed three of the player's wardens all listing `target: Golf` while the
+ * player also had a Golf. The attacker keeps NATO; the defence gets its own
+ * list, so a name is never ambiguous about whose it is.
+ */
+const CALLSIGNS = {
+  attack: [
+    'Alpha', 'Bravo', 'Charlie', 'Delta', 'Echo', 'Foxtrot', 'Golf', 'Hotel',
+    'India', 'Juliet', 'Kilo', 'Lima', 'Mike', 'November', 'Oscar', 'Papa',
+    'Quebec', 'Romeo', 'Sierra', 'Tango', 'Uniform', 'Victor', 'Whiskey',
+    'X-ray', 'Yankee', 'Zulu',
+  ],
+  defense: [
+    'Anvil', 'Bulwark', 'Citadel', 'Dagger', 'Ember', 'Fortress', 'Gatehouse',
+    'Hearth', 'Ironside', 'Keystone', 'Lantern', 'Mainstay', 'Nemesis',
+    'Outpost', 'Palisade', 'Quarry', 'Rampart', 'Sentinel', 'Tower', 'Upland',
+    'Vigil', 'Warden-9', 'Watchtower', 'Yardarm', 'Zenith', 'Bastille',
+  ],
+};
 const callsignCounts = new Map();
 
 export function resetCallsigns() { callsignCounts.clear(); }
 
 function nextCallsign(faction) {
+  const pool = CALLSIGNS[faction] || CALLSIGNS.attack;
   const n = callsignCounts.get(faction) || 0;
   callsignCounts.set(faction, n + 1);
-  const name = CALLSIGNS[n % CALLSIGNS.length];
-  const lap = Math.floor(n / CALLSIGNS.length);
+  const name = pool[n % pool.length];
+  const lap = Math.floor(n / pool.length);
   return lap ? `${name}-${lap + 1}` : name;
 }
 

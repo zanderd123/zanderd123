@@ -388,7 +388,7 @@ export class Commander {
       if (!u.clearToSiege(enemyCraft)) continue;
       // Far from the planet there is nothing to be clear of yet — walk it in
       // and re-check next tick rather than locking it from across the map.
-      if (u.pos.distanceTo(PLANET) > WORLD.planetRadius + u.stats.range * 3.5) continue;
+      if (u.pos.distanceTo(PLANET) > WORLD.planetRadius + u.stats.range * SIEGE.lockRange) continue;
       if (u.beginSiege()) {
         locked.add(u);
         committed += this.siegeValue(u);
@@ -488,7 +488,7 @@ export class Commander {
       // A siege hull already in position holds its ground and shoots from
       // there rather than closing.
       if (this.faction === FACTION.ATTACK && u.siegeCapital
-        && u.pos.distanceTo(PLANET) <= WORLD.planetRadius + u.stats.range * 3.5) {
+        && u.pos.distanceTo(PLANET) <= WORLD.planetRadius + u.stats.range * SIEGE.lockRange) {
         _v.copy(u.pos).sub(target.pos);
         if (_v.lengthSq() < 1e-6) _v.set(0, 0, -1);
         _v.normalize().multiplyScalar(u.stats.range * 0.85).add(target.pos);

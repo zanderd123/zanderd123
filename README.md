@@ -224,6 +224,34 @@ Two attempts failed first, both instructive:
 guard: cutting the guard to 0.25 pushed the attacker back up to 79%, because
 the screen roams and the world ends up thinly held anyway.
 
+### Found from a real session report
+
+Three defects came out of one player's exported session (`REPORT` in the HUD),
+which is worth knowing as a technique — the snapshot stream shows things no
+aggregate does.
+
+1. **Bombarding hulls paid the split-fire cost while still flying to their
+   firing position.** `tryFire` charged `SIEGE.selfDefense` whenever
+   `siegeLock` was set, but `trySiegeFire` returns early when the crust is out
+   of range — so a hull crossing the last 1,100 units to its standoff gave up
+   80% of its guns and got nothing back. In the report a Bastion committed at
+   91% health and was dead sixteen seconds later; a second went the same way.
+   The cost is now charged only on ticks where the crust is actually in reach.
+
+2. **Auto-siege committed far too early** — at 3.5x weapon range from the
+   planet, when a hull can only fire at 1x. That is fine on its own (the
+   commitment is positional: you stop manoeuvring and head for your standoff)
+   and only became lethal in combination with (1). Tightening it to 1.4x
+   instead *also* fixed the symptom, but cut the siege's reach with it (crust
+   low-water 44% -> 62%), so the fix belongs in (1), not here. `SIEGE.lockRange`
+   exists so the two cannot drift apart again.
+
+3. **Both fleets drew callsigns from the same pool**, starting at the same
+   index — so a battle had two squadrons called Alpha and a HUD that reported
+   `Alpha -> target: Alpha`. The report showed three of the player's wardens
+   all listing `target: Golf` while the player also had a Golf. The attacker
+   keeps the NATO alphabet; the defence now has its own list.
+
 ### Invariants
 
 `tools/invariants.mjs` runs matches and asserts things that must never be true

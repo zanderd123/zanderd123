@@ -509,6 +509,20 @@ export const SIEGE = {
    * one — under fire is a legitimate choice now, not a bug.
    */
   lockGuard: 240,
+  /**
+   * How close to the crust a hull must be before committing, as a multiple of
+   * its weapon range on top of the planet's radius. For a Bastion, 3.5 means
+   * locking on about 1,900 units out and walking the rest of the way in.
+   *
+   * That is deliberately generous, and it is only safe because the split-fire
+   * cost is charged per tick and only while the crust is actually in range
+   * (see tryFire). Committing early therefore costs POSITION — the hull stops
+   * manoeuvring and beelines for its standoff — but not firepower. When the
+   * two were conflated, a Bastion that locked on here arrived at 16% health or
+   * not at all; tightening this to 1.4 instead fixed the symptom and cut the
+   * siege's reach with it (crust low-water 44% -> 62%).
+   */
+  lockRange: 3.5,
 };
 
 export const BUDGET = {
