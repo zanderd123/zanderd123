@@ -38,6 +38,7 @@ a non-circular check that no coefficient has drifted.
     node tools/analyse.mjs         100 matches, per-hull performance
     node tools/damage.mjs          the damage model, computed from src/
     node tools/siege-probe.mjs     does bombardment actually function
+    node tools/invariants.mjs      bug hunt: assert what must never be true
 
 Two warnings about `analyse.mjs`, both learned the hard way. Damage-per-point
 scores every support hull at zero by construction, so it credits healing too —
@@ -180,12 +181,63 @@ hulls died, so a lower `selfDefense` (more guns on the crust) made the attacker
 makes the attacker *stronger*. And measure in the parked scenario, not AI v AI
 — see below.
 
-### Known remaining issue: the AI defence abandons the objective
+### The defending AI holds its ground
 
-AI-v-AI currently reads 69% for the attacker, against 50% in the parked case
-with the same settings. That gap is not a tuning error, it is the AI defence
-wandering off its picket to go and find the enemy. That used to be free;
-now that the planet is a real target, it means leaving the objective
-undefended and losing it. Teaching the defence Commander to hold station over
-the world it is defending is the natural next piece of work, and until it is
-done, `AI v AI` understates how well the defence can do.
+The defence used to follow the fight. Ordered straight onto whatever it was
+shooting at with no limit, the whole fleet drifted after the battle and left the
+objective open — measured at **70% of the match with no defender within 1,000
+units of the planet**. Harmless while bombardment was broken; fatal once it
+worked.
+
+It is now leashed, via `DEFENCE` in `src/config.js`:
+
+- a `guardShare` of the fleet is the **close guard** on a tight `guardLeash`,
+  right over the world, and never follows the battle;
+- everyone else gets `screenLeash`, long enough to contest an approach forward
+  of the picket line;
+- guard duty is **sticky** — once assigned, a squadron holds it for life, and a
+  slot is refilled only when its holder dies.
+
+The leash is enforced in the flight model (`applyLeash` in `entities.js`),
+shaped like the existing arena-wall avoidance: it bends the desired heading
+rather than clamping the position, so a pursuing squadron peels off at the
+boundary instead of stopping dead.
+
+Two attempts failed first, both instructive:
+
+1. Clamping the order *destination* did nothing at all. ATTACK stance pursues
+   its target in the flight model and ignores `movePos` entirely, so defenders
+   still ended up 2,400 units out.
+2. Forcing the squadron onto MOVE stance so it would hold station did work
+   geographically — and gutted the defence, because it then never pursued
+   anything. Its AI-vs-AI win rate fell to 9%. Station-keeping has to be a
+   movement constraint, not a behaviour change.
+
+| | before | after |
+|---|---|---|
+| match with the planet uncovered | 70% | **0%** |
+| furthest a defender strays | 2,417u | 1,808u (leash 1,800) |
+| attacker win, AI v AI | 75% | **63%** |
+| attacker win, passive human attacking | 0% | **22%** |
+
+`guardShare` 0.35 with a long `screenLeash` measured better than a smaller
+guard: cutting the guard to 0.25 pushed the attacker back up to 79%, because
+the screen roams and the world ends up thinly held anyway.
+
+### Invariants
+
+`tools/invariants.mjs` runs matches and asserts things that must never be true
+— NaN state, hulls inside the planet or outside the arena, overhealing,
+scoreboard drift, projectile sanity, and the defending AI's own leash contract.
+It currently passes clean over ~173,000 ticks.
+
+Three of its first four "findings" were bugs in the test, not the game, and all
+three are worth knowing about before writing another one:
+
+- A carrier's brood is created with `alive = false` and revived on launch, so
+  unreleased hangar hulls are not deaths.
+- `releaseBroodHull` revives *any* dead slot, so one craft object can
+  legitimately die more than once — death events have to be counted, not ids.
+- A leashed hull has a turning circle. It keeps opening for a second or so
+  after the leash bends its heading, which is the flight model working. Only a
+  sustained opening is a fault.

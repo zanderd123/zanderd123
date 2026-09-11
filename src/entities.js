@@ -186,6 +186,12 @@ export class Unit {
     this.callsign = nextCallsign(faction);
     this.selected = false;
     this.attackTarget = null;
+    /**
+     * Station-keeping radius from the planet, 0 for unleashed. The defending
+     * Commander sets this so its fleet fights over the world instead of
+     * following the battle away from it; see applyLeash().
+     */
+    this.leashRadius = 0;
 
     /**
      * Stance. The single most-asked question in a battle is "what is this
@@ -466,6 +472,31 @@ const softY = () => Math.min(WALL, WORLD.arenaHeight * 0.5);
 const _away = new THREE.Vector3();
 
 /** Bend a desired heading away from the arena shell. Returns 0..1 pressure. */
+/**
+ * Hold a leashed hull inside its station.
+ *
+ * Shaped deliberately like avoidWalls: the DESIRED HEADING is bent, not the
+ * position clamped, so a pursuing squadron peels off at the boundary instead of
+ * stopping dead or snapping back. This is how a defending fleet stays over the
+ * world it is defending while still fighting properly — an earlier attempt did
+ * it by forcing the squadron onto MOVE stance instead, which stopped it
+ * pursuing at all and turned the whole defence into a punching bag (its
+ * AI-vs-AI win rate fell to 9%).
+ *
+ * `leash` is a radius from the planet's centre, or 0 for unleashed.
+ */
+function applyLeash(pos, dir, leash) {
+  if (!leash) return;
+  _away.copy(pos).sub(PLANET);
+  const d = _away.length();
+  // Soft band over the outer 15% so the turn starts before the boundary.
+  const soft = leash * 0.85;
+  if (d <= soft || d < 1e-4) return;
+  const k = clamp((d - soft) / (leash - soft), 0, 1);
+  _away.divideScalar(d).negate();
+  dir.lerp(_away, k * 0.9).normalize();
+}
+
 function avoidWalls(pos, dir) {
   let press = 0;
   const radial = Math.hypot(pos.x, pos.z);
@@ -637,6 +668,9 @@ export function updateCraftMovement(craft, dt) {
     dir.addScaledVector(fromPlanet.normalize(), ((ORBIT_FLOOR - pd) / 45) * 2.5);
     dir.normalize();
   }
+  // Station-keeping runs before wall avoidance, so the arena wall still wins
+  // if the two ever disagree.
+  applyLeash(craft.pos, dir, unit.leashRadius);
   craft.wallPress = avoidWalls(craft.pos, dir);
 
   // Bank into the turn: how far the desired heading is off our own right axis.

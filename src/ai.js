@@ -12,7 +12,8 @@
  */
 import * as THREE from 'three';
 import {
-  SHIPS, GROUND, WORLD, FACTION, SIEGE, DIFFICULTY, DEFAULT_DIFFICULTY, unitCost,
+  SHIPS, GROUND, WORLD, FACTION, SIEGE, DEFENCE, DIFFICULTY, DEFAULT_DIFFICULTY,
+  unitCost,
 } from './config.js';
 import { makeRng } from './util.js';
 
@@ -113,15 +114,50 @@ export function generateFleet(budget, side, seed = 99) {
 
 const _v = new THREE.Vector3();
 const _dest = new THREE.Vector3();
+const _leash = new THREE.Vector3();
 const PLANET = new THREE.Vector3(...WORLD.planetCenter);
 /** How close an attacker has to get before the defence treats it as a threat. */
 const THREAT_RANGE = 1500;
 /** Seconds with nothing visible before a defender stops holding and sweeps. */
 const PATIENCE = 55;
+/**
+ * How far from the world a defending squadron will ever be sent.
+ *
+ * The defence used to be ordered straight onto whatever it was shooting at,
+ * with no limit, so the whole fleet followed the fight wherever it drifted and
+ * the objective was left open. That was survivable while bombardment was
+ * broken; now that a siege actually works, an uncovered planet loses the match
+ * outright. Every destination the defence issues is clamped inside this.
+ */
+const screenLeash = () => WORLD.planetRadius + DEFENCE.screenLeash;
+/**
+ * The close guard's much tighter leash, and how much of the fleet is held on
+ * it. These squadrons never follow the battle — they hold station over the
+ * world, which is the only thing that reliably keeps a bombardment from being
+ * set up behind the fleet's back. Chosen as whichever squadrons are already
+ * nearest the planet, so the assignment is stable frame to frame and refills
+ * itself as hulls die.
+ */
+const guardLeash = () => WORLD.planetRadius + DEFENCE.guardLeash;
+
 /** Seconds a damaged squadron is allowed to spend withdrawing to a repairer. */
 const WITHDRAW_TIME = 30;
 /** ...and how long before it is allowed to try that again. */
 const WITHDRAW_COOLDOWN = 45;
+
+/**
+ * Pull `dest` back inside `radius` of the planet, in place. Direction is kept,
+ * only the distance is cut, so a leashed squadron still faces the thing it was
+ * sent at — it just refuses to leave the world to get there.
+ */
+function leashToPlanet(dest, radius) {
+  if (!Number.isFinite(radius)) return dest;
+  _leash.copy(dest).sub(PLANET);
+  const d = _leash.length();
+  if (d <= radius || d < 1e-6) return dest;
+  dest.copy(PLANET).addScaledVector(_leash.divideScalar(d), radius);
+  return dest;
+}
 
 export class Commander {
   constructor(game, faction, difficulty = DEFAULT_DIFFICULTY) {
@@ -207,6 +243,7 @@ export class Commander {
       _v.copy(mender.pos);
       _v.x += (this.rng() - 0.5) * 160;
       _v.y += (this.rng() - 0.5) * 120 * WORLD.spread;
+      if (this.faction === FACTION.DEFENSE) leashToPlanet(_v, screenLeash());
       u.order(_v, { attack: null, stance: 'move' });
     }
     return withdrawing;
@@ -255,8 +292,35 @@ export class Commander {
     return this._pickets;
   }
 
+  /**
+   * Pick the close guard, and keep it picked.
+   *
+   * Assignment is sticky: once a squadron is the home fleet it stays the home
+   * fleet for as long as it lives, and a slot is only refilled when its holder
+   * dies. Re-deriving the set each tick from "whoever is nearest the planet"
+   * churned — squadrons flipped between guard and screen as the fight moved,
+   * which yo-yoed them between a 920u and a 3,200u leash and left them
+   * repeatedly outside whichever one they had just been given.
+   */
+  assignGuards(free) {
+    this.guards = this.guards || new Set();
+    for (const u of [...this.guards]) if (!u.alive) this.guards.delete(u);
+
+    const want = Math.max(1, Math.round(free.length * DEFENCE.guardShare));
+    if (this.guards.size < want) {
+      const candidates = free
+        .filter((u) => !this.guards.has(u))
+        .sort((a, b) => a.pos.distanceToSquared(PLANET) - b.pos.distanceToSquared(PLANET));
+      for (const u of candidates) {
+        if (this.guards.size >= want) break;
+        this.guards.add(u);
+      }
+    }
+    return this.guards;
+  }
+
   /** Sit on the line with a bit of spread, rather than bunching on one point. */
-  holdPicket(units) {
+  holdPicket(units, leashFor) {
     const anchor = this.faction === FACTION.DEFENSE
       ? this.pickets.line : new THREE.Vector3(...WORLD.attackAnchor);
     for (const u of units) {
@@ -264,6 +328,9 @@ export class Commander {
       _v.x += (this.rng() - 0.5) * 700;
       _v.y += (this.rng() - 0.5) * 340 * WORLD.spread;
       _v.z += (this.rng() - 0.5) * 380;
+      // A close guard's leash is tighter than the picket line's distance from
+      // the world, so this is what actually pulls it back over the objective.
+      if (leashFor) leashToPlanet(_v, leashFor(u));
       u.order(_v, { attack: null, stance: 'move' });
     }
   }
@@ -359,10 +426,23 @@ export class Commander {
         || u.pos.distanceTo(this.pickets.line) < THREAT_RANGE);
     }
 
+    // The close guard. A share of the fleet is held on a tight leash over the
+    // objective and never follows the battle; everyone else gets a longer one.
+    // Without this the whole defence drifts after whatever it is shooting at
+    // and a bombardment gets set up behind it.
+    let leashFor = () => Infinity;
+    if (this.faction === FACTION.DEFENSE) {
+      const guards = this.assignGuards(free);
+      leashFor = (u) => (guards.has(u) ? guardLeash() : screenLeash());
+      // The flight model reads this; without it the leash only constrained
+      // destinations, which ATTACK stance ignores.
+      for (const u of ships) u.leashRadius = leashFor(u);
+    }
+
     if (!threats.length) {
       const impatient = this.searchTimer > PATIENCE;
-      if (this.faction === FACTION.DEFENSE && !impatient) this.holdPicket(free);
-      else this.advance(free);
+      if (this.faction === FACTION.DEFENSE && !impatient) this.holdPicket(free, leashFor);
+      else this.advance(free, leashFor);
       return;
     }
     this.searchTimer = 0;
@@ -386,7 +466,7 @@ export class Commander {
         && this.canHurt(u, focus)) target = focus;
 
       if (!target) {
-        if (this.faction === FACTION.DEFENSE) this.holdPicket([u]);
+        if (this.faction === FACTION.DEFENSE) this.holdPicket([u], leashFor);
         else this.advance([u]);
         continue;
       }
@@ -400,6 +480,7 @@ export class Commander {
           ? Math.max(700, u.stats.range * 2.2)
           : u.stats.range * 0.85;
         _v.normalize().multiplyScalar(standoff).add(target.pos);
+        leashToPlanet(_v, leashFor(u));
         u.order(_v, { attack: target, stance: 'move' });
         continue;
       }
@@ -419,6 +500,12 @@ export class Commander {
       const s = this.diff.scatter;
       dest.x += (this.rng() - 0.5) * 120 * s;
       dest.y += (this.rng() - 0.5) * 90 * s * WORLD.spread;
+
+      // Stance stays ATTACK so the squadron actually fights. What keeps it
+      // over the world is unit.leashRadius, enforced in the flight model —
+      // forcing MOVE here instead stopped it pursuing at all and gutted the
+      // defence.
+      leashToPlanet(dest, leashFor(u));
       u.order(dest, { attack: target, stance: 'attack' });
     }
 
@@ -489,7 +576,7 @@ export class Commander {
   }
 
   /** Move toward the objective, or sweep if the opening push found nothing. */
-  advance(units) {
+  advance(units, leashFor) {
     const grace = this.faction === FACTION.ATTACK ? 8 : 20;
     let dest;
     if (this.searchTimer < grace && this.searchIndex === 0) {
@@ -505,6 +592,10 @@ export class Commander {
       _v.x += (this.rng() - 0.5) * 520 * s;
       _v.y += (this.rng() - 0.5) * 300 * s * WORLD.spread;
       _v.z += (this.rng() - 0.5) * 520 * s;
+      // Even a sweep stays over the world it is holding.
+      if (this.faction === FACTION.DEFENSE) {
+        leashToPlanet(_v, leashFor ? leashFor(u) : screenLeash());
+      }
       u.order(_v, {
         attack: null,
         stance: this.faction === FACTION.ATTACK ? 'attack' : 'move',

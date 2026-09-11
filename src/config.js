@@ -551,6 +551,28 @@ export const TRANSIT = {
   engageDistance: 600,
 };
 
+/**
+ * How the defending AI holds its ground.
+ *
+ * A defence that chases is a defence that loses its planet. These bound how
+ * far it will ever go, and are enforced in the flight model (see applyLeash in
+ * entities.js) rather than by changing stance — an earlier attempt forced the
+ * squadron onto MOVE instead, which stopped it pursuing at all and dropped its
+ * win rate to 9%.
+ *
+ *   guardShare   fraction of the fleet held on the tight leash, right over the
+ *                world. These never follow the battle, so a bombardment can
+ *                never be set up behind the fleet's back.
+ *   guardLeash   that tight radius, measured from the planet's centre.
+ *   screenLeash  everyone else. Long enough to fight forward of the picket
+ *                line and contest an approach, short enough to get home.
+ */
+export const DEFENCE = {
+  guardShare: 0.35,
+  guardLeash: 620,      // + planetRadius
+  screenLeash: 2900,    // + planetRadius
+};
+
 /** Seconds. On expiry the defender wins. */
 export const TIME_LIMIT = 600;
 
