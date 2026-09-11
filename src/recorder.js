@@ -182,7 +182,40 @@ export class Recorder {
         toOrder: r0(u.pos.distanceTo(u.movePos)),
       });
     }
-    this.battle.snapshots.push({ t: +game.now.toFixed(0), units });
+    // The other side, summarised.
+    //
+    // Snapshots used to record only the player's fleet, which made whole
+    // classes of question unanswerable after the fact: a report showing your
+    // squadron bombarding unopposed for two minutes cannot distinguish "the
+    // defence ignored it" from "the defence was already dead". Squadron-level
+    // detail for the enemy would be a fog-of-war leak into a file you can read
+    // mid-match, so this is a count and a health total only.
+    const them = mine === 'attack' ? 'defense' : 'attack';
+    let enemyHulls = 0;
+    let enemyHp = 0;
+    let enemyMax = 0;
+    let enemyEngaged = 0;
+    for (const u of game.units) {
+      if (u.faction !== them || !u.alive) continue;
+      enemyHulls += u.count;
+      enemyMax += u.stats.maxHealth * u.type.count;
+      for (const c of u.craft) {
+        if (!c.alive) continue;
+        enemyHp += c.hp;
+        // Something it is actually shooting at, which is what says whether the
+        // enemy was busy elsewhere or simply gone.
+        if (c.target && c.target.alive) enemyEngaged++;
+      }
+    }
+    this.battle.snapshots.push({
+      t: +game.now.toFixed(0),
+      units,
+      enemy: {
+        hulls: enemyHulls,
+        hp: enemyMax ? +((enemyHp / enemyMax) * 100).toFixed(0) : 0,
+        firing: enemyEngaged,
+      },
+    });
     // Ten minutes of history at 15s is 40 frames; keep the last ten minutes.
     if (this.battle.snapshots.length > 40) this.battle.snapshots.shift();
   }
