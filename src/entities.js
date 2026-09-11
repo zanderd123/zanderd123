@@ -55,6 +55,9 @@ export class Craft {
     this.target = null;
     // Stagger the opening volley so a squadron doesn't fire as one block.
     this.fireTimer = rng() * 0.7;
+    // Bombardment runs on its own clock so it does not compete with the
+    // squadron's self-defence fire — see SIEGE.selfDefense.
+    this.siegeTimer = 0;
     this.mode = 'move';           // dogfighters flip to 'breakaway'
     this.modeTimer = 0;
     this.bank = 0;
@@ -368,8 +371,20 @@ export class Unit {
   }
 
   /** True when nothing hostile is inside weapon range of any of our hulls. */
+  /**
+   * Advisory only: is this a sensible moment to commit to a bombardment?
+   *
+   * Consulted by the AI and by the ATTACK-stance auto-siege, which should not
+   * lock on with something sitting on top of them. A player who explicitly
+   * orders a bombardment always gets one — doing it under fire is a real
+   * choice now that a sieging squadron can still defend itself.
+   *
+   * The radius is a tight guard rather than full weapon range. At weapon range
+   * this could effectively never be true against a defence parked on the
+   * objective, which is what made bombardment unreachable.
+   */
   clearToSiege(enemyCraft) {
-    const r2 = this.stats.range ** 2;
+    const r2 = SIEGE.lockGuard ** 2;
     for (const c of this.craft) {
       if (!c.alive) continue;
       for (const e of enemyCraft) {
@@ -388,7 +403,12 @@ export class Unit {
     if (!this.canSiege) return 0;
     const w = this.type.weapon;
     const pen = Math.max(SIEGE.minPenetration, w.penetration ?? 0.5);
-    return this.stats.dps * pen * this.count;
+    // Must match trySiegeFire exactly: only (1 - selfDefense) of the rate of
+    // fire goes into the crust, and each of those rounds is multiplied. This
+    // number is shown to the player as a time-to-break estimate, so a
+    // convenient approximation here is just a lie on the HUD.
+    return this.stats.dps * pen * SIEGE.damageMultiplier
+      * (1 - SIEGE.selfDefense) * this.count;
   }
 
   /**
@@ -412,8 +432,9 @@ export class Unit {
     _siege.copy(PLANET).addScaledVector(_tmp, standoff);
     this.order(_siege, { attack: null, siege: true });
     this.siegeLock = true;
-    // Locked in: stop shooting at ships entirely. This is the commitment.
-    for (const c of this.craft) c.target = null;
+    // The squadron keeps shooting back — the commitment is that most of its
+    // rate of fire now goes into the crust instead (SIEGE.selfDefense), and
+    // that it is holding a fixed standoff rather than manoeuvring.
     return true;
   }
 

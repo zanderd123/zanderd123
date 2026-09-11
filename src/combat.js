@@ -120,7 +120,7 @@ export function acquireTarget(craft, candidates, now) {
     return craft.target && craft.target.alive ? craft.target : null;
   }
   const unit = craft.unit;
-  if (!unit.type.weapon || unit.siegeLock) return null;
+  if (!unit.type.weapon) return null;
   // A taunt overrides target selection entirely for its duration.
   if (craft.tauntedBy && craft.tauntedBy.alive && craft.tauntUntil > now) {
     return craft.tauntedBy;

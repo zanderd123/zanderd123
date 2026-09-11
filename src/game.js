@@ -337,11 +337,10 @@ export class Game {
       for (const c of u.craft) {
         if (!c.alive) continue;
         if (c.hitFlash > 0) c.hitFlash -= dt;
-        if (u.siegeLock) {
-          // Committed to the crust: no ship targets at all.
-          c.target = null;
-        } else if (retarget || !c.target || !c.target.alive
-                   || !c.target.seenBy[u.faction]) {
+        if (retarget || !c.target || !c.target.alive
+            || !c.target.seenBy[u.faction]) {
+          // Bombarding hulls acquire too — they keep a reduced share of their
+          // rate of fire for self-defence.
           c.target = acquireTarget(c, candidates, this.now);
         }
         updateCraftMovement(c, dt, this.now);
@@ -518,7 +517,16 @@ export class Game {
     const unit = craft.unit;
     const weapon = unit.type.weapon;
     if (!weapon) return;
-    if (unit.siegeLock) { this.trySiegeFire(craft, dt); return; }
+
+    // A bombarding squadron splits its output rather than going blind: most of
+    // the rate of fire goes into the crust on its own timer, and SIEGE.selfDefense
+    // of it stays here, so the hull can still answer whatever is shooting at it.
+    let rateShare = 1;
+    if (unit.siegeLock) {
+      this.trySiegeFire(craft, dt);
+      rateShare = SIEGE.selfDefense;
+      if (rateShare <= 0) return;
+    }
 
     const target = craft.target;
     if (!target || !target.alive) return;
@@ -528,7 +536,8 @@ export class Game {
     const turreted = unit.isGround || unit.type.sniper || unit.type.scale >= 2.5;
     if (!turreted && angleToTarget(craft.obj, target.pos) > 0.42) return;
 
-    let rof = weapon.rof * (unit.fireRateUntil > this.now ? unit.fireRateBonus : 1);
+    let rof = weapon.rof * rateShare
+      * (unit.fireRateUntil > this.now ? unit.fireRateBonus : 1);
     if (unit.shieldOn) rof *= SHIELDS.fireRate;
     craft.fireTimer -= dt;
     if (craft.fireTimer > 0) return;
@@ -548,16 +557,19 @@ export class Game {
     if (!planet || !planet.alive) { unit.siegeLock = false; return; }
     if (craft.pos.distanceTo(planet.pos) - WORLD.planetRadius > unit.stats.range) return;
 
-    let rof = weapon.rof * (unit.fireRateUntil > this.now ? unit.fireRateBonus : 1);
+    // Its own timer, independent of the anti-ship one, so bombardment and
+    // self-defence genuinely run in parallel instead of starving each other.
+    let rof = weapon.rof * (1 - SIEGE.selfDefense)
+      * (unit.fireRateUntil > this.now ? unit.fireRateBonus : 1);
     if (unit.shieldOn) rof *= SHIELDS.fireRate;
-    craft.fireTimer -= dt;
-    if (craft.fireTimer > 0) return;
-    craft.fireTimer += 1 / rof;
+    craft.siegeTimer -= dt;
+    if (craft.siegeTimer > 0) return;
+    craft.siegeTimer += 1 / rof;
 
     // Against the crust it is penetration that matters, not tracking — every
     // hull can bombard, but a heavy gun is worth many light ones.
     const pen = Math.max(SIEGE.minPenetration, weapon.penetration ?? 0.5);
-    const dmg = (unit.stats.dps / weapon.rof) * pen;
+    const dmg = (unit.stats.dps / weapon.rof) * pen * SIEGE.damageMultiplier;
     this.projectiles.fire(craft, planet, true, dmg);
   }
 

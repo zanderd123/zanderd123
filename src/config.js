@@ -449,12 +449,66 @@ export const COMBAT = {
  * the decision interesting rather than free.
  */
 export const SIEGE = {
-  baseMultiplier: 2,
-  hpPerAttackPoint: 6,
+  /**
+   * Crust HP is max(baseMultiplier x biggest hull in the battle,
+   * hpPerAttackPoint x the attacker's points). The floor stops a tiny
+   * attacking force from one-shotting a world; the per-point term is what
+   * makes the objective scale with the fleet sent at it.
+   *
+   * Both were far too high to matter. A committed bombardment lands roughly
+   * 1,000-2,500 damage over a match, against a planet that used to have 6,000
+   * HP at a 1,000-point budget — so the crust was never in danger and the
+   * whole siege route was decorative. These are set so that a real
+   * commitment is a real race, and a token one still gets nowhere.
+   */
+  baseMultiplier: 1.2,
+  hpPerAttackPoint: 2.5,
   minPenetration: 0.05,
-  standoff: 0.75,
-  regenPerSecond: 0.006,
+  /**
+   * How much harder a gun hits a planet than a warship.
+   *
+   * A capital shell against a manoeuvring hull is mostly a tracking problem;
+   * against a continent it is not. Siege rounds are never rolled for accuracy
+   * — they always land — but at 1x the per-shot damage a whole match's
+   * bombardment came to roughly a fifth of the crust, which is why nobody
+   * ever bothered. This is the knob for how threatening a siege is, and it is
+   * deliberately separate from ship-to-ship damage so tuning one cannot
+   * disturb the other.
+   */
+  damageMultiplier: 2,
+  // Where a bombarding hull parks, as a fraction of its weapon range above
+  // the surface. Pushed out from 0.75 so a siege line sits clear of a defence
+  // sitting on the objective — it buys survivability from geometry rather
+  // than from handing the sieging squadron its guns back, which would make it
+  // better in a straight fight and undo the whole trade.
+  standoff: 0.95,
+  regenPerSecond: 0.003,
   regenDelay: 12,
+  /**
+   * How much of a bombarding squadron's rate of fire stays pointed at ships
+   * rather than at the crust.
+   *
+   * This is what makes a siege a strategy instead of a victory lap. It used to
+   * be 0 in all but name: locking on cleared every target, so a bombarding
+   * hull could not shoot back at all and was a free kill for anything parked
+   * over the planet. Since you also could not lock while an enemy was within
+   * weapon range, bombardment only unlocked after you had already cleared the
+   * defence — by which point you had won on hulls anyway. Measured over 100
+   * matches, the planet was destroyed once.
+   *
+   * Now the squadron splits its output: (1 - selfDefense) of its rate of fire
+   * goes into the crust and the rest stays available to answer whatever is
+   * shooting at it. The commitment is real — you give up most of your
+   * anti-ship output — but it is survivable, so the defence has to come and
+   * break the siege rather than wait for it to die on its own.
+   */
+  selfDefense: 0.2,
+  /**
+   * How close an enemy has to be before the AI and the auto-siege rule judge
+   * a lock unwise. A player who explicitly orders a bombardment always gets
+   * one — under fire is a legitimate choice now, not a bug.
+   */
+  lockGuard: 240,
 };
 
 export const BUDGET = {

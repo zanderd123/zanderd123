@@ -12,7 +12,7 @@
 import * as THREE from 'three';
 import {
   WORLD, GFX, GFX_PRESETS, FACTION, SPEEDS, DEFAULT_SPEED_INDEX,
-  budgetFor, setGfxPreset, setPlayMode,
+  SIEGE, budgetFor, setGfxPreset, setPlayMode,
 } from './config.js';
 import { SpaceScene } from './scene.js';
 import { FleetRenderer } from './render.js';
@@ -114,7 +114,7 @@ class App {
     this.game.onEnd = (state) => this.onBattleEnd(state);
     this.game.onHatch = (parent, brood) => this.onBroodHatch(parent, brood);
     this.game.onAutoSiege = (unit) => this.hud.flashMessage(
-      `${unit.label} has a clear lane — commencing bombardment. It will not defend itself.`, 3.4);
+      `${unit.label} has a clear lane — commencing bombardment. Most of its guns are on the crust now.`, 3.4);
 
     this.commander = new Commander(this.game, enemy, setup.difficulty);
 
@@ -315,7 +315,8 @@ class App {
     for (const u of units) {
       if (!u.alive) continue;
       if (!u.canSiege) { incapable++; continue; }
-      if (!u.clearToSiege(enemyCraft)) { blocked++; continue; }
+      // Not a gate any more — just something worth telling them about.
+      if (!u.clearToSiege(enemyCraft)) blocked++;
       if (u.beginSiege()) { locked++; dps += u.siegeDps; }
     }
 
@@ -326,11 +327,12 @@ class App {
         ? ` — about ${Math.max(1, Math.round(this.game.planet.maxHealth / Math.max(1, dps)))}s to break the crust at that rate`
         : '';
       this.recorder.log('siege', { units: locked, dps: Math.round(dps) });
+      const contested = blocked
+        ? ` ${blocked} of them ${blocked > 1 ? 'are' : 'is'} under fire — escort them or the siege breaks.`
+        : '';
       this.hud.flashMessage(
-        `${locked} unit${locked > 1 ? 's' : ''} bombarding at ${Math.round(dps)}/s${eta}. They will not defend themselves.`, 4.2);
-    } else if (blocked) {
-      this.hud.flashMessage(
-        'Cannot lock on: enemy ships are inside weapon range. Clear them first.');
+        `${locked} unit${locked > 1 ? 's' : ''} bombarding at ${Math.round(dps)}/s${eta}.`
+        + ` They keep ${Math.round(SIEGE.selfDefense * 100)}% of their guns for self-defence.${contested}`, 4.6);
     } else if (incapable) {
       this.hud.flashMessage(
         'Emplacements cannot bombard — they are bolted to the planet.');

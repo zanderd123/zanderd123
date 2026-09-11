@@ -32,6 +32,7 @@ const STEP = 1 / 30;
 const PLANET = new THREE.Vector3(...WORLD.planetCenter);
 
 let everLocked = 0;
+let planetFell = 0;
 let everDamaged = 0;
 let totalLockSecs = 0;
 let totalShots = 0;
@@ -94,6 +95,7 @@ for (let m = 0; m < MATCHES; m++) {
     if (game.planet) worst = Math.min(worst, game.planet.fraction);
   }
 
+  if (game.planetFell) planetFell++;
   if (lockSecs > 0) everLocked++;
   if (worst < 0.999) everDamaged++;
   totalLockSecs += lockSecs;
@@ -110,6 +112,7 @@ for (let m = 0; m < MATCHES; m++) {
 
 console.log(`\n  ${everLocked}/${MATCHES} matches where a bombardment was ever established`);
 console.log(`  ${everDamaged}/${MATCHES} matches where the crust took ANY damage`);
+console.log(`  ${planetFell}/${MATCHES} matches WON by destroying the planet`);
 console.log(`  mean seconds locked   ${(totalLockSecs / MATCHES).toFixed(0)} of ${TIME_LIMIT}`);
 console.log(`  mean shells fired     ${(totalShots / MATCHES).toFixed(0)}`);
 console.log(`  mean crust low-water  ${((totalWorstFraction / MATCHES) * 100).toFixed(0)}%`);
