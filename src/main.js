@@ -365,7 +365,7 @@ class App {
     if (announce) {
       const who = `${sel.length} squadron${sel.length > 1 ? 's' : ''}`;
       const line = {
-        attack: `${who} set to ATTACK — closest enemy first, answering anything that shoots them, and taking a clear shot at the planet if one opens.`,
+        attack: `${who} set to ATTACK — they hold the target you gave them if you named one, otherwise closest enemy first, and an advance with no target of its own will bombard the planet if it gets there unopposed.`,
         move: `${who} set to MOVE — they will hold station and fire at what comes in range.`,
         hold: `${who} set to HOLD — frozen in place, still firing at anything in range.`,
         defend: `${who} set to DEFEND.`,

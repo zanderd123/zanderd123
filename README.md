@@ -38,6 +38,7 @@ a non-circular check that no coefficient has drifted.
     node tools/analyse.mjs         100 matches, per-hull performance
     node tools/damage.mjs          the damage model, computed from src/
     node tools/siege-probe.mjs     does bombardment actually function
+    node tools/strategy.mjs        does the attacker's PLAN matter
     node tools/invariants.mjs      bug hunt: assert what must never be true
 
 Two warnings about `analyse.mjs`, both learned the hard way. Damage-per-point
@@ -251,6 +252,64 @@ aggregate does.
    `Alpha -> target: Alpha`. The report showed three of the player's wardens
    all listing `target: Golf` while the player also had a Golf. The attacker
    keeps the NATO alphabet; the defence now has its own list.
+
+### "I sent everything at the planet and won"
+
+A second session report raised a different complaint: the player drag-selected
+the whole fleet, clicked once near the planet, never touched the mouse again,
+and won at 1:27 with the enemy fleet at 11 of 13 hulls and 89% health. Two
+kills each. The planet did all the work, and no decision had been made.
+
+`tools/strategy.mjs` measures that directly — it plays the attacker by hand
+with a fixed plan and never intervenes, so the only variable is the plan:
+
+| plan | what the player does | win rate | by planet |
+|---|---|---|---|
+| `staged` | fast movers first, heavies on contact | 53% | 53% |
+| `escort` | capitals bombard, the rest cover them | 48% | 48% |
+| `blob` | select all, attack-move at the planet, walk away | 35% | 35% |
+| `ontarget` | the same click, landing on a defender | 23% | 20% |
+| `nosiege` | the blob with bombardment suppressed | 15% | 0% |
+| `siegerush` | capitals alone, escorts held back | 13% | 13% |
+| `passive` | nothing | 0% | 0% |
+
+Two real defects were behind the report, and they compounded:
+
+1. **A player's attack order was discarded within a tick.**
+   `updateAttackStance` rewrites `attackTarget` several times a second so an
+   attack-*move* still finds something to shoot, and it did that
+   unconditionally — including to squadrons the player had explicitly aimed at
+   a named hull. The report shows the whole fleet on `Hearth` at 0:00, `Dagger`
+   at 0:15, `Ember` at 0:30 and `Bulwark` at 0:45 with no input in between. So
+   focus fire — kill the Rig, kill the Aegis, break the thing that is holding
+   the defence together — was not a move that existed. `orderedTarget` now
+   holds what the player clicked until it dies or a new order replaces it, and
+   the panel names it (`HUNTING IRONSIDE`) so the difference is visible.
+
+   Measured on the same 40 seeds: before the fix, clicking a defender produced
+   *byte-identical* results to clicking empty sky (35%, 183s mean, crust
+   low-water 38%) — proof the order was reaching nothing at all.
+
+2. **The auto-siege overrode the order it should have deferred to.** It exists
+   so an aimless advance on the planet doesn't stall with nothing in sensor
+   range. It fired regardless of what the squadron had been told to do, so a
+   fleet sent to kill a ship quietly stopped fighting and levelled the crust
+   instead. That is why the one plan needing no decisions was also the only one
+   that ever destroyed a planet. It is now gated on `!orderedTarget`:
+   bombarding is something you ask for — click the planet itself, the order
+   gizmo turns amber — or something an advance with no target of its own falls
+   into.
+
+A third, cosmetic but real: at 8x speed a decided battle kept simulating for
+the rest of the frame and re-fired `onEnd` each step, so the report carried
+**seven** identical `battle-end` events. The step loop now breaks on a result
+and `checkVictory` announces once.
+
+Raising crust HP was tested as an alternative and rejected. It does lower the
+blob, but it lowers everything else further and **compresses** the gradient —
+at `hpPerAttackPoint` 4.5 the three main plans land within four points of each
+other (23/27/23), which is less skill expression, not more. 2.5 keeps the
+widest spread and stays.
 
 ### Invariants
 

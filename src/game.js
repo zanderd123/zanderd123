@@ -288,6 +288,11 @@ export class Game {
       this.step(STEP);
       this.accumulator -= STEP;
       steps++;
+      // Each step checks for a result, so a frame that runs several of them
+      // has to stop at the one that ends the battle. Without this the rest of
+      // the frame's steps kept simulating a decided match and re-firing onEnd:
+      // a session report at 8x carried seven identical battle-end events.
+      if (this.state !== 'playing') break;
     }
     // Never let the backlog grow without bound after a stall.
     if (steps === MAX_STEPS_PER_FRAME) this.accumulator = 0;
@@ -441,8 +446,22 @@ export class Game {
         u.faction === FACTION.ATTACK ? FACTION.DEFENSE : FACTION.ATTACK,
       );
 
+      // The player named a hull to kill. That order outranks everything below
+      // — including the auto-siege — and it stands until the hull dies or a
+      // new order replaces it.
+      if (u.orderedTarget && !u.orderedTarget.alive) u.orderedTarget = null;
+
       // Near the planet with a clear lane: commit to the bombardment.
-      if (u.faction === FACTION.ATTACK && u.siegeCapital
+      //
+      // This exists so an attack-move toward the planet doesn't stall out with
+      // nothing in sensor range, and it is deliberately limited to that case.
+      // It used to fire whatever the squadron had been told to do, which meant
+      // a fleet sent at an enemy hull near the world quietly stopped fighting
+      // and levelled the crust instead: the game chose the win condition, and
+      // the only plan that needed no decisions was also the only one that ever
+      // destroyed a planet. Bombarding is now something you ask for — click
+      // the planet itself — or something an aimless advance falls into.
+      if (u.faction === FACTION.ATTACK && u.siegeCapital && !u.orderedTarget
           && this.planet && this.planet.alive
           && u.pos.distanceTo(this.planet.pos)
              < WORLD.planetRadius + u.stats.range * SIEGE.lockRange
@@ -451,7 +470,8 @@ export class Game {
         continue;
       }
 
-      const target = this.threatTo(u, u.faction) || this.nearestEnemyUnit(u);
+      const target = u.orderedTarget
+        || this.threatTo(u, u.faction) || this.nearestEnemyUnit(u);
       u.attackTarget = target;
       if (!target) continue;
 
@@ -673,6 +693,10 @@ export class Game {
   castFor(unit) { return castAbility(this.abilityContext(), unit); }
 
   checkVictory() {
+    // A result is announced exactly once. The loop above stops on it, but
+    // anything else that calls in — a late projectile resolving, a caller
+    // stepping the game by hand — must not re-announce a decided battle.
+    if (this.state !== 'playing') return;
     if (this.planet && !this.planet.alive) {
       this.planetFell = true;
       this.state = this.playerFaction === FACTION.ATTACK ? 'victory' : 'defeat';

@@ -438,6 +438,13 @@ export class InputController {
       target: enemy ? enemy.label : undefined,
       units: sel.map((u) => u.label),
     });
+    if (enemy) {
+      // Worth saying out loud, because the old behaviour was the opposite: the
+      // stance used to overwrite this within a tick.
+      this.app.hud.flashMessage(
+        `${sel.length} squadron${sel.length > 1 ? 's' : ''} hunting ${enemy.label}`
+        + ' — they stay on it until it dies or you give them something else.');
+    }
     this.app.flashOrder(this.orderPoint.clone(), !!enemy);
   }
 

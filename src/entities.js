@@ -206,6 +206,20 @@ export class Unit {
     this.selected = false;
     this.attackTarget = null;
     /**
+     * The squadron the player actually clicked on, as opposed to whatever the
+     * ATTACK stance has drifted onto.
+     *
+     * These have to be separate. `attackTarget` is rewritten several times a
+     * second by updateAttackStance so that an attack-MOVE (a click on empty
+     * space) still finds something to shoot — but that same rewrite used to
+     * discard an order aimed at a named hull within a tick of it being given.
+     * A session report showed a fleet ordered onto "Hearth" shooting at
+     * Dagger by 0:15, Ember by 0:30 and Bulwark by 0:45 without the player
+     * touching anything, which means focus fire — kill the Rig, kill the Aegis
+     * — was not a move you could make.
+     */
+    this.orderedTarget = null;
+    /**
      * Station-keeping radius from the planet, 0 for unleashed. The defending
      * Commander sets this so its fleet fights over the world instead of
      * following the battle away from it; see applyLeash().
@@ -342,7 +356,14 @@ export class Unit {
         ? 'PLANET' : this.guardTarget.label.toUpperCase();
       return firing ? `DEFENDING ${who}` : `GUARDING ${who}`;
     }
-    if (this.stance === 'attack') return firing ? 'ENGAGING' : 'ADVANCING';
+    if (this.stance === 'attack') {
+      // Naming the hull is the only way the player can tell a standing order
+      // apart from the stance picking its own fight.
+      if (this.orderedTarget && this.orderedTarget.alive) {
+        return `${firing ? 'ENGAGING' : 'HUNTING'} ${this.orderedTarget.label.toUpperCase()}`;
+      }
+      return firing ? 'ENGAGING' : 'ADVANCING';
+    }
     if (firing) return 'FIRING';
     return this.pos.distanceToSquared(this.movePos) > 40 * 40 ? 'MOVING' : 'STANDING BY';
   }
@@ -357,7 +378,12 @@ export class Unit {
         : 'AWAITING A CHARGE';
     }
     const moving = this.pos.distanceToSquared(this.movePos) > 40 * 40;
-    if (this.stance === 'attack') return moving ? 'WILL ADVANCE' : 'WILL ATTACK';
+    if (this.stance === 'attack') {
+      if (this.orderedTarget && this.orderedTarget.alive) {
+        return `WILL HUNT ${this.orderedTarget.label.toUpperCase()}`;
+      }
+      return moving ? 'WILL ADVANCE' : 'WILL ATTACK';
+    }
     return moving ? 'ORDERS SET' : 'AWAITING ORDERS';
   }
 
@@ -381,6 +407,7 @@ export class Unit {
     this.stance = 'defend';
     this.guardTarget = target;
     this.attackTarget = null;
+    this.orderedTarget = null;
     this.siegeLock = false;
     return true;
   }
@@ -392,6 +419,9 @@ export class Unit {
     this.movePos.copy(pos);
     if (!this.isGround) pushOutOfPlanet(this.movePos, 60);
     this.attackTarget = attack;
+    // Every order replaces the standing one, including a click on empty space,
+    // which clears it. An order aimed at nothing is still a decision.
+    this.orderedTarget = attack || null;
     if (!siege) this.siegeLock = false;
   }
 
