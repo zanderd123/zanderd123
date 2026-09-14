@@ -18,6 +18,7 @@
 import { Game } from '../src/game.js';
 import { Commander, generateFleet } from '../src/ai.js';
 import { FACTION, TIME_LIMIT, budgetFor } from '../src/config.js';
+import { SCOUTING } from '../src/config.js';
 
 const noopFx = {
   build() {}, disposeBatches() {}, update() {}, emitTrails() {},
@@ -30,6 +31,16 @@ const BUDGET = Number(process.argv[3] || 1000);
 const DIFFICULTY = process.argv[4] || 'medium';
 const HUMAN = process.argv[5] || 'defense';
 const STEP = 1 / 30;
+
+// NOSCOUT=1 neutralises the scouting rule in place, so the same seeds can be
+// played with and without it.
+if (process.env.NOSCOUT) {
+  SCOUTING.unpaintedRangeFactor = 1;
+  SCOUTING.paintedBonus = 0;
+  SCOUTING.unpaintedPenalty = 0;
+  SCOUTING.focusUnpainted = SCOUTING.focusPainted;
+  SCOUTING.gateFocusOnPaint = false;
+}
 
 const AI_SIDE = HUMAN === 'defense' ? FACTION.ATTACK : FACTION.DEFENSE;
 

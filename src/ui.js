@@ -765,6 +765,7 @@ export class Hud {
       <div class="row"><span>AGILITY</span><b>${type.agility}</b></div>
       <div class="row"><span>WEAPON RANGE</span><b>${type.range || '—'}</b></div>
       <div class="row"><span>SENSORS</span><b>${type.sensor}</b></div>
+      <div class="row live"><span>FIRE CONTROL</span><b id="sel-fc">—</b></div>
       <div class="row live"><span>DEALING</span><b id="sel-out">0/s</b></div>
       <div class="row live"><span>TAKING</span><b id="sel-in">0/s</b></div>`;
 
@@ -831,6 +832,39 @@ export class Hud {
       shieldBar.classList.toggle('low', s < SHIELDS.minToRaise / SHIELDS.max);
     }
 
+    // Fire control: what these guns can actually reach right now. A squadron
+    // shooting at something nobody has resolved is firing short of its rated
+    // range, and that is otherwise invisible — the hull looks like it is
+    // fighting normally, just closer in than it should be.
+    const fc = document.getElementById('sel-fc');
+    if (fc) {
+      let shooting = 0;
+      let solved = 0;
+      let reach = 0;
+      for (const u of sel) {
+        for (const c of u.craft) {
+          if (!c.alive || !c.target || !c.target.alive) continue;
+          shooting++;
+          reach += c.fireRange;
+          if (c.target.paintedBy[u.faction]) solved++;
+        }
+      }
+      if (!shooting) {
+        fc.textContent = 'NO TARGET';
+        fc.className = '';
+      } else if (solved === shooting) {
+        fc.textContent = `SOLVED · ${Math.round(reach / shooting)}`;
+        fc.className = 'good';
+      } else {
+        fc.textContent = `${solved ? 'PARTIAL' : 'UNRESOLVED'} · ${Math.round(reach / shooting)}`;
+        fc.className = 'bad';
+      }
+      fc.title = 'Whether the fleet has eyes close enough to resolve what this'
+        + ' squadron is shooting at, and the range its guns reach as a result.'
+        + ' Unresolved contacts can only be engaged at close range — move a'
+        + ' scout up to open the distance back out.';
+    }
+
     const out = document.getElementById('sel-out');
     const inc = document.getElementById('sel-in');
     if (out) {
@@ -867,10 +901,16 @@ export class Hud {
     if (!unit || !unit.alive) { this.hover.classList.add('hidden'); return; }
     const own = unit.faction === mine;
     this.hover.classList.remove('hidden');
+    // For an enemy, whether your fleet has a firing solution on it is the
+    // single most useful thing to know before ordering anything at it.
+    const solved = !own && unit.paintedFor(mine);
+    const picture = own ? ''
+      : `<span class="hc-paint ${solved ? 'on' : 'off'}">${
+        solved ? 'PAINTED' : 'NO SOLUTION'}</span>`;
     this.hover.innerHTML = `
       <b style="color:${own ? 'var(--cyan)' : 'var(--amber)'}">${unit.label}</b>
       <span class="hc-type"> ${unit.type.name}</span>
-      <span class="hc-hp"> ${unit.count}/${unit.type.count} · ${Math.round(unit.healthFraction * 100)}%</span>`;
+      <span class="hc-hp"> ${unit.count}/${unit.type.count} · ${Math.round(unit.healthFraction * 100)}%</span>${picture}`;
     this.hover.style.left = `${x + 16}px`;
     this.hover.style.top = `${y + 14}px`;
   }

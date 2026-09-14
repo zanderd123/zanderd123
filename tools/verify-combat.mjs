@@ -19,7 +19,7 @@
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { COMBAT, SHIPS, GROUND, derive } from '../src/config.js';
+import { COMBAT, SCOUTING, SHIPS, GROUND, derive } from '../src/config.js';
 import { clamp } from '../src/util.js';
 import { accuracy, shotDamage, motionFireFactor, armorFactor } from '../src/combat.js';
 
@@ -66,14 +66,17 @@ const armed = ids.filter((k) => ALL[k].weapon);
 let seed = 12345;
 const rand = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296);
 
-function craftOf(type, { speed, anchored, siege, hp = 1 }) {
+function craftOf(type, { speed, anchored, siege, hp = 1, painted = true }) {
   const stats = derive(type);
   const unit = {
-    type, stats, isGround: !!type.ground,
+    type, stats, isGround: !!type.ground, faction: 'attack',
     isAnchored: anchored, siegeLock: siege, gunnery: 1,
   };
   return {
     unit, speed, alive: true, hp: stats.maxHealth * hp, maxHealth: stats.maxHealth,
+    // Fire control, added after the original bundle was built. Neutralised by
+    // config for the comparison below — see the note there.
+    paintedBy: { attack: painted, defense: painted },
     // Far enough that motionFireFactor's in-range shortcut never fires.
     pos: { distanceToSquared: () => 1e9 }, target: null,
   };
@@ -95,6 +98,19 @@ function asUnanchored(target) {
     unit: { ...target.unit, isAnchored: false },
   };
 }
+
+/**
+ * Fire control is newer than the bundle, so the bundle cannot possibly agree
+ * with it. Zeroing the two accuracy terms makes accuracy() reduce exactly to
+ * the original formula (plus the one intentional DEFEND change, handled
+ * below), which is what this file exists to check: that no coefficient of the
+ * underlying gunnery has drifted. The new term is then asserted directly, on
+ * its own terms, at the end — a property check rather than a comparison
+ * against a build that predates it.
+ */
+const REAL_PAINT = { ...SCOUTING };
+SCOUTING.paintedBonus = 0;
+SCOUTING.unpaintedPenalty = 0;
 
 let checks = 0;
 let fails = 0;
@@ -159,3 +175,46 @@ if (!divergences) {
   process.exitCode = 1;
 }
 process.exitCode = fails ? 1 : (process.exitCode || 0);
+
+// ---------------------------------------------------------------------------
+// Fire control, checked on its own terms.
+//
+// Nothing to compare against — the mechanic postdates the reference bundle —
+// so this asserts the property instead: a painted target and an unpainted one
+// differ by exactly the two configured terms, wherever the result is not
+// sitting on a clamp. Checking away from the clamps matters, because that is
+// where an offset test can silently pass while doing nothing.
+// ---------------------------------------------------------------------------
+Object.assign(SCOUTING, REAL_PAINT);
+const gap = REAL_PAINT.paintedBonus + REAL_PAINT.unpaintedPenalty;
+let paintChecks = 0;
+let paintFails = 0;
+let paintClamped = 0;
+
+for (let i = 0; i < 4000; i++) {
+  const A = ALL[armed[Math.floor(rand() * armed.length)]];
+  const B = ALL[ids[Math.floor(rand() * ids.length)]];
+  const opts = { speed: rand() * 150, anchored: false, siege: false };
+  const shooter = craftOf(A, opts);
+  const hi = accuracy(shooter, craftOf(B, { ...opts, hp: 1, painted: true }));
+  const lo = accuracy(shooter, craftOf(B, { ...opts, hp: 1, painted: false }));
+  if (hi >= COMBAT.accuracyMax - 1e-9 || lo <= COMBAT.accuracyMin + 1e-9) {
+    paintClamped++;
+    continue;
+  }
+  paintChecks++;
+  if (Math.abs((hi - lo) - gap) > 1e-12) {
+    paintFails++;
+    if (paintFails <= 3) {
+      console.log(`  FAIL paint(${A.id} vs ${B.id}): painted=${hi} unpainted=${lo}`
+        + ` gap=${hi - lo} expected=${gap}`);
+    }
+  }
+}
+
+console.log(`  ${paintChecks - paintFails}/${paintChecks} fire-control offsets exact`
+  + ` (${paintClamped} skipped at an accuracy clamp)`);
+if (!paintChecks) {
+  console.log('  WARNING: every fire-control case was clamped — this proved nothing');
+}
+if (paintFails) process.exitCode = 1;

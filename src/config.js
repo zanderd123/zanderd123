@@ -420,6 +420,73 @@ export const ALL_TYPES = { ...SHIPS, ...GROUND };
 // ---------------------------------------------------------------------------
 // Combat tuning
 // ---------------------------------------------------------------------------
+/**
+ * Scouting, and why a fleet that brings eyes shoots better than one that
+ * doesn't.
+ *
+ * Wayne Hughes' observation about naval tactics is that scouting effectiveness
+ * multiplies everything else: the fleet with the better picture attacks
+ * effectively first, and no amount of gunnery compensates for not knowing
+ * where to point it. None of that was true here. Vision is already shared
+ * fleet-wide, so a scout revealed things — and revealing them bought nothing
+ * at all, because accuracy only ever asked about tracking and evasion. There
+ * was no reason to push anything forward and no penalty for fighting blind.
+ *
+ * So a target now has a targeting quality, per side:
+ *
+ *   PAINTED  someone of yours is close enough to hold a real firing solution
+ *            on it, and the whole fleet shoots on that picture
+ *   TRACKED  the fleet can see it, but nobody is near enough to resolve it
+ *
+ * The split falls out of the existing stat sheet rather than a new role flag,
+ * and it lands where it should. Paint radius is a fraction of the OBSERVER's
+ * sensor, so at 0.45 a Specter paints from 720 units (well beyond its own 560
+ * guns) and a Wasp from 234 — while a Bastion's paint radius is 324 against a
+ * weapon range of 460, and a Sentry's 315 against 500. The long guns cannot
+ * see well enough to use their own reach. They need somebody in front.
+ */
+export const SCOUTING = {
+  /** Paint radius as a share of the observing squadron's sensor range. */
+  paintFraction: 0.45,
+  /**
+   * What your guns can reach against a contact nobody has resolved, as a
+   * share of their rated range. This, not the accuracy nudge, is the tooth in
+   * the rule: measured over 14 matches with accuracy alone, 95% of all fire
+   * was already painted, because every fight collapses into one scrum where
+   * everything paints everything. Range is where scouting actually decides
+   * something — a Bastion that cannot resolve its own target has to close to
+   * 276 units instead of holding 460, which is the difference between using
+   * its advantage and giving it away.
+   *
+   * The hulls this binds are exactly the ones it should: Bastion (paint 324 /
+   * range 460), Sentry (315 / 500) and Flak (252 / 330). Everything lighter
+   * paints well beyond its own guns and never notices the rule.
+   */
+  unpaintedRangeFactor: 0.6,
+  /** Accuracy added when the target is painted... */
+  paintedBonus: 0.10,
+  /** ...and taken away when the fleet is shooting on a distant contact. */
+  unpaintedPenalty: 0.10,
+  /**
+   * How hard a focus-fire order pulls, painted and unpainted.
+   *
+   * Concentrating a fleet's fire needs a shared picture — everyone has to be
+   * shooting the same hull at the same moment for it to matter. Unpainted, an
+   * order still biases target selection but no longer overrides it, which is
+   * what stops "click the thing across the map" from being a free alpha.
+   */
+  focusPainted: 6,
+  focusUnpainted: 1.8,
+  /**
+   * Whether the AI's own focus fire is gated on having a firing solution.
+   * Exists so a measurement can turn the whole rule off cleanly — without it
+   * the "scouting off" arm of an A/B still had the commander concentrating
+   * less, which is the rule, and the comparison silently measured something
+   * other than what it claimed to.
+   */
+  gateFocusOnPaint: true,
+};
+
 export const COMBAT = {
   // Accuracy: 0.5 + (tracking - targetAgility) / spread, clamped.
   accuracySpread: 140,

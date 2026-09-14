@@ -25,7 +25,7 @@
  */
 import { Game } from '../src/game.js';
 import { Commander, generateFleet } from '../src/ai.js';
-import { FACTION, TIME_LIMIT, WORLD, SIEGE, budgetFor } from '../src/config.js';
+import { FACTION, TIME_LIMIT, WORLD, SIEGE, SCOUTING, budgetFor } from '../src/config.js';
 
 const noopFx = {
   build() {}, disposeBatches() {}, update() {}, emitTrails() {},
@@ -42,6 +42,15 @@ const STEP = 1 / 30;
 const PLANET = { x: WORLD.planetCenter[0], y: WORLD.planetCenter[1], z: WORLD.planetCenter[2] };
 
 if (process.env.SIEGE_HP) SIEGE.hpPerAttackPoint = Number(process.env.SIEGE_HP);
+// NOSCOUT=1 neutralises the scouting rule without removing it, so the same
+// plans can be measured with and without it on identical seeds.
+if (process.env.NOSCOUT) {
+  SCOUTING.unpaintedRangeFactor = 1;
+  SCOUTING.paintedBonus = 0;
+  SCOUTING.unpaintedPenalty = 0;
+  SCOUTING.focusUnpainted = SCOUTING.focusPainted;
+  SCOUTING.gateFocusOnPaint = false;
+}
 
 /** Order shapes a person can actually give with the mouse and the stance keys. */
 const STRATEGIES = {

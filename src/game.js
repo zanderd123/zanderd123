@@ -15,6 +15,7 @@ import {
 } from './entities.js';
 import {
   Projectiles, acquireTarget, accuracy, shotDamage, resolveVisibility, angleToTarget,
+  effectiveRange,
 } from './combat.js';
 import { autocast, tickBuffs, castAbility } from './skills.js';
 import { makeRng } from './util.js';
@@ -357,6 +358,9 @@ export class Game {
           // rate of fire for self-defence.
           c.target = acquireTarget(c, candidates, this.now);
         }
+        // Recomputed every tick: paint changes as the scout that was holding
+        // the contact dies, or drifts, or arrives.
+        c.fireRange = effectiveRange(c, c.target);
         updateCraftMovement(c, dt, this.now);
         this.tryFire(c, dt);
       }
@@ -565,7 +569,8 @@ export class Game {
 
     const target = craft.target;
     if (!target || !target.alive) return;
-    if (craft.pos.distanceTo(target.pos) > unit.stats.range) return;
+    // Rated range only against a hull the fleet has resolved. See SCOUTING.
+    if (craft.pos.distanceTo(target.pos) > craft.fireRange) return;
     // Small craft have to actually point at what they're shooting; turreted
     // hulls and emplacements do not.
     const turreted = unit.isGround || unit.type.sniper || unit.type.scale >= 2.5;

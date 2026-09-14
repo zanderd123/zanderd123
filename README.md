@@ -39,6 +39,7 @@ a non-circular check that no coefficient has drifted.
     node tools/damage.mjs          the damage model, computed from src/
     node tools/siege-probe.mjs     does bombardment actually function
     node tools/strategy.mjs        does the attacker's PLAN matter
+    node tools/scouting.mjs        fire control: does scouting pay
     node tools/invariants.mjs      bug hunt: assert what must never be true
 
 Two warnings about `analyse.mjs`, both learned the hard way. Damage-per-point
@@ -376,3 +377,72 @@ player could have seen.
    — which is what the reported session looked like. Snapshots now carry the
    crust reading, and the result carries `planetLow`, sampled every frame
    rather than every snapshot.
+
+## Fire control — scouting that pays
+
+Wayne Hughes' claim about naval tactics is that scouting effectiveness
+multiplies everything else, and none of it was true here. Vision was already
+shared fleet-wide, so a scout revealed things — and revealing them bought
+nothing, because accuracy only ever asked about tracking and evasion. There was
+no reason to push anything forward and no penalty for fighting blind.
+
+A target now has a targeting quality, per side. **PAINTED** means one of your
+squadrons is close enough to hold a real firing solution on it; **TRACKED**
+means the fleet can see it but nobody has resolved it. Against an unresolved
+contact your guns reach `SCOUTING.unpaintedRangeFactor` (60%) of their rated
+range, hit slightly less often, and a focus-fire order stops overriding target
+selection.
+
+Paint radius is a fraction of the **observer's** sensor, so the split falls out
+of the existing stat sheet rather than a new role flag — and it lands where it
+should:
+
+| hull | sensor | paint radius | weapon range | resolves its own targets? |
+|---|---|---|---|---|
+| Specter | 1600 | 720 | 560 | yes — the dedicated scout |
+| Wasp | 520 | 234 | 130 | yes |
+| Falcon | 640 | 288 | 210 | yes |
+| Warden | 780 | 351 | 300 | yes |
+| **Bastion** | 720 | **324** | **460** | **no** |
+
+So the long guns cannot see well enough to use their own reach. Measured, a
+Bastion fighting with a forward element holds **91%** of its rated range; one
+fighting alone is dragged in to **60%**.
+
+### What it actually did, measured
+
+Ground emplacements are exempt. A gun bolted to the planet it defends fires off
+that planet's own sensor grid, and unlike a ship it cannot close to fix a poor
+picture — the first version taxed it anyway, and the rule was then not a
+scouting mechanic at all but a one-sided nerf to the defence, whose long guns
+are the static ones.
+
+100 matches, AI against AI, the same seeds with the rule switched off and on
+(`NOSCOUT=1` neutralises it in place, which is how both arms were run):
+
+| | attacker wins |
+|---|---|
+| rule off | 37% |
+| rule on | **48%** |
+
+**This corrects an earlier claim in this file's history: AI-v-AI was reported
+at 50/50, measured over 30 matches. At 100 matches the real figure was 37/63.**
+Thirty deterministic matches sounds precise and is not — a win-rate difference
+under about 15 points at that sample is three coin-flip matches changing sides,
+and several tuning decisions were made on exactly that kind of gap.
+
+The plan gradient survives, and the combined-arms plan is now the best one
+(60 matches each): escort 55%, staged 48%, blob 38%, siegerush 13%.
+
+### What it does not do
+
+It does not change what you *buy*. A points-equal A/B — a fleet with two Wasps
+and a Specter against one that spends those points on line hulls — still favours
+the line, 92% to 63%, and lowering the paint radius to 0.36 or 0.30 does not
+move it. Wardens cost 62 points and Wasps 132, and no fire-control bonus is
+worth that much raw combat mass. Scouting is now a real tactic; it is not yet a
+real purchase, and closing that gap is a pricing question, not a mechanics one.
+
+`tools/scouting.mjs` reports paint rates, who is doing the painting, and the
+standoff each hull actually achieves; `tools/scouting.mjs ab` runs the
+composition A/B.

@@ -843,3 +843,15 @@ body.in-prep .flash-msg { bottom: 232px; }
 .fps.ok   #fps-value { color: #5fd39a; }
 .fps.warn #fps-value { color: #e8b45a; }
 .fps.bad  #fps-value { color: #e8705a; }
+
+/* ==========================================================================
+   Fire control — whether the fleet has a solution on what it is shooting
+   ========================================================================== */
+.hover-card .hc-paint {
+  display: block;
+  margin-top: 3px;
+  font-size: 10px;
+  letter-spacing: 0.18em;
+}
+.hover-card .hc-paint.on  { color: #7fffc0; }
+.hover-card .hc-paint.off { color: #ff9a48; }

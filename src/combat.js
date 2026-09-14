@@ -10,7 +10,7 @@
  * the things hitting it.
  */
 import * as THREE from 'three';
-import { COMBAT, WORLD } from './config.js';
+import { COMBAT, SCOUTING, WORLD } from './config.js';
 import { clamp, leadPoint, angleToTarget } from './util.js';
 
 const _lead = new THREE.Vector3();
@@ -29,19 +29,51 @@ const _tmp = new THREE.Vector3();
  */
 export function accuracy(craft, target) {
   const weapon = craft.unit.type.weapon;
+  // How good the firing picture is. Applies to every weapon including flak:
+  // this is about where the target is, not about tracking it once found.
+  const picture = target.paintedBy[craft.unit.faction]
+    ? SCOUTING.paintedBonus : -SCOUTING.unpaintedPenalty;
+
   // Proximity-fused flak does not track at all; it just needs to be near.
   // Without this the designated anti-fighter unit could not hit fighters,
   // because its tracking against a Wasp's agility lands on the floor.
-  if (weapon.ignoresEvasion) return weapon.flatAccuracy ?? 0.75;
+  if (weapon.ignoresEvasion) {
+    return clamp((weapon.flatAccuracy ?? 0.75) + picture,
+      COMBAT.accuracyMin, COMBAT.accuracyMax);
+  }
 
   let acc = 0.5
-    + (craft.unit.stats.tracking - target.unit.type.agility) / COMBAT.accuracySpread;
+    + (craft.unit.stats.tracking - target.unit.type.agility) / COMBAT.accuracySpread
+    + picture;
 
   const motion = clamp(target.speed / Math.max(1, target.unit.stats.maxSpeed), 0, 1);
   if (motion < COMBAT.evasionMotionFloor) {
     acc += (COMBAT.evasionMotionFloor - motion) * 0.9;
   }
   return clamp(acc, COMBAT.accuracyMin, COMBAT.accuracyMax);
+}
+
+/**
+ * How far this craft's guns actually reach against `target`.
+ *
+ * Full rated range on a painted hull; SCOUTING.unpaintedRangeFactor of it on a
+ * contact the fleet can see but nobody has resolved. Read by the flight model
+ * as well as by the firing check, so a hull with no firing solution closes to
+ * the range it can actually use instead of parking at a distance it cannot
+ * shoot from.
+ */
+export function effectiveRange(craft, target) {
+  const range = craft.unit.stats.range;
+  if (!target || !target.paintedBy) return range;
+  // Emplacements are exempt. A gun bolted to the planet it is defending is
+  // firing off that planet's own sensor grid, not off what the fleet can see —
+  // and unlike a ship it cannot close the distance to fix a poor picture, so
+  // the rule would be a permanent tax it has no answer to. Measured: without
+  // this the rule was not a scouting mechanic at all, it was a 14-point
+  // one-sided nerf to the defence, whose long guns are the static ones.
+  if (craft.unit.isGround) return range;
+  return target.paintedBy[craft.unit.faction]
+    ? range : range * SCOUTING.unpaintedRangeFactor;
 }
 
 /**
@@ -141,7 +173,11 @@ export function acquireTarget(craft, candidates, now) {
     let score = targetScore(craft, cand, dist);
     // A player-issued attack order dominates, without being absolute — if the
     // ordered target is genuinely unreachable something else still gets shot.
-    if (ordered && cand.unit === ordered) score *= 6;
+    // How hard it pulls depends on whether the fleet has a firing solution on
+    // it: concentrating fire needs a picture everyone shares.
+    if (ordered && cand.unit === ordered) {
+      score *= cand.paintedBy[side] ? SCOUTING.focusPainted : SCOUTING.focusUnpainted;
+    }
     if (score > bestScore) { bestScore = score; best = cand; }
   }
   return best;
@@ -266,33 +302,44 @@ export function resolveVisibility(units, playerFaction, now, fogEnabled = true) 
       // You always see your own ships; enemies start unseen each pass.
       c.seenBy.attack = u.faction === 'attack';
       c.seenBy.defense = u.faction === 'defense';
+      // Paint is never free, even with fog off: it is a statement about how
+      // close your eyes are, not about what the map is hiding. Own hulls are
+      // painted for their own side so friendly-side reads are always true.
+      c.paintedBy.attack = u.faction === 'attack';
+      c.paintedBy.defense = u.faction === 'defense';
       if (!c.alive) continue;
-      if (!fogEnabled) { c.seenBy.attack = c.seenBy.defense = true; continue; }
-      // A cloaked ship that just fired has given its position away.
+      if (!fogEnabled) { c.seenBy.attack = c.seenBy.defense = true; }
+      // A cloaked ship that just fired has given its position away. That is a
+      // detection, not a firing solution — it does not paint.
       if (u.type.cloak && c.revealUntil > now) {
         c.seenBy.attack = c.seenBy.defense = true;
       }
     }
   }
 
-  if (fogEnabled) {
-    for (const a of sides.attack) {
-      for (const d of sides.defense) {
-        // Unit-level rejection first: skip the craft loop entirely when the
-        // squadrons are far enough apart that nothing could see anything.
-        const maxReach = Math.max(detectRange(a, d), detectRange(d, a)) + 260;
-        if (a.pos.distanceToSquared(d.pos) > maxReach * maxReach) continue;
+  // One pass fills in both detection and paint. Paint is computed even with
+  // fog disabled, because it drives gunnery rather than visibility.
+  for (const a of sides.attack) {
+    for (const d of sides.defense) {
+      // Unit-level rejection first: skip the craft loop entirely when the
+      // squadrons are far enough apart that nothing could see anything.
+      const maxReach = Math.max(detectRange(a, d), detectRange(d, a)) + 260;
+      if (a.pos.distanceToSquared(d.pos) > maxReach * maxReach) continue;
 
-        const aSees = detectRange(a, d) ** 2;
-        const dSees = detectRange(d, a) ** 2;
-        for (const ac of a.craft) {
-          if (!ac.alive) continue;
-          for (const dc of d.craft) {
-            if (!dc.alive) continue;
-            const dist2 = ac.pos.distanceToSquared(dc.pos);
-            if (dist2 <= aSees) dc.seenBy.attack = true;
-            if (dist2 <= dSees) ac.seenBy.defense = true;
-          }
+      const aSees = detectRange(a, d) ** 2;
+      const dSees = detectRange(d, a) ** 2;
+      const aPaints = (detectRange(a, d) * SCOUTING.paintFraction) ** 2;
+      const dPaints = (detectRange(d, a) * SCOUTING.paintFraction) ** 2;
+      for (const ac of a.craft) {
+        if (!ac.alive) continue;
+        for (const dc of d.craft) {
+          if (!dc.alive) continue;
+          const dist2 = ac.pos.distanceToSquared(dc.pos);
+          if (dist2 <= aPaints) dc.paintedBy.attack = true;
+          if (dist2 <= dPaints) ac.paintedBy.defense = true;
+          if (!fogEnabled) continue;
+          if (dist2 <= aSees) dc.seenBy.attack = true;
+          if (dist2 <= dSees) ac.seenBy.defense = true;
         }
       }
     }

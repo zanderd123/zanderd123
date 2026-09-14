@@ -77,6 +77,11 @@ export class Craft {
     // Bombardment runs on its own clock so it does not compete with the
     // squadron's self-defence fire — see SIEGE.selfDefense.
     this.siegeTimer = 0;
+    // How far this hull's guns reach against whatever it is currently aiming
+    // at — full rated range on a painted target, less on an unresolved one.
+    // The flight model reads it so a hull with no firing solution closes to
+    // the distance it can actually shoot from. See SCOUTING.
+    this.fireRange = unit.stats.range;
     this.mode = 'move';           // dogfighters flip to 'breakaway'
     this.modeTimer = 0;
     this.bank = 0;
@@ -85,6 +90,9 @@ export class Craft {
     this.jammedUntil = 0;
     this.revealUntil = 0;
     this.seenBy = { attack: false, defense: false };
+    // Held by a close enough friendly to give the whole fleet a real firing
+    // solution, rather than merely being visible. See SCOUTING.
+    this.paintedBy = { attack: false, defense: false };
     this.visible = true;
     this.hitFlash = 0;
     this.wallPress = 0;                  // 0..1 proximity to the arena shell
@@ -346,6 +354,16 @@ export class Unit {
    * attackers the usual bonus for shooting at something motionless.
    */
   get isAnchored() { return this.stance === 'defend'; }
+
+  /**
+   * Is this squadron painted for `faction` — does that side have close enough
+   * eyes on it to concentrate fire? True if any one of its hulls is, because
+   * a squadron flies as a block and resolving one of them resolves the group.
+   */
+  paintedFor(faction) {
+    for (const c of this.craft) if (c.alive && c.paintedBy[faction]) return true;
+    return false;
+  }
 
   guardPos(planetPos) {
     if (this.stance !== 'defend' || !this.guardTarget) return null;
@@ -703,13 +721,18 @@ export function updateCraftMovement(craft, dt) {
   // ATTACK-stance pursuit quietly resumed and dragged them off station. They
   // closed to ~1,140 units of a 760-unit firing position, stalled there chasing
   // ships, and fired nothing at the planet for the whole match.
+  // Everything below reads the range this hull can actually use against THIS
+  // target, not its rated range, so an unresolved contact is closed on rather
+  // than parked in front of. See SCOUTING and effectiveRange().
+  const reach = target && target.alive ? craft.fireRange : stats.range;
+
   const engaging = !unit.siegeLock
     && target && target.alive && !unit.holdPosition
-    && !(unit.type.sniper && dist > stats.range)
-    && (pursue || dist <= stats.range * 1.05);
+    && !(unit.type.sniper && dist > reach)
+    && (pursue || dist <= reach * 1.05);
 
   if (engaging) {
-    const range = stats.range;
+    const range = reach;
     if (unit.type.agility >= 60 && !unit.type.sniper) {
       // Dogfighter: close, then peel off before overshooting.
       if (craft.mode === 'breakaway') {

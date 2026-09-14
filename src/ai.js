@@ -13,7 +13,7 @@
 import * as THREE from 'three';
 import {
   SHIPS, GROUND, WORLD, FACTION, SIEGE, DEFENCE, DIFFICULTY, DEFAULT_DIFFICULTY,
-  unitCost,
+  SCOUTING, unitCost,
 } from './config.js';
 import { makeRng } from './util.js';
 import { clampPointToArena } from './entities.js';
@@ -522,7 +522,12 @@ export class Commander {
     let focus = null;
     if (this.diff.concentrate > 0) {
       const active = free.filter((u) => !withdrawing.has(u));
-      if (active.length) focus = this.pickTarget(active[0], threats);
+      // Only a painted hull can be piled onto. The AI plays the scouting rule
+      // it is subject to: without eyes close enough to hold the contact there
+      // is no shared picture to concentrate on, so it fights its own fights.
+      const solved = SCOUTING.gateFocusOnPaint
+        ? threats.filter((t) => t.paintedFor(this.faction)) : threats;
+      if (active.length && solved.length) focus = this.pickTarget(active[0], solved);
     }
 
     for (const u of free) {
