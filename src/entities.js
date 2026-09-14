@@ -220,6 +220,13 @@ export class Unit {
      */
     this.orderedTarget = null;
     /**
+     * How many orders this squadron has ever been given, by anyone. Its only
+     * job is to tell "nobody has ever told this unit anything" apart from "it
+     * is doing what it was told" — which is what a carrier's brood has to know
+     * before it adopts its parent's orders.
+     */
+    this.orderCount = 0;
+    /**
      * Station-keeping radius from the planet, 0 for unleashed. The defending
      * Commander sets this so its fleet fights over the world instead of
      * following the battle away from it; see applyLeash().
@@ -409,7 +416,34 @@ export class Unit {
     this.attackTarget = null;
     this.orderedTarget = null;
     this.siegeLock = false;
+    this.orderCount++;
     return true;
+  }
+
+  /**
+   * Take the carrier's standing orders, for a brood nobody has ordered yet.
+   *
+   * A brood squadron is created docked, at the carrier's *spawn* position, and
+   * its movePos stays there. Its hulls, though, are revived next to the carrier
+   * wherever that has since flown to — so every fighter launched mid-battle
+   * immediately turned around and flew back to the staging area. A session
+   * report showed two Spawners' entire output, seven hulls of a 1,000-point
+   * fleet, loitering 3,000 units behind the battle for seven minutes while
+   * their parents fought and died.
+   *
+   * Deliberately not an order: it does not touch orderCount, so the brood keeps
+   * following its carrier until the player actually tells it something, and
+   * stops adopting the moment they do.
+   */
+  adoptOrdersFrom(parent) {
+    // A bombarding carrier is parked on its standoff; the brood screens it
+    // there rather than trying to bombard with fighter guns.
+    this.stance = parent.siegeLock ? 'attack' : parent.stance;
+    this.guardTarget = parent.stance === 'defend' ? parent.guardTarget : null;
+    this.orderedTarget = parent.orderedTarget;
+    this.attackTarget = parent.orderedTarget;
+    this.movePos.copy(parent.siegeLock ? parent.pos : parent.movePos);
+    if (!this.isGround) pushOutOfPlanet(this.movePos, 60);
   }
 
   order(pos, { attack = null, hold = false, siege = false, stance = null } = {}) {
@@ -423,6 +457,7 @@ export class Unit {
     // which clears it. An order aimed at nothing is still a decision.
     this.orderedTarget = attack || null;
     if (!siege) this.siegeLock = false;
+    this.orderCount++;
   }
 
   /** True when nothing hostile is inside weapon range of any of our hulls. */

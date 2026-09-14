@@ -422,7 +422,7 @@ class App {
     const cap = parent.type.spawns?.cap ?? 0;
     if (brood.count === 1) {
       this.hud.flashMessage(
-        `${parent.label} launched ${brood.label} — a new squadron, select and order it like any other.`, 4.2, 'info');
+        `${parent.label} launched ${brood.label} — it flies with its carrier until you order it, then it is yours.`, 4.6, 'info');
     } else {
       this.hud.flashMessage(`${brood.label} +1 — ${brood.count} of ${cap} hulls.`, 1.8, 'info');
     }

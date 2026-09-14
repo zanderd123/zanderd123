@@ -16,6 +16,7 @@ import {
   unitCost,
 } from './config.js';
 import { makeRng } from './util.js';
+import { clampPointToArena } from './entities.js';
 
 /**
  * What the AI buys, by weight. These are shares of the budget, not counts —
@@ -121,6 +122,21 @@ const THREAT_RANGE = 1500;
 /** Seconds with nothing visible before a defender stops holding and sweeps. */
 const PATIENCE = 55;
 /**
+ * Seconds a defending fleet that has already been in contact will wait, with
+ * nothing anywhere near the world, before it goes hunting for the remains of
+ * the attack. Long enough that a lull in a live battle is not mistaken for a
+ * finished one.
+ */
+const SWEEP_AFTER = 45;
+/**
+ * ...and the same wait for a fleet that has never been in contact at all.
+ * Much longer, because a defence that sweeps out during the opening meets the
+ * assault in open space with the world behind it, which is the whole mistake
+ * the leash exists to prevent. First contact normally lands between 30 and 80
+ * seconds, so by two and a half minutes of nothing the attack is not coming.
+ */
+const SWEEP_AFTER_COLD = 150;
+/**
  * How far from the world a defending squadron will ever be sent.
  *
  * The defence used to be ordered straight onto whatever it was shooting at,
@@ -169,6 +185,11 @@ export class Commander {
     this.rng = makeRng(777);
     this.searchIndex = 0;
     this.searchTimer = 0;
+    /** Seconds since anything hostile was near the world. See the sweep. */
+    this.quietFor = 0;
+    this.sinceLastPlan = 0;
+    this.everEngaged = false;
+    this.sweeping = false;
     this.searchPath = this.buildSearchPath();
     this.siegeTimer = 0;
 
@@ -399,8 +420,15 @@ export class Commander {
 
   update(dt) {
     this.searchTimer += dt;
+    // Real seconds since the last plan. The commander only thinks every
+    // `interval`, so anything accumulated below the early return counts plans,
+    // not time — a counter that ticked `dt` per plan reached 10 after 400
+    // seconds and no timeout built on it could ever fire.
+    this.sinceLastPlan += dt;
     this.timer -= dt;
     if (this.timer > 0) return;
+    const elapsed = this.sinceLastPlan;
+    this.sinceLastPlan = 0;
     this.timer = this.interval;
 
     const ships = this.myUnits.filter((u) => !u.isGround);
@@ -415,33 +443,71 @@ export class Commander {
     const sieging = this.manageSiege(ships, enemyCraft);
     const free = ships.filter((u) => !sieging.has(u));
 
+    // Mopping up.
+    //
+    // A defending fleet that has already fought, and has had nothing come near
+    // the world since, has nothing left to be in position FOR. It goes and
+    // finishes the job. Without this a beaten attacker who simply stops is
+    // unreachable: the screen leash reaches 3,200 units from the planet and
+    // the staging area is at 3,900, so the defence advanced to the end of its
+    // tether and sat there. A real session spent its last three minutes with
+    // the player flying their surviving squadrons in one at a time to be shot,
+    // because nothing would come to them.
+    //
+    // Three conditions, each load-bearing:
+    //  - contact must have happened. Otherwise the defence sweeps out during
+    //    the opening — there is legitimately nothing near the planet for the
+    //    first minute while the attack crosses — and meets the assault in open
+    //    space, which is exactly the mistake the leash exists to prevent.
+    //  - it is sticky. Spotting the enemy mid-sweep must not flip the leash
+    //    back on and send the fleet home without firing, which would loop.
+    //  - anything reaching the objective ends it immediately, whatever else is
+    //    happening. Holding the world always outranks finishing a straggler.
+    if (this.faction === FACTION.DEFENSE) {
+      const home = screenLeash();
+      const atTheDoor = seen.some((u) => u.siegeLock || u.pos.distanceTo(PLANET) < home);
+      if (atTheDoor) {
+        this.sweeping = false;
+        this.quietFor = 0;
+      } else {
+        this.quietFor += elapsed;
+        const wait = this.everEngaged ? SWEEP_AFTER : SWEEP_AFTER_COLD;
+        if (this.quietFor > wait) this.sweeping = true;
+      }
+    }
+    const sweeping = !!this.sweeping;
+
     // The defence does not chase. Anything far from the planet and far from
     // the line is not its problem — leaving the picket to run down a scout is
-    // how a defensive fleet loses the objective.
+    // how a defensive fleet loses the objective. A sweep is the exception: at
+    // that point everything visible is a target.
     let threats = seen;
-    if (this.faction === FACTION.DEFENSE) {
+    if (this.faction === FACTION.DEFENSE && !sweeping) {
       const reach = WORLD.planetRadius + THREAT_RANGE;
       threats = seen.filter((u) => u.siegeLock
         || u.pos.distanceTo(PLANET) < reach
         || u.pos.distanceTo(this.pickets.line) < THREAT_RANGE);
     }
+    if (threats.length && this.faction === FACTION.DEFENSE) this.everEngaged = true;
 
     // The close guard. A share of the fleet is held on a tight leash over the
     // objective and never follows the battle; everyone else gets a longer one.
     // Without this the whole defence drifts after whatever it is shooting at
     // and a bombardment gets set up behind it.
     let leashFor = () => Infinity;
-    if (this.faction === FACTION.DEFENSE) {
+    if (this.faction === FACTION.DEFENSE && !sweeping) {
       const guards = this.assignGuards(free);
       leashFor = (u) => (guards.has(u) ? guardLeash() : screenLeash());
       // The flight model reads this; without it the leash only constrained
       // destinations, which ATTACK stance ignores.
       for (const u of ships) u.leashRadius = leashFor(u);
+    } else if (sweeping) {
+      for (const u of ships) u.leashRadius = 0;
     }
 
     if (!threats.length) {
-      const impatient = this.searchTimer > PATIENCE;
-      if (this.faction === FACTION.DEFENSE && !impatient) this.holdPicket(free, leashFor);
+      if (sweeping) this.sweepToStaging(free);
+      else if (this.faction === FACTION.DEFENSE) this.holdPicket(free, leashFor);
       else this.advance(free, leashFor);
       return;
     }
@@ -573,6 +639,28 @@ export class Commander {
   skyClear(candidates) {
     return candidates.filter((t) => !t.isGround).length
       <= Math.max(1, candidates.length * 0.25);
+  }
+
+  /**
+   * Go and find what is left of the attack, wherever it is sitting.
+   *
+   * Deliberately not `advance()`: that walks a ring 1,200 units off the crust,
+   * which is the right shape for looking for something that came to you and is
+   * useless for finding something that never did. This heads for the staging
+   * area the assault arrived from, unleashed.
+   */
+  sweepToStaging(units) {
+    _dest.set(...WORLD.attackAnchor);
+    for (const u of units) {
+      _v.copy(_dest);
+      const s = this.diff.scatter;
+      _v.x += (this.rng() - 0.5) * 900 * s;
+      _v.y += (this.rng() - 0.5) * 320 * s * WORLD.spread;
+      _v.z += (this.rng() - 0.5) * 900 * s;
+      clampPointToArena(_v);
+      u.order(_v, { stance: 'attack' });
+      u.leashRadius = 0;
+    }
   }
 
   /** Move toward the objective, or sweep if the opening push found nothing. */

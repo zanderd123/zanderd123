@@ -328,3 +328,51 @@ three are worth knowing about before writing another one:
 - A leashed hull has a turning circle. It keeps opening for a second or so
   after the leash bends its heading, which is the flight model working. Only a
   sustained opening is a fault.
+
+### Found from a session that lost badly
+
+A defeat is a better bug report than a win. One 7:13 loss — 4 kills for 28,
+planet untouched — turned out to contain three defects, none of which the
+player could have seen.
+
+1. **A carrier's brood never joined the battle.** A brood squadron is created
+   docked, at the carrier's *spawn* position, and its `movePos` stayed there.
+   Its hulls, though, are revived beside the carrier wherever that has since
+   flown to — so every fighter launched mid-battle turned around and flew back
+   to the staging area. Select-all does not pick up a docked brood either, so
+   nothing ever gave them an order. Measured over 12 matches: broods sat a mean
+   **3,792 units** from the planet while their carriers fought at 1,143, and
+   **2 of 12** had a target. Two Spawners is a fifth of a 1,000-point fleet,
+   contributing nothing. A brood with no orders of its own now follows its
+   carrier (`Unit.adoptOrdersFrom`) and stops the moment the player gives it
+   one: after the fix, 1,543 units out and 11 of 22 in the fight.
+
+2. **A beaten attacker was unreachable, so the match idled for minutes.** The
+   defence's screen leash reaches 3,200 units from the planet; the attacker's
+   staging area is at 3,900. The reported session spent its last three minutes
+   with the player flying surviving squadrons in one at a time to be shot,
+   because nothing would come to them. The defence now sweeps the staging area
+   once it has been in contact and nothing has come near the world for 45
+   seconds (150 if it has never been in contact at all, so it cannot be lured
+   out during the opening). Sticky, so spotting something mid-sweep does not
+   flip the leash back on and send it home unfired; dropped instantly if
+   anything reaches the objective. A do-nothing attacker went from *untouched
+   for the full ten minutes* to hunted down at a mean of 367s.
+
+   Two things had to be fixed before that worked at all, and both are worth
+   knowing about:
+
+   - `PATIENCE` could never elapse. `searchWaypoint()` resets `searchTimer` to
+     zero whenever it passes 34, so the 55-second timeout built on it was dead
+     code.
+   - **Anything accumulated below the commander's early return counts plans,
+     not seconds.** `update()` runs every frame but only *thinks* every
+     `interval`; a counter incremented by `dt` after that return reached 10
+     after 400 seconds. Use the `elapsed` local, which is real time.
+
+3. **The report could not show that a siege had worked.** The crust regenerates
+   0.3% a second after twelve seconds without a hit, so a bombardment that took
+   a world to 17% and was then broken reads as `planet 100%` five minutes later
+   — which is what the reported session looked like. Snapshots now carry the
+   crust reading, and the result carries `planetLow`, sampled every frame
+   rather than every snapshot.

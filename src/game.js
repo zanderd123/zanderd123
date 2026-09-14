@@ -210,8 +210,11 @@ export class Game {
     ).add(unit.pos);
     slot.revive(_v);
     brood.updateCentroid();
-    // A fresh hull joins whatever the brood is already doing.
-    if (brood.pos.distanceToSquared(brood.movePos) < 1) brood.movePos.copy(unit.pos);
+    // A brood nobody has ordered follows its carrier. The old rule here only
+    // nudged movePos when the squadron happened to be sitting exactly on it,
+    // which in practice meant never — so launched hulls flew back to the
+    // staging area they were built at. See Unit.adoptOrdersFrom.
+    if (brood.orderCount === 0) brood.adoptOrdersFrom(unit);
     this.fx.bubble(_v.clone(), 60, unit.faction, 0xd8c07a);
     // The brood is a full squadron in its own right — selectable, orderable,
     // with its own callsign — but nothing said so, and a unit that appears
@@ -333,6 +336,12 @@ export class Game {
       u.damageInAccum = 0;
       u.damageOutAccum = 0;
       if (!u.alive) continue;
+
+      // A brood with no orders of its own stays with its carrier as it moves,
+      // not just at the instant a hull launches.
+      if (u.broodOf && u.orderCount === 0 && u.broodOf.alive) {
+        u.adoptOrdersFrom(u.broodOf);
+      }
 
       tickBuffs(u, this.now);
       u.updateShield(dt);

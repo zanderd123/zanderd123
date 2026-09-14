@@ -126,6 +126,12 @@ export class Recorder {
           return acc;
         }, {}),
       snapshots: [],
+      // The lowest the crust ever got. Without this the report is misleading:
+      // a siege that took a world to 17% and then stopped reads as "planet
+      // 100%" at the end, because the crust regenerates 0.3% a second once it
+      // has been left alone for twelve. One session looked like the
+      // bombardment had done nothing at all when it had very nearly won.
+      planetLow: 100,
     };
     this.battles.push(this.battle);
     this.snapshotAt = 0;
@@ -151,6 +157,7 @@ export class Recorder {
       yourKills: game.kills[game.playerFaction] ?? 0,
       enemyKills: game.kills[them] ?? 0,
       planetLeft: game.planet ? +(game.planet.fraction * 100).toFixed(0) : null,
+      planetLow: +this.battle.planetLow.toFixed(0),
       timedOut: !!game.timedOut,
     };
     this.log('battle-end', this.battle.result);
@@ -159,6 +166,11 @@ export class Recorder {
 
   update(game) {
     if (!this.enabled || !this.battle) return;
+    // Sampled every frame, not every snapshot: a bombardment can open the
+    // crust and be broken off well inside the 15-second snapshot interval.
+    if (game.state === 'playing' && game.planet) {
+      this.battle.planetLow = Math.min(this.battle.planetLow, game.planet.fraction * 100);
+    }
     if (game.state !== 'playing' || game.now < this.snapshotAt) return;
     this.snapshotAt = game.now + SNAPSHOT_INTERVAL;
 
@@ -209,6 +221,7 @@ export class Recorder {
     }
     this.battle.snapshots.push({
       t: +game.now.toFixed(0),
+      planet: game.planet ? +(game.planet.fraction * 100).toFixed(1) : null,
       units,
       enemy: {
         hulls: enemyHulls,
@@ -334,7 +347,10 @@ export class Recorder {
         out.push(`  result: ${r.state} at ${Math.floor(r.at / 60)}:${String(r0(r.at % 60)).padStart(2, '0')}`
           + ` · your hulls left ${r.yourHulls} · enemy left ${r.enemyHulls}`
           + ` · kills ${r.yourKills} for ${r.enemyKills} against`
-          + (r.planetLeft !== null ? ` · planet ${r.planetLeft}%` : ''));
+          + (r.planetLeft !== null ? ` · planet ${r.planetLeft}%` : '')
+          // How close the siege came matters as much as where it ended up.
+          + (r.planetLeft !== null && r.planetLow < r.planetLeft
+            ? ` (low ${r.planetLow}%, crust regenerated)` : ''));
       } else {
         out.push('  result: (still in progress / abandoned)');
       }
