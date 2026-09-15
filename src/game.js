@@ -339,9 +339,20 @@ export class Game {
       if (!u.alive) continue;
 
       // A brood with no orders of its own stays with its carrier as it moves,
-      // not just at the instant a hull launches.
+      // not just at the instant a hull launches — but only while it has nothing
+      // to fight.
+      //
+      // Re-syncing unconditionally every tick was wrong and shipped broken:
+      // updateAttackStance sets the brood's destination onto its target a few
+      // lines earlier, and this then overwrote it, so a launched fighter was
+      // welded to its carrier's parking spot and could never pursue anything.
+      // A Spawner is a standoff hull that parks 700 units back, which meant its
+      // entire air wing sat 700 units back too. Caught by an audit: in three of
+      // fifty matches a carrier and its brood both went the whole battle
+      // without engaging, holding station ~1,200 units from the nearest enemy.
       if (u.broodOf && u.orderCount === 0 && u.broodOf.alive) {
-        u.adoptOrdersFrom(u.broodOf);
+        const busy = u.stance === 'attack' && u.attackTarget && u.attackTarget.alive;
+        if (!busy) u.adoptOrdersFrom(u.broodOf);
       }
 
       tickBuffs(u, this.now);

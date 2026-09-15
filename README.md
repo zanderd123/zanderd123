@@ -41,6 +41,7 @@ a non-circular check that no coefficient has drifted.
     node tools/strategy.mjs        does the attacker's PLAN matter
     node tools/scouting.mjs        fire control: does scouting pay
     node tools/invariants.mjs      bug hunt: assert what must never be true
+    node tools/audit.mjs           bug hunt: legal-but-wrong behaviour
 
 Two warnings about `analyse.mjs`, both learned the hard way. Damage-per-point
 scores every support hull at zero by construction, so it credits healing too —
@@ -446,3 +447,50 @@ real purchase, and closing that gap is a pricing question, not a mechanics one.
 `tools/scouting.mjs` reports paint rates, who is doing the painting, and the
 standoff each hull actually achieves; `tools/scouting.mjs ab` runs the
 composition A/B.
+
+
+## Two harness holes worth knowing about
+
+Fifty matches were run looking for bugs. The assertions all passed, and that
+turned out to be the least interesting part of the result — both real findings
+came from asking whether the checks had run at all.
+
+**A check that never evaluates passes silently.** `tools/invariants.mjs` now
+counts how many times each assertion is reached and prints it, so "clean" reads
+as "clean over N evaluations". The first run exposed the reason that matters:
+
+**The harness never executed the player code path.** With a Commander on both
+sides nothing ever consults `isPlayerControlled`, so `updateAttackStance`, the
+auto-siege gate, standing attack orders and carrier-brood adoption were all
+untested — the brood assertion evaluated exactly **zero** times over 50 matches,
+because the AI reissues its broods' orders every tick and they are therefore
+never unordered. Every defect found in that path this month came from a
+player's session report rather than from here. Half the matches are now played
+by hand on the attacking side: one order at the start, no intervention.
+
+That immediately found a real bug, and it was mine. Broods re-synced to their
+carrier on **every tick**, which overwrote the destination `updateAttackStance`
+had just set onto their target — so a launched fighter was welded to its
+carrier's parking spot and could never pursue anything. A Spawner is a standoff
+hull that holds 700 units back, so its entire air wing held 700 units back too.
+`tools/audit.mjs` caught it as behaviour rather than as an assertion: in three
+of fifty matches a carrier *and* its brood spent the whole battle without
+engaging, ~1,200 units from the nearest enemy. A brood now follows its carrier
+only while it has nothing to fight.
+
+The refined invariant then fired on the fix — and that one was the test being
+wrong, the fourth time that has happened here. A wing that is fighting is
+*supposed* to leave its carrier. The contract is "far away with nothing to do",
+not "far away".
+
+### What 50 matches look like now
+
+    attacker wins       24  48%        fleets that never made contact: 0
+    defender wins       26  52%        dead air over 25s: 0 stretches
+    decided on time      2   4%        bombardment set up: 50  100%
+    mean length        234s            mean crust low-water: 45%
+
+The only squadrons that still finish a battle without firing are Spawners, 4 of
+27. Those matches ended around 70 seconds — a standoff carrier parked 700 units
+back never reaches its own 200-unit gun before a short battle is over. That is
+the hull working as designed, not a fault.

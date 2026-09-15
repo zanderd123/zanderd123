@@ -14,7 +14,9 @@
 import * as THREE from 'three';
 import { Game } from '../src/game.js';
 import { Commander, generateFleet } from '../src/ai.js';
-import { FACTION, TIME_LIMIT, WORLD, DEFENCE, budgetFor } from '../src/config.js';
+import {
+  FACTION, TIME_LIMIT, WORLD, DEFENCE, SCOUTING, budgetFor,
+} from '../src/config.js';
 
 const noopFx = {
   build() {}, disposeBatches() {}, update() {}, emitTrails() {},
@@ -32,6 +34,17 @@ const ORBIT_FLOOR = WORLD.planetRadius + 45;
 const found = new Map();
 let checks = 0;
 
+/**
+ * How many times each assertion was actually evaluated.
+ *
+ * A check that never runs passes silently, and in the output that is
+ * indistinguishable from a check that runs and holds. Every assertion added
+ * here increments a counter, and the report prints them — so "clean" reads as
+ * "clean over N evaluations" rather than being taken on trust.
+ */
+const covered = new Map();
+const saw = (key) => covered.set(key, (covered.get(key) || 0) + 1);
+
 function fail(key, detail) {
   const rec = found.get(key);
   if (rec) { rec.count++; return; }
@@ -48,8 +61,34 @@ for (let m = 0; m < MATCHES; m++) {
     FACTION.ATTACK,
   );
   game.state = 'playing';
-  const attackAI = new Commander(game, FACTION.ATTACK, 'medium');
+
+  // Half the matches are played BY HAND on the attacking side.
+  //
+  // This matters more than it looks. A Commander on both sides never touches
+  // `isPlayerControlled`, so the entire player path — updateAttackStance, the
+  // auto-siege gate, standing attack orders, and a carrier brood adopting its
+  // parent's orders — was never executed by this harness at all. Coverage
+  // counters proved it: the brood assertion evaluated exactly zero times over
+  // 50 AI-vs-AI matches, because the AI reissues its broods' orders every
+  // tick and they are therefore never unordered. Every bug found in that path
+  // this week came from a session report rather than from here.
+  //
+  // The hand-played arm gives one order at the start and never intervenes,
+  // which is both the commonest way a person actually plays and the case that
+  // leaves broods and standing orders to look after themselves.
+  const handPlayed = m % 2 === 1;
+  const attackAI = handPlayed ? null : new Commander(game, FACTION.ATTACK, 'medium');
   const defenseAI = new Commander(game, FACTION.DEFENSE, 'medium');
+  if (handPlayed) {
+    saw('match played by hand on the attacking side');
+    for (const u of game.units) {
+      // Docked broods are deliberately left out: a drag-select does not pick
+      // them up either, which is exactly the condition being tested.
+      if (u.faction !== FACTION.ATTACK || u.broodOf) continue;
+      u.order(PLANET, { stance: 'attack' });
+      u.autocast = true;
+    }
+  }
 
   // Deaths counted independently of game.kills, to check the scoreboard.
   //
@@ -61,6 +100,8 @@ for (let m = 0; m < MATCHES; m++) {
   const wasAlive = new Map();
   const lastDist = new Map();
   const openFor = new Map();
+  const staleOrder = new Map();
+  const broodAdrift = new Map();
   let deaths = 0;
   let ended = null;
   game.onEnd = (state) => { ended = state; };
@@ -68,7 +109,7 @@ for (let m = 0; m < MATCHES; m++) {
   let t = 0;
   while (!ended && t < TIME_LIMIT + 1) {
     game.step(STEP);
-    attackAI.update(STEP);
+    if (attackAI) attackAI.update(STEP);
     defenseAI.update(STEP);
     t += STEP;
     checks++;
@@ -127,6 +168,53 @@ for (let m = 0; m < MATCHES; m++) {
         }
       }
 
+      // --- orders -----------------------------------------------------------
+      //
+      // A standing attack order must never survive its target. Combat scores
+      // the ordered hull 6x, so a stale one is a whole fleet aiming at a
+      // corpse — which is exactly the failure mode the order-persistence
+      // change could have introduced.
+      if (u.alive && u.orderedTarget) saw('ordered target held');
+      if (u.alive && u.orderedTarget && !u.orderedTarget.alive) {
+        saw('ordered target outlived its hull');
+        const held = (staleOrder.get(u.id) || 0) + STEP;
+        staleOrder.set(u.id, held);
+        // One AI tick of slack: the sweep that clears it runs at 0.4s.
+        if (held > 1.5) {
+          fail(`stale-ordered-target:${tag}`,
+            `${u.label} still ordered onto dead ${u.orderedTarget.label} for ${held.toFixed(1)}s`);
+        }
+      } else {
+        staleOrder.delete(u.id);
+      }
+
+      // --- carrier broods ----------------------------------------------------
+      //
+      // A brood nobody has ordered follows its carrier. If it is drifting far
+      // from its parent it has been stranded — the bug a session report caught,
+      // where two Spawners' whole output loitered at the staging area.
+      if (u.alive && u.broodOf && u.orderCount === 0 && u.broodOf.alive) {
+        saw('unordered brood following a carrier');
+        const gap = u.pos.distanceTo(u.broodOf.pos);
+        // A wing that is FIGHTING is supposed to leave its carrier — that is
+        // the whole point of launching it, and an earlier version of this
+        // check called it a stranding. The fault is a brood that is far away
+        // with nothing to do: nobody is steering it and it is not fighting.
+        const busy = u.stance === 'attack' && u.attackTarget && u.attackTarget.alive;
+        if (gap > 1400 && busy) saw('brood fighting away from its carrier');
+        const far = gap > 1400 && !busy;
+        const run = far ? (broodAdrift.get(u.id) || 0) + STEP : 0;
+        broodAdrift.set(u.id, run);
+        // Generous: a freshly launched hull has to cross the formation, and a
+        // carrier under way can outrun it briefly. Only a sustained gap is a
+        // stranding.
+        if (run > 20) {
+          fail(`brood-adrift:${tag}`,
+            `${u.label} is ${gap.toFixed(0)}u from carrier ${u.broodOf.label}`
+            + ` for ${run.toFixed(0)}s with nothing to fight and no orders of its own`);
+        }
+      }
+
       // --- per-craft ------------------------------------------------------
       for (const c of u.craft) {
         if (!c.alive) {
@@ -142,6 +230,39 @@ for (let m = 0; m < MATCHES; m++) {
           fail(`overheal:${tag}`, `${u.label} at ${c.hp.toFixed(1)}/${c.maxHealth}`);
         }
         if (c.speed < -1e-6) fail(`negative-speed:${tag}`, `${u.label} speed ${c.speed}`);
+
+        // --- fire control ---------------------------------------------------
+        // Reach is either the rated range or the unpainted fraction of it, and
+        // never anything else. A drifting or NaN fireRange would silently
+        // change every engagement distance in the game.
+        if (u.stats.range > 0) {
+          saw('fireRange within bounds');
+          if (c.fireRange < u.stats.range - 1e-6) saw('fireRange cut by a poor picture');
+          if (u.isGround) saw('emplacement exempt from fire control');
+          const full = u.stats.range;
+          const cut = full * SCOUTING.unpaintedRangeFactor;
+          if (!Number.isFinite(c.fireRange)) {
+            fail(`firerange-nan:${tag}`, `${u.label} fireRange ${c.fireRange}`);
+          } else if (c.fireRange > full + 1e-6) {
+            fail(`firerange-over:${tag}`,
+              `${u.label} reaches ${c.fireRange.toFixed(0)} of a rated ${full.toFixed(0)}`);
+          } else if (c.fireRange < cut - 1e-6) {
+            fail(`firerange-under:${tag}`,
+              `${u.label} reaches ${c.fireRange.toFixed(0)}, below the ${cut.toFixed(0)} floor`);
+          }
+          // An emplacement is exempt and must always have its full reach.
+          if (u.isGround && c.fireRange < full - 1e-6) {
+            fail(`firerange-ground:${tag}`,
+              `${u.label} is an emplacement reaching only ${c.fireRange.toFixed(0)}/${full.toFixed(0)}`);
+          }
+        }
+
+        // A hull is always resolved by its own side — the visibility pass sets
+        // that unconditionally, and half the gunnery reads it.
+        saw('hull resolved by its own side');
+        if (!c.paintedBy[u.faction]) {
+          fail(`unpainted-by-own-side:${tag}`, `${u.label} is not painted for ${u.faction}`);
+        }
         if (u.isGround) continue;
 
         if (Math.hypot(c.pos.x, c.pos.z) > WORLD.arenaRadius + 2) {
@@ -204,6 +325,11 @@ for (let m = 0; m < MATCHES; m++) {
 }
 
 console.log(`\n${MATCHES} matches, ${checks.toLocaleString()} ticks checked\n`);
+console.log('  assertion coverage — how many times each new check actually ran:');
+for (const [k, n] of [...covered.entries()].sort((a, b) => b[1] - a[1])) {
+  console.log(`    ${n.toLocaleString().padStart(12)}  ${k}`);
+}
+console.log('');
 if (!found.size) {
   console.log('  no invariant violations');
 } else {
