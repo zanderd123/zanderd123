@@ -10,6 +10,7 @@
 import * as THREE from 'three';
 import {
   SHIPS, GROUND, WORLD, FACTION, unitCost, TIME_LIMIT, SHIELDS, SIEGE, SALVO,
+  salvoRoundPower, salvoBreakEven,
 } from './config.js';
 import {
   Unit, updateCraftMovement, updateUnit, seatOnPlanet, resetCallsigns,
@@ -625,7 +626,13 @@ export class Game {
         if (craft.salvoCharge >= 1 && target.paintedBy[unit.faction]) {
           // Never throw into a screen that would annihilate the volley: hold
           // the charge and wait for something worth throwing at. See SALVO.
-          craft.salvoHeld = this.counterforceFor(target) >= unit.type.salvo.rounds;
+          // Hold unless enough of the volley would survive the screen to beat
+          // simply firing the guns. "Not entirely stopped" was the wrong bar:
+          // a six-round volley landing one round converts 236 damage of
+          // withheld gunfire into 58.
+          const rounds = unit.type.salvo.rounds;
+          const through = rounds - this.counterforceFor(target);
+          craft.salvoHeld = through / rounds < salvoBreakEven();
           if (!craft.salvoHeld) this.releaseSalvo(craft, target);
         }
       }
@@ -710,7 +717,7 @@ export class Game {
     }
     if (!landed) return;
 
-    const power = shotDamage(craft, target) * SALVO.roundPower;
+    const power = shotDamage(craft, target) * salvoRoundPower(unit.type);
     for (let i = 0; i < landed; i++) {
       const hit = this.rng() < accuracy(craft, target);
       this.projectiles.fire(craft, target, hit, power);

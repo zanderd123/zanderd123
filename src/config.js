@@ -231,7 +231,9 @@ export const SHIPS = {
     armor: 0.20,
     color: 0xa9c2d9,
     weapon: { type: 'bolt', rof: 2.4, speed: 560, spread: 0.02, penetration: 0.60 },
-    // The hull the salvo layer is really for.
+    // The hull the salvo layer is really for. Seven rounds, not four: a
+    // volley has to stay above break-even after a screen has taken its cut,
+    // and with four rounds any two points of counterforce put it under.
     //
     // It went on the Sentry Turret first, which was wrong in a way worth
     // recording: a Sentry is immobile, defence-only and permanently in
@@ -242,7 +244,7 @@ export const SHIPS = {
     // parks — and the Warden, whose own role text reads "everything it does,
     // something else does better", is exactly that hull and now has a reason
     // to exist.
-    salvo: { rounds: 4 },
+    salvo: { rounds: 7 },
     ability: {
       id: 'bubble',
       name: 'Shield Bubble',
@@ -265,7 +267,7 @@ export const SHIPS = {
     color: 0x9aa4ae,
     weapon: { type: 'shell', rof: 1.1, speed: 620, spread: 0.012, penetration: 1.00 },
     // The attacker's capital: the hull a salvo exists for. See SALVO.
-    salvo: { rounds: 6 },
+    salvo: { rounds: 10 },
     ability: {
       id: 'overcharge',
       name: 'Armor Overcharge',
@@ -522,11 +524,24 @@ export const SALVO = {
    */
   chargeCost: 0.35,
   /**
-   * Damage of one salvo round as a multiple of the hull's ordinary shot,
-   * before armour. Set so a full volley is worth roughly the fire withheld
-   * to build it, plus a premium for arriving all at once.
+   * What a full, unintercepted volley is worth as a multiple of the gunfire
+   * withheld to build it. The premium is the reward for concentration — the
+   * same damage arriving at once can kill a hull outright, and a dead hull
+   * never fires back.
+   *
+   * Per-round damage is DERIVED from this rather than set by hand, because
+   * setting it by hand got it badly wrong. At a flat 1.7x the ordinary shot,
+   * a Warden withheld 173 damage of gunfire to deliver a volley worth 78 — a
+   * 55% loss on every throw, with no interception at all, on the very hull the
+   * salvo had just been moved onto. It could not break even at any round count
+   * below 8.9 and it fires 4. A player's session report showed fifteen such
+   * volleys in a single match, each one costing more than it gained.
+   *
+   * A fast gun withholds more damage per second than a slow one, so its rounds
+   * have to hit proportionally harder. salvoRoundPower() does that arithmetic
+   * and nothing else may.
    */
-  roundPower: 1.7,
+  premium: 1.45,
   /**
    * How much further a salvo reaches than the hull's guns.
    *
@@ -562,11 +577,48 @@ export const SALVO = {
    * power or a dead screen.
    */
   /**
-   * Seconds a hull must survive, with a live target, before it can throw
-   * again. Long enough that losing a capital mid-charge is a real loss.
+   * Seconds a hull must survive, in reach of a target, before it can throw
+   * again.
+   *
+   * This is the layer's real balance knob, and it is not the one it looks
+   * like. `premium` — how much extra damage a volley is worth — barely moves
+   * anything (1.15 / 1.25 / 1.45 measured 59% / 56% / 56% attacker over 100
+   * matches each), because a salvo's value is not its damage. It is that
+   * concentrated damage kills a hull outright, and a dead hull is neither
+   * repaired nor fired again. That defeats the sustained repair the defence
+   * leans on, which is why the whole layer favours the attacker.
+   *
+   * How OFTEN burst lands is therefore the lever: 18s / 26s / 34s measured
+   * 56% / 52% / 49%, against a no-salvo baseline of 46%. Thirty is chosen to
+   * keep the shift small while leaving a volley as an event rather than a
+   * metronome — a session report showed one Warden throwing at 158.4s, 176.4s,
+   * 194.4s, 212.4s and 230.4s, which is clockwork, not a decision.
    */
-  charge: 18,
+  charge: 30,
 };
+
+/**
+ * Damage of one salvo round, as a multiple of this hull's ordinary shot.
+ *
+ *   withheld over the charge = chargeCost * dps * charge
+ *   volley value             = rounds * (dps / rof) * multiplier
+ *
+ * Setting volley = premium * withheld and solving gives the expression below,
+ * which is independent of dps: a hull's own rate of fire is what decides how
+ * hard its rounds must hit.
+ */
+export function salvoRoundPower(type) {
+  const spec = type.salvo;
+  if (!spec || !type.weapon) return 0;
+  return (SALVO.chargeCost * SALVO.charge * type.weapon.rof * SALVO.premium) / spec.rounds;
+}
+
+/**
+ * The share of a volley that has to get through for throwing it to beat simply
+ * firing the guns. Below this the charge is held rather than spent — see the
+ * note on screens in SALVO.
+ */
+export function salvoBreakEven() { return 1 / SALVO.premium; }
 
 export const SCOUTING = {
   /** Paint radius as a share of the observing squadron's sensor range. */

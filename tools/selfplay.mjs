@@ -26,6 +26,9 @@ const STEP = 1 / 30;
 
 // NOSALVO=1 turns the salvo layer off in place for an A/B.
 if (process.env.NOSALVO) SALVO.enabled = false;
+// SALVO_PREMIUM sweeps how much better concentrated damage is than spread.
+if (process.env.SALVO_PREMIUM) SALVO.premium = Number(process.env.SALVO_PREMIUM);
+if (process.env.SALVO_CHARGE) SALVO.charge = Number(process.env.SALVO_CHARGE);
 
 // NOSCOUT=1 neutralises the scouting rule in place, so the same seeds can be
 // played with and without it.

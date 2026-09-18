@@ -607,3 +607,68 @@ kill outright where a grind wears down.
 A loaded capital waits a mean of **15 seconds** for a window — 4% of holds run
 past a minute, which is a capital sitting on a volley because everything it can
 reach is covered. That wait is the decision the mechanic exists to create.
+
+
+## The salvo was a losing trade, and the arithmetic said so
+
+A player's session report showed fifty-three volleys in one match. Nine of them
+came from a single Warden on a perfect eighteen-second cadence, and every one
+was a mistake the game was making on the player's behalf.
+
+Per-round damage was a flat 1.7x the hull's ordinary shot, set by hand. Against
+the fire withheld to build the volley:
+
+| hull | withheld over the charge | full volley | ratio | rounds needed to break even |
+|---|---|---|---|---|
+| Warden | 173 | 78 | **0.45** | 8.9 of 4 |
+| Bastion | 236 | 348 | 1.47 | 4.1 of 6 |
+
+**The Warden's salvo was strictly worse than not having one** — a 55% loss on
+every throw with no interception at all, on the very hull the salvo had just
+been moved onto, and it could not break even at any round count below 8.9 while
+firing 4. The Bastion's needed four of six rounds to land; the report contains
+eight volleys under that line, two of them landing a single round.
+
+The hold rule was wrong for the same reason. "Do not throw if the screen stops
+*all* of it" is far too low a bar when a six-round volley landing one round
+converts 236 damage of gunfire into 58.
+
+Per-round damage is now **derived** (`salvoRoundPower`) so it cannot drift from
+the economics again: a fast gun withholds more damage per second, so its rounds
+must hit proportionally harder. A hull holds its charge unless enough of the
+volley would survive to beat simply firing the guns (`salvoBreakEven`). Round
+counts went up — Bastion 10, Warden 7 — so counterforce *reduces* a volley
+instead of switching it off, and both hulls now tolerate 2-3 points of screen
+while staying above the line.
+
+### What that cost, and the knob
+
+Fixing it made salvos worth using, which moved the balance. The surprise was
+which lever matters. `premium` — how much extra damage a volley carries —
+barely does anything (1.15 / 1.25 / 1.45 measured 59% / 56% / 56% attacker over
+100 matches each), because a salvo's value is not its damage. It is that
+concentrated damage kills a hull **outright**, and a dead hull is neither
+repaired nor fired again — which defeats the sustained repair the defence leans
+on. That is why the layer favours the attacker at all.
+
+How often burst lands is the real lever:
+
+| charge | attacker wins (AI v AI, 100 matches) |
+|---|---|
+| no salvos | 46% |
+| 34s | 49% |
+| 30s **(shipped)** | 53% |
+| 26s | 52% |
+| 18s | 56% |
+
+Thirty keeps the shift modest and leaves a volley as an event rather than a
+metronome. The parked-defence case takes it harder — a passive fleet is
+punished more by burst — at 77% for the AI attacker against 65% with no
+salvos. `SALVO.charge` is the dial if that is too much.
+
+### A reporting gap in the same report
+
+The planet fell from 100% to 15% with **no event in the timeline** explaining
+it. Snapshots carried `siege: true`, but only a player's *explicit* bombardment
+order was ever logged, and most bombardments begin at the auto-siege gate,
+which merely flashed a message. It records an `auto-siege` event now.

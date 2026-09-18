@@ -135,8 +135,17 @@ class App {
       }
     };
 
-    this.game.onAutoSiege = (unit) => this.hud.flashMessage(
-      `${unit.label} has a clear lane — commencing bombardment. Most of its guns are on the crust now.`, 3.4);
+    this.game.onAutoSiege = (unit) => {
+      // Recorded, not just flashed. A session report showed the planet fall
+      // from 100% to 15% with no event in the timeline explaining it, because
+      // only a player's explicit bombardment order was ever logged and most
+      // bombardments start here instead.
+      this.recorder.log('auto-siege', {
+        unit: unit.label, type: unit.type.id, dps: Math.round(unit.siegeDps),
+      });
+      this.hud.flashMessage(
+        `${unit.label} has a clear lane — commencing bombardment. Most of its guns are on the crust now.`, 3.4);
+    };
 
     this.commander = new Commander(this.game, enemy, setup.difficulty);
 
