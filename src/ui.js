@@ -747,6 +747,7 @@ export class Hud {
       this.rename.placeholder = lead.callsign;
     }
     $('siege-note').classList.toggle('hidden', !sel.some((u) => u.siegeLock));
+    $('salvo-row').classList.toggle('hidden', !sel.some((u) => u.hasSalvo));
 
     const hulls = sel.reduce((s, u) => s + u.count, 0);
     const maxHulls = sel.reduce((s, u) => s + u.type.count, 0);
@@ -863,6 +864,17 @@ export class Hud {
         + ' squadron is shooting at, and the range its guns reach as a result.'
         + ' Unresolved contacts can only be engaged at close range — move a'
         + ' scout up to open the distance back out.';
+    }
+
+    // Salvo charge. The fullest hull in the selection, because what the player
+    // is asking is "how close is the next volley".
+    const salvo = document.getElementById('sel-salvo');
+    if (salvo && sel.some((u) => u.hasSalvo)) {
+      const charge = Math.max(...sel.map((u) => u.salvoCharge));
+      salvo.style.width = `${Math.round(charge * 100)}%`;
+      salvo.parentElement.classList.toggle('ready', charge >= 1);
+      const label = document.getElementById('salvo-value');
+      if (label) label.textContent = charge >= 1 ? 'READY' : `${Math.round(charge * 100)}%`;
     }
 
     const out = document.getElementById('sel-out');

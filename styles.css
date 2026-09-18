@@ -855,3 +855,29 @@ body.in-prep .flash-msg { bottom: 232px; }
 }
 .hover-card .hc-paint.on  { color: #7fffc0; }
 .hover-card .hc-paint.off { color: #ff9a48; }
+
+/* ==========================================================================
+   Salvo charge — a capital building a volley
+   ========================================================================== */
+.salvo-row {
+  display: flex; align-items: center; gap: 8px;
+  margin: 6px 0 8px;
+}
+.salvo-label {
+  font-size: 10px; letter-spacing: 0.18em; color: #c8a24a;
+}
+.salvo-track {
+  flex: 1; height: 5px; border-radius: 1px;
+  background: rgba(200, 162, 74, 0.16); overflow: hidden;
+}
+.salvo-track i {
+  display: block; height: 100%; width: 0;
+  background: linear-gradient(90deg, #8a6a20, #e8bf5a);
+  transition: width 0.15s linear;
+}
+/* Loaded and waiting for a firing solution reads differently from charging. */
+.salvo-track.ready i { background: #ffd470; box-shadow: 0 0 8px rgba(255, 212, 112, 0.8); }
+.salvo-value {
+  font-size: 10px; letter-spacing: 0.1em; color: #c8a24a;
+  min-width: 34px; text-align: right; font-variant-numeric: tabular-nums;
+}

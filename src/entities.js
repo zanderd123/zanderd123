@@ -77,6 +77,9 @@ export class Craft {
     // Bombardment runs on its own clock so it does not compete with the
     // squadron's self-defence fire — see SIEGE.selfDefense.
     this.siegeTimer = 0;
+    // Salvo charge, 0..1. Built only while the hull has a live target, so a
+    // capital cannot arrive at the fight pre-loaded. See SALVO.
+    this.salvoCharge = 0;
     // How far this hull's guns reach against whatever it is currently aiming
     // at — full rated range on a painted target, less on an unresolved one.
     // The flight model reads it so a hull with no firing solution closes to
@@ -354,6 +357,21 @@ export class Unit {
    * attackers the usual bonus for shooting at something motionless.
    */
   get isAnchored() { return this.stance === 'defend'; }
+
+  /** Does this hull type throw salvos at all? */
+  get hasSalvo() { return !!(this.type.salvo && this.type.weapon); }
+
+  /**
+   * Salvo charge across the squadron, 0..1, for the HUD. The fullest hull
+   * rather than the mean: what the player wants to know is how close the next
+   * volley is, and hulls charge independently.
+   */
+  get salvoCharge() {
+    if (!this.hasSalvo) return 0;
+    let best = 0;
+    for (const c of this.craft) if (c.alive && c.salvoCharge > best) best = c.salvoCharge;
+    return best;
+  }
 
   /**
    * Is this squadron painted for `faction` — does that side have close enough

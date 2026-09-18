@@ -32,7 +32,11 @@ const TEMPLATES = {
   attack: [
     { id: 'falcon', weight: 0.28, min: 1 },
     { id: 'wasp', weight: 0.20, min: 1 },
-    { id: 'warden', weight: 0.15, min: 0 },
+    // min 1 to match the defence's. The two templates differed here from the
+    // start and it was harmless while a Warden was just a middling hull; once
+    // it carried the salvo, the attacker could field a fleet with no access to
+    // the mechanic at all, and threw 101 volleys to the defence's 565.
+    { id: 'warden', weight: 0.15, min: 1 },
     { id: 'bastion', weight: 0.15, min: 1 },
     { id: 'spawner', weight: 0.09, min: 0, max: 2 },
     { id: 'aegis', weight: 0.09, min: 0, max: 2 },

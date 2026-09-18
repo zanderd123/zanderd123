@@ -40,6 +40,7 @@ a non-circular check that no coefficient has drifted.
     node tools/siege-probe.mjs     does bombardment actually function
     node tools/strategy.mjs        does the attacker's PLAN matter
     node tools/scouting.mjs        fire control: does scouting pay
+    node tools/salvo.mjs           salvos, and the counterforce threshold
     node tools/invariants.mjs      bug hunt: assert what must never be true
     node tools/audit.mjs           bug hunt: legal-but-wrong behaviour
 
@@ -494,3 +495,82 @@ The only squadrons that still finish a battle without firing are Spawners, 4 of
 27. Those matches ended around 70 seconds — a standoff carrier parked 700 units
 back never reaches its own 200-unit gun before a short battle is over. That is
 the hull working as designed, not a fault.
+
+
+## Salvos
+
+Everything else here is Lanchester — continuous attrition, damage flowing
+smoothly, force scaling with the square of numbers. Hughes' observation about
+missile-age naval combat is that it is **pulsed**: a ship builds a volley,
+throws it, and the whole thing lands at once. Three numbers then decide the
+exchange — striking power, staying power, and counterforce — and the result is
+`(striking - counterforce) / staying`.
+
+Two properties fall out of that which continuous fire does not have. Attacking
+effectively first **compounds**, because a salvo that kills a hull removes
+every round that hull would ever have fired. And counterforce **subtracts**
+rather than scaling: a thin screen against a big volley is nearly worthless
+since the leakers still arrive, while enough of it zeroes the volley outright.
+
+It is a layer on top of the existing model, not a replacement. A **Warden** (4
+rounds) or **Bastion** (6) holds back `SALVO.chargeCost` of its rate of fire to
+build a volley over 18 seconds — so a salvo is the same damage delivered lumpy,
+not extra damage. **Wasps, Aegis and Flak Walkers** shoot rounds down off the
+top. Everything else fights exactly as before.
+
+### Three things measurement changed
+
+**The salvo was on the wrong hull.** It went to the Sentry Turret first, as the
+defence's capital. A Sentry is immobile, defence-only and permanently in
+contact, so it charged continuously and threw **776 volleys to the attacker's
+5** over 24 matches — the attacker's only salvo hull was the Bastion, which
+spends most of a match bombarding and cannot charge while it does. It belongs
+on a hull both sides field and neither side parks. The Warden, whose own role
+text reads *"everything it does, something else does better"*, now has a reason
+to exist. (The attacker template also guaranteed no Warden where the defence
+guaranteed one, which was harmless until the hull carried a mechanic.)
+
+**The designated point-defence hull could not do point defence.** Counterforce
+used the interceptor's weapon range, and a Flak Walker is an emplacement seated
+on the planet with 330-unit guns, while the fleet it is meant to cover fights
+at the picket line 900+ units out. Interception measured **0% at every Flak
+count from zero to four**. Screen radius is its own stat now — an umbrella is a
+different thing from a gun. The attacker also could not buy point defence at
+all, Flak being ground and therefore defence-only, so Wasps intercept too.
+
+**Extended reach measured as nothing.** A salvo was given 1.4x range against a
+resolved target and shorter range against an unresolved one, and mean throw
+distance came out at **0.83x** — a hull closes to 0.8x its gun range to fight,
+so it is never out at the longer distance anyway. The painted requirement is
+now a **gate**: no firing solution, no launch. That is the one place scouting
+is worth more than position.
+
+### The threshold, measured
+
+Identical fleets, 16 matches a row, varying only how many Flak Walkers stand
+with the defence against a 6-round Bastion salvo:
+
+| Flak | rounds intercepted | **volleys stopped dead** |
+|---|---|---|
+| 0 | 0% | 0% |
+| 1 | 9% | 0% |
+| 2 | 7% | 2% |
+| 3 | 16% | **43%** |
+| 4 | 18% | **68%** |
+
+That is the shape the model predicts, and it is in the right column: the
+interception *rate* drifts up slowly, but the thing that decides a fight —
+whether the volley arrives at all — snaps between two walkers and three.
+
+### Balance
+
+100 matches, same seeds, `NOSALVO=1` turns the layer off in place:
+
+| | attacker wins |
+|---|---|
+| salvos off | 46% |
+| salvos on | 50% |
+
+Four points, inside noise at that sample. The layer adds texture, not power,
+which is what a layer should do. Battles resolve somewhat faster (mean 234s to
+209s) because pulses kill outright where a grind wears down.

@@ -168,6 +168,12 @@
                placeholder="rename squadron" title="Rename this squadron (Enter to confirm)" />
       </div>
       <div class="siege-note hidden" id="siege-note">BOMBARDING — will not defend itself</div>
+      <div class="salvo-row hidden" id="salvo-row"
+           title="Salvo charge. This hull is holding back part of its rate of fire to build a volley that lands all at once. It can only be thrown at a target your fleet has resolved — keep eyes on the target or it never launches. Point defence near the target shoots rounds down off the top, so a volley can be stopped dead.">
+        <span class="salvo-label">SALVO</span>
+        <div class="salvo-track"><i id="sel-salvo"></i></div>
+        <span class="salvo-value" id="salvo-value">—</span>
+      </div>
       <div class="sel-stats" id="sel-stats"></div>
       <div class="sel-ability" id="sel-ability"></div>
       <div class="sel-stances">
@@ -296,6 +302,7 @@
           <dt>Tab</dt><dd>Minimise / restore the fleet list on the right</dd>
           <dt>Right click</dt><dd>Move order · on an enemy, attack order · <strong>on the planet, bombard</strong></dd>
           <dt>Bombarding</dt><dd><strong>Any ship can</strong>, but damage scales with the gun: per 100 points a Bastion does <b>45.7</b>/s to the crust, a Falcon 27.6, a Wasp 15.0, an Aegis 2.3. A bombarding squadron holds a fixed standoff and puts <strong>most</strong> of its rate of fire into the crust, keeping a fifth back to defend itself — so it survives, but it stops being much use against ships. Escort it</dd>
+          <dt>Salvos</dt><dd>A <strong>Warden</strong> or <strong>Bastion</strong> holds back a third of its rate of fire to build a <strong>volley</strong>, then throws the whole thing at once — the same damage, delivered in one blow instead of spread out. That is better when it kills something outright, because a dead hull never fires back, and worse when it is intercepted. It can <em>only</em> be thrown at a target your fleet has <strong>resolved</strong>. <strong>Wasps, Aegis and Flak Walkers shoot rounds down</strong> off the top of an incoming volley — a fixed <em>number</em>, not a share, so a thin screen is nearly worthless and a thick one stops a salvo dead. Watch the SALVO bar on a selected capital</dd>
           <dt>Fire control</dt><dd>Your guns reach their <strong>full range</strong> only against a hull one of your squadrons is close enough to <strong>resolve</strong>. Against a distant contact they reach 60% of it and hit slightly less often, and a focus-fire order stops overriding target choice. Sensors are far longer than guns on light hulls, so <strong>a Wasp or a Specter pushed forward opens the range back up for the whole line</strong> — a Bastion cannot resolve its own targets at 460. Hover an enemy to see <em>PAINTED</em> or <em>NO SOLUTION</em></dd>
           <dt>Right <em>drag</em></dt><dd>Move the destination: sideways slides it across the map, up/down sets <strong>altitude</strong></dd>
           <dt>Middle drag</dt><dd>Orbit camera · Shift+middle to pan</dd>

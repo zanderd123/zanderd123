@@ -175,6 +175,14 @@ export const SHIPS = {
     armor: 0.00,
     color: 0x8fd4ff,
     weapon: { type: 'bolt', rof: 5.5, speed: 620, spread: 0.05, penetration: 0.15 },
+    // Interceptors intercept. Without this the attacker could not screen at
+    // all — Flak is a ground hull and so defence-only — and counterforce
+    // stopped 2% of rounds across a whole run, which is not a threshold, it is
+    // a rounding error. Counted per squadron rather than per hull, so a screen
+    // is a decision about how many squadrons to commit, not a side effect of
+    // buying six-hull units.
+    counterforce: 2,
+    screen: 420,
     ability: {
       id: 'blink',
       name: 'Blink Dash',
@@ -223,6 +231,18 @@ export const SHIPS = {
     armor: 0.20,
     color: 0xa9c2d9,
     weapon: { type: 'bolt', rof: 2.4, speed: 560, spread: 0.02, penetration: 0.60 },
+    // The hull the salvo layer is really for.
+    //
+    // It went on the Sentry Turret first, which was wrong in a way worth
+    // recording: a Sentry is immobile, defence-only and permanently in
+    // contact, so it charged continuously and threw 776 volleys to the
+    // attacker's 5 over 24 matches. The attacker's only salvo hull was the
+    // Bastion, which spends most of a match bombarding and cannot charge while
+    // it does. A salvo belongs on a hull BOTH sides field and neither side
+    // parks — and the Warden, whose own role text reads "everything it does,
+    // something else does better", is exactly that hull and now has a reason
+    // to exist.
+    salvo: { rounds: 4 },
     ability: {
       id: 'bubble',
       name: 'Shield Bubble',
@@ -244,6 +264,8 @@ export const SHIPS = {
     armor: 0.55,
     color: 0x9aa4ae,
     weapon: { type: 'shell', rof: 1.1, speed: 620, spread: 0.012, penetration: 1.00 },
+    // The attacker's capital: the hull a salvo exists for. See SALVO.
+    salvo: { rounds: 6 },
     ability: {
       id: 'overcharge',
       name: 'Armor Overcharge',
@@ -262,6 +284,10 @@ export const SHIPS = {
     range: 230,
     sensor: 1000,
     passiveRepair: 7,   // hp/sec to nearby damaged allies, always on
+    // A thinner screen than the Flak Walker's, on a hull you were going to
+    // park with the line anyway.
+    counterforce: 2,
+    screen: 520,
     scale: 4.0,
     armor: 0.35,
     color: 0xbfe3c9,
@@ -357,6 +383,7 @@ export const GROUND = {
     color: 0xd08b6a,
     ground: true,
     weapon: { type: 'shell', rof: 1.6, speed: 520, spread: 0.015, penetration: 0.95 },
+
     ability: {
       id: 'overcharge_burst',
       name: 'Overcharge Burst',
@@ -402,6 +429,13 @@ export const GROUND = {
     color: 0xb9a06a,
     ground: true,
     antiFighter: true, // bonus vs high agility, penalty vs heavy armor
+    // Point defence. Shoots down this many rounds of any salvo aimed at
+    // something inside its umbrella — the hull that makes a capital's volley
+    // survivable. The radius is deliberately much larger than its 330-unit
+    // guns: it is bolted to the planet, so anything smaller covered nothing
+    // but itself. See SALVO.
+    counterforce: 3,
+    screen: 700,
     weapon: {
       type: 'flak', rof: 2.2, speed: 460, spread: 0.05, penetration: 0.20,
       ignoresEvasion: true, flatAccuracy: 0.75,
@@ -445,6 +479,72 @@ export const ALL_TYPES = { ...SHIPS, ...GROUND };
  * weapon range of 460, and a Sentry's 315 against 500. The long guns cannot
  * see well enough to use their own reach. They need somebody in front.
  */
+/**
+ * Salvos, and why a capital ship is worth more than its damage per second.
+ *
+ * Everything else in this game is Lanchester: continuous attrition, damage
+ * flowing smoothly, force scaling with the square of numbers. Wayne Hughes'
+ * observation about missile-age naval combat is that it does not work like
+ * that at all — it is PULSED. A ship builds a salvo, throws it, and the whole
+ * thing lands at once. Three numbers then decide the exchange:
+ *
+ *   striking power   rounds thrown in one volley
+ *   staying power    hits absorbed before a hull is out (armour and health,
+ *                    which this game already has)
+ *   counterforce     rounds shot down on the way in
+ *
+ * and the result is (striking - counterforce) / staying, which has two
+ * properties continuous fire does not:
+ *
+ *  1. Attacking effectively first compounds. A salvo that removes a hull
+ *     removes every round that hull would ever have fired, so the return
+ *     volley is permanently smaller. There is no equivalent in a DPS trade.
+ *  2. Counterforce SUBTRACTS rather than scaling. A little point defence
+ *     against a big salvo is worth almost nothing because the leakers still
+ *     arrive; enough of it zeroes the volley outright. It is a threshold, not
+ *     a percentage — which is what makes bringing Flak a real decision rather
+ *     than a rounding adjustment.
+ *
+ * Deliberately a layer on top of the existing model rather than a replacement.
+ * Only capitals get one (the Bastion and the Sentry Turret, so both sides
+ * have the tool), everything else fights exactly as before, and a charging
+ * hull gives up part of its ordinary rate of fire to build it — so a salvo is
+ * the same damage delivered lumpy, not extra damage. Lumpy is better when it
+ * kills something outright and worse when it is intercepted, and choosing
+ * between those is the whole point.
+ */
+export const SALVO = {
+  /** Master switch, so the whole layer can be measured on and off. */
+  enabled: true,
+  /**
+   * Share of its normal rate of fire a hull diverts into building a salvo.
+   * The same shape as SIEGE.selfDefense: a real commitment, not a freebie.
+   */
+  chargeCost: 0.35,
+  /**
+   * Damage of one salvo round as a multiple of the hull's ordinary shot,
+   * before armour. Set so a full volley is worth roughly the fire withheld
+   * to build it, plus a premium for arriving all at once.
+   */
+  roundPower: 1.7,
+  /**
+   * How much further a salvo reaches than the hull's guns.
+   *
+   * A salvo cannot be thrown at an unresolved contact at all — not at reduced
+   * range, not at all. That started as a range penalty and measured as
+   * nothing: a hull closes to 0.8x its gun range to fight, so it is never out
+   * at the longer distance and mean throw distance came out at 0.83x with 1.4x
+   * available. As a gate it is the one place scouting is worth more than
+   * position — eyes forward are what let a capital launch.
+   */
+  paintedReach: 1.4,
+  /**
+   * Seconds a hull must survive, with a live target, before it can throw
+   * again. Long enough that losing a capital mid-charge is a real loss.
+   */
+  charge: 18,
+};
+
 export const SCOUTING = {
   /** Paint radius as a share of the observing squadron's sensor range. */
   paintFraction: 0.45,

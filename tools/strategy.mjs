@@ -26,6 +26,7 @@
 import { Game } from '../src/game.js';
 import { Commander, generateFleet } from '../src/ai.js';
 import { FACTION, TIME_LIMIT, WORLD, SIEGE, SCOUTING, budgetFor } from '../src/config.js';
+import { SALVO } from '../src/config.js';
 
 const noopFx = {
   build() {}, disposeBatches() {}, update() {}, emitTrails() {},
@@ -38,6 +39,9 @@ const BUDGET = Number(process.argv[3] || 1000);
 const DIFFICULTY = process.argv[4] || 'medium';
 const WHICH = process.argv[5] || 'all';
 const STEP = 1 / 30;
+
+// NOSALVO=1 turns the salvo layer off in place for an A/B.
+if (process.env.NOSALVO) SALVO.enabled = false;
 
 const PLANET = { x: WORLD.planetCenter[0], y: WORLD.planetCenter[1], z: WORLD.planetCenter[2] };
 

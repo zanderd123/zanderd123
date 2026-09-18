@@ -8,7 +8,9 @@
  * tunnelling); stepping more often keeps the battle identical at every speed.
  */
 import * as THREE from 'three';
-import { SHIPS, GROUND, WORLD, FACTION, unitCost, TIME_LIMIT, SHIELDS, SIEGE } from './config.js';
+import {
+  SHIPS, GROUND, WORLD, FACTION, unitCost, TIME_LIMIT, SHIELDS, SIEGE, SALVO,
+} from './config.js';
 import {
   Unit, updateCraftMovement, updateUnit, seatOnPlanet, resetCallsigns,
   clampPointToArena,
@@ -580,8 +582,35 @@ export class Game {
 
     const target = craft.target;
     if (!target || !target.alive) return;
+    const dist = craft.pos.distanceTo(target.pos);
+
+    // Salvos are resolved before the gun-range gate, because they deliberately
+    // outrange the guns — but only against a hull the fleet has resolved.
+    //
+    // This is where scouting stops being about position and starts being about
+    // firepower. A Bastion that owns its firing solution throws at 644 units;
+    // one shooting at an unresolved contact cannot throw past 276. Eyes forward
+    // are worth more than double the reach of the heaviest weapon in the game.
+    //
+    // The charge costs rate of fire, the same shape of trade as a bombardment:
+    // the volley is the fire withheld to build it, delivered at once.
+    if (SALVO.enabled && unit.hasSalvo && !unit.siegeLock) {
+      rateShare *= 1 - SALVO.chargeCost;
+      // No firing solution, no launch. Not a range penalty — a gate. A shorter
+      // reach changed nothing measurable, because a hull closes to 0.8x its
+      // gun range to fight and is therefore never out at the longer distance
+      // anyway: mean throw distance came out at 0.83x with a 1.4x reach
+      // available. Refusing the launch outright is both the honest reading of
+      // the mechanic and the only version a player can feel.
+      if (target.paintedBy[unit.faction]
+          && dist <= unit.stats.range * SALVO.paintedReach) {
+        craft.salvoCharge = Math.min(1, craft.salvoCharge + dt / SALVO.charge);
+        if (craft.salvoCharge >= 1) this.releaseSalvo(craft, target);
+      }
+    }
+
     // Rated range only against a hull the fleet has resolved. See SCOUTING.
-    if (craft.pos.distanceTo(target.pos) > craft.fireRange) return;
+    if (dist > craft.fireRange) return;
     // Small craft have to actually point at what they're shooting; turreted
     // hulls and emplacements do not.
     const turreted = unit.isGround || unit.type.sniper || unit.type.scale >= 2.5;
@@ -598,6 +627,72 @@ export class Game {
     // arrive, a miss is an unguided one that visibly goes wide.
     const hit = this.rng() < accuracy(craft, target);
     this.projectiles.fire(craft, target, hit, shotDamage(craft, target));
+    if (unit.type.cloak) craft.revealUntil = this.now + 4;
+  }
+
+  /**
+   * Rounds this side can shoot down out of a salvo aimed at `target`.
+   *
+   * Counterforce is a property of hulls standing NEAR the thing being shot at,
+   * not of the target itself — you screen your capitals by parking point
+   * defence with them. An interceptor covers whatever is inside its own weapon
+   * range, so the Flak Walker's 330 units is the radius of the umbrella it
+   * provides, which is short enough that covering the whole fleet is not
+   * possible and choosing what to cover is a real decision.
+   *
+   * Not consumed: a screen is a rate of fire, not a magazine. Two salvos
+   * arriving in the same second are each reduced by the full screen.
+   */
+  counterforceFor(target) {
+    const side = target.unit.faction;
+    let total = 0;
+    for (const u of this.units) {
+      if (!u.alive || u.faction !== side) continue;
+      const shield = u.type.counterforce;
+      if (!shield) continue;
+      // Screen radius is its own stat, not weapon range.
+      //
+      // Using weapon range made the designated point-defence hull useless at
+      // point defence: a Flak Walker is an emplacement seated on the planet,
+      // its guns reach 330, and the fleet it is supposed to be covering fights
+      // out at the picket line 900+ units away. Measured across 16 matches a
+      // row with zero to four Flak Walkers, interception was 0% at every
+      // single count. An umbrella is a different thing from a gun.
+      const reach = u.type.screen ?? u.stats.range * 2;
+      for (const c of u.craft) {
+        if (!c.alive) continue;
+        if (c.pos.distanceTo(target.pos) <= reach) { total += shield; break; }
+      }
+    }
+    return total;
+  }
+
+  /**
+   * Throw the volley: striking power minus counterforce, all arriving at once.
+   *
+   * The rounds are ordinary guided projectiles, so armour, penetration and
+   * accuracy all apply exactly as they do to gunfire — what makes a salvo
+   * different is that they leave together and land together, which is what
+   * lets one remove a hull outright instead of wearing it down.
+   */
+  releaseSalvo(craft, target) {
+    const unit = craft.unit;
+    craft.salvoCharge = 0;
+    if (!target || !target.alive) return;
+
+    const spec = unit.type.salvo;
+    const intercepted = this.counterforceFor(target);
+    const landed = Math.max(0, spec.rounds - intercepted);
+    if (this.onSalvo) {
+      this.onSalvo(unit, target.unit, spec.rounds, intercepted, landed);
+    }
+    if (!landed) return;
+
+    const power = shotDamage(craft, target) * SALVO.roundPower;
+    for (let i = 0; i < landed; i++) {
+      const hit = this.rng() < accuracy(craft, target);
+      this.projectiles.fire(craft, target, hit, power);
+    }
     if (unit.type.cloak) craft.revealUntil = this.now + 4;
   }
 

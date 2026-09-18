@@ -105,6 +105,20 @@ for (let m = 0; m < MATCHES; m++) {
   let deaths = 0;
   let ended = null;
   game.onEnd = (state) => { ended = state; };
+  game.onSalvo = (unit, target, rounds, intercepted, landed) => {
+    saw('salvo thrown');
+    if (rounds !== unit.type.salvo.rounds) {
+      fail('salvo-round-count', `${unit.label} threw ${rounds}, rated ${unit.type.salvo.rounds}`);
+    }
+    if (landed > rounds || landed < 0) {
+      fail('salvo-landed-range', `${unit.label} landed ${landed} of ${rounds}`);
+    }
+    if (intercepted < 0) fail('salvo-negative-screen', `${unit.label} ${intercepted}`);
+    // The launch gate: never at a contact the fleet has not resolved.
+    if (!target.paintedFor(unit.faction)) {
+      fail('salvo-at-unresolved', `${unit.label} threw at unresolved ${target.label}`);
+    }
+  };
 
   let t = 0;
   while (!ended && t < TIME_LIMIT + 1) {
@@ -255,6 +269,17 @@ for (let m = 0; m < MATCHES; m++) {
             fail(`firerange-ground:${tag}`,
               `${u.label} is an emplacement reaching only ${c.fireRange.toFixed(0)}/${full.toFixed(0)}`);
           }
+        }
+
+        // --- salvo -----------------------------------------------------------
+        if (u.hasSalvo) {
+          saw('salvo charge within bounds');
+          if (!Number.isFinite(c.salvoCharge) || c.salvoCharge < 0 || c.salvoCharge > 1) {
+            fail(`salvo-charge:${tag}`, `${u.label} charge ${c.salvoCharge}`);
+          }
+        } else if (c.salvoCharge !== 0) {
+          fail(`salvo-on-nonsalvo:${tag}`,
+            `${u.label} cannot throw salvos but has charge ${c.salvoCharge}`);
         }
 
         // A hull is always resolved by its own side — the visibility pass sets
