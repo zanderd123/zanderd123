@@ -118,6 +118,13 @@ for (let m = 0; m < MATCHES; m++) {
     if (!target.paintedFor(unit.faction)) {
       fail('salvo-at-unresolved', `${unit.label} threw at unresolved ${target.label}`);
     }
+    // A volley is never thrown into a screen that would annihilate it — the
+    // charge is held instead. At least one round must have been able to get
+    // through, or the hull wasted its commitment.
+    if (landed <= 0) {
+      fail('salvo-wasted',
+        `${unit.label} threw ${rounds} at ${target.label} into ${intercepted} counterforce`);
+    }
   };
 
   let t = 0;

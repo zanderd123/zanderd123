@@ -18,7 +18,7 @@
 import { Game } from '../src/game.js';
 import { Commander, generateFleet } from '../src/ai.js';
 import { FACTION, TIME_LIMIT, budgetFor } from '../src/config.js';
-import { SCOUTING } from '../src/config.js';
+import { SCOUTING, SALVO } from '../src/config.js';
 
 const noopFx = {
   build() {}, disposeBatches() {}, update() {}, emitTrails() {},
@@ -34,6 +34,8 @@ const STEP = 1 / 30;
 
 // NOSCOUT=1 neutralises the scouting rule in place, so the same seeds can be
 // played with and without it.
+// NOSALVO=1 turns the salvo layer off in place for an A/B.
+if (process.env.NOSALVO) SALVO.enabled = false;
 if (process.env.NOSCOUT) {
   SCOUTING.unpaintedRangeFactor = 1;
   SCOUTING.paintedBonus = 0;

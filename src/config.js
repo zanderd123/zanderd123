@@ -539,6 +539,29 @@ export const SALVO = {
    */
   paintedReach: 1.4,
   /**
+   * A screen DENIES a salvo rather than eating one.
+   *
+   * This took three attempts and the first two were both wrong in the same
+   * way. At full strength the screens worked exactly as the model says — 64%
+   * of rounds shot down, 36% of volleys stopped dead — and that inverted the
+   * trade: a side throwing into a screened fleet converts a third of its rate
+   * of fire into nothing, so the mechanic became a tax on whoever used it
+   * most, and the defence (which throws four times as many volleys as the
+   * attacker) lost ground by having the better capitals. Halving the screens
+   * removed the tax and the threshold with it: 2% of volleys stopped dead is
+   * not a mechanic.
+   *
+   * The fault was never the numbers. It was that a loaded capital would throw
+   * a volley it could see would be annihilated, which no commander does. A
+   * salvo is now HELD when the screen over the target could stop all of it —
+   * the charge is kept, not spent, and the hull waits for a target worth
+   * throwing at. So a screen's effect is deterrence: it does not consume the
+   * enemy's volleys, it denies them, and breaking the screen is what unlocks
+   * the shot. That is also the honest reading of the threshold — a properly
+   * covered force is immune to small salvos, and the answer is more striking
+   * power or a dead screen.
+   */
+  /**
    * Seconds a hull must survive, with a live target, before it can throw
    * again. Long enough that losing a capital mid-charge is a real loss.
    */

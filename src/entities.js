@@ -80,6 +80,9 @@ export class Craft {
     // Salvo charge, 0..1. Built only while the hull has a live target, so a
     // capital cannot arrive at the fight pre-loaded. See SALVO.
     this.salvoCharge = 0;
+    // Loaded, but the target is screened heavily enough to stop the whole
+    // volley — so it is being held rather than wasted. Drives the HUD.
+    this.salvoHeld = false;
     // How far this hull's guns reach against whatever it is currently aiming
     // at — full rated range on a painted target, less on an unresolved one.
     // The flight model reads it so a hull with no firing solution closes to
@@ -366,6 +369,12 @@ export class Unit {
    * rather than the mean: what the player wants to know is how close the next
    * volley is, and hulls charge independently.
    */
+  /** Loaded and deliberately holding, because everything in reach is screened. */
+  get salvoHeld() {
+    if (!this.hasSalvo) return false;
+    return this.craft.some((c) => c.alive && c.salvoCharge >= 1 && c.salvoHeld);
+  }
+
   get salvoCharge() {
     if (!this.hasSalvo) return 0;
     let best = 0;

@@ -881,3 +881,7 @@ body.in-prep .flash-msg { bottom: 232px; }
   font-size: 10px; letter-spacing: 0.1em; color: #c8a24a;
   min-width: 34px; text-align: right; font-variant-numeric: tabular-nums;
 }
+/* Loaded but deliberately holding: everything in reach is fully screened. */
+.salvo-track.held i { background: #b06a3a; box-shadow: none; }
+.salvo-row:has(.salvo-track.held) .salvo-label,
+.salvo-row:has(.salvo-track.held) .salvo-value { color: #d88a52; }

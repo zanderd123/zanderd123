@@ -50,6 +50,17 @@ let noContact = 0;
 const sweepWhileThreatened = [];
 let handPlayedCount = 0;
 
+// Salvo behaviour. A capital that never throws, or one that sits at full
+// charge for minutes because it never gets a launch window, is the legal-but-
+// wrong shape of fault the assertions cannot see.
+let capitals = 0;
+let capitalsSilent = 0;
+let salvosThrown = 0;
+let salvosStopped = 0;
+let stalledTicks = 0;
+let chargedTicks = 0;
+const heldTooLong = [];
+
 const bump = (map, key) => map.set(key, (map.get(key) || 0) + 1);
 
 for (let m = 0; m < MATCHES; m++) {
@@ -79,6 +90,16 @@ for (let m = 0; m < MATCHES; m++) {
   // a squadron whose rounds all miss is still participating.
   const everFired = new Set();
   for (const u of game.units) bump(built, u.type.id);
+
+  const threw = new Set();
+  game.onSalvo = (unit, target, rounds, intercepted, landed) => {
+    salvosThrown++;
+    threw.add(unit.id);
+    if (!landed) salvosStopped++;
+  };
+  // Per-craft: how long has this hull been sitting at a full charge?
+  const fullSince = new Map();
+  const longest = new Map();
 
   let ended = null;
   game.onEnd = (s) => { ended = s; };
@@ -114,6 +135,34 @@ for (let m = 0; m < MATCHES; m++) {
     }
     if (game.planet) crustLow = Math.min(crustLow, game.planet.fraction);
 
+    for (const u of game.units) {
+      if (!u.alive || !u.hasSalvo) continue;
+      for (const c of u.craft) {
+        if (!c.alive) continue;
+        if (c.salvoCharge >= 1) {
+          chargedTicks++;
+          const since = fullSince.get(c.id) ?? t;
+          fullSince.set(c.id, since);
+          const held = t - since;
+          // A volley is thrown the moment it can be, so a full charge should
+          // never persist. Anything past a few seconds means the hull is
+          // loaded and has no legal target — worth knowing how often.
+          if (held > 3) stalledTicks++;
+          longest.set(c.id, Math.max(longest.get(c.id) ?? 0, held));
+        } else {
+          // The hold ended — record it once, as an episode. Counting ticks
+          // here reported 34,261 "occurrences" for what was a few dozen hulls
+          // waiting, which is a metric measuring its own sample rate.
+          const was = longest.get(c.id);
+          if (was !== undefined) {
+            heldTooLong.push({ m: m + 1, unit: u.label, held: was });
+            longest.delete(c.id);
+          }
+          fullSince.delete(c.id);
+        }
+      }
+    }
+
     // The defence sweeping out to the staging area while something of the
     // attacker's is sitting on the objective would be a serious fault.
     if (defenseAI.sweeping) {
@@ -135,6 +184,10 @@ for (let m = 0; m < MATCHES; m++) {
 
   for (const u of game.units) {
     if (!everFired.has(u.id) && u.type.weapon) bump(silent, u.type.id);
+    if (u.hasSalvo) {
+      capitals++;
+      if (!threw.has(u.id)) capitalsSilent++;
+    }
   }
 
   if (game.timedOut) timedOut++;
@@ -180,6 +233,27 @@ if (!rows.length) console.log('    none');
 for (const [id, s, n] of rows) {
   console.log(`    ${id.padEnd(9)} ${String(s).padStart(4)} / ${String(n).padStart(4)}`
     + `  ${((s / n) * 100).toFixed(0)}%`);
+}
+
+console.log(`\n  salvos`);
+console.log(`    volleys thrown            ${salvosThrown}`
+  + `  (${(salvosThrown / MATCHES).toFixed(1)} a match)`);
+console.log(`    stopped dead by a screen  ${salvosStopped}`
+  + `  ${salvosThrown ? `${((salvosStopped / salvosThrown) * 100).toFixed(0)}%` : '—'}`);
+console.log(`    salvo hulls that never threw  ${capitalsSilent} / ${capitals}`
+  + `  ${capitals ? `${((capitalsSilent / capitals) * 100).toFixed(0)}%` : '—'}`);
+console.log(`    hull-ticks held at full charge with no launch window: `
+  + `${stalledTicks.toLocaleString()} of ${chargedTicks.toLocaleString()} charged`
+  + `  ${chargedTicks ? `${((stalledTicks / chargedTicks) * 100).toFixed(0)}%` : '—'}`);
+if (heldTooLong.length) {
+  const sorted = [...heldTooLong].sort((a, b) => b.held - a.held);
+  const mean = heldTooLong.reduce((n, w) => n + w.held, 0) / heldTooLong.length;
+  console.log(`    loaded-and-waiting episodes: ${heldTooLong.length}`
+    + `   mean ${mean.toFixed(1)}s   longest ${sorted[0].held.toFixed(0)}s`
+    + ` (${sorted[0].unit}, match ${sorted[0].m})`);
+  const long = heldTooLong.filter((w) => w.held > 60).length;
+  console.log(`    episodes over 60s: ${long}`
+    + `  ${((long / heldTooLong.length) * 100).toFixed(0)}%`);
 }
 
 if (sweepWhileThreatened.length) {

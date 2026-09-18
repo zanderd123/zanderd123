@@ -596,16 +596,38 @@ export class Game {
     // the volley is the fire withheld to build it, delivered at once.
     if (SALVO.enabled && unit.hasSalvo && !unit.siegeLock) {
       rateShare *= 1 - SALVO.chargeCost;
-      // No firing solution, no launch. Not a range penalty — a gate. A shorter
-      // reach changed nothing measurable, because a hull closes to 0.8x its
-      // gun range to fight and is therefore never out at the longer distance
-      // anyway: mean throw distance came out at 0.83x with a 1.4x reach
-      // available. Refusing the launch outright is both the honest reading of
-      // the mechanic and the only version a player can feel.
-      if (target.paintedBy[unit.faction]
-          && dist <= unit.stats.range * SALVO.paintedReach) {
+      // Loading and launching are separate.
+      //
+      // A hull loads whenever it is in contact at all, and then HOLDS the
+      // volley until a launch window opens: no firing solution, no launch.
+      // (Not a range penalty — a gate. A shorter reach changed nothing
+      // measurable, because a hull closes to 0.8x its gun range to fight and
+      // is therefore never out at the longer distance anyway: mean throw
+      // distance came out at 0.83x with a 1.4x reach available.)
+      //
+      // Charging only inside the window, as this did first, collapsed the two
+      // into one event — a salvo was released in the same tick it completed,
+      // so a loaded-and-waiting capital did not exist for even one frame. An
+      // audit caught it by measuring zero hull-ticks at full charge across
+      // 1,662 volleys, which also made the HUD's READY state unreachable. The
+      // holding state is the interesting one: a loaded Warden with nothing
+      // resolved to shoot at is a reason to push a scout forward.
+      // Loading needs the target in reach; launching additionally needs it
+      // resolved. Charging on merely HAVING a target let a hull load during
+      // the approach — acquisition reaches 720 units on a Bastion against a
+      // 644-unit salvo, so it arrived pre-loaded and threw on contact. That is
+      // a free tempo advantage to whichever side is closing the distance,
+      // which is always the attacker: AI-v-AI went 46% to 56% on it, where
+      // charging inside the window measured 50%.
+      const reach = unit.stats.range * SALVO.paintedReach;
+      if (dist <= reach) {
         craft.salvoCharge = Math.min(1, craft.salvoCharge + dt / SALVO.charge);
-        if (craft.salvoCharge >= 1) this.releaseSalvo(craft, target);
+        if (craft.salvoCharge >= 1 && target.paintedBy[unit.faction]) {
+          // Never throw into a screen that would annihilate the volley: hold
+          // the charge and wait for something worth throwing at. See SALVO.
+          craft.salvoHeld = this.counterforceFor(target) >= unit.type.salvo.rounds;
+          if (!craft.salvoHeld) this.releaseSalvo(craft, target);
+        }
       }
     }
 

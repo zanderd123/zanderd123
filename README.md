@@ -545,22 +545,51 @@ so it is never out at the longer distance anyway. The painted requirement is
 now a **gate**: no firing solution, no launch. That is the one place scouting
 is worth more than position.
 
+### A screen denies a salvo; it does not eat one
+
+This took three attempts and the first two were wrong in the same way.
+
+At full screen strength the model worked exactly as written — 64% of rounds
+shot down, 36% of volleys stopped dead — and that **inverted the trade**. A
+side throwing into a screened fleet converts a third of its rate of fire into
+nothing, so the mechanic became a tax on whoever used it most; the defence,
+which throws four times as many volleys as the attacker, lost ground by having
+the better capitals. Halving the screens removed the tax and the threshold with
+it: 2% of volleys stopped dead is not a mechanic.
+
+The fault was never the numbers. It was that a loaded capital would throw a
+volley it could see would be annihilated, which no commander does. A salvo is
+now **held** when the screen over the target could stop all of it — the charge
+is kept, not spent. So a screen deters rather than consumes, and breaking it is
+what unlocks the shot. The HUD says `HELD` with the reason.
+
+Loading and launching are also separate, which they were not at first: a salvo
+was released in the same tick it completed, so a loaded-and-waiting capital did
+not exist for even one frame and the HUD's `READY` state was unreachable. The
+audit caught it by measuring **zero** hull-ticks at full charge across 1,662
+volleys. Loading needs the target in reach; launching additionally needs it
+resolved and not fully screened. (Charging on merely *having* a target was
+tried in between and handed a free tempo advantage to whoever closes the
+distance — always the attacker: 46% to 56%.)
+
 ### The threshold, measured
 
 Identical fleets, 16 matches a row, varying only how many Flak Walkers stand
-with the defence against a 6-round Bastion salvo:
+with the defence against a 6-round Bastion salvo. The threshold shows up as
+**suppression** — volleys that are never thrown at all:
 
-| Flak | rounds intercepted | **volleys stopped dead** |
+| Flak | **volleys thrown** | rounds intercepted |
 |---|---|---|
-| 0 | 0% | 0% |
-| 1 | 9% | 0% |
-| 2 | 7% | 2% |
-| 3 | 16% | **43%** |
-| 4 | 18% | **68%** |
+| 0 | 45 | 0% |
+| 1 | 47 | 8% |
+| 2 | 46 | 5% |
+| 3 | **32** | 5% |
+| 4 | **27** | 4% |
 
-That is the shape the model predicts, and it is in the right column: the
-interception *rate* drifts up slowly, but the thing that decides a fight —
-whether the volley arrives at all — snaps between two walkers and three.
+Three or four walkers suppress a third of the enemy's salvos outright, and the
+volleys that *are* thrown lose only a few percent, because they are thrown
+where they will get through. That is the threshold: below it a screen changes
+nothing, above it capitals simply stop shooting at what it covers.
 
 ### Balance
 
@@ -569,8 +598,12 @@ whether the volley arrives at all — snaps between two walkers and three.
 | | attacker wins |
 |---|---|
 | salvos off | 46% |
-| salvos on | 50% |
+| salvos on | 52% |
 
-Four points, inside noise at that sample. The layer adds texture, not power,
-which is what a layer should do. Battles resolve somewhat faster (mean 234s to
-209s) because pulses kill outright where a grind wears down.
+Six points at n=100, about one standard error. The parked-defence case is
+unchanged. Battles resolve somewhat faster (mean 274s to 256s) because pulses
+kill outright where a grind wears down.
+
+A loaded capital waits a mean of **15 seconds** for a window — 4% of holds run
+past a minute, which is a capital sitting on a volley because everything it can
+reach is covered. That wait is the decision the mechanic exists to create.

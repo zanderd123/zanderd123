@@ -871,10 +871,28 @@ export class Hud {
     const salvo = document.getElementById('sel-salvo');
     if (salvo && sel.some((u) => u.hasSalvo)) {
       const charge = Math.max(...sel.map((u) => u.salvoCharge));
+      const held = sel.some((u) => u.salvoHeld);
       salvo.style.width = `${Math.round(charge * 100)}%`;
-      salvo.parentElement.classList.toggle('ready', charge >= 1);
+      salvo.parentElement.classList.toggle('ready', charge >= 1 && !held);
+      salvo.parentElement.classList.toggle('held', held);
       const label = document.getElementById('salvo-value');
-      if (label) label.textContent = charge >= 1 ? 'READY' : `${Math.round(charge * 100)}%`;
+      if (label) {
+        // "HELD" is the state worth acting on: loaded, but everything in reach
+        // is screened heavily enough to eat the whole volley.
+        label.textContent = held ? 'HELD' : charge >= 1 ? 'READY' : `${Math.round(charge * 100)}%`;
+      }
+      const row = document.getElementById('salvo-row');
+      if (row) {
+        row.title = held
+          ? 'Loaded and holding. Everything this squadron can reach is screened'
+            + ' by enough point defence to shoot down the entire volley, so it is'
+            + ' keeping the charge rather than wasting it. Kill the screen, or'
+            + ' give it a target that is not covered.'
+          : 'Salvo charge. This hull holds back part of its rate of fire to build'
+            + ' a volley that lands all at once. It can only be thrown at a target'
+            + ' your fleet has resolved, and it will not be thrown into a screen'
+            + ' that would stop all of it.';
+      }
     }
 
     const out = document.getElementById('sel-out');
