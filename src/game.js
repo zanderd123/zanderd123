@@ -596,7 +596,6 @@ export class Game {
     // The charge costs rate of fire, the same shape of trade as a bombardment:
     // the volley is the fire withheld to build it, delivered at once.
     if (SALVO.enabled && unit.hasSalvo && !unit.siegeLock) {
-      rateShare *= 1 - SALVO.chargeCost;
       // Loading and launching are separate.
       //
       // A hull loads whenever it is in contact at all, and then HOLDS the
@@ -621,8 +620,29 @@ export class Game {
       // which is always the attacker: AI-v-AI went 46% to 56% on it, where
       // charging inside the window measured 50%.
       const reach = unit.stats.range * SALVO.paintedReach;
-      if (dist <= reach) {
+
+      // You pay to BUILD a volley, and only while you are building it.
+      //
+      // The cost used to be charged on every tick a salvo hull was alive,
+      // which meant three different states all paid it: loading, which is
+      // correct; sitting on a finished volley, which is paying twice for one
+      // salvo; and being nowhere near a target and not loading at all, which
+      // is paying for nothing. Every capital ran at 65% gunnery for most of
+      // every match in exchange for a volley it might never throw.
+      //
+      // Measured: 87% of the time a hull spent loaded was spent waiting, and
+      // the capitals that never threw at all died at a mean peak charge of
+      // 54% — having paid the full tax the whole way. This is also what made
+      // the break-even hold rule indefensible: holding was supposed to be the
+      // cheap option and it was costing a third of the hull's output.
+      const loading = dist <= reach && craft.salvoCharge < 1;
+      if (loading) {
+        rateShare *= 1 - SALVO.chargeCost;
         craft.salvoCharge = Math.min(1, craft.salvoCharge + dt / SALVO.charge);
+      }
+
+      craft.salvoHeld = false;
+      if (dist <= reach) {
         if (craft.salvoCharge >= 1 && target.paintedBy[unit.faction]) {
           // Never throw into a screen that would annihilate the volley: hold
           // the charge and wait for something worth throwing at. See SALVO.

@@ -41,6 +41,8 @@ a non-circular check that no coefficient has drifted.
     node tools/strategy.mjs        does the attacker's PLAN matter
     node tools/scouting.mjs        fire control: does scouting pay
     node tools/salvo.mjs           salvos, and the counterforce threshold
+    node tools/salvo-gate.mjs      why a loaded capital is not firing
+    node tools/overkill.mjs        how much of a volley is wasted
     node tools/invariants.mjs      bug hunt: assert what must never be true
     node tools/audit.mjs           bug hunt: legal-but-wrong behaviour
 
@@ -672,3 +674,64 @@ The planet fell from 100% to 15% with **no event in the timeline** explaining
 it. Snapshots carried `siege: true`, but only a player's *explicit* bombardment
 order was ever logged, and most bombardments begin at the auto-siege gate,
 which merely flashed a message. It records an `auto-siege` event now.
+
+
+## A hundred matches: one bug, one false alarm, one design question
+
+### The bug: a hull paid for its volley three times over
+
+`rateShare *= 1 - SALVO.chargeCost` was applied on every tick a salvo hull was
+alive and not bombarding. Three different states therefore paid the 35%:
+
+- **loading** — correct, that is the trade;
+- **sitting on a finished volley** — paying twice for one salvo;
+- **nowhere near a target and not loading at all** — paying for nothing.
+
+So every capital ran at 65% gunnery for most of every match in exchange for a
+volley it might never throw. The audit had the evidence already and it had not
+been read that way: 87% of the time a hull spent loaded was spent *waiting*, and
+the capitals that never threw at all died at a mean peak charge of **54%** —
+having paid the full tax the whole way up. It is also what made the break-even
+hold rule indefensible, since holding was supposed to be the cheap option.
+
+The cost is now charged only while actually loading, and that restored the
+layer's neutrality on its own: **45% attacker with salvos on against 46% off**,
+over 100 matches on the same seeds, where it had measured 53%.
+
+### The false alarm, recorded because it was nearly reported
+
+A first pass at `tools/overkill.mjs` found that only 38% of salvo rounds ever
+hit anything and called it a 59% waste rate. That conflated two things. A round
+that fails its accuracy roll is fired unguided and flies wide — **ordinary
+gunfire does that just as often**, so it is not salvo-specific and must not be
+counted against the volley. The waste that belongs to a salvo is a round that
+left the rail with a solution and lost it, because the target died first.
+
+Separated properly: **9%** of aimed rounds, rising to 18% against targets
+already below 25% health. Modest, realistic, and no cause for action.
+
+### The design question, which is not mine to settle
+
+`tools/salvo-gate.mjs` attributes every tick a loaded hull fails to fire:
+
+    92.8%  screened below break-even
+     3.8%  target not resolved
+     2.1%  target outside salvo reach
+     1.3%  bombarding — salvo suspended
+
+Two in five salvo-capable squadrons never throw a volley in a match, and the
+screen is doing essentially all of the blocking. The structural reason is that
+counterforce **stacks additively across squadrons** with generous radii — a
+normal fleet fields five to seven points of it — while a single capital throws
+alone with 10 rounds and tolerates 3. Hughes' own answer to counterforce is
+concentration of *launchers*: several ships firing into one screen together. The
+game has no mechanism for that, so a screened force is simply immune, and the
+mechanic mostly does not happen.
+
+Three ways out, in increasing order of ambition: shrink the screens (tried
+before — it removes the threshold too), let volleys released in the same window
+combine against one screen (faithful to the model, a real new mechanic), or cap
+what a screen can absorb as a fraction of a volley (cheap, but gives up the
+clean subtractive property). Left as it is pending a decision, since the tuning
+has now been revised in three consecutive sessions and each revision found the
+previous one wrong.
