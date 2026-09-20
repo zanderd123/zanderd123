@@ -88,9 +88,28 @@ for (let m = 0; m < MATCHES; m++) {
         if (u.siegeLock) { bump('bombarding — salvo suspended'); continue; }
         if (dist > reach) { bump('target outside salvo reach'); continue; }
         if (!tg.paintedBy[u.faction]) { bump('target not resolved'); continue; }
-        const rounds = u.type.salvo.rounds;
-        const through = rounds - game.counterforceFor(tg);
-        if (through / rounds < salvoBreakEven()) { bump('screened below break-even'); continue; }
+        // Release is a fleet decision now, so the screen test has to be asked
+        // of the whole strike group — every loaded friendly aiming at the same
+        // hull — not of this one volley. Asking it per hull was the right
+        // question before combining existed and is the wrong one now.
+        let rounds = 0;
+        for (const f of game.units) {
+          if (!f.alive || f.faction !== u.faction || !f.hasSalvo || f.siegeLock) continue;
+          const fReach = f.stats.range * SALVO.paintedReach;
+          for (const fc of f.craft) {
+            if (!fc.alive || fc.salvoCharge < 1) continue;
+            if (fc.target !== tg) continue;
+            if (fc.pos.distanceTo(tg.pos) > fReach) continue;
+            rounds += f.type.salvo.rounds;
+          }
+        }
+        if (!rounds) rounds = u.type.salvo.rounds;
+        const through = rounds - Math.min(rounds, game.counterforceFor(tg));
+        if (through / rounds < salvoBreakEven()) {
+          bump(rounds > u.type.salvo.rounds
+            ? 'screened even with partners' : 'screened, and throwing alone');
+          continue;
+        }
         bump('clear — should have fired this tick');
       }
       if (hasTarget) rec.withTarget += STEP;

@@ -83,6 +83,9 @@ export class Craft {
     // Loaded, but the target is screened heavily enough to stop the whole
     // volley — so it is being held rather than wasted. Drives the HUD.
     this.salvoHeld = false;
+    // Held because this hull is throwing alone and a partner would carry it
+    // over the screen, as opposed to held against a screen no group can beat.
+    this.salvoNeedsPartner = false;
     // How far this hull's guns reach against whatever it is currently aiming
     // at — full rated range on a painted target, less on an unresolved one.
     // The flight model reads it so a hull with no firing solution closes to
@@ -373,6 +376,12 @@ export class Unit {
   get salvoHeld() {
     if (!this.hasSalvo) return false;
     return this.craft.some((c) => c.alive && c.salvoCharge >= 1 && c.salvoHeld);
+  }
+
+  /** ...and whether another capital on the same target would break the screen. */
+  get salvoNeedsPartner() {
+    if (!this.hasSalvo) return false;
+    return this.craft.some((c) => c.alive && c.salvoHeld && c.salvoNeedsPartner);
   }
 
   get salvoCharge() {

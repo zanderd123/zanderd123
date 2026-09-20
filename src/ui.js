@@ -872,26 +872,35 @@ export class Hud {
     if (salvo && sel.some((u) => u.hasSalvo)) {
       const charge = Math.max(...sel.map((u) => u.salvoCharge));
       const held = sel.some((u) => u.salvoHeld);
+      const needsPartner = sel.some((u) => u.salvoNeedsPartner);
       salvo.style.width = `${Math.round(charge * 100)}%`;
       salvo.parentElement.classList.toggle('ready', charge >= 1 && !held);
-      salvo.parentElement.classList.toggle('held', held);
+      salvo.parentElement.classList.toggle('held', held && !needsPartner);
+      salvo.parentElement.classList.toggle('needs', needsPartner);
       const label = document.getElementById('salvo-value');
       if (label) {
         // "HELD" is the state worth acting on: loaded, but everything in reach
         // is screened heavily enough to eat the whole volley.
-        label.textContent = held ? 'HELD' : charge >= 1 ? 'READY' : `${Math.round(charge * 100)}%`;
+        label.textContent = needsPartner ? 'NEEDS 2ND'
+          : held ? 'HELD' : charge >= 1 ? 'READY' : `${Math.round(charge * 100)}%`;
       }
       const row = document.getElementById('salvo-row');
       if (row) {
-        row.title = held
-          ? 'Loaded and holding. Everything this squadron can reach is screened'
-            + ' by enough point defence to shoot down the entire volley, so it is'
-            + ' keeping the charge rather than wasting it. Kill the screen, or'
-            + ' give it a target that is not covered.'
-          : 'Salvo charge. This hull holds back part of its rate of fire to build'
-            + ' a volley that lands all at once. It can only be thrown at a target'
-            + ' your fleet has resolved, and it will not be thrown into a screen'
-            + ' that would stop all of it.';
+        row.title = needsPartner
+          ? 'Loaded, and throwing alone is not enough. The point defence over'
+            + ' this target would eat too much of a single volley — but capitals'
+            + ' that fire into one screen TOGETHER have their striking power'
+            + ' combined against it. Aim a second capital at the same hull and'
+            + ' both will launch.'
+          : held
+            ? 'Loaded and holding. Even combined with the other capitals on this'
+              + ' target, too little of the volley would survive the screen to be'
+              + ' worth throwing. Kill the point defence, or pick a target that is'
+              + ' not covered.'
+            : 'Salvo charge. This hull holds back part of its rate of fire while'
+              + ' building a volley that lands all at once. It can only be thrown'
+              + ' at a target your fleet has resolved, and capitals firing at the'
+              + ' same hull in the same moment combine against its screen.';
       }
     }
 

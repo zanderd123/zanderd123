@@ -47,11 +47,14 @@ function play(seed, { attackRoster, defenseRoster } = {}) {
 
   const stat = {
     thrown: 0, rounds: 0, intercepted: 0, landed: 0,
-    zeroed: 0, reachSum: 0, reachN: 0, painted: 0,
+    zeroed: 0, reachSum: 0, reachN: 0, painted: 0, combined: 0,
+    strikeSize: new Map(),
     byFaction: { attack: 0, defense: 0 },
   };
-  game.onSalvo = (unit, target, rounds, intercepted, landed) => {
+  game.onSalvo = (unit, target, rounds, intercepted, landed, partners = 1) => {
     stat.thrown++;
+    stat.strikeSize.set(partners, (stat.strikeSize.get(partners) || 0) + 1);
+    if (partners > 1) stat.combined++;
     stat.rounds += rounds;
     stat.intercepted += Math.min(intercepted, rounds);
     stat.landed += landed;
@@ -77,13 +80,17 @@ function play(seed, { attackRoster, defenseRoster } = {}) {
 if (MODE === 'match') {
   const tot = {
     thrown: 0, rounds: 0, intercepted: 0, landed: 0, zeroed: 0,
-    reachSum: 0, reachN: 0, painted: 0, secs: 0, wins: 0,
+    reachSum: 0, reachN: 0, painted: 0, secs: 0, wins: 0, combined: 0,
+    strikeSize: new Map(),
     byFaction: { attack: 0, defense: 0 },
   };
   for (let m = 0; m < MATCHES; m++) {
     const r = play(1000 + m * 137);
     for (const k of ['thrown', 'rounds', 'intercepted', 'landed', 'zeroed',
-      'reachSum', 'reachN', 'painted', 'secs']) tot[k] += r[k];
+      'reachSum', 'reachN', 'painted', 'secs', 'combined']) tot[k] += r[k];
+    for (const [n, c] of r.strikeSize) {
+      tot.strikeSize.set(n, (tot.strikeSize.get(n) || 0) + c);
+    }
     tot.byFaction.attack += r.byFaction.attack;
     tot.byFaction.defense += r.byFaction.defense;
     tot.wins += r.won ? 1 : 0;
@@ -100,6 +107,13 @@ if (MODE === 'match') {
   console.log(`  thrown at a resolved hull${String(tot.painted).padStart(6)}   ${pct(tot.painted, tot.thrown)}`);
   console.log(`  mean throw distance      ${(tot.reachSum / Math.max(1, tot.reachN)).toFixed(2)}x the hull's gun range`);
   console.log(`  (a salvo reaches ${SALVO.paintedReach}x on a resolved target)`);
+  console.log(`  thrown as part of a combined strike`
+    + `${String(tot.combined).padStart(6)}   ${pct(tot.combined, tot.thrown)}`);
+  console.log('\n  strike size — how many capitals fired into one screen together:');
+  for (const [n, c] of [...tot.strikeSize.entries()].sort((a, b) => a[0] - b[0])) {
+    console.log(`    ${n} hull${n > 1 ? 's' : ' '}   ${String(c).padStart(5)} volleys`
+      + `  ${pct(c, tot.thrown)}`);
+  }
   console.log(`\n  attacker wins ${tot.wins}/${MATCHES}   mean length ${(tot.secs / MATCHES).toFixed(0)}s`);
 }
 

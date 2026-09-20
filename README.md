@@ -728,10 +728,44 @@ concentration of *launchers*: several ships firing into one screen together. The
 game has no mechanism for that, so a screened force is simply immune, and the
 mechanic mostly does not happen.
 
-Three ways out, in increasing order of ambition: shrink the screens (tried
-before — it removes the threshold too), let volleys released in the same window
-combine against one screen (faithful to the model, a real new mechanic), or cap
-what a screen can absorb as a fraction of a volley (cheap, but gives up the
-clean subtractive property). Left as it is pending a decision, since the tuning
-has now been revised in three consecutive sessions and each revision found the
-previous one wrong.
+### Concentration of launchers
+
+Hughes' answer, implemented: capitals loaded on the **same hull** are pooled,
+and the screen is subtracted from their combined striking power rather than from
+each volley separately. If the pool clears break-even every member fires in the
+same tick and the intercepted rounds are shared out across the strike; if it
+does not, they all keep their charges. Release is therefore a fleet decision,
+taken once per step in `resolveSalvoStrikes()`, not a per-hull one — a single
+hull that can beat a screen alone is just a strike group of one, so nothing
+needs special-casing.
+
+The hold now means something a player can act on, and the HUD distinguishes the
+two cases because they call for opposite responses. `NEEDS 2ND` is a lone
+capital that would get through with a partner: aim another at the same target.
+`HELD` is a group that cannot clear the screen even combined: kill the point
+defence or pick another target.
+
+What it did, over 100 matches each:
+
+| | before | after |
+|---|---|---|
+| volleys a match | 13.0 | **17.6** |
+| capitals that never throw | 42% | **32%** |
+| hull-ticks loaded and waiting | 369,416 | **139,058** |
+| mean wait when loaded | 16.6s | **5.3s** |
+| waits over a minute | 24 | **2** |
+| attacker wins (AI v AI) | 53% | **43%**, against 46% with salvos off |
+
+44% of volleys are now part of a combined strike — 38% in pairs, 5% in threes,
+1% in fours. And the blocked-launch attribution finally reads like a decision
+rather than a wall:
+
+    80.3%  screened, and throwing alone     <- bring a second capital
+    11.6%  screened even with partners      <- kill the screen
+     5.9%  target not resolved
+     2.1%  target outside salvo reach
+
+It also fixed the parked-defence asymmetry as a side effect, from 73% for the AI
+attacker to 67% against a 65% no-salvo baseline — because a parked defence
+clusters its capitals on the same attackers, which is the ideal shape for
+combining.

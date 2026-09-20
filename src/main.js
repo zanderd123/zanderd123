@@ -116,23 +116,23 @@ class App {
     // A volley is the single most consequential thing a capital does, and it
     // happens in one frame — without a line of feedback the player sees a
     // Warden's health bar drop and has no idea what hit it.
-    this.game.onSalvo = (unit, target, rounds, intercepted, landed) => {
+    this.game.onSalvo = (unit, target, rounds, intercepted, landed, partners = 1) => {
       const mine = unit.faction === this.playerFaction;
       this.recorder.log('salvo', {
         unit: unit.label, target: target.label, rounds, intercepted, landed, mine,
+        partners: partners > 1 ? partners : undefined,
       });
-      if (mine) {
-        this.hud.flashMessage(landed
-          ? `${unit.label} salvo away — ${landed} of ${rounds} rounds through`
-            + `${intercepted ? ` (${Math.min(intercepted, rounds)} shot down)` : ''}`
-            + ` on ${target.label}.`
-          : `${unit.label}'s salvo was stopped dead — ${target.label} is screened.`
-            + ' Kill the point defence or throw at something else.',
-        landed ? 2.8 : 4.2, landed ? 'info' : 'warn');
-      } else if (!landed) {
-        this.hud.flashMessage(
-          `Your screen stopped ${unit.label}'s salvo — all ${rounds} rounds down.`, 3, 'info');
-      }
+      // One line per hull would spam a four-ship strike, so only the first
+      // hull of a combined launch announces it, and it announces the strike.
+      if (!mine || this.lastStrike === `${target.label}@${this.game.now}`) return;
+      this.lastStrike = `${target.label}@${this.game.now}`;
+      this.hud.flashMessage(partners > 1
+        ? `Combined volley — ${partners} capitals into ${target.label}'s screen at once.`
+          + ' Concentrating striking power is what gets rounds through.'
+        : `${unit.label} salvo away — ${landed} of ${rounds} rounds through`
+          + `${intercepted ? ` (${Math.min(intercepted, rounds)} shot down)` : ''}`
+          + ` on ${target.label}.`,
+      partners > 1 ? 3.4 : 2.8, 'info');
     };
 
     this.game.onAutoSiege = (unit) => {

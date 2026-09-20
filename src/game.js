@@ -98,6 +98,9 @@ export class Game {
     this.retargetTimer = 0;
     this.visTimer = 0;
     this.kills = { attack: 0, defense: 0 };
+    // Hulls that finished a charge this step and have a legal target. Drained
+    // by resolveSalvoStrikes() at the end of the step.
+    this.salvoReady = [];
     this.timeLimit = opts.timeLimit ?? TIME_LIMIT;
     this.onEnd = null;
   }
@@ -269,6 +272,7 @@ export class Game {
     this.planetFell = false;
     this.planet = null;
     this.kills = { attack: 0, defense: 0 };
+    this.salvoReady.length = 0;
     this.aiFactions = new Set();
     resetCallsigns();
   }
@@ -387,6 +391,12 @@ export class Game {
 
       autocast(ctx, u);
     }
+
+    // Every hull has had its chance to load and register; now decide which
+    // volleys actually leave, as a fleet. Must run after the craft loop so a
+    // strike group sees every partner that became ready this step, and before
+    // projectiles move so the rounds fly this step like any other shot.
+    this.resolveSalvoStrikes();
 
     if (this.planet) this.planet.update(dt, this.now);
     this.projectiles.update(dt, this.now, (p) => this.onProjectileHit(p), null);
@@ -641,20 +651,12 @@ export class Game {
         craft.salvoCharge = Math.min(1, craft.salvoCharge + dt / SALVO.charge);
       }
 
-      craft.salvoHeld = false;
-      if (dist <= reach) {
-        if (craft.salvoCharge >= 1 && target.paintedBy[unit.faction]) {
-          // Never throw into a screen that would annihilate the volley: hold
-          // the charge and wait for something worth throwing at. See SALVO.
-          // Hold unless enough of the volley would survive the screen to beat
-          // simply firing the guns. "Not entirely stopped" was the wrong bar:
-          // a six-round volley landing one round converts 236 damage of
-          // withheld gunfire into 58.
-          const rounds = unit.type.salvo.rounds;
-          const through = rounds - this.counterforceFor(target);
-          craft.salvoHeld = through / rounds < salvoBreakEven();
-          if (!craft.salvoHeld) this.releaseSalvo(craft, target);
-        }
+      // Release is NOT decided here. A loaded hull only registers itself as
+      // ready; resolveSalvoStrikes() decides, once per step, which volleys
+      // actually leave — because that decision depends on what the rest of the
+      // fleet is holding. See the note there.
+      if (craft.salvoCharge >= 1 && dist <= reach && target.paintedBy[unit.faction]) {
+        this.salvoReady.push({ craft, target });
       }
     }
 
@@ -677,6 +679,89 @@ export class Game {
     const hit = this.rng() < accuracy(craft, target);
     this.projectiles.fire(craft, target, hit, shotDamage(craft, target));
     if (unit.type.cloak) craft.revealUntil = this.now + 4;
+  }
+
+  /**
+   * Decide which loaded volleys leave, as a fleet rather than one hull at a
+   * time.
+   *
+   * Hughes' answer to counterforce is concentration of LAUNCHERS: several ships
+   * firing into one screen together, so the screen is subtracted from the
+   * combined striking power instead of from each volley separately. Without it
+   * a screened force is simply immune — measured across 100 matches, 93% of the
+   * ticks a loaded capital failed to fire were the screen, two in five capitals
+   * never threw at all, and there was nothing a player could do about it
+   * because a lone capital's ten rounds can never beat seven points of screen.
+   *
+   * So hulls loaded on the same target are pooled. If their combined volley
+   * clears break-even against that target's screen, every one of them fires in
+   * the same tick and the intercepted rounds are shared out across the strike.
+   * If it does not, they all keep their charges and wait — which is now a wait
+   * for a PARTNER, not a wait for the screen to go away, and that is the
+   * decision the mechanic was missing.
+   *
+   * A single hull that can beat the screen alone is just a strike group of one,
+   * so nothing needs special-casing.
+   */
+  resolveSalvoStrikes() {
+    if (!this.salvoReady.length) return;
+
+    // Group by the hull being aimed at. Capitals are single-craft squadrons, so
+    // this is the same as grouping by target squadron in practice, and it stays
+    // correct if that ever changes.
+    const groups = new Map();
+    for (const entry of this.salvoReady) {
+      let g = groups.get(entry.target);
+      if (!g) { g = []; groups.set(entry.target, g); }
+      g.push(entry);
+    }
+
+    for (const [target, members] of groups) {
+      if (!target.alive) continue;
+      let rounds = 0;
+      for (const m of members) rounds += m.craft.unit.type.salvo.rounds;
+      const intercepted = Math.min(rounds, this.counterforceFor(target));
+      const surviving = rounds - intercepted;
+
+      if (surviving / rounds < salvoBreakEven()) {
+        // Not enough striking power assembled yet. Everyone holds — and the
+        // HUD needs to know WHICH kind of hold this is, because they call for
+        // opposite responses: a lone capital wants a partner, a group that is
+        // already combining wants the screen dead.
+        for (const m of members) {
+          m.craft.salvoHeld = true;
+          m.craft.salvoNeedsPartner = members.length === 1;
+        }
+        continue;
+      }
+
+      // Share the interception out across the strike, largest-remainder so the
+      // surviving total is exact and the split is deterministic.
+      const shares = members.map((m) => {
+        const r = m.craft.unit.type.salvo.rounds;
+        const exact = (r * surviving) / rounds;
+        return { m, r, floor: Math.floor(exact), rem: exact - Math.floor(exact) };
+      });
+      let left = surviving - shares.reduce((n, sh) => n + sh.floor, 0);
+      shares.sort((a, b) => b.rem - a.rem || a.m.craft.id - b.m.craft.id);
+      for (const sh of shares) {
+        sh.landed = sh.floor + (left > 0 ? 1 : 0);
+        if (left > 0) left--;
+      }
+      // Restore firing order by craft id so the report reads consistently.
+      shares.sort((a, b) => a.m.craft.id - b.m.craft.id);
+
+      for (const sh of shares) {
+        sh.m.craft.salvoHeld = false;
+        sh.m.craft.salvoNeedsPartner = false;
+        this.releaseSalvo(sh.m.craft, target, {
+          rounds: sh.r,
+          landed: sh.landed,
+          partners: members.length,
+        });
+      }
+    }
+    this.salvoReady.length = 0;
   }
 
   /**
@@ -724,16 +809,18 @@ export class Game {
    * different is that they leave together and land together, which is what
    * lets one remove a hull outright instead of wearing it down.
    */
-  releaseSalvo(craft, target) {
+  releaseSalvo(craft, target, share) {
     const unit = craft.unit;
     craft.salvoCharge = 0;
     if (!target || !target.alive) return;
 
-    const spec = unit.type.salvo;
-    const intercepted = this.counterforceFor(target);
-    const landed = Math.max(0, spec.rounds - intercepted);
+    // `share` is decided by resolveSalvoStrikes, which knows what the rest of
+    // the fleet is throwing at the same hull. This method only pulls the
+    // trigger.
+    const rounds = share.rounds;
+    const landed = share.landed;
     if (this.onSalvo) {
-      this.onSalvo(unit, target.unit, spec.rounds, intercepted, landed);
+      this.onSalvo(unit, target.unit, rounds, rounds - landed, landed, share.partners);
     }
     if (!landed) return;
 

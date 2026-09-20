@@ -885,3 +885,5 @@ body.in-prep .flash-msg { bottom: 232px; }
 .salvo-track.held i { background: #b06a3a; box-shadow: none; }
 .salvo-row:has(.salvo-track.held) .salvo-label,
 .salvo-row:has(.salvo-track.held) .salvo-value { color: #d88a52; }
+/* Loaded, but a lone volley cannot beat the screen — bring a second capital. */
+.salvo-track.needs i { background: #7a6adf; box-shadow: 0 0 6px rgba(140, 122, 255, 0.6); }
