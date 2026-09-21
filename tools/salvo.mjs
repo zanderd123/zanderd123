@@ -14,8 +14,8 @@
  *     held to the unpainted gun range otherwise, which should show up as a
  *     large difference in where volleys are thrown from.
  *
- *   node tools/salvo.mjs            match statistics over N matches
- *   node tools/salvo.mjs screen     counterforce threshold: Flak 0..4
+ *   node tools/salvo.mjs [matches]          match statistics
+ *   node tools/salvo.mjs screen [matches]   counterforce threshold: Flak 0..4
  */
 import { Game } from '../src/game.js';
 import { Commander, generateFleet } from '../src/ai.js';
@@ -28,7 +28,10 @@ const noopFx = {
 };
 
 const MODE = process.argv[2] === 'screen' ? 'screen' : 'match';
-const MATCHES = Number(process.argv[3] || 24);
+// The count follows the mode word when there is one, and is the first
+// argument when there isn't — so `salvo.mjs 40` means forty matches rather
+// than silently running the default twenty-four under a different name.
+const MATCHES = Number((MODE === 'screen' ? process.argv[3] : process.argv[2]) || 24);
 const BUDGET = 1000;
 const STEP = 1 / 30;
 

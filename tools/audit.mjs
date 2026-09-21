@@ -40,6 +40,11 @@ let timedOut = 0;
 let totalSeconds = 0;
 let crustLowSum = 0;
 let everSieged = 0;
+// Seconds the attacker spends with armed hulls alive, an intact world, no
+// siege line left and nothing bombarding. It is legal, it breaks no assertion,
+// and before the last-resort rule in manageSiege() it accounted for 141 of the
+// average match's 237 seconds. Kept here so it cannot come back quietly.
+let adriftSeconds = 0;
 // Squadrons that fired nothing all match, by type.
 const silent = new Map();
 const built = new Map();
@@ -135,6 +140,12 @@ for (let m = 0; m < MATCHES; m++) {
     }
     if (game.planet) crustLow = Math.min(crustLow, game.planet.fraction);
 
+    {
+      const live = game.units.filter((u) => u.alive && u.faction === FACTION.ATTACK);
+      if (live.some((u) => u.canSiege) && !live.some((u) => u.siegeCapital)
+          && !live.some((u) => u.siegeLock)) adriftSeconds += STEP;
+    }
+
     for (const u of game.units) {
       if (!u.alive || !u.hasSalvo) continue;
       for (const c of u.craft) {
@@ -213,6 +224,8 @@ if (outcomes.unresolved) {
 console.log(`  decided on time    ${String(timedOut).padStart(3)}  ${pct(timedOut)}`);
 console.log(`  mean length        ${(totalSeconds / MATCHES).toFixed(0)}s`);
 console.log(`  bombardment set up ${String(everSieged).padStart(3)}  ${pct(everSieged)}`);
+console.log(`  attacker adrift    ${(adriftSeconds / MATCHES).toFixed(0).padStart(3)}s a match`
+  + '  (armed, world intact, no siege line, nothing shooting it)');
 console.log(`  mean crust low     ${((crustLowSum / MATCHES) * 100).toFixed(0)}%`);
 
 console.log(`\n  fleets that never made contact: ${noContact}`);

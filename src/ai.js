@@ -380,9 +380,18 @@ export class Commander {
     return this.searchPath[this.searchIndex % this.searchPath.length];
   }
 
-  /** How much bombardment a squadron is worth, in effective damage to crust. */
-  siegeValue(u) {
-    if (!u.siegeCapital) return 0;
+  /**
+   * How much bombardment a squadron is worth, in effective damage to crust.
+   *
+   * `siegeCapital` is a judgement about which hulls are worth COMMITTING while
+   * better ones exist — heavy, penetrating, able to survive the minutes a lock
+   * takes. It is not a statement about which hulls can hurt a planet: every
+   * armed ship can, and some light ones are very good at it. So when there is
+   * no siege line left the predicate has to come off, which is what
+   * `lastResort` does. See manageSiege().
+   */
+  siegeValue(u, lastResort = false) {
+    if (!u.siegeCapital && !(lastResort && u.canSiege)) return 0;
     const w = u.type.weapon;
     return u.stats.dps * Math.max(SIEGE.minPenetration, w.penetration ?? 0.5);
   }
@@ -398,13 +407,30 @@ export class Commander {
     const planet = this.game.planet;
     if (!planet || !planet.alive) return new Set();
 
+    // The siege line is dead and the world is still there.
+    //
+    // Measured over 100 matches, the attacker spent over 30 seconds in this
+    // state in 39 of them, typically two minutes and sometimes closer to
+    // three: the heavies gone, light hulls alive and in orbit, and nothing in
+    // the game willing to tell them to shoot the objective. The crust does not
+    // merely stop falling, it heals — one match had the planet at 9% and
+    // watched it regenerate to 44% while a Falcon flew circles around it. A
+    // Falcon does 90 damage a second to crust against a Bastion's 60, so this
+    // was never a force that COULDN'T finish the job. It was a force nobody
+    // asked to.
+    //
+    // The share rule below is unchanged and does the rest of the work: half
+    // the remaining striking power commits, the other half keeps fighting.
+    const lastResort = !units.some((u) => u.siegeCapital);
+    const value = (u) => this.siegeValue(u, lastResort);
+
     const locked = new Set(units.filter((u) => u.siegeLock));
     const candidates = units
-      .filter((u) => !u.siegeLock && this.siegeValue(u) > 0)
-      .sort((a, b) => this.siegeValue(b) - this.siegeValue(a));
+      .filter((u) => !u.siegeLock && value(u) > 0)
+      .sort((a, b) => value(b) - value(a));
 
-    const total = units.reduce((s, u) => s + this.siegeValue(u), 0);
-    let committed = [...locked].reduce((s, u) => s + this.siegeValue(u), 0);
+    const total = units.reduce((s, u) => s + value(u), 0);
+    let committed = [...locked].reduce((s, u) => s + value(u), 0);
     const late = this.game.timeRemaining < this.game.timeLimit * 0.35;
     const want = late ? total * 0.85 : total * 0.5;
 
@@ -416,7 +442,11 @@ export class Commander {
       if (u.pos.distanceTo(PLANET) > WORLD.planetRadius + u.stats.range * SIEGE.lockRange) continue;
       if (u.beginSiege()) {
         locked.add(u);
-        committed += this.siegeValue(u);
+        // Must be the same valuation `want` was computed from. Left as the
+        // bare siegeValue() this reads 0 for every light hull in a last-resort
+        // commitment, `committed` never rises, and the share cap silently
+        // becomes "send everything".
+        committed += value(u);
       }
     }
     return locked;
