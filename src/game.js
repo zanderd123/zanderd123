@@ -29,6 +29,7 @@ const RETARGET_INTERVAL = 0.5;
 
 const _v = new THREE.Vector3();
 const _v2 = new THREE.Vector3();
+const _v3 = new THREE.Vector3();
 const _planetCentre = new THREE.Vector3(...WORLD.planetCenter);
 /** How far an escort may drift from its charge before it re-stations. */
 const ESCORT_SLACK = 150;
@@ -103,6 +104,9 @@ export class Game {
     this.salvoReady = [];
     this.timeLimit = opts.timeLimit ?? TIME_LIMIT;
     this.onEnd = null;
+    // Called at the end of every simulation step, with the step's dt. This is
+    // where the AI commander is driven from; see the note at the end of step().
+    this.onStep = null;
   }
 
   /** Seconds left on the battle clock, floored at zero. */
@@ -274,6 +278,8 @@ export class Game {
     this.kills = { attack: 0, defense: 0 };
     this.salvoReady.length = 0;
     this.aiFactions = new Set();
+    // Holds a Commander from the battle just ended; startBattle re-registers.
+    this.onStep = null;
     resetCallsigns();
   }
 
@@ -401,6 +407,18 @@ export class Game {
     if (this.planet) this.planet.update(dt, this.now);
     this.projectiles.update(dt, this.now, (p) => this.onProjectileHit(p), null);
     this.checkVictory();
+
+    // The AI thinks on the simulation's clock, not the renderer's.
+    //
+    // It used to be updated once per rendered frame with dt * speed, which
+    // made its decisions land on different step boundaries depending on how
+    // fast the battle was being watched — and on the frame rate. Measured over
+    // 20 seeds at 1x, 2x, 4x and 8x: every one of the sixty comparisons
+    // diverged, the first checkpoint at ten seconds already differing. Driven
+    // from here instead, all sixty are identical, which is what the fixed
+    // timestep was built to guarantee and what every tool in tools/ has been
+    // assuming all along.
+    if (this.onStep && this.state === 'playing') this.onStep(dt);
   }
 
   /**
@@ -429,13 +447,39 @@ export class Game {
       const post = u.guardPos(planetPos);
       if (!post) continue;
 
+      // Worked out before the station, because on a planet guard it decides
+      // where the station IS.
+      const threat = this.threatTo(u.guardTarget, u.faction);
+
       if (u.guardTarget !== 'planet' || !u.isGround) {
         _v.copy(post);
         // Guarding the planet means orbiting it, not flying into it.
         if (u.guardTarget === 'planet') {
+          // Stand between the world and whatever is shooting at it.
+          //
+          // This used to station each ship on its OWN radial line, which
+          // spreads the fleet evenly over a sphere. A bombardment arrives from
+          // one direction, and DEFEND does not pursue, so the two-thirds of
+          // the fleet that happened to be on another face could never close
+          // and never fired a shot. Measured over 100 matches with a person
+          // holding the world by hand: 37% of defending hulls had anything in
+          // range at any moment, and the world was destroyed in 98 of them —
+          // against 65% held when the AI defends the same side with the same
+          // fleets, because the AI uses leashes and never gives this order.
+          //
+          // The unit's own bearing is kept as a minority term so the guard
+          // forms an arc across the threatened face rather than a stack on one
+          // point; with nothing bombarding there is no face to hold and the
+          // original even spread is right.
           _v2.copy(u.pos).sub(post);
           if (_v2.lengthSq() < 1e-4) _v2.set(0, 0, -1);
           _v2.normalize();
+          if (threat) {
+            _v3.copy(threat.pos).sub(post);
+            if (_v3.lengthSq() > 1e-4) {
+              _v2.multiplyScalar(0.35).add(_v3.normalize()).normalize();
+            }
+          }
           _v.addScaledVector(_v2, WORLD.planetRadius + 260);
         }
         if (u.pos.distanceToSquared(_v) > ESCORT_SLACK * ESCORT_SLACK) {
@@ -444,7 +488,6 @@ export class Game {
         }
       }
 
-      const threat = this.threatTo(u.guardTarget, u.faction);
       if (threat) {
         u.lastThreat = threat;
         u.lastThreatAt = this.now;

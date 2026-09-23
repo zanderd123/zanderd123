@@ -148,6 +148,10 @@ class App {
     };
 
     this.commander = new Commander(this.game, enemy, setup.difficulty);
+    // Driven by the simulation, once per fixed step, so the AI plays the same
+    // battle at 8x as at 1x and on a slow machine as on a fast one. `paused`
+    // needs no check here: a paused game takes no steps.
+    this.game.onStep = (step) => this.commander.update(step);
 
     this.setSelection([]);
     this.groups.clear();
@@ -530,12 +534,8 @@ class App {
     this.scene.followShadow(this.rig.focus);
 
     if (!this.uiBlocking || this.game.state !== 'playing') {
+      // The commander rides along inside this, on the simulation's clock.
       this.game.update(dt);
-      if (this.commander && !this.game.paused && this.game.state === 'playing') {
-        // The AI thinks in simulated time, so speeding the game up speeds up
-        // its decisions too.
-        this.commander.update(dt * this.game.speed);
-      }
       this.game.drawTracers();
       this.hud.update(this.game);
       this.minimap.update(dt, this.game);
