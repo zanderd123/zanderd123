@@ -1,0 +1,157 @@
+<div class="loader" id="splash" role="status" aria-live="polite">
+  <div class="loader-inner">
+    <div class="loader-pond" data-duck="loader"></div>
+    <div class="loader-title">Quackdex</div>
+    <div class="loader-dots" aria-hidden="true"><i></i><i></i><i></i></div>
+    <p class="loader-msg">Filling the pond…</p>
+  </div>
+</div>
+
+<div class="loader is-dim" id="busy" role="status" aria-live="polite" hidden>
+  <div class="loader-inner">
+    <div class="loader-pond" data-duck="loader"></div>
+    <div class="loader-dots" aria-hidden="true"><i></i><i></i><i></i></div>
+    <p class="loader-msg" id="busyMsg">Taking a closer look…</p>
+    <p class="loader-fact" id="busyFact"></p>
+    <button class="btn btn-ghost btn-sm" id="busyStop" type="button">Stop</button>
+  </div>
+</div>
+
+<div class="app">
+  <header class="topbar">
+    <a class="brand" href="#identify" data-tab-link="identify" aria-label="Quackdex home">
+      <span data-duck="logo"></span>
+      <span class="brand-name">Quack<span>dex</span></span>
+    </a>
+    <div class="spacer"></div>
+    <nav class="tabs" role="tablist" aria-label="Sections">
+      <button class="tab" role="tab" id="tab-identify" data-tab="identify" aria-selected="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>
+        Identify
+      </button>
+      <button class="tab" role="tab" id="tab-directory" data-tab="directory" aria-selected="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"/><path d="M4 20.5A2.5 2.5 0 0 0 6.5 23H20v-5"/><path d="M9 8h7M9 12h5"/></svg>
+        Directory
+      </button>
+      <button class="tab" role="tab" id="tab-map" data-tab="map" aria-selected="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s7-6.2 7-12a7 7 0 0 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/></svg>
+        Map
+      </button>
+      <button class="tab" role="tab" id="tab-log" data-tab="log" aria-selected="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h12M8 12h12M8 18h12"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg>
+        Log
+      </button>
+    </nav>
+    <span class="store-chip is-local" id="storeChip"><i></i><span>This device</span></span>
+    <button class="icon-btn" id="settingsBtn" type="button" aria-label="Settings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+    </button>
+  </header>
+
+  <main>
+    <!-- Identify -->
+    <section class="view" id="view-identify" role="tabpanel" aria-labelledby="tab-identify">
+      <div class="hero">
+        <div style="display:grid;gap:8px">
+          <h1>What duck is that?</h1>
+          <p>Snap or upload a photo and Quackdex names the species, tells you how it knows, and shares a few facts. Then pin it on the map.</p>
+        </div>
+        <div class="drop" id="drop">
+          <div class="drop-actions">
+            <label class="btn btn-primary" for="cameraInput">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>
+              Take a photo
+            </label>
+            <label class="btn btn-soft" for="uploadInput">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m21 16-5-5-9 9"/></svg>
+              Upload a photo
+            </label>
+          </div>
+          <small>or drop an image here · JPEG, PNG, WebP</small>
+          <input class="sr-file" id="cameraInput" type="file" accept="image/*" capture="environment">
+          <input class="sr-file" id="uploadInput" type="file" accept="image/*">
+        </div>
+        <div class="engine-note" id="engineNote"></div>
+      </div>
+
+      <div id="resultArea"></div>
+
+      <div class="section" id="matcherSection">
+        <div class="section-head">
+          <h2>No photo? Match by field marks</h2>
+          <button class="btn btn-ghost btn-sm" id="matcherReset" type="button">Clear</button>
+        </div>
+        <div class="matcher" id="matcher"></div>
+      </div>
+
+      <div class="section">
+        <div class="section-head"><h2>Duck of the day</h2><span class="label" id="dotdDate"></span></div>
+        <div id="dotd"></div>
+      </div>
+    </section>
+
+    <!-- Directory -->
+    <section class="view" id="view-directory" role="tabpanel" aria-labelledby="tab-directory" hidden>
+      <div class="section-head" style="margin-bottom:14px">
+        <h1>Duck directory</h1>
+        <span class="muted num" id="dirCount"></span>
+      </div>
+      <div class="dir-controls">
+        <label class="search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          <input id="dirSearch" type="search" placeholder="Search 140+ species, e.g. teal, Aythya, blue bill" autocomplete="off" aria-label="Search species">
+        </label>
+        <div class="scroll-x" id="groupChips" role="group" aria-label="Filter by group"></div>
+        <div class="filter-row">
+          <select class="select" id="dirRegion" aria-label="Region"></select>
+          <select class="select" id="dirStatus" aria-label="Conservation status"></select>
+          <select class="select" id="dirSort" aria-label="Sort">
+            <option value="group">Grouped</option>
+            <option value="az">A–Z</option>
+            <option value="size">Largest first</option>
+            <option value="rare">Most threatened first</option>
+          </select>
+        </div>
+      </div>
+      <div id="dirList"></div>
+    </section>
+
+    <!-- Map -->
+    <section class="view view-map" id="view-map" role="tabpanel" aria-labelledby="tab-map" hidden>
+      <div class="map-wrap">
+        <div id="map" aria-label="Sightings map"></div>
+        <div class="map-bar">
+          <div class="pill-group" role="group" aria-label="Whose sightings">
+            <button type="button" data-who="all" aria-pressed="true">Everyone</button>
+            <button type="button" data-who="mine" aria-pressed="false">Mine</button>
+          </div>
+          <select class="select" id="mapSpecies" aria-label="Filter by species"></select>
+          <span class="map-count num" id="mapCount"></span>
+          <div class="map-offline" id="mapOffline" hidden><span>Simplified map: street tiles aren't available here.</span></div>
+        </div>
+        <div class="map-banner" id="mapBanner" hidden></div>
+        <button class="btn btn-primary fab" id="addSightingBtn" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+          Add sighting
+        </button>
+      </div>
+    </section>
+
+    <!-- Log -->
+    <section class="view" id="view-log" role="tabpanel" aria-labelledby="tab-log" hidden>
+      <div class="section-head" style="margin-bottom:14px">
+        <h1>Sightings log</h1>
+        <div class="pill-group" role="group" aria-label="Whose sightings">
+          <button type="button" data-logwho="mine" aria-pressed="true">Mine</button>
+          <button type="button" data-logwho="all" aria-pressed="false">Everyone</button>
+        </div>
+      </div>
+      <div id="logBody"></div>
+    </section>
+  </main>
+</div>
+
+<dialog class="sheet" id="speciesSheet" aria-labelledby="speciesSheetTitle"></dialog>
+<dialog class="sheet" id="sightingSheet" aria-labelledby="sightingSheetTitle"></dialog>
+<dialog class="sheet" id="settingsSheet" aria-labelledby="settingsSheetTitle"></dialog>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>

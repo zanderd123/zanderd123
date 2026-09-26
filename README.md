@@ -1,5 +1,8 @@
 # Siege of Kepler-9
 
+> This repository also holds **Quackdex**, a duck identifier, species directory
+> and shared sightings map, in [`duck-app/`](duck-app/README.md).
+
 A 3D real-time space-battle RTS played in the browser: command a fleet to
 besiege, or defend, an orbiting planet.
 

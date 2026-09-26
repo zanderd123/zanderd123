@@ -1,0 +1,14 @@
+{
+  "name": "quackdex",
+  "private": true,
+  "description": "Duck identifier, species directory and shared sightings map. See README.md.",
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "basemap": "node tools/make-basemap.mjs"
+  },
+  "devDependencies": {
+    "topojson-client": "^3.1.0",
+    "world-atlas": "^2.0.2"
+  }
+}
