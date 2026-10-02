@@ -474,6 +474,24 @@ button { font: inherit; color: inherit; }
 }
 .buy.armed { border-color: var(--magenta); }
 
+/* save */
+.lot-card.capitol { border-color: var(--amber); box-shadow: inset 0 0 0 1px rgba(255, 194, 62, 0.25); }
+.cloud { padding: 9px 12px; border: 1px dashed var(--line); color: var(--dim); font-size: 14px; }
+.cloud.ok { border: 1px solid rgba(93, 255, 176, 0.5); color: var(--ok); }
+.code-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.code {
+  width: 100%;
+  min-width: 0;
+  resize: vertical;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  background: var(--panel-2);
+  color: var(--ink);
+  font: 12px/1.4 var(--f-mono);
+  word-break: break-all;
+}
+.code:focus-visible { outline: 2px solid var(--cyan); outline-offset: 1px; }
+
 /* achievements */
 .achs { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
 .ach { display: grid; gap: 1px; padding: 7px 9px; border: 1px dashed var(--line); color: var(--dim); min-width: 0; }
@@ -636,7 +654,12 @@ const SHAPES = [
   { sections: [[0.7, 2.1], [0.52, 2.45]], spire: 0.32 },
   { sections: [[0.8, 1.4], [0.64, 2.55], [0.46, 3.15]], spire: 0.42 },
   { sections: [[0.9, 1.0], [0.76, 2.05], [0.6, 3.0], [0.4, 3.7]], spire: 0.5 },
+  // 9: the Capitol Spire, which the whole Capital fuses into once all 49 lots reach tier 8
+  { sections: [[6.6, 0.8], [5.4, 2.0], [4.2, 3.6], [3.0, 5.4], [1.9, 7.2], [1.0, 8.6]], spire: 1.4 },
 ];
+const CAPITOL = 9;
+const CAPITOL_LOT = CENTER * N + CENTER;
+const CAPITOL_BONUS = 1.25;       // all income while the Capitol Spire stands
 
 const SHACK_BLURB = 'Corrugated walls, one flickering sign, and a power line spliced off the grid. Upgrade it to choose what it becomes.';
 const LINES = {
@@ -801,6 +824,7 @@ const ACHIEVEMENTS = [
   { id: 'tier5', name: 'Glass and Steel', desc: 'Reach tier 5', test: () => S.best >= 5 },
   { id: 'tier6', name: 'Above the Smog', desc: 'Reach tier 6', test: () => S.best >= 6 },
   { id: 'tier8', name: 'Arcologist', desc: 'Reach tier 8', test: () => S.best >= 8 },
+  { id: 'capitol', name: 'Seat of Power', desc: 'Fuse the Capital into the Capitol Spire', test: () => capitalMerged() },
   { id: 'arco10', name: 'Skyline', desc: 'Own 10 tier 8 buildings', test: () => sumLots(t => t === 8) >= 10 },
   { id: 'arco49', name: 'Megacity', desc: 'Own 49 tier 8 buildings', test: () => sumLots(t => t === 8) >= 49 },
   { id: 'type1', name: 'Mixed Company', desc: 'Build your first crew building', test: () => crewBuildings() >= 1 },
@@ -1005,6 +1029,7 @@ function save() {
 }
 
 const cur = () => S.sectors[S.cur];
+const capitalMerged = () => S.sectors[0].lots.every(t => t === MAX_TIER);
 const ownedIn = sec => S.sectors[sec].lots.reduce((n, t) => n + (t > 0), 0);
 const ownedTotal = () => S.sectors.reduce((n, _, i) => n + ownedIn(i), 0);
 const crewTotal = () => CREW.reduce((n, c) => n + (S.crew[c.id] || 0), 0);
@@ -1026,6 +1051,7 @@ function computeMods() {
   m.chip = 1 + CHIP_BONUS * S.chips;
   m.achieve = 1 + ACH_BONUS * S.ach.length;
   m.all *= m.chip * m.achieve;
+  if (capitalMerged()) m.all *= CAPITOL_BONUS;
   return m;
 }
 // A crew building earns more the more of its crew you employ. Housing is filled by tenants from
@@ -1081,6 +1107,17 @@ function recalc() {
   CREW_CPS = 0;
   for (const c of CREW) CREW_CPS += (S.crew[c.id] || 0) * crewEach(c.id);
   CPS = BUILD_CPS + CREW_CPS;
+  checkMerge();
+}
+let mergeWatch = { s: null, merged: false };
+function checkMerge() {
+  const merged = capitalMerged();
+  if (mergeWatch.s === S && merged && !mergeWatch.merged) {
+    startFabrication(0, CAPITOL_LOT);
+    toast(`The Capital's 49 towers have fused into the Capitol Spire. All income +${Math.round((CAPITOL_BONUS - 1) * 100)}%.`, 'gold');
+    Sound.big();
+  }
+  mergeWatch = { s: S, merged };
 }
 const hackValue = () => (1 + CPS * 0.1) * M.hack;
 
@@ -1395,7 +1432,28 @@ function lotScreen(sec, k) {
   const [I, J] = lotIJ(sec, k);
   return [sx(worldX(I, J)), sy(worldY(I, J))];
 }
+function buildingList() {
+  const out = [];
+  const merged = capitalMerged();
+  for (let sec = 0; sec < S.sectors.length; sec++) {
+    const s = S.sectors[sec];
+    if (sec === 0 && merged) {
+      const [I, J] = lotIJ(0, CAPITOL_LOT);
+      out.push({ d: I + J, sec: 0, k: CAPITOL_LOT, tier: CAPITOL, line: null });
+      continue;
+    }
+    for (let k = 0; k < N * N; k++) if (s.lots[k]) {
+      const [I, J] = lotIJ(sec, k);
+      out.push({ d: I + J, sec, k, tier: s.lots[k], line: s.lots[k] >= 2 ? s.lines[k] : null });
+    }
+  }
+  return out;
+}
 function roofPoint(sec, k) {
+  if (sec === 0 && capitalMerged()) {
+    const [x, y] = lotScreen(0, CAPITOL_LOT);
+    return [x, y - topZ(CAPITOL) * cam.s];
+  }
   const [x, y] = lotScreen(sec, k);
   return [x, y - topZ(S.sectors[sec].lots[k]) * cam.s];
 }
@@ -1414,6 +1472,7 @@ function cameraTarget() {
       const [I0, J0] = lotIJ(sec, 0);
       let h = 0;
       if (S.sectors[sec]) for (const t of S.sectors[sec].lots) h = Math.max(h, topZ(t));
+      if (sec === 0 && capitalMerged()) h = topZ(CAPITOL);
       include(I0, J0, h); include(I0 + N - 1, J0, h); include(I0, J0 + N - 1, h); include(I0 + N - 1, J0 + N - 1, h);
     }
   } else {
@@ -1426,6 +1485,10 @@ function cameraTarget() {
         if (i + di >= 0 && j + dj >= 0 && i + di < N && j + dj < N) include(I + di, J + dj, 0);
       }
       include(I, J, topZ(s.lots[k]) + 0.1);
+    }
+    if (S.cur === 0 && capitalMerged()) {
+      const [I, J] = lotIJ(0, CAPITOL_LOT);
+      include(I, J, topZ(CAPITOL) + 0.2);
     }
   }
   const avH = Math.max(80, H - HUD_TOP - hudBottom());
@@ -1473,7 +1536,7 @@ function facePoint(side, x, y, hw, hh, z0, z1, u, v) {
 
 function windows(g, s, tier, x, y, hw, hh, z0, z1, R, dom, alt) {
   const floors = Math.max(1, Math.round((z1 - z0) / (s * 0.075)));
-  const cols = clamp(Math.round((hw * 2 / s) * 8), 2, 7);
+  const cols = clamp(Math.round((hw * 2 / s) * 8), 2, tier === CAPITOL ? 48 : 7);
   const glass = tier >= 5;
   const litP = 0.28 + tier * 0.05;
   const ww = glass ? 0.78 : 0.56, wh = glass ? 0.42 : 0.5;
@@ -1589,7 +1652,7 @@ function makeSprite(tier, line, seed, s) {
     box(g, x, y, hw, hh, z0, z1, skin);
     if (tier >= 3) windows(g, s, tier, x, y, hw, hh, z0, z1, R, dom, alt);
     // terraces of greenery on an arcology's setbacks
-    if (tier === 8 && si < T.sections.length - 1) {
+    if (tier >= 8 && si < T.sections.length - 1) {
       const inner = T.sections[si + 1][0] / sw;
       for (let n = 0; n < 40; n++) {
         const a = R() * 2 - 1, b = (R() * 2 - 1) * (1 - Math.abs(a));
@@ -1702,7 +1765,7 @@ function makeSprite(tier, line, seed, s) {
     for (let n = 0; n < 6; n++) g.fillRect(0.14, 0.44 + n * 0.03, 0.72, 0.008);
     g.restore();
   }
-  if (tier === 8) {
+  if (tier >= 8) {
     // halo around the crown
     const [lsw, lzt] = T.sections[T.sections.length - 1];
     const ring = crewLine ? dom : '#5dffb0';
@@ -2005,31 +2068,24 @@ function drawRoads(t) {
 }
 
 function drawBuildings(now, t) {
-  const order = [];
-  for (let sec = 0; sec < S.sectors.length; sec++) {
-    const s = S.sectors[sec];
-    for (let k = 0; k < N * N; k++) if (s.lots[k]) {
-      const [I, J] = lotIJ(sec, k);
-      order.push([I + J, sec, k]);
-    }
-  }
-  order.sort((a, b) => a[0] - b[0]);
+  const order = buildingList().sort((a, b) => a.d - b.d);
   const glow = cam.s > 26;
-  for (const [, sec, k] of order) {
-    const s = S.sectors[sec], tier = s.lots[k], line = tier >= 2 ? s.lines[k] : null, seed = seedOf(sec, k);
+  for (const { sec, k, tier, line } of order) {
+    const seed = seedOf(sec, k);
+    const big = tier === CAPITOL ? 6 : 1;
     const [x, y] = lotScreen(sec, k);
     const top = topZ(tier) * cam.s;
-    if (x < -cam.s || x > W + cam.s || y - top > H + 10 || y < -cam.s) continue;
+    if (x < -cam.s * big || x > W + cam.s * big || y - top > H + 10 || y < -cam.s * big) continue;
     const dom = lineColor(line && line !== 'hab' ? line : null, seed);
     const faded = view === 'city' && sec !== S.cur;
     ctx.globalAlpha = faded ? 0.22 : 1;
     if (glow && !faded) {
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
-      const pool = ctx.createRadialGradient(x, y, 2, x, y, cam.s * 0.55);
+      const pool = ctx.createRadialGradient(x, y, 2, x, y, cam.s * 0.55 * big);
       pool.addColorStop(0, dom + '38'); pool.addColorStop(1, dom + '00');
       ctx.fillStyle = pool;
-      ctx.fillRect(x - cam.s * 0.6, y - cam.s * 0.35, cam.s * 1.2, cam.s * 0.7);
+      ctx.fillRect(x - cam.s * 0.6 * big, y - cam.s * 0.35 * big, cam.s * 1.2 * big, cam.s * 0.7 * big);
       ctx.restore();
     }
 
@@ -2171,14 +2227,8 @@ cvs.addEventListener('pointerdown', e => {
     return;
   }
   // buildings first, front to back, since tall ones cover the lots behind them
-  const order = [];
-  for (let sec = 0; sec < S.sectors.length; sec++) {
-    const s = S.sectors[sec];
-    for (let k = 0; k < N * N; k++) if (s.lots[k]) { const [I, J] = lotIJ(sec, k); order.push([I + J, sec, k]); }
-  }
-  order.sort((a, b) => b[0] - a[0]);
-  for (const [, sec, k] of order) {
-    const t = S.sectors[sec].lots[k];
+  const order = buildingList().sort((a, b) => b.d - a.d);
+  for (const { sec, k, tier: t } of order) {
     const [x, y] = lotScreen(sec, k);
     const sw = SHAPES[t].sections[0][0], hw = cam.s * 0.5 * sw, hh = cam.s * 0.25 * sw;
     if (px > x - hw && px < x + hw && py < y + hh && py > y - hh - topZ(t) * cam.s) {
@@ -2258,7 +2308,8 @@ const panel = $('#panel');
 let tab = 'build';
 let crewMode = 1;
 let dirty = true;
-let wipeArmed = 0, rebootArmed = 0;
+let wipeArmed = 0, rebootArmed = 0, importArmed = 0;
+let exportedCode = '', importDraft = '';
 let newAch = 0;                  // achievements earned since the Goals tab was last opened
 
 function setTab(name) {
@@ -2300,7 +2351,22 @@ function lineChoice(k, line) {
     `+${fmt(gain, true)} / sec${notes.length ? ' · ' + notes.join(' · ') : ''}`, upgradeCost(sec, k));
 }
 
+function capitolHTML() {
+  return `
+  <div class="lot-card capitol">
+    <div><div class="eyebrow">The Capital · all 49 lots at tier 8</div><h2>Capitol Spire</h2></div>
+    <div class="pips" aria-hidden="true">${Array.from({ length: MAX_TIER }, () => '<span class="pip on"></span>').join('')}</div>
+    <p class="blurb">Every tower in the Capital has grown into one megastructure, the seat of your city. It cannot grow any further.</p>
+    <div class="kv"><span>The Capital earns</span><b>${fmt(SECTOR_CPS[0], true)} / sec</b></div>
+    <div class="kv"><span>Spire bonus, citywide</span><b>+${Math.round((CAPITOL_BONUS - 1) * 100)}% all income</b></div>
+  </div>
+  ${M.autoBuild ? `<div class="group"><h3>Auto-builder</h3><div class="auto-row">${toggleBtn('auto-build', S.auto.build, 'Auto-builder')}</div>
+     <p class="blurb">It keeps building in your other districts.</p></div>` : ''}
+  <div class="group"><h3>Keep growing</h3><p class="blurb">Build new districts under Infra, or switch districts with the bar over the city.</p></div>`;
+}
+
 function buildHTML() {
+  if (S.cur === 0 && capitalMerged()) return capitolHTML();
   const sec = S.cur, s = cur(), k = s.sel, tier = s.lots[k], line = tier >= 2 ? s.lines[k] : null;
   const isCrew = line && line !== 'hab';
   const pips = Array.from({ length: MAX_TIER }, (_, n) => `<span class="pip ${n < tier ? 'on' : n === tier ? 'next' : ''}"></span>`).join('');
@@ -2485,6 +2551,32 @@ function goalsHTML() {
   } else {
     rebootBody = `<div class="locked">Your first chip arrives at <b>${fmt(nextChipAt)}</b> credits earned across all runs. You have <b>${fmt(S.lifetime)}</b>.</div>`;
   }
+  const cloudLine = {
+    checking: 'Checking for your cloud save…',
+    on: `Cloud save is on. It keeps a private copy on your claude.ai account every minute${Cloud.lastSaved ? `, last at ${new Date(Cloud.lastSaved).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}` : ''}.`,
+    readonly: 'Cloud save is not available to you on this shared link. Your game still saves in this browser; copy a save code to keep a backup.',
+    full: 'Cloud save is full right now. Your game still saves in this browser; copy a save code to keep a backup.',
+    off: 'Cloud save needs you signed in to claude.ai. Your game still saves in this browser; copy a save code to keep a backup.',
+  }[Cloud.status];
+  const saveBox = `
+  <div class="group">
+    <h3>Your save</h3>
+    <p class="blurb">The game saves in this browser every 10 seconds and when you close it. Private windows and clearing your browsing data erase that copy.</p>
+    <div class="cloud ${Cloud.status === 'on' ? 'ok' : ''}">${cloudLine}</div>
+    ${Cloud.status === 'on' ? `<button class="mode" type="button" data-act="cloud-save">Save to cloud now</button>` : ''}
+    <div class="code-row">
+      <button class="mode" type="button" data-act="export">Copy save code</button>
+      <span class="eyebrow">Paste it somewhere safe, like a note or an email to yourself</span>
+    </div>
+    ${exportedCode ? `<label class="eyebrow" for="export-code">Your save code</label>
+      <textarea id="export-code" class="code" readonly rows="3">${esc(exportedCode)}</textarea>` : ''}
+    <label class="eyebrow" for="import-code">Load a save code</label>
+    <textarea id="import-code" class="code" rows="3" placeholder="Paste a code that starts with ${CODE_PREFIX}">${esc(importDraft)}</textarea>
+    <button class="buy ${importArmed ? 'armed' : ''}" type="button" data-act="import">
+      <span class="what">${importArmed ? 'Click again to replace your current city' : 'Load this save'}</span>
+      <span class="sub">Replaces the city you have now</span>
+    </button>
+  </div>`;
   const achRows = ACHIEVEMENTS.map(a => `<li class="ach ${got.has(a.id) ? 'got' : ''}"><b>${esc(a.name)}</b><span>${esc(a.desc)}</span></li>`).join('');
   return `
   <div class="group">
@@ -2498,12 +2590,13 @@ function goalsHTML() {
     </div>
     ${rebootBody}
   </div>
+  ${saveBox}
   <div class="group">
     <div class="head-row"><h3>Achievements</h3><span class="eyebrow">${S.ach.length} / ${ACHIEVEMENTS.length} · +${Math.round((M.achieve - 1) * 100)}% income</span></div>
     <ul class="achs">${achRows}</ul>
   </div>
   <div class="foot">
-    <span>Progress saves in this browser.</span>
+    <span>Erasing clears this browser and your cloud copy.</span>
     <button class="wipe ${wipeArmed ? 'armed' : ''}" type="button" data-act="wipe">${wipeArmed ? 'Click again to erase everything' : 'Erase save'}</button>
   </div>`;
 }
@@ -2630,15 +2723,49 @@ panel.addEventListener('click', e => {
     dirty = true;
   } else if (act === 'reboot') {
     if (armed('reboot')) { rebootArmed = 0; reboot(); Sound.big(); setTab('build'); }
+  } else if (act === 'cloud-save') {
+    cloudSave().then(ok => toast(ok ? 'Saved to the cloud.' : 'Cloud save failed. Your game is still saved in this browser.'));
+  } else if (act === 'export') {
+    exportedCode = exportCode();
+    dirty = true;
+    const copied = () => toast('Save code copied. Paste it somewhere safe.');
+    const manual = () => {
+      render();
+      const box = $('#export-code');
+      if (box) { box.focus(); box.select(); }
+      toast('Select the code below and copy it.');
+    };
+    try { navigator.clipboard.writeText(exportedCode).then(copied, manual); } catch (e) { manual(); }
+  } else if (act === 'import') {
+    const box = $('#import-code');
+    importDraft = box ? box.value : importDraft;
+    const data = parseCode(importDraft);
+    if (!data) {
+      toast(`That isn't a complete save code. Copy all of it, starting with ${CODE_PREFIX}`);
+      importArmed = 0; dirty = true;
+    } else if (importArmed && performance.now() - importArmed < 4000) {
+      importArmed = 0; importDraft = '';
+      loadState(data, 'Save code loaded.');
+      cloudSave();
+      setTab('build');
+    } else {
+      importArmed = performance.now();
+      setTimeout(() => { importArmed = 0; dirty = true; }, 4000);
+      dirty = true;
+    }
   } else if (act === 'wipe') {
     if (armed('wipe')) {
       S = fresh(); wipeArmed = 0; fabs.clear(); view = 'city'; afterChange();
+      cloudSave();
       updateSectorBar();
       startFabrication(0, cur().sel);
       toast('Save erased. One shack, one sign, back to work.');
       setTab('build');
     }
   }
+});
+panel.addEventListener('input', e => {
+  if (e.target.id === 'import-code') importDraft = e.target.value;
 });
 panel.addEventListener('change', e => {
   if (e.target.id === 'auto-line' && LINES[e.target.value]) { S.lastLine = e.target.value; save(); dirty = true; }
@@ -2675,6 +2802,7 @@ function headlines() {
   if (S.sectors.length > 1) lines.push(`Cyber road to ${sectorName(S.sectors.length - 1)} sees record traffic on opening night`);
   if (S.sectors.some(x => x.type === 'docks')) lines.push('Loading Docks report a container of "miscellaneous" goods, again');
   if (S.chips > 0) lines.push('Citizens report a strong feeling they have lived this week before');
+  if (capitalMerged()) lines.push('Capitol Spire casts a shadow across three districts at sunset');
   if (S.roads.some(l => l >= 4)) lines.push('Hyperloop commuters report arriving before they left');
   for (let i = lines.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [lines[i], lines[j]] = [lines[j], lines[i]]; }
   return lines;
@@ -2827,10 +2955,97 @@ function paintSound() {
 soundBtn.addEventListener('click', () => { Sound.set(!Sound.on); paintSound(); Sound.buy(); });
 
 /* ================================================================
+   Keeping the save: the browser copy, a cloud copy, and save codes
+   ================================================================ */
+// Load a whole game from a save object (cloud copy or pasted code), paying out time away.
+function loadState(data, label) {
+  S = restore(data);
+  recalc();
+  fabs.clear();
+  view = 'city';
+  const away = data.savedAt ? clamp((Date.now() - data.savedAt) / 1000, 0, OFFLINE_CAP) : 0;
+  const gain = away > 30 ? CPS * away : 0;
+  if (gain) earn(gain);
+  save();
+  updateSectorBar();
+  dirty = true;
+  toast(`${label}${gain ? ` The city earned ${fmt(gain)} credits in the ${duration(away)} since.` : ''}`, 'gold');
+}
+
+// The cloud copy lives in the viewer's private corner of this page's database.
+// It needs a signed-in viewer allowed to write there; anyone else keeps the browser copy.
+const Cloud = { ref: null, status: 'checking', lastSaved: 0, writing: false, lastBody: '' };
+async function initCloud(localSavedAt) {
+  try {
+    const use = window.claude && window.claude.use;
+    if (!use) { Cloud.status = 'off'; return; }
+    const [db, user] = await Promise.all([window.claude.use('db'), window.claude.use('user')]);
+    const id = user ? await user.id() : null;
+    if (!db || !id) { Cloud.status = 'off'; return; }
+    Cloud.ref = db.doc('data/users/' + id + '/save');
+    const snap = await Cloud.ref.get();
+    const remote = snap.exists && typeof snap.data().game === 'string' ? JSON.parse(snap.data().game) : null;
+    Cloud.status = 'on';
+    if (remote && (remote.savedAt || 0) > (localSavedAt || 0) + 5000) {
+      loadState(remote, 'Loaded your cloud save.');
+      Cloud.lastSaved = remote.savedAt;
+    } else {
+      await cloudSave();
+    }
+  } catch (e) {
+    Cloud.status = 'off';
+  } finally {
+    dirty = true;
+  }
+}
+async function cloudSave() {
+  if (Cloud.status !== 'on' || Cloud.writing) return false;
+  const data = serialize();
+  const body = JSON.stringify(data);
+  if (body === Cloud.lastBody) return true;
+  Cloud.writing = true;
+  try {
+    await Cloud.ref.set({ v: 3, savedAt: data.savedAt, game: body });
+    Cloud.lastBody = body;
+    Cloud.lastSaved = Date.now();
+    return true;
+  } catch (e) {
+    const code = e && e.code;
+    // a viewer who may not write here (link visitors, view-only members) stays on the browser copy
+    if (code === 'invalid_argument' || code === 'revoked' || code === 'not_granted' || code === 'capability_disabled') Cloud.status = 'readonly';
+    else if (code === 'quota_exceeded') Cloud.status = 'full';
+    return false;
+  } finally {
+    Cloud.writing = false;
+    if (tab === 'goals') dirty = true;
+  }
+}
+
+// Save codes: the whole save as text, to copy somewhere safe and paste back later.
+const CODE_PREFIX = 'NEONSPRAWL1:';
+function exportCode() {
+  const bytes = new TextEncoder().encode(JSON.stringify(serialize()));
+  let bin = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  return CODE_PREFIX + btoa(bin);
+}
+function parseCode(text) {
+  const t = String(text || '').replace(/\s+/g, '');
+  if (!t.startsWith(CODE_PREFIX)) return null;
+  try {
+    const bin = atob(t.slice(CODE_PREFIX.length));
+    const data = JSON.parse(new TextDecoder().decode(Uint8Array.from(bin, ch => ch.charCodeAt(0))));
+    return data && (Array.isArray(data.sectors) || Array.isArray(data.lots)) ? data : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+/* ================================================================
    Main loop
    ================================================================ */
 let last = performance.now();
-let uiClock = 0, slowClock = 0, saveClock = 0, autoClock = 0;
+let uiClock = 0, slowClock = 0, saveClock = 0, autoClock = 0, cloudClock = 0;
 let techSig = '';
 
 function checkAchievements() {
@@ -2870,8 +3085,9 @@ function frame(now) {
     if (n) Sound.buy();
   }
 
-  uiClock += dt; slowClock += dt; saveClock += real;
-  if (dirty) render();
+  uiClock += dt; slowClock += dt; saveClock += real; cloudClock += real;
+  const typing = document.activeElement && document.activeElement.tagName === 'TEXTAREA' && panel.contains(document.activeElement);
+  if (dirty && !typing) render();
   else if (uiClock > 0.1) { uiClock = 0; refresh(); }
   if (slowClock > 1) {
     slowClock = 0;
@@ -2888,6 +3104,7 @@ function frame(now) {
     }
   }
   if (saveClock > 10) { saveClock = 0; save(); }
+  if (cloudClock > 60) { cloudClock = 0; cloudSave(); }
   requestAnimationFrame(frame);
 }
 
@@ -2920,7 +3137,8 @@ function boot(hot) {
   new ResizeObserver(resize).observe(cvs);
   updateSectorBar();
   fillTicker();
-  document.addEventListener('visibilitychange', () => { if (document.hidden) save(); });
+  document.addEventListener('visibilitychange', () => { if (document.hidden) { save(); cloudSave(); } });
+  initCloud(data && data.savedAt);
   window.addEventListener('pagehide', save);
   last = performance.now();
   requestAnimationFrame(frame);
@@ -2934,7 +3152,7 @@ window.neonSprawl = {
   upgradeLot, acquireLot, hireCrew: (id, n) => hireN(id, n || 1), hireAll, upgradeAllIn, buyAllLotsIn, autoBuildTick,
   buyTech, buildRoad, upgradeRoad, upgradeCost, lotCost, crewCost, roadCost, roadUpgradeCost, roadReady, nextLot,
   lotOutput, upgradeGain, crewEach, recalc, lineUnlocked, districtUnlocked, setView, goSector, reboot, pendingChips, canReboot,
-  checkAchievements, TECH, CREW, LINES, DISTRICTS,
+  checkAchievements, exportCode, parseCode, loadState, cloudSave, get cloud() { return Cloud; }, TECH, CREW, LINES, DISTRICTS,
 };
 
 window.claude?.hot?.snapshot?.(() => serialize());

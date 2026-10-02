@@ -33,6 +33,14 @@ You start with one Shack in the Capital, earning 1 cyber credit a second.
 
 Buttons you can't afford yet show how long until you can. Once you have two districts, a bar over the city switches between them, and the map shows them all. Sound is a Tron-style techno track plus synth effects, all generated in the browser, and is off until you turn it on.
 
-Progress saves to `localStorage` every 10 seconds. While you're away the city keeps earning, for up to 8 hours. Saves from earlier versions load, with their first sector becoming the Capital.
+When every Capital lot reaches tier 8, the Capital fuses into the **Capitol Spire**, one megastructure that adds +25% to all income.
+
+## Saving
+
+- The game saves in the browser every 10 seconds and when you close it. While you're away the city keeps earning, for up to 8 hours.
+- On claude.ai, a signed-in owner or contributor also gets a **cloud save**: a private copy on their account, written every minute. It loads automatically when it's newer than the browser copy. Visitors on a shared link can't write it and keep the browser copy.
+- **Save codes** (Goals tab) copy the whole save as text to paste back later, on any device or in this file opened locally.
+
+Saves from earlier versions load, with their first sector becoming the Capital.
 
 Balance constants are at the top of the script. `window.neonSprawl` exposes the economy for testing from the console.
