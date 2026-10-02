@@ -1,0 +1,1742 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Neon Sprawl</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=Share+Tech+Mono&family=Tektur:wght@500;700;800&display=swap">
+<style>
+/* Layout: a two-pane municipal console. The live isometric city fills the left pane, the upgrade terminal sits on the right; they stack on phones. */
+:root {
+  --bg: #08070f;
+  --panel: #110f1e;
+  --panel-2: #181530;
+  --line: #2b2648;
+  --ink: #ece8ff;
+  --dim: #948cc0;
+  --cyan: #3ef2ff;
+  --magenta: #ff2bd6;
+  --amber: #ffc23e;
+  --ok: #5dffb0;
+  --f-display: 'Tektur', 'Chakra Petch', system-ui, sans-serif;
+  --f-body: 'Chakra Petch', system-ui, sans-serif;
+  --f-mono: 'Share Tech Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  --cut: 10px;
+  color-scheme: dark;
+}
+html, body { height: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 15px/1.45 var(--f-body);
+  -webkit-font-smoothing: antialiased;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+button { font: inherit; color: inherit; }
+
+.app {
+  height: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 390px;
+  gap: 16px;
+  padding-block: 16px;
+  padding-inline: 16px;
+}
+
+/* ---------- City pane ---------- */
+.city {
+  position: relative;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  background: #0b0918;
+}
+.city canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  cursor: crosshair;
+  touch-action: manipulation;
+}
+.hud {
+  position: absolute;
+  inset: 0 0 auto 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 14px 16px;
+  pointer-events: none;
+  background: linear-gradient(to bottom, rgba(8, 7, 15, 0.85), rgba(8, 7, 15, 0));
+}
+.hud > * { pointer-events: auto; }
+.eyebrow {
+  font: 12px/1.2 var(--f-mono);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+.credits-value {
+  font: 800 clamp(30px, 4.4vw, 48px)/1 var(--f-display);
+  color: var(--amber);
+  text-shadow: 0 0 18px rgba(255, 194, 62, 0.45);
+  font-variant-numeric: tabular-nums;
+  margin-block: 4px 2px;
+}
+.credits-rate {
+  font: 15px/1.2 var(--f-mono);
+  color: var(--cyan);
+  font-variant-numeric: tabular-nums;
+}
+.hack {
+  display: grid;
+  gap: 2px;
+  justify-items: start;
+  padding: 10px 18px 10px 16px;
+  border: 1px solid var(--magenta);
+  background: rgba(255, 43, 214, 0.12);
+  clip-path: polygon(0 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% 100%, var(--cut) 100%, 0 calc(100% - var(--cut)));
+  cursor: pointer;
+  transition: background 0.15s, transform 0.08s;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.hack:hover { background: rgba(255, 43, 214, 0.24); }
+.hack:active { transform: scale(0.97); }
+.hack:focus-visible { outline: 2px solid var(--cyan); outline-offset: -4px; }
+.hack b {
+  font: 700 18px/1.1 var(--f-display);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--magenta);
+  text-shadow: 0 0 12px rgba(255, 43, 214, 0.6);
+}
+.hack span { font: 12.5px/1.2 var(--f-mono); color: var(--ink); font-variant-numeric: tabular-nums; }
+.hack.pulse { animation: hackpulse 0.25s ease-out; }
+@keyframes hackpulse { from { background: rgba(255, 43, 214, 0.5); } }
+
+.ticker {
+  position: absolute;
+  inset: auto 0 0 0;
+  display: flex;
+  align-items: stretch;
+  height: 32px;
+  border-top: 1px solid var(--line);
+  background: rgba(8, 7, 15, 0.86);
+  font: 13px/32px var(--f-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.ticker-label {
+  flex: none;
+  padding-inline: 12px;
+  background: var(--magenta);
+  color: var(--bg);
+  font-weight: 700;
+}
+.ticker-track { position: relative; flex: 1; min-width: 0; overflow: hidden; color: var(--ink); }
+.ticker-text {
+  display: inline-block;
+  white-space: nowrap;
+  padding-left: 100%;
+  animation: marquee 40s linear infinite;
+}
+@keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-100%); } }
+
+.toasts {
+  position: absolute;
+  left: 16px;
+  bottom: 46px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: min(420px, calc(100% - 32px));
+  pointer-events: none;
+}
+.toast {
+  padding: 9px 14px;
+  background: rgba(17, 15, 30, 0.94);
+  border: 1px solid var(--cyan);
+  color: var(--ink);
+  font-size: 14px;
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%);
+  animation: toastin 0.25s ease-out;
+}
+.toast.gold { border-color: var(--amber); }
+.toast.pink { border-color: var(--magenta); }
+.toast.out { opacity: 0; transition: opacity 0.4s; }
+@keyframes toastin { from { opacity: 0; transform: translateY(8px); } }
+
+/* ---------- Console pane ---------- */
+.panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border: 1px solid var(--line);
+  background: var(--panel);
+}
+.brand {
+  padding: 16px 18px 12px;
+  border-bottom: 1px solid var(--line);
+}
+.brand h1 {
+  margin: 0;
+  font: 800 26px/1 var(--f-display);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+.brand h1 em { font-style: normal; color: var(--cyan); text-shadow: 0 0 14px rgba(62, 242, 255, 0.5); }
+.brand p { margin: 6px 0 0; }
+
+.tabs { display: flex; border-bottom: 1px solid var(--line); }
+.tab {
+  flex: 1;
+  padding: 12px 8px 10px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  font: 600 14px/1 var(--f-display);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--dim);
+  cursor: pointer;
+}
+.tab:hover { color: var(--ink); }
+.tab[aria-selected="true"] { color: var(--cyan); border-bottom-color: var(--cyan); }
+.tab:focus-visible { outline: 2px solid var(--cyan); outline-offset: -4px; }
+.badge {
+  display: inline-block;
+  min-width: 18px;
+  margin-left: 6px;
+  padding: 2px 5px;
+  background: var(--magenta);
+  color: var(--bg);
+  font: 700 11px/1 var(--f-mono);
+  vertical-align: 1px;
+}
+
+.panel-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 16px 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.panel-body h3 {
+  margin: 0;
+  font: 600 13px/1.2 var(--f-mono);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+.group { display: flex; flex-direction: column; gap: 10px; }
+
+.lot-card {
+  border: 1px solid var(--line);
+  background: var(--panel-2);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.lot-head { display: flex; align-items: center; gap: 10px; }
+.lot-head > div { flex: 1; min-width: 0; }
+.lot-head h2 {
+  margin: 2px 0 0;
+  font: 700 24px/1.1 var(--f-display);
+  text-wrap: balance;
+}
+.nav {
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--dim);
+  font: 18px/1 var(--f-mono);
+  cursor: pointer;
+}
+.nav:hover { color: var(--cyan); border-color: var(--cyan); }
+.nav:focus-visible { outline: 2px solid var(--cyan); outline-offset: 1px; }
+.pips { display: flex; gap: 4px; }
+.pip { flex: 1; height: 8px; transform: skewX(-24deg); background: #221d3d; }
+.pip.on { background: var(--cyan); box-shadow: 0 0 8px rgba(62, 242, 255, 0.5); }
+.pip.next { background: transparent; outline: 1px solid var(--magenta); outline-offset: -1px; }
+.blurb { margin: 0; color: var(--dim); font-size: 14px; }
+.kv { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; }
+.kv b { font: 15px/1.3 var(--f-mono); color: var(--cyan); font-variant-numeric: tabular-nums; font-weight: 400; }
+
+.buy {
+  --p: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 4px 12px;
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid rgba(62, 242, 255, 0.7);
+  background:
+    linear-gradient(90deg, rgba(62, 242, 255, 0.16) calc(var(--p) * 100%), transparent 0),
+    rgba(62, 242, 255, 0.04);
+  text-align: left;
+  cursor: pointer;
+  clip-path: polygon(0 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% 100%, 0 100%);
+  transition: border-color 0.15s, filter 0.15s;
+}
+.buy:hover:not(:disabled) { filter: brightness(1.25); }
+.buy:focus-visible { outline: 2px solid var(--magenta); outline-offset: -4px; }
+.buy:disabled {
+  cursor: not-allowed;
+  border-color: var(--line);
+  background:
+    linear-gradient(90deg, rgba(148, 140, 192, 0.12) calc(var(--p) * 100%), transparent 0),
+    transparent;
+}
+.buy .what { font-weight: 600; min-width: 0; }
+.buy .sub { grid-column: 1; font: 12.5px/1.3 var(--f-mono); color: var(--ok); font-variant-numeric: tabular-nums; }
+.buy:disabled .sub { color: var(--dim); }
+.buy .cost {
+  grid-row: 1 / span 2;
+  grid-column: 2;
+  font: 16px/1 var(--f-mono);
+  color: var(--amber);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.buy:disabled .cost { color: var(--dim); }
+.buy.big .what { font: 700 16px/1.25 var(--f-display); letter-spacing: 0.02em; }
+.buy.alt { border-color: rgba(255, 43, 214, 0.7); background: linear-gradient(90deg, rgba(255, 43, 214, 0.16) calc(var(--p) * 100%), transparent 0), rgba(255, 43, 214, 0.04); }
+.buy.alt:disabled { border-color: var(--line); background: linear-gradient(90deg, rgba(148, 140, 192, 0.12) calc(var(--p) * 100%), transparent 0), transparent; }
+.maxed {
+  padding: 10px 14px;
+  border: 1px dashed var(--line);
+  color: var(--ok);
+  font: 14px/1.3 var(--f-mono);
+  text-align: center;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px 12px;
+  padding-block: 10px;
+  border-top: 1px solid var(--line);
+}
+.row:first-of-type { border-top: 0; padding-top: 0; }
+.row .name { font-weight: 600; font-size: 16px; }
+.row .name small { font: 13px var(--f-mono); color: var(--magenta); margin-left: 6px; }
+.row .desc { grid-column: 1; color: var(--dim); font-size: 13.5px; }
+.row .owned { grid-row: 1 / span 2; grid-column: 2; align-self: center; font: 22px/1 var(--f-mono); color: var(--ink); font-variant-numeric: tabular-nums; }
+.row .buy { grid-column: 1 / -1; margin-top: 6px; }
+
+.modes { display: flex; gap: 6px; }
+.mode {
+  padding: 5px 12px;
+  border: 1px solid var(--line);
+  background: none;
+  font: 13px/1 var(--f-mono);
+  color: var(--dim);
+  cursor: pointer;
+}
+.mode[aria-pressed="true"] { border-color: var(--cyan); color: var(--cyan); }
+.mode:focus-visible { outline: 2px solid var(--cyan); outline-offset: 1px; }
+.head-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+
+.locked {
+  padding: 10px 14px;
+  border: 1px dashed var(--line);
+  color: var(--dim);
+  font-size: 14px;
+}
+.locked b { font-family: var(--f-mono); color: var(--ink); font-weight: 400; }
+.installed { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip {
+  padding: 4px 9px;
+  border: 1px solid rgba(93, 255, 176, 0.45);
+  color: var(--ok);
+  font: 12.5px/1.2 var(--f-mono);
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 16px;
+  font-size: 14px;
+}
+.stats div { display: flex; justify-content: space-between; gap: 8px; border-bottom: 1px solid var(--line); padding-block: 4px; }
+.stats b { font: 14px var(--f-mono); font-weight: 400; color: var(--ink); font-variant-numeric: tabular-nums; }
+.stats span { color: var(--dim); }
+
+.foot { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; color: var(--dim); font-size: 13px; }
+.wipe {
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  background: none;
+  color: var(--dim);
+  font: 12.5px var(--f-mono);
+  cursor: pointer;
+}
+.wipe.armed { border-color: var(--magenta); color: var(--magenta); }
+.wipe:focus-visible { outline: 2px solid var(--cyan); outline-offset: 1px; }
+
+@media (max-width: 860px) {
+  html, body { height: auto; }
+  .app { height: auto; grid-template-columns: minmax(0, 1fr); }
+  .city { height: 62svh; min-height: 380px; }
+  .panel-body { overflow: visible; }
+}
+@media (max-width: 480px) {
+  .hud { padding: 10px 12px; }
+  .hack { padding: 8px 14px 8px 12px; }
+  .hack b { font-size: 15px; }
+  .ticker { font-size: 12px; }
+  .ticker-label { padding-inline: 8px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ticker-text { animation: none; padding-left: 12px; }
+  .toast, .hack.pulse { animation: none; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <main class="city" id="city-pane">
+    <canvas id="city" aria-label="Your city. Click a building to select it, or click the glowing empty lot to buy it."></canvas>
+    <header class="hud">
+      <div>
+        <div class="eyebrow">Cyber credits</div>
+        <div class="credits-value" id="credits">0</div>
+        <div class="credits-rate" id="rate">+1.0 / sec</div>
+      </div>
+      <button class="hack" id="hack" type="button">
+        <b>Jack in</b>
+        <span id="hack-value">+1.1 per hack</span>
+      </button>
+    </header>
+    <div class="ticker" aria-hidden="true">
+      <div class="ticker-label">Sector 0 news</div>
+      <div class="ticker-track"><span class="ticker-text" id="ticker"></span></div>
+    </div>
+    <div class="toasts" id="toasts" aria-live="polite"></div>
+  </main>
+
+  <aside class="panel">
+    <div class="brand">
+      <h1>Neon <em>Sprawl</em></h1>
+      <p class="eyebrow">Sector 0 · zoning console</p>
+    </div>
+    <nav class="tabs" role="tablist">
+      <button class="tab" role="tab" id="tab-build" data-tab="build" aria-selected="true">Build<span class="badge" id="badge-build" hidden></span></button>
+      <button class="tab" role="tab" id="tab-crew" data-tab="crew" aria-selected="false">Crew<span class="badge" id="badge-crew" hidden></span></button>
+      <button class="tab" role="tab" id="tab-tech" data-tab="tech" aria-selected="false">Tech<span class="badge" id="badge-tech" hidden></span></button>
+    </nav>
+    <div class="panel-body" id="panel" role="tabpanel"></div>
+  </aside>
+</div>
+
+<script>
+(() => {
+'use strict';
+
+/* ================================================================
+   Data
+   ================================================================ */
+const N = 7;                      // the grid is N x N lots
+const CENTER = 3;
+const COLS = 'ABCDEFG';
+const LOT_BASE = 60;              // second lot costs this much
+const LOT_GROWTH = 1.5;           // each further lot costs this much more
+const TIER_GROWTH = 1.1;          // each building already at a tier raises that tier's price
+const CREW_GROWTH = 1.15;
+const OFFLINE_CAP = 8 * 3600;     // seconds of away-time that pay out
+const SAVE_KEY = 'neon-sprawl/v1';
+
+// sections: [footprint width as a fraction of a lot, top height in lot-widths]
+const TIERS = [
+  { name: 'Empty lot', cps: 0, cost: 0, sections: [] },
+  { name: 'Shack', cps: 1, cost: 0, sections: [[0.46, 0.2]],
+    blurb: 'Corrugated walls, one flickering sign, and a power line spliced off the grid.' },
+  { name: 'Ramen Stall', cps: 3, cost: 25, sections: [[0.56, 0.3]],
+    blurb: 'Steam, neon and noodles. The night shift eats here and pays in credits.' },
+  { name: 'Hab Block', cps: 10, cost: 200, sections: [[0.62, 0.72]],
+    blurb: 'Stacked capsule flats. Rent is collected by drone at midnight.' },
+  { name: 'Data Den', cps: 40, cost: 1500, sections: [[0.66, 1.05], [0.42, 1.16]],
+    blurb: 'Server racks in the basement, hackers on every floor.' },
+  { name: 'Corp Tower', cps: 160, cost: 12000, sections: [[0.64, 1.6], [0.46, 1.78]], spire: 0.22,
+    blurb: 'Mirrored glass and a logo you can read from low orbit.' },
+  { name: 'Skyscraper', cps: 700, cost: 1e5, sections: [[0.7, 2.1], [0.52, 2.45]], spire: 0.32,
+    blurb: 'Two hundred floors of offices that never switch off.' },
+  { name: 'Megascraper', cps: 3000, cost: 9e5, sections: [[0.8, 1.4], [0.64, 2.55], [0.46, 3.15]], spire: 0.42,
+    blurb: 'A city stacked on a city. The top floors have their own weather.' },
+  { name: 'Arcology', cps: 14000, cost: 8e6, sections: [[0.9, 1.0], [0.76, 2.05], [0.6, 3.0], [0.4, 3.7]], spire: 0.5,
+    blurb: 'Self-contained, self-governing, with rooftop gardens above the smog line.' },
+];
+const MAX_TIER = TIERS.length - 1;
+
+const CREW = [
+  { id: 'kiddie', name: 'Script Kiddie', base: 15, cps: 0.5, desc: 'Skims loose change out of vending machines.' },
+  { id: 'fixer', name: 'Fixer', base: 150, cps: 3, desc: 'Knows a guy who knows a guy.' },
+  { id: 'runner', name: 'Netrunner', base: 1600, cps: 20, desc: 'Dives the net for unguarded accounts.' },
+  { id: 'broker', name: 'Data Broker', base: 20000, cps: 150, desc: 'Sells secrets by the terabyte.' },
+  { id: 'ai', name: 'Rogue AI', base: 3e5, cps: 1200, desc: 'Trades the markets a million times a second.' },
+  { id: 'exec', name: 'Turncoat Exec', base: 5e6, cps: 10000, desc: 'Leaks a megacorp’s books straight to you.' },
+  { id: 'ghost', name: 'Ghost in the Grid', base: 9e7, cps: 90000, desc: 'Nobody hired it. It works for you anyway.' },
+];
+
+const TECH = [
+  { id: 'signage', name: 'Neon Signage', cost: 100, desc: 'Shacks and Ramen Stalls earn ×2.',
+    req: () => S.best >= 2, hint: 'Build a Ramen Stall',
+    apply: m => { m.tier[1] *= 2; m.tier[2] *= 2; } },
+  { id: 'ice', name: 'ICEbreaker Suite', cost: 300, desc: 'Jacking in pays ×3.',
+    req: () => S.hacks >= 20, hint: 'Jack in 20 times',
+    apply: m => { m.hack *= 3; } },
+  { id: 'fiber', name: 'Fiber Backbone', cost: 1000, desc: 'Every building earns ×1.5.',
+    req: () => owned() >= 3, hint: 'Own 3 lots',
+    apply: m => { m.build *= 1.5; } },
+  { id: 'deck', name: 'Cyberdeck Mk.II', cost: 2500, desc: 'Crew output ×2.',
+    req: () => crewTotal() >= 5, hint: 'Hire 5 crew',
+    apply: m => { m.crew *= 2; } },
+  { id: 'holo', name: 'Holo Billboards', cost: 12000, desc: 'Hab Blocks and Data Dens earn ×2.',
+    req: () => S.best >= 4, hint: 'Build a Data Den',
+    apply: m => { m.tier[3] *= 2; m.tier[4] *= 2; } },
+  { id: 'synergy', name: 'Grid Synergy', cost: 40000, desc: 'Each lot you own adds +3% to all building output.',
+    req: () => owned() >= 8, hint: 'Own 8 lots',
+    apply: m => { m.synergy += 0.03; } },
+  { id: 'scanner', name: 'Courier Scanner', cost: 75000, desc: 'Data couriers fly by twice as often and carry twice as much.',
+    req: () => S.couriers >= 2, hint: 'Catch 2 data couriers',
+    apply: m => { m.courierRate *= 2; m.courierPay *= 2; } },
+  { id: 'blackice', name: 'Black ICE', cost: 150000, desc: 'All output ×2.',
+    req: () => S.total >= 50000, hint: 'Earn 50K credits in total',
+    apply: m => { m.all *= 2; } },
+  { id: 'charter', name: 'Corporate Charter', cost: 8e5, desc: 'Corp Towers and Skyscrapers earn ×2.',
+    req: () => S.best >= 6, hint: 'Build a Skyscraper',
+    apply: m => { m.tier[5] *= 2; m.tier[6] *= 2; } },
+  { id: 'uplink', name: 'Orbital Uplink', cost: 5e6, desc: 'All output ×2.',
+    req: () => owned() >= 16, hint: 'Own 16 lots',
+    apply: m => { m.all *= 2; } },
+  { id: 'mesh', name: 'Neural Mesh', cost: 2.5e7, desc: 'Crew output ×3, and Jacking in pays ×5.',
+    req: () => crewTotal() >= 60, hint: 'Hire 60 crew',
+    apply: m => { m.crew *= 3; m.hack *= 5; } },
+  { id: 'arco', name: 'Arcology Protocol', cost: 1.2e8, desc: 'Megascrapers and Arcologies earn ×2.',
+    req: () => S.best >= 8, hint: 'Build an Arcology',
+    apply: m => { m.tier[7] *= 2; m.tier[8] *= 2; } },
+  { id: 'ledger', name: 'Quantum Ledger', cost: 1e9, desc: 'All output ×3.',
+    req: () => owned() >= 30, hint: 'Own 30 lots',
+    apply: m => { m.all *= 3; } },
+  { id: 'singularity', name: 'Sprawl Singularity', cost: 5e10, desc: 'All output ×5.',
+    req: () => owned() >= N * N, hint: 'Own every lot in the sector',
+    apply: m => { m.all *= 5; } },
+];
+const TECH_BY_ID = Object.fromEntries(TECH.map(t => [t.id, t]));
+
+const MILESTONES = {
+  2: 'First Ramen Stall open. The street smells of broth.',
+  3: 'First Hab Block online. Tenants are moving in.',
+  4: 'First Data Den wired up. The basement hums.',
+  5: 'First Corp Tower lit. Its beacon blinks over the sector.',
+  6: 'First Skyscraper. It pierces the smog layer.',
+  7: 'First Megascraper. The clouds part around it.',
+  8: 'First Arcology. A city inside your city.',
+};
+
+/* ================================================================
+   Helpers
+   ================================================================ */
+const $ = sel => document.querySelector(sel);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const idx = (i, j) => j * N + i;
+const lotName = k => COLS[k % N] + (Math.floor(k / N) + 1);
+const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+const SUFFIX = ['', 'K', 'M', 'B', 'T', 'Qa', 'Qi', 'Sx', 'Sp', 'Oc', 'No', 'Dc'];
+function fmt(n, decimals) {
+  if (!isFinite(n)) return '∞';
+  if (n < 1000) {
+    if (decimals && n < 100) return (Math.floor(n * 10) / 10).toFixed(1);
+    return Math.floor(n).toLocaleString('en-US');
+  }
+  const e = Math.floor(Math.log10(n) / 3);
+  if (e >= SUFFIX.length) return n.toExponential(2);
+  const v = n / Math.pow(1000, e);
+  const s = v < 10 ? v.toFixed(2) : v < 100 ? v.toFixed(1) : Math.floor(v).toString();
+  return s + SUFFIX[e];
+}
+function duration(sec) {
+  const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60);
+  if (h) return `${h}h ${m}m`;
+  if (m) return `${m}m`;
+  return `${Math.floor(sec)}s`;
+}
+function hash(n) {
+  n = Math.imul(n ^ 0x9e3779b9, 0x85ebca6b);
+  n = Math.imul(n ^ (n >>> 13), 0xc2b2ae35);
+  return (n ^ (n >>> 16)) >>> 0;
+}
+function rng(seed) {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+// Lots are bought outward from the centre, nearest first.
+const ORDER = Array.from({ length: N * N }, (_, k) => k).sort((a, b) => {
+  const da = (a % N - CENTER) ** 2 + (Math.floor(a / N) - CENTER) ** 2;
+  const db = (b % N - CENTER) ** 2 + (Math.floor(b / N) - CENTER) ** 2;
+  if (da !== db) return da - db;
+  const aa = Math.atan2(Math.floor(a / N) - CENTER, a % N - CENTER);
+  const ab = Math.atan2(Math.floor(b / N) - CENTER, b % N - CENTER);
+  return aa - ab;
+});
+const SEEDS = Array.from({ length: N * N }, (_, k) => hash(k + 17) % 100000);
+
+/* ================================================================
+   State and economy
+   ================================================================ */
+let S;          // the save-able game state
+let M;          // current modifiers from tech
+let CPS = 0, BUILD_CPS = 0, CREW_CPS = 0;
+
+function fresh() {
+  const lots = new Array(N * N).fill(0);
+  lots[idx(CENTER, CENTER)] = 1;
+  return { credits: 0, total: 0, lots, crew: {}, tech: [], seen: [], hacks: 0, couriers: 0,
+           best: 1, selected: idx(CENTER, CENTER), started: Date.now() };
+}
+function serialize() {
+  return { v: 1, credits: S.credits, total: S.total, lots: S.lots.slice(), crew: { ...S.crew },
+           tech: S.tech.slice(), seen: S.seen.slice(), hacks: S.hacks, couriers: S.couriers,
+           best: S.best, selected: S.selected, started: S.started, savedAt: Date.now() };
+}
+function restore(d) {
+  const s = fresh();
+  if (!d || !Array.isArray(d.lots) || d.lots.length !== N * N) return s;
+  const num = (v, f) => (typeof v === 'number' && isFinite(v) && v >= 0 ? v : f);
+  s.credits = num(d.credits, 0);
+  s.total = num(d.total, s.credits);
+  s.lots = d.lots.map(t => clamp(Math.floor(num(t, 0)), 0, MAX_TIER));
+  if (!s.lots.some(t => t > 0)) s.lots[idx(CENTER, CENTER)] = 1;
+  for (const c of CREW) if (d.crew && num(d.crew[c.id], 0) > 0) s.crew[c.id] = Math.floor(d.crew[c.id]);
+  s.tech = Array.isArray(d.tech) ? d.tech.filter(id => TECH_BY_ID[id]) : [];
+  s.seen = Array.isArray(d.seen) ? d.seen.filter(id => TECH_BY_ID[id]) : [];
+  s.hacks = Math.floor(num(d.hacks, 0));
+  s.couriers = Math.floor(num(d.couriers, 0));
+  s.best = Math.max(...s.lots);
+  s.selected = s.lots[d.selected] > 0 ? d.selected : s.lots.findIndex(t => t > 0);
+  s.started = num(d.started, Date.now());
+  return s;
+}
+function save() {
+  try { localStorage.setItem(SAVE_KEY, JSON.stringify(serialize())); } catch (e) { /* storage unavailable */ }
+}
+
+const owned = () => S.lots.reduce((n, t) => n + (t > 0), 0);
+const crewTotal = () => CREW.reduce((n, c) => n + (S.crew[c.id] || 0), 0);
+
+function computeMods() {
+  const m = { tier: TIERS.map(() => 1), build: 1, crew: 1, all: 1, hack: 1, synergy: 0, courierRate: 1, courierPay: 1 };
+  for (const id of S.tech) TECH_BY_ID[id].apply(m);
+  return m;
+}
+function lotOutput(tier) {
+  if (!tier) return 0;
+  return TIERS[tier].cps * M.tier[tier] * M.build * (1 + M.synergy * owned()) * M.all;
+}
+function recalc() {
+  M = computeMods();
+  let b = 0;
+  for (const t of S.lots) if (t) b += TIERS[t].cps * M.tier[t];
+  b *= M.build * (1 + M.synergy * owned());
+  let c = 0;
+  for (const cr of CREW) c += (S.crew[cr.id] || 0) * cr.cps;
+  c *= M.crew;
+  BUILD_CPS = b * M.all;
+  CREW_CPS = c * M.all;
+  CPS = BUILD_CPS + CREW_CPS;
+}
+const hackValue = () => (1 + CPS * 0.1) * M.hack;
+
+function upgradeCost(k) {
+  const next = S.lots[k] + 1;
+  if (next > MAX_TIER) return Infinity;
+  let n = 0;
+  for (const t of S.lots) if (t >= next) n++;
+  return TIERS[next].cost * Math.pow(TIER_GROWTH, n);
+}
+const lotCost = () => LOT_BASE * Math.pow(LOT_GROWTH, owned() - 1);
+const nextLot = () => ORDER.find(k => S.lots[k] === 0);
+function cheapestUpgrade() {
+  let best = null;
+  for (let k = 0; k < N * N; k++) {
+    if (!S.lots[k] || S.lots[k] >= MAX_TIER) continue;
+    const c = upgradeCost(k);
+    if (!best || c < best.cost) best = { k, cost: c };
+  }
+  return best;
+}
+const crewCost = (c, n) => c.base * Math.pow(CREW_GROWTH, S.crew[c.id] || 0) * (Math.pow(CREW_GROWTH, n) - 1) / (CREW_GROWTH - 1);
+function crewMax(c) {
+  const first = c.base * Math.pow(CREW_GROWTH, S.crew[c.id] || 0);
+  return Math.max(0, Math.floor(Math.log(S.credits * (CREW_GROWTH - 1) / first + 1) / Math.log(CREW_GROWTH)));
+}
+
+function spend(cost) {
+  if (S.credits < cost) return false;
+  S.credits -= cost;
+  return true;
+}
+function earn(n) { S.credits += n; S.total += n; }
+
+function upgradeLot(k) {
+  const t = S.lots[k];
+  if (!t || t >= MAX_TIER || !spend(upgradeCost(k))) return false;
+  S.lots[k] = t + 1;
+  startFabrication(k);
+  if (t + 1 > S.best) {
+    S.best = t + 1;
+    toast(MILESTONES[t + 1], 'gold');
+  }
+  afterChange();
+  return true;
+}
+function acquireLot() {
+  const k = nextLot();
+  if (k === undefined || !spend(lotCost())) return false;
+  S.lots[k] = 1;
+  S.selected = k;
+  startFabrication(k);
+  if (owned() === N * N) toast('Every lot in Sector 0 is yours.', 'gold');
+  afterChange();
+  return true;
+}
+function hireCrew(id) {
+  const c = CREW.find(x => x.id === id);
+  let n = crewMode === 'max' ? crewMax(c) : crewMode;
+  if (n < 1 || !spend(crewCost(c, n))) return false;
+  S.crew[id] = (S.crew[id] || 0) + n;
+  afterChange();
+  return true;
+}
+function buyTech(id) {
+  const t = TECH_BY_ID[id];
+  if (!t || S.tech.includes(id) || !spend(t.cost)) return false;
+  S.tech.push(id);
+  toast(`${t.name} installed. ${t.desc}`, 'pink');
+  afterChange();
+  return true;
+}
+function afterChange() {
+  recalc();
+  dirty = true;
+  save();
+}
+
+/* ================================================================
+   Canvas: camera, backdrop, sprites
+   ================================================================ */
+const cvs = $('#city');
+const ctx = cvs.getContext('2d');
+let W = 1, H = 1, DPR = 1;
+const backdrop = document.createElement('canvas');
+const spriteCache = new Map();
+const cam = { x: 0, y: 1.5, s: 120, ready: false };
+const HUD_TOP = 104, HUD_BOTTOM = 40;
+
+const PAL = ['#3ef2ff', '#ff2bd6', '#ffc23e', '#9d7bff', '#5dffb0'];
+const WARM = '#ffb35c';
+
+function resize() {
+  const r = cvs.getBoundingClientRect();
+  DPR = Math.min(2, window.devicePixelRatio || 1);
+  W = Math.max(1, r.width);
+  H = Math.max(1, r.height);
+  cvs.width = Math.round(W * DPR);
+  cvs.height = Math.round(H * DPR);
+  spriteCache.clear();
+  buildBackdrop();
+  initRain();
+}
+
+function buildBackdrop() {
+  backdrop.width = cvs.width;
+  backdrop.height = cvs.height;
+  const g = backdrop.getContext('2d');
+  g.setTransform(DPR, 0, 0, DPR, 0, 0);
+  const horizon = H * 0.62;
+  const sky = g.createLinearGradient(0, 0, 0, H);
+  sky.addColorStop(0, '#06050d');
+  sky.addColorStop(0.35, '#120b26');
+  sky.addColorStop(0.62, '#3a1150');
+  sky.addColorStop(0.64, '#1a0d2e');
+  sky.addColorStop(1, '#07060d');
+  g.fillStyle = sky;
+  g.fillRect(0, 0, W, H);
+
+  const haze = g.createRadialGradient(W * 0.5, horizon, 10, W * 0.5, horizon, W * 0.7);
+  haze.addColorStop(0, 'rgba(255, 43, 214, 0.22)');
+  haze.addColorStop(1, 'rgba(255, 43, 214, 0)');
+  g.fillStyle = haze;
+  g.fillRect(0, 0, W, H);
+
+  const R = rng(1234);
+  // smog-dimmed stars
+  for (let n = 0; n < 60; n++) {
+    g.fillStyle = `rgba(220, 210, 255, ${0.08 + R() * 0.25})`;
+    g.fillRect(R() * W, R() * H * 0.4, 1, 1);
+  }
+  // three layers of distant skyline
+  const layers = [
+    { col: '#1d1236', min: 0.05, max: 0.2, win: 0.0 },
+    { col: '#160e2b', min: 0.08, max: 0.3, win: 0.25 },
+    { col: '#100a20', min: 0.04, max: 0.16, win: 0.45 },
+  ];
+  layers.forEach((L, li) => {
+    let x = -10;
+    while (x < W + 10) {
+      const bw = 14 + R() * 40;
+      const bh = H * (L.min + R() * (L.max - L.min));
+      const base = horizon + li * 6;
+      g.fillStyle = L.col;
+      g.fillRect(x, base - bh, bw, bh + H);
+      if (R() < 0.25) {
+        g.fillRect(x + bw / 2 - 1, base - bh - 10 - R() * 20, 2, 30);
+        g.fillStyle = 'rgba(255, 60, 90, 0.8)';
+        g.fillRect(x + bw / 2 - 1, base - bh - 30, 2, 2);
+      }
+      if (L.win) {
+        for (let wy = base - bh + 4; wy < base - 2; wy += 5) {
+          for (let wx = x + 3; wx < x + bw - 3; wx += 4) {
+            if (R() < L.win * 0.35) {
+              g.fillStyle = R() < 0.5 ? 'rgba(62,242,255,0.35)' : R() < 0.6 ? 'rgba(255,43,214,0.35)' : 'rgba(255,194,62,0.35)';
+              g.fillRect(wx, wy, 1.5, 1.5);
+            }
+          }
+        }
+      }
+      x += bw + R() * 4;
+    }
+  });
+  // ground fog
+  const fog = g.createLinearGradient(0, horizon, 0, H);
+  fog.addColorStop(0, 'rgba(58, 17, 80, 0.55)');
+  fog.addColorStop(0.4, 'rgba(10, 8, 22, 0.9)');
+  fog.addColorStop(1, '#07060d');
+  g.fillStyle = fog;
+  g.fillRect(0, horizon + 10, W, H);
+}
+
+const topZ = t => (t ? TIERS[t].sections[TIERS[t].sections.length - 1][1] + (TIERS[t].spire || 0) : 0);
+
+function cameraTarget() {
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  const include = (i, j, h) => {
+    if (i < 0 || j < 0 || i >= N || j >= N) return;
+    const x = (i - j) * 0.5, y = (i + j) * 0.25;
+    minX = Math.min(minX, x - 0.5); maxX = Math.max(maxX, x + 0.5);
+    minY = Math.min(minY, y - 0.25 - h); maxY = Math.max(maxY, y + 0.25);
+  };
+  for (let k = 0; k < N * N; k++) {
+    if (!S.lots[k]) continue;
+    const i = k % N, j = Math.floor(k / N);
+    for (let di = -1; di <= 1; di++) for (let dj = -1; dj <= 1; dj++) include(i + di, j + dj, 0);
+    include(i, j, topZ(S.lots[k]) + 0.1);
+  }
+  const avH = Math.max(80, H - HUD_TOP - HUD_BOTTOM);
+  let s = Math.min(W * 0.88 / (maxX - minX), avH * 0.9 / (maxY - minY));
+  s = Math.min(s, W * 0.36, 360);
+  return { x: (minX + maxX) / 2, y: (minY + maxY) / 2, s };
+}
+const screenX = wx => W / 2 + (wx - cam.x) * cam.s;
+const screenY = wy => HUD_TOP + (H - HUD_TOP - HUD_BOTTOM) / 2 + (wy - cam.y) * cam.s;
+const lotScreen = k => {
+  const i = k % N, j = Math.floor(k / N);
+  return [screenX((i - j) * 0.5), screenY((i + j) * 0.25)];
+};
+
+function poly(g, pts) {
+  g.beginPath();
+  g.moveTo(pts[0][0], pts[0][1]);
+  for (let n = 1; n < pts.length; n++) g.lineTo(pts[n][0], pts[n][1]);
+  g.closePath();
+  g.fill();
+}
+
+// A box standing on a diamond footprint centred at (x, y), from height z0 to z1 (pixels).
+function box(g, x, y, hw, hh, z0, z1, skin) {
+  g.fillStyle = skin.l;
+  poly(g, [[x - hw, y - z0], [x, y + hh - z0], [x, y + hh - z1], [x - hw, y - z1]]);
+  g.fillStyle = skin.r;
+  poly(g, [[x, y + hh - z0], [x + hw, y - z0], [x + hw, y - z1], [x, y + hh - z1]]);
+  g.fillStyle = skin.t;
+  poly(g, [[x - hw, y - z1], [x, y + hh - z1], [x + hw, y - z1], [x, y - hh - z1]]);
+  g.strokeStyle = skin.e;
+  g.lineWidth = 1;
+  g.beginPath();
+  g.moveTo(x - hw, y - z1); g.lineTo(x, y - hh - z1); g.lineTo(x + hw, y - z1); g.lineTo(x, y + hh - z1); g.closePath();
+  g.moveTo(x, y + hh - z1); g.lineTo(x, y + hh - z0);
+  g.stroke();
+}
+
+// Map a point on a box face (u across 0..1, v up 0..1) to sprite coordinates.
+function faceTransform(g, side, x, y, hw, hh, z0, z1) {
+  const h = z1 - z0;
+  if (side === 'L') g.transform(hw, hh, 0, -h, x - hw, y - z0);
+  else g.transform(hw, -hh, 0, -h, x, y + hh - z0);
+}
+function facePoint(side, x, y, hw, hh, z0, z1, u, v) {
+  const h = z1 - z0;
+  return side === 'L'
+    ? [x - hw + hw * u, y - z0 + hh * u - h * v]
+    : [x + hw * u, y + hh - z0 - hh * u - h * v];
+}
+
+function windows(g, s, tier, x, y, hw, hh, z0, z1, R, dom, alt) {
+  const floors = Math.max(1, Math.round((z1 - z0) / (s * 0.075)));
+  const cols = clamp(Math.round((hw * 2 / s) * 8), 2, 7);
+  const glass = tier >= 5;
+  const litP = 0.28 + tier * 0.05;
+  const ww = glass ? 0.78 : 0.56, wh = glass ? 0.42 : 0.5;
+  for (const side of ['L', 'R']) {
+    g.save();
+    faceTransform(g, side, x, y, hw, hh, z0, z1);
+    g.globalAlpha = side === 'L' ? 0.72 : 1;
+    for (let r = 0; r < floors; r++) {
+      for (let c = 0; c < cols; c++) {
+        const roll = R();
+        if (roll < litP) {
+          const pick = R();
+          g.fillStyle = pick < 0.6 ? dom : pick < 0.82 ? alt : pick < 0.92 ? WARM : '#e9e4ff';
+        } else {
+          g.fillStyle = glass ? '#1b2346' : '#241c44';
+        }
+        g.fillRect((c + (1 - ww) / 2) / cols, (r + 0.18) / floors, ww / cols, wh / floors);
+      }
+    }
+    g.restore();
+  }
+}
+
+function glowRect(g, x, y, w, h, color, blur) {
+  g.save();
+  g.shadowColor = color;
+  g.shadowBlur = blur;
+  g.fillStyle = color;
+  g.fillRect(x, y, w, h);
+  g.restore();
+}
+
+function makeSprite(tier, seed, s) {
+  const T = TIERS[tier];
+  const R = rng(seed * 7919 + tier * 104729);
+  const maxW = T.sections[0][0];
+  const hwMax = s * 0.5 * maxW, hhMax = s * 0.25 * maxW;
+  const pad = Math.ceil(s * 0.14) + 6;
+  const w = Math.ceil(2 * hwMax + pad * 2);
+  const h = Math.ceil((topZ(tier) + 0.15) * s + 2 * hhMax + pad * 2);
+  const c = document.createElement('canvas');
+  c.width = Math.ceil(w * DPR);
+  c.height = Math.ceil(h * DPR);
+  const g = c.getContext('2d');
+  g.scale(DPR, DPR);
+  const x = w / 2, y = h - hhMax - pad;
+  const dom = PAL[seed % 3];
+  const alt = PAL[(seed % 3 + 1 + ((seed >> 3) & 1)) % 3];
+  const glass = tier >= 5;
+  const skin = glass
+    ? { l: '#0d1228', r: '#141d3c', t: '#222e58', e: 'rgba(62, 242, 255, 0.35)' }
+    : { l: '#17122b', r: '#221a3d', t: '#2f2654', e: 'rgba(255, 43, 214, 0.3)' };
+
+  let zPrev = 0;
+  T.sections.forEach(([sw, zt], si) => {
+    const hw = s * 0.5 * sw, hh = s * 0.25 * sw, z0 = zPrev * s, z1 = zt * s;
+    box(g, x, y, hw, hh, z0, z1, skin);
+    if (tier >= 3) windows(g, s, tier, x, y, hw, hh, z0, z1, R, dom, alt);
+    // terraces of greenery on an arcology's setbacks
+    if (tier === 8 && si < T.sections.length - 1) {
+      const inner = T.sections[si + 1][0] / sw;
+      for (let n = 0; n < 40; n++) {
+        const a = R() * 2 - 1, b = (R() * 2 - 1) * (1 - Math.abs(a));
+        if (Math.abs(a) + Math.abs(b) < inner + 0.06 || Math.abs(a) + Math.abs(b) > 0.92) continue;
+        const px = x + a * hw, py = y - z1 + b * hh;
+        g.fillStyle = R() < 0.5 ? '#2fe39a' : '#169a6a';
+        g.beginPath(); g.arc(px, py, Math.max(1, s * 0.012), 0, Math.PI * 2); g.fill();
+      }
+    }
+    // neon band along each setback edge
+    if (si < T.sections.length - 1 && tier >= 6) {
+      g.save();
+      g.strokeStyle = dom; g.shadowColor = dom; g.shadowBlur = 8; g.lineWidth = 1.5;
+      g.beginPath();
+      g.moveTo(x - hw, y - z1); g.lineTo(x, y + hh - z1); g.lineTo(x + hw, y - z1);
+      g.stroke();
+      g.restore();
+    }
+    // glowing front edge on bigger buildings
+    if (tier >= 4) {
+      g.save();
+      g.strokeStyle = dom; g.globalAlpha = 0.85; g.shadowColor = dom; g.shadowBlur = 6; g.lineWidth = 1.4;
+      g.beginPath(); g.moveTo(x, y + hh - z0); g.lineTo(x, y + hh - z1); g.stroke();
+      g.restore();
+    }
+    zPrev = zt;
+  });
+
+  const [sw0, zt0] = T.sections[0];
+  const hw0 = s * 0.5 * sw0, hh0 = s * 0.25 * sw0, z1 = zt0 * s;
+
+  if (tier === 1) {
+    // door, one window, a rooftop sign
+    g.save(); faceTransform(g, 'R', x, y, hw0, hh0, 0, z1);
+    g.fillStyle = '#07060d'; g.fillRect(0.55, 0, 0.24, 0.62);
+    g.restore();
+    g.save(); faceTransform(g, 'L', x, y, hw0, hh0, 0, z1);
+    g.fillStyle = WARM; g.fillRect(0.3, 0.35, 0.32, 0.32);
+    g.restore();
+    g.strokeStyle = '#5a5180'; g.lineWidth = 1;
+    g.beginPath(); g.moveTo(x - s * 0.05, y - z1); g.lineTo(x - s * 0.05, y - z1 - s * 0.08);
+    g.moveTo(x + s * 0.05, y - z1); g.lineTo(x + s * 0.05, y - z1 - s * 0.08); g.stroke();
+    glowRect(g, x - s * 0.08, y - z1 - s * 0.13, s * 0.16, s * 0.06, '#ff2bd6', 10);
+  }
+  if (tier === 2) {
+    // shopfront, striped awning, lanterns and a vertical sign
+    g.save(); faceTransform(g, 'R', x, y, hw0, hh0, 0, z1);
+    g.fillStyle = WARM; g.fillRect(0.08, 0.06, 0.84, 0.44);
+    for (let n = 0; n < 8; n++) {
+      g.fillStyle = n % 2 ? '#ffd9f5' : '#ff2bd6';
+      g.fillRect(n / 8, 0.52, 1 / 8, 0.16);
+    }
+    g.restore();
+    g.save(); faceTransform(g, 'L', x, y, hw0, hh0, 0, z1);
+    g.fillStyle = '#ffb35c'; g.globalAlpha = 0.7; g.fillRect(0.2, 0.3, 0.3, 0.35);
+    g.restore();
+    for (const u of [0.2, 0.5, 0.8]) {
+      const [px, py] = facePoint('R', x, y, hw0, hh0, 0, z1, u, 0.46);
+      g.save(); g.fillStyle = '#ff3b4f'; g.shadowColor = '#ff3b4f'; g.shadowBlur = 8;
+      g.beginPath(); g.arc(px, py, Math.max(1.5, s * 0.016), 0, Math.PI * 2); g.fill(); g.restore();
+    }
+    g.save(); faceTransform(g, 'L', x, y, hw0, hh0, 0, z1);
+    g.shadowColor = '#3ef2ff'; g.shadowBlur = 10; g.fillStyle = '#3ef2ff';
+    g.fillRect(0.78, 0.35, 0.14, 1.1);
+    g.restore();
+  }
+  if (tier === 3) {
+    // water tank on the roof and a hotel sign
+    const tx = x - hw0 * 0.35, ty = y - z1 - hh0 * 0.1;
+    box(g, tx, ty + z1, s * 0.06, s * 0.03, z1, z1 + s * 0.1, skin);
+    g.save(); faceTransform(g, 'R', x, y, hw0, hh0, 0, z1);
+    g.shadowColor = '#ff2bd6'; g.shadowBlur = 8; g.fillStyle = '#ff2bd6';
+    g.fillRect(0.2, 0.9, 0.6, 0.06);
+    g.restore();
+  }
+  if (tier === 4) {
+    // a hanging vertical sign on the front corner and a rooftop dish
+    const [px, py] = facePoint('R', x, y, hw0, hh0, 0, z1, 0.05, 0.85);
+    glowRect(g, px + 2, py, Math.max(2, s * 0.035), z1 * 0.55, dom === '#3ef2ff' ? '#ff2bd6' : '#3ef2ff', 10);
+    const topH = T.sections[1][1] * s;
+    g.strokeStyle = '#8f88b8'; g.lineWidth = 1.2;
+    g.beginPath(); g.ellipse(x + hw0 * 0.45, y - z1 - s * 0.05, s * 0.06, s * 0.03, -0.5, 0, Math.PI * 2); g.stroke();
+    g.beginPath(); g.moveTo(x, y - topH); g.lineTo(x, y - topH - s * 0.1); g.stroke();
+  }
+  if (tier >= 6) {
+    // holographic billboard
+    g.save(); faceTransform(g, 'R', x, y, hw0, hh0, 0, z1);
+    const grad = g.createLinearGradient(0, 0, 1, 0);
+    grad.addColorStop(0, 'rgba(255, 43, 214, 0.85)');
+    grad.addColorStop(1, 'rgba(62, 242, 255, 0.85)');
+    g.fillStyle = grad;
+    g.fillRect(0.14, 0.42, 0.72, 0.2);
+    g.fillStyle = 'rgba(8, 7, 15, 0.55)';
+    for (let n = 0; n < 6; n++) g.fillRect(0.14, 0.44 + n * 0.03, 0.72, 0.008);
+    g.restore();
+  }
+  if (tier === 8) {
+    // halo around the crown
+    const [lsw, lzt] = T.sections[T.sections.length - 1];
+    g.save();
+    g.strokeStyle = '#5dffb0'; g.shadowColor = '#5dffb0'; g.shadowBlur = 12; g.lineWidth = 1.6;
+    g.beginPath(); g.ellipse(x, y - lzt * s + s * 0.04, s * 0.5 * lsw * 1.25, s * 0.25 * lsw * 1.25, 0, 0, Math.PI * 2); g.stroke();
+    g.restore();
+  }
+  if (T.spire) {
+    const zt = T.sections[T.sections.length - 1][1] * s;
+    g.strokeStyle = '#a49ccc'; g.lineWidth = 1.5;
+    g.beginPath(); g.moveTo(x, y - zt); g.lineTo(x, y - zt - T.spire * s); g.stroke();
+  }
+  return { c, ox: x, oy: y, w, h };
+}
+
+function sprite(tier, seed, s) {
+  const q = Math.pow(2, Math.round(Math.log2(s) * 8) / 8);
+  const key = `${tier}:${seed}:${q.toFixed(2)}:${DPR}`;
+  let sp = spriteCache.get(key);
+  if (!sp) {
+    if (spriteCache.size > 400) spriteCache.clear();
+    sp = makeSprite(tier, seed, q);
+    sp.q = q;
+    spriteCache.set(key, sp);
+  }
+  return sp;
+}
+
+/* ================================================================
+   Canvas: living details
+   ================================================================ */
+const fabs = new Map();          // lot -> fabrication start time
+const particles = [];
+const floaters = [];
+let rain = [];
+const cars = [];
+const courier = { active: false, x: 0, y: 0, dir: 1, next: performance.now() + 30000 };
+
+function startFabrication(k) { fabs.set(k, performance.now()); }
+
+function initRain() {
+  rain = [];
+  if (reduceMotion) return;
+  const n = Math.round(W * H / 6000);
+  for (let i = 0; i < n; i++) rain.push({ x: Math.random() * W, y: Math.random() * H, v: 500 + Math.random() * 300 });
+}
+for (let i = 0; i < 9; i++) {
+  cars.push({ lane: i % 3, x: Math.random(), v: (0.03 + Math.random() * 0.05) * (i % 2 ? 1 : -1), c: PAL[i % 3] });
+}
+
+function spawnSparks(x, y, color) {
+  if (reduceMotion) return;
+  for (let n = 0; n < 22; n++) {
+    const a = Math.random() * Math.PI * 2, v = 40 + Math.random() * 120;
+    particles.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 60, life: 0.8 + Math.random() * 0.5, c: color });
+  }
+}
+function floater(x, y, text, color) {
+  floaters.push({ x, y, text, c: color, life: 1.3 });
+  if (floaters.length > 30) floaters.shift();
+}
+
+function roofPoint(k) {
+  const [x, y] = lotScreen(k);
+  return [x, y - topZ(S.lots[k]) * cam.s];
+}
+
+/* ================================================================
+   Drawing
+   ================================================================ */
+function draw(now, dt) {
+  const t = now / 1000;
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  ctx.drawImage(backdrop, 0, 0, W, H);
+
+  // sky traffic behind the city
+  for (const car of cars) {
+    if (!reduceMotion) { car.x += car.v * dt; if (car.x > 1.1) car.x = -0.1; if (car.x < -0.1) car.x = 1.1; }
+    const y = H * (0.2 + car.lane * 0.07), x = car.x * W, dir = Math.sign(car.v);
+    const tr = ctx.createLinearGradient(x, y, x - dir * 34, y);
+    tr.addColorStop(0, car.c); tr.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.strokeStyle = tr; ctx.lineWidth = 1.5; ctx.globalAlpha = 0.55;
+    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - dir * 34, y); ctx.stroke();
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = '#fff'; ctx.fillRect(x - 1, y - 1, 2, 2);
+  }
+
+  drawGround(t);
+  drawBuildings(now, t);
+
+  // particles
+  for (let n = particles.length - 1; n >= 0; n--) {
+    const p = particles[n];
+    p.life -= dt; if (p.life <= 0) { particles.splice(n, 1); continue; }
+    p.vy += 180 * dt; p.x += p.vx * dt; p.y += p.vy * dt;
+    ctx.globalAlpha = Math.min(1, p.life * 1.5);
+    ctx.fillStyle = p.c; ctx.fillRect(p.x - 1, p.y - 1, 2.2, 2.2);
+  }
+  ctx.globalAlpha = 1;
+
+  drawCourier(now, dt);
+
+  // floating numbers
+  ctx.textAlign = 'center';
+  for (let n = floaters.length - 1; n >= 0; n--) {
+    const f = floaters[n];
+    f.life -= dt; if (f.life <= 0) { floaters.splice(n, 1); continue; }
+    if (!reduceMotion) f.y -= 34 * dt;
+    ctx.globalAlpha = Math.min(1, f.life * 1.4);
+    ctx.font = '600 16px "Share Tech Mono", ui-monospace, monospace';
+    ctx.fillStyle = f.c; ctx.shadowColor = f.c; ctx.shadowBlur = 8;
+    ctx.fillText(f.text, f.x, f.y);
+  }
+  ctx.shadowBlur = 0; ctx.globalAlpha = 1;
+
+  // rain
+  if (rain.length) {
+    ctx.strokeStyle = 'rgba(170, 185, 255, 0.16)'; ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (const d of rain) {
+      d.y += d.v * dt; d.x -= d.v * 0.12 * dt;
+      if (d.y > H) { d.y = -14; d.x = Math.random() * (W + 60); }
+      ctx.moveTo(d.x, d.y); ctx.lineTo(d.x + 1.6, d.y - 13);
+    }
+    ctx.stroke();
+  }
+}
+
+function drawGround(t) {
+  const P = (wx, wy) => [screenX(wx), screenY(wy)];
+  const top = P(0, -0.25), right = P(N / 2, (N - 1) / 4), bottom = P(0, (N - 1) / 2 + 0.25), left = P(-N / 2, (N - 1) / 4);
+  const d = 0.22 * cam.s;
+  ctx.fillStyle = '#0a0816';
+  poly(ctx, [left, bottom, [bottom[0], bottom[1] + d], [left[0], left[1] + d]]);
+  ctx.fillStyle = '#110e22';
+  poly(ctx, [bottom, right, [right[0], right[1] + d], [bottom[0], bottom[1] + d]]);
+  ctx.fillStyle = '#0f0c1e';
+  poly(ctx, [top, right, bottom, left]);
+  ctx.strokeStyle = 'rgba(62, 242, 255, 0.35)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(left[0], left[1]); ctx.lineTo(bottom[0], bottom[1]); ctx.lineTo(right[0], right[1]); ctx.stroke();
+
+  // streets between lots
+  ctx.strokeStyle = 'rgba(62, 242, 255, 0.08)';
+  ctx.beginPath();
+  for (let k = 0; k <= N; k++) {
+    const a = k - 0.5;
+    let p1 = P((a - -0.5) * 0.5, (a + -0.5) * 0.25), p2 = P((a - (N - 0.5)) * 0.5, (a + (N - 0.5)) * 0.25);
+    ctx.moveTo(p1[0], p1[1]); ctx.lineTo(p2[0], p2[1]);
+    p1 = P((-0.5 - a) * 0.5, (-0.5 + a) * 0.25); p2 = P((N - 0.5 - a) * 0.5, (N - 0.5 + a) * 0.25);
+    ctx.moveTo(p1[0], p1[1]); ctx.lineTo(p2[0], p2[1]);
+  }
+  ctx.stroke();
+  // street lamps at the crossings
+  ctx.fillStyle = 'rgba(255, 194, 62, 0.55)';
+  for (let a = 0; a <= N; a++) for (let b = 0; b <= N; b++) {
+    const [x, y] = P(((a - 0.5) - (b - 0.5)) * 0.5, ((a - 0.5) + (b - 0.5)) * 0.25);
+    ctx.fillRect(x - 1, y - 1, 2, 2);
+  }
+
+  const nk = nextLot();
+  const pulse = 0.5 + 0.5 * Math.sin(t * 3);
+  for (let k = 0; k < N * N; k++) {
+    const [x, y] = lotScreen(k);
+    const f = 0.84, hw = cam.s * 0.5 * f, hh = cam.s * 0.25 * f;
+    const diamond = [[x, y - hh], [x + hw, y], [x, y + hh], [x - hw, y]];
+    if (S.lots[k]) {
+      ctx.fillStyle = '#171331';
+      poly(ctx, diamond);
+      ctx.strokeStyle = '#2e2756'; ctx.lineWidth = 1;
+      ctx.stroke();
+      if (k === S.selected) {
+        ctx.save();
+        ctx.strokeStyle = '#ff2bd6'; ctx.shadowColor = '#ff2bd6'; ctx.shadowBlur = 12;
+        ctx.globalAlpha = 0.6 + 0.4 * pulse; ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.restore();
+      }
+    } else if (k === nk) {
+      ctx.save();
+      ctx.setLineDash([5, 4]);
+      ctx.lineDashOffset = reduceMotion ? 0 : -t * 12;
+      ctx.strokeStyle = S.credits >= lotCost() ? '#3ef2ff' : 'rgba(62, 242, 255, 0.45)';
+      ctx.globalAlpha = 0.5 + 0.5 * pulse; ctx.lineWidth = 1.5;
+      ctx.beginPath(); diamond.forEach((p, n) => (n ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]))); ctx.closePath();
+      ctx.stroke();
+      ctx.setLineDash([]);
+      const r = Math.max(4, cam.s * 0.06);
+      ctx.beginPath(); ctx.moveTo(x - r, y); ctx.lineTo(x + r, y); ctx.moveTo(x, y - r / 2); ctx.lineTo(x, y + r / 2); ctx.stroke();
+      ctx.restore();
+    }
+  }
+}
+
+function drawBuildings(now, t) {
+  const order = [];
+  for (let k = 0; k < N * N; k++) if (S.lots[k]) order.push(k);
+  order.sort((a, b) => (a % N + Math.floor(a / N)) - (b % N + Math.floor(b / N)));
+  for (const k of order) {
+    const tier = S.lots[k], seed = SEEDS[k], dom = PAL[seed % 3];
+    const [x, y] = lotScreen(k);
+    // light pooling on the street around the building
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    const pool = ctx.createRadialGradient(x, y, 2, x, y, cam.s * 0.55);
+    pool.addColorStop(0, dom + '38'); pool.addColorStop(1, dom + '00');
+    ctx.fillStyle = pool;
+    ctx.fillRect(x - cam.s * 0.6, y - cam.s * 0.35, cam.s * 1.2, cam.s * 0.7);
+    ctx.restore();
+
+    const sp = sprite(tier, seed, cam.s);
+    const sc = cam.s / sp.q;
+    const dx = x - sp.ox * sc, dy = y - sp.oy * sc, dw = sp.w * sc, dh = sp.h * sc;
+    const fab = fabs.get(k);
+    if (fab !== undefined) {
+      const p = clamp((now - fab) / 900, 0, 1);
+      if (p >= 1) {
+        fabs.delete(k);
+        const [rx, ry] = roofPoint(k);
+        spawnSparks(rx, ry, dom);
+      }
+      const ease = 1 - Math.pow(1 - p, 2);
+      const cut = dy + dh * (1 - ease);
+      ctx.save();
+      ctx.beginPath(); ctx.rect(dx - 2, cut, dw + 4, dh); ctx.clip();
+      ctx.drawImage(sp.c, dx, dy, dw, dh);
+      ctx.restore();
+      ctx.save();
+      ctx.strokeStyle = '#3ef2ff'; ctx.shadowColor = '#3ef2ff'; ctx.shadowBlur = 12; ctx.lineWidth = 2;
+      ctx.globalAlpha = 1 - p * 0.6;
+      ctx.beginPath(); ctx.moveTo(dx + dw * 0.1, cut); ctx.lineTo(dx + dw * 0.9, cut); ctx.stroke();
+      ctx.restore();
+    } else {
+      ctx.drawImage(sp.c, dx, dy, dw, dh);
+    }
+
+    // blinking aircraft beacon
+    if (TIERS[tier].spire && fab === undefined) {
+      const on = Math.sin(t * 2.4 + seed) > 0.2;
+      if (on) {
+        const [bx, by] = roofPoint(k);
+        ctx.save();
+        ctx.fillStyle = '#ff3b4f'; ctx.shadowColor = '#ff3b4f'; ctx.shadowBlur = 10;
+        ctx.beginPath(); ctx.arc(bx, by, 2.2, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+      }
+    }
+  }
+  // selection chevron above the chosen building
+  if (S.lots[S.selected]) {
+    const [rx, ry] = roofPoint(S.selected);
+    const bob = reduceMotion ? 0 : Math.sin(t * 3) * 3;
+    const y = ry - 14 + bob;
+    ctx.save();
+    ctx.strokeStyle = '#ff2bd6'; ctx.shadowColor = '#ff2bd6'; ctx.shadowBlur = 8; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(rx - 7, y - 6); ctx.lineTo(rx, y); ctx.lineTo(rx + 7, y - 6); ctx.stroke();
+    ctx.restore();
+  }
+}
+
+function drawCourier(now, dt) {
+  if (!courier.active) {
+    if (now > courier.next && !document.hidden) {
+      courier.active = true;
+      courier.dir = Math.random() < 0.5 ? 1 : -1;
+      courier.x = courier.dir > 0 ? -30 : W + 30;
+      courier.y = HUD_TOP + 10 + Math.random() * Math.max(20, (H - HUD_TOP) * 0.3);
+      courier.phase = Math.random() * 6;
+    }
+    return;
+  }
+  courier.x += courier.dir * (W / 11) * dt;
+  courier.phase += dt;
+  const y = courier.y + (reduceMotion ? 0 : Math.sin(courier.phase * 2) * 6);
+  courier.cy = y;
+  if (courier.x < -40 || courier.x > W + 40) { courier.active = false; scheduleCourier(now); return; }
+  const x = courier.x;
+  ctx.save();
+  ctx.strokeStyle = '#ffc23e'; ctx.fillStyle = '#ffc23e'; ctx.shadowColor = '#ffc23e'; ctx.shadowBlur = 14; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(x - 13, y - 5); ctx.lineTo(x + 13, y - 5); ctx.stroke();
+  ctx.fillRect(x - 6, y - 4, 12, 7);
+  ctx.beginPath(); ctx.moveTo(x - 4, y + 3); ctx.lineTo(x - 2, y + 11); ctx.lineTo(x + 2, y + 11); ctx.lineTo(x + 4, y + 3); ctx.fill();
+  if (Math.sin(courier.phase * 10) > 0) { ctx.fillStyle = '#fff'; ctx.fillRect(x - 1, y - 2, 2, 2); }
+  ctx.font = '12px "Share Tech Mono", ui-monospace, monospace';
+  ctx.textAlign = 'center'; ctx.shadowBlur = 0; ctx.fillStyle = 'rgba(255, 194, 62, 0.85)';
+  ctx.fillText('DATA COURIER', x, y - 12);
+  ctx.restore();
+}
+function scheduleCourier(now) {
+  courier.next = now + (45000 + Math.random() * 60000) / M.courierRate;
+}
+
+/* ================================================================
+   Input on the city
+   ================================================================ */
+cvs.addEventListener('pointerdown', e => {
+  const r = cvs.getBoundingClientRect();
+  const px = e.clientX - r.left, py = e.clientY - r.top;
+  if (courier.active && Math.hypot(px - courier.x, py - courier.cy) < 30) {
+    const gain = Math.max(25, CPS * 45) * M.courierPay;
+    earn(gain);
+    S.couriers++;
+    courier.active = false;
+    scheduleCourier(performance.now());
+    floater(px, py, '+' + fmt(gain), '#ffc23e');
+    spawnSparks(px, py, '#ffc23e');
+    toast(`Courier intercepted. Its payload sold for ${fmt(gain)} credits.`, 'gold');
+    dirty = true;
+    return;
+  }
+  // buildings first, front to back, since tall ones cover the lots behind them
+  const order = [];
+  for (let k = 0; k < N * N; k++) if (S.lots[k]) order.push(k);
+  order.sort((a, b) => (b % N + Math.floor(b / N)) - (a % N + Math.floor(a / N)));
+  for (const k of order) {
+    const [x, y] = lotScreen(k);
+    const T = TIERS[S.lots[k]], hw = cam.s * 0.5 * T.sections[0][0], hh = cam.s * 0.25 * T.sections[0][0];
+    if (px > x - hw && px < x + hw && py < y + hh && py > y - hh - topZ(S.lots[k]) * cam.s) {
+      select(k);
+      return;
+    }
+  }
+  // then bare lots
+  const wx = (px - W / 2) / cam.s + cam.x;
+  const wy = (py - screenY(0)) / cam.s;
+  const i = Math.round(wx + 2 * wy), j = Math.round(2 * wy - wx);
+  if (i < 0 || j < 0 || i >= N || j >= N) return;
+  const k = idx(i, j);
+  if (S.lots[k]) { select(k); return; }
+  if (k === nextLot()) {
+    if (acquireLot()) {
+      const [x, y] = lotScreen(k);
+      floater(x, y - 10, 'Lot ' + lotName(k), '#3ef2ff');
+    } else {
+      toast(`Lot ${lotName(k)} costs ${fmt(lotCost())} credits. You have ${fmt(S.credits)}.`);
+    }
+  }
+});
+
+function select(k) {
+  S.selected = k;
+  setTab('build');
+  dirty = true;
+}
+
+$('#hack').addEventListener('click', () => {
+  const gain = hackValue();
+  earn(gain);
+  S.hacks++;
+  const [rx, ry] = roofPoint(S.selected);
+  floater(rx + (Math.random() - 0.5) * 30, ry - 18, '+' + fmt(gain, true), '#ff2bd6');
+  const b = $('#hack');
+  b.classList.remove('pulse'); void b.offsetWidth; b.classList.add('pulse');
+});
+
+/* ================================================================
+   Console panel
+   ================================================================ */
+const panel = $('#panel');
+let tab = 'build';
+let crewMode = 1;
+let dirty = true;
+let wipeArmed = 0;
+
+function setTab(name) {
+  if (tab === name) return;
+  tab = name;
+  document.querySelectorAll('.tab').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === name)));
+  panel.setAttribute('aria-labelledby', 'tab-' + name);
+  panel.scrollTop = 0;
+  dirty = true;
+}
+document.querySelector('.tabs').addEventListener('click', e => {
+  const b = e.target.closest('[data-tab]');
+  if (b) setTab(b.dataset.tab);
+});
+
+const buyBtn = (act, id, what, sub, cost, cls = '') =>
+  `<button class="buy ${cls}" type="button" data-act="${act}" ${id != null ? `data-id="${id}"` : ''} data-cost="${cost}">
+     <span class="what">${what}</span>${sub ? `<span class="sub">${sub}</span>` : ''}<span class="cost">${fmt(cost)}</span>
+   </button>`;
+
+function buildHTML() {
+  const k = S.selected, tier = S.lots[k], T = TIERS[tier];
+  const pips = TIERS.slice(1).map((_, n) => `<span class="pip ${n < tier ? 'on' : n === tier ? 'next' : ''}"></span>`).join('');
+  let upgrade;
+  if (tier < MAX_TIER) {
+    const gain = lotOutput(tier + 1) - lotOutput(tier);
+    upgrade = buyBtn('upgrade', k, `Upgrade to ${TIERS[tier + 1].name}`, `+${fmt(gain, true)} / sec`, upgradeCost(k), 'big');
+  } else {
+    upgrade = `<div class="maxed">Top tier. This Arcology cannot grow taller.</div>`;
+  }
+  const cheap = cheapestUpgrade();
+  const cheapBtn = cheap && cheap.k !== k
+    ? buyBtn('upgrade', cheap.k, `Lot ${lotName(cheap.k)}: ${TIERS[S.lots[cheap.k]].name} → ${TIERS[S.lots[cheap.k] + 1].name}`,
+             `+${fmt(lotOutput(S.lots[cheap.k] + 1) - lotOutput(S.lots[cheap.k]), true)} / sec · cheapest upgrade`, cheap.cost)
+    : '';
+  const nk = nextLot();
+  const expand = nk === undefined
+    ? `<div class="maxed">You own all ${N * N} lots in Sector 0.</div>`
+    : buyBtn('acquire', null, `Buy lot ${lotName(nk)} with a Shack`, `+${fmt(lotOutput(1), true)} / sec · lot ${owned() + 1} of ${N * N}`, lotCost(), 'alt big');
+
+  const counts = TIERS.slice(1).map((tt, n) => {
+    const c = S.lots.filter(x => x === n + 1).length;
+    return c ? `<div><span>${tt.name}</span><b>${c}</b></div>` : '';
+  }).join('');
+
+  return `
+  <div class="lot-card">
+    <div class="lot-head">
+      <button class="nav" type="button" data-act="prev" aria-label="Previous building">‹</button>
+      <div><div class="eyebrow">Lot ${lotName(k)} · tier ${tier} of ${MAX_TIER}</div><h2>${T.name}</h2></div>
+      <button class="nav" type="button" data-act="next" aria-label="Next building">›</button>
+    </div>
+    <div class="pips" aria-hidden="true">${pips}</div>
+    <p class="blurb">${T.blurb}</p>
+    <div class="kv"><span>This building earns</span><b>${fmt(lotOutput(tier), true)} / sec</b></div>
+    ${upgrade}
+  </div>
+  ${cheapBtn ? `<div class="group"><h3>Best deal</h3>${cheapBtn}</div>` : ''}
+  <div class="group"><h3>Expand the sprawl</h3>${expand}</div>
+  <div class="group">
+    <h3>City records</h3>
+    <div class="stats">
+      <div><span>Lots owned</span><b>${owned()} / ${N * N}</b></div>
+      <div><span>Earned in total</span><b id="stat-total">${fmt(S.total)}</b></div>
+      <div><span>Buildings</span><b>${fmt(BUILD_CPS, true)}/s</b></div>
+      <div><span>Crew</span><b>${fmt(CREW_CPS, true)}/s</b></div>
+      ${counts}
+    </div>
+  </div>
+  <div class="foot">
+    <span>Progress saves in this browser.</span>
+    <button class="wipe ${wipeArmed ? 'armed' : ''}" type="button" data-act="wipe">${wipeArmed ? 'Click again to wipe the city' : 'Start over'}</button>
+  </div>`;
+}
+
+function crewHTML() {
+  const modes = [1, 10, 'max'].map(m =>
+    `<button class="mode" type="button" data-act="mode" data-id="${m}" aria-pressed="${crewMode === m}">${m === 'max' ? 'Max' : '×' + m}</button>`).join('');
+  const rows = CREW.map((c, n) => {
+    const prevOwned = n === 0 || (S.crew[CREW[n - 1].id] || 0) > 0 || S.total >= c.base * 0.5;
+    if (!prevOwned) return `<div class="locked">Unknown contact. Hire a ${CREW[n - 1].name} to make the introduction.</div>`;
+    const qty = crewMode === 'max' ? Math.max(1, crewMax(c)) : crewMode;
+    const each = c.cps * M.crew * M.all;
+    return `<div class="row" data-crew="${c.id}">
+      <span class="name">${c.name}</span>
+      <span class="owned">${S.crew[c.id] || 0}</span>
+      <span class="desc">${c.desc}</span>
+      ${buyBtn('crew', c.id, `Hire <span data-q>${qty}</span>`, `+${fmt(each, true)} / sec each`, crewCost(c, qty))}
+    </div>`;
+  });
+  // show only up to the first locked contact
+  const firstLocked = rows.findIndex(r => r.startsWith('<div class="locked"'));
+  const shown = firstLocked === -1 ? rows : rows.slice(0, firstLocked + 1);
+  return `
+  <div class="head-row"><h3>Hire crew</h3><div class="modes">${modes}</div></div>
+  <div class="group">${shown.join('')}</div>
+  <p class="blurb">Crew earn a flat amount per second each. Every hire raises the next one’s price by 15%.</p>`;
+}
+
+function techHTML() {
+  const avail = TECH.filter(t => !S.tech.includes(t.id) && t.req());
+  const locked = TECH.filter(t => !S.tech.includes(t.id) && !t.req());
+  const done = TECH.filter(t => S.tech.includes(t.id));
+  return `
+  <div class="group">
+    <h3>Available</h3>
+    ${avail.length ? avail.map(t => buyBtn('tech', t.id, t.name, t.desc, t.cost, 'alt')).join('')
+                   : `<div class="locked">Nothing to install yet.</div>`}
+  </div>
+  ${locked.length ? `<div class="group"><h3>Next unlock</h3>
+     <div class="locked"><b>${locked[0].name}</b>. ${locked[0].hint} to unlock it.</div>
+     ${locked.length > 1 ? `<p class="blurb">${locked.length - 1} more upgrades are still encrypted.</p>` : ''}</div>` : ''}
+  ${done.length ? `<div class="group"><h3>Installed</h3><div class="installed">${done.map(t => `<span class="chip">${t.name}</span>`).join('')}</div></div>` : ''}`;
+}
+
+function render() {
+  dirty = false;
+  const scroll = panel.scrollTop;
+  // keep keyboard focus on the same control across a re-render
+  const f = panel.contains(document.activeElement) ? document.activeElement : null;
+  const fAct = f && f.dataset.act, fId = f && f.dataset.id;
+  panel.innerHTML = tab === 'build' ? buildHTML() : tab === 'crew' ? crewHTML() : techHTML();
+  panel.scrollTop = scroll;
+  if (fAct) {
+    const same = [...panel.querySelectorAll(`[data-act="${fAct}"]`)].find(el => el.dataset.id === fId)
+      || panel.querySelector(`[data-act="${fAct}"]`);
+    if (same) same.focus({ preventScroll: true });
+  }
+  refresh();
+}
+
+function refresh() {
+  $('#credits').textContent = fmt(S.credits);
+  $('#rate').textContent = `+${fmt(CPS, true)} / sec`;
+  $('#hack-value').textContent = `+${fmt(hackValue(), true)} per hack`;
+  const total = $('#stat-total');
+  if (total) total.textContent = fmt(S.total);
+  if (tab === 'crew' && crewMode === 'max') {
+    panel.querySelectorAll('[data-crew]').forEach(row => {
+      const c = CREW.find(x => x.id === row.dataset.crew);
+      const q = Math.max(1, crewMax(c));
+      const b = row.querySelector('.buy');
+      b.dataset.cost = crewCost(c, q);
+      b.querySelector('[data-q]').textContent = q;
+      b.querySelector('.cost').textContent = fmt(+b.dataset.cost);
+    });
+  }
+  panel.querySelectorAll('[data-cost]').forEach(b => {
+    const cost = +b.dataset.cost;
+    b.disabled = S.credits < cost;
+    b.style.setProperty('--p', Math.min(1, S.credits / cost).toFixed(3));
+  });
+  const crewAff = CREW.filter((c, n) => (n === 0 || (S.crew[CREW[n - 1].id] || 0) > 0 || S.total >= c.base * 0.5) && S.credits >= crewCost(c, 1)).length;
+  const techAff = TECH.filter(t => !S.tech.includes(t.id) && t.req() && S.credits >= t.cost).length;
+  const cheap = cheapestUpgrade();
+  const buildAff = (cheap && S.credits >= cheap.cost ? 1 : 0) + (nextLot() !== undefined && S.credits >= lotCost() ? 1 : 0);
+  setBadge('build', tab === 'build' ? 0 : buildAff);
+  setBadge('crew', tab === 'crew' ? 0 : crewAff);
+  setBadge('tech', tab === 'tech' ? 0 : techAff);
+}
+function setBadge(name, n) {
+  const el = $('#badge-' + name);
+  el.hidden = !n;
+  el.textContent = n;
+}
+
+panel.addEventListener('click', e => {
+  const b = e.target.closest('[data-act]');
+  if (!b || b.disabled) return;
+  const act = b.dataset.act, id = b.dataset.id;
+  if (act === 'upgrade') {
+    const k = +id;
+    if (upgradeLot(k)) { S.selected = k; const [x, y] = roofPoint(k); floater(x, y - 12, TIERS[S.lots[k]].name, '#3ef2ff'); }
+  } else if (act === 'acquire') {
+    acquireLot();
+  } else if (act === 'prev' || act === 'next') {
+    const list = ORDER.filter(k => S.lots[k]);
+    const at = list.indexOf(S.selected);
+    S.selected = list[(at + (act === 'next' ? 1 : -1) + list.length) % list.length];
+    dirty = true;
+  } else if (act === 'crew') {
+    hireCrew(id);
+  } else if (act === 'mode') {
+    crewMode = id === 'max' ? 'max' : +id;
+    dirty = true;
+  } else if (act === 'tech') {
+    buyTech(id);
+  } else if (act === 'wipe') {
+    if (wipeArmed && performance.now() - wipeArmed < 4000) {
+      S = fresh(); wipeArmed = 0; fabs.clear(); afterChange();
+      startFabrication(S.selected);
+      toast('City wiped. One shack, one sign, back to work.');
+    } else {
+      wipeArmed = performance.now();
+      setTimeout(() => { if (wipeArmed) { wipeArmed = 0; dirty = true; } }, 4000);
+      dirty = true;
+    }
+  }
+});
+
+/* ================================================================
+   Toasts and the news ticker
+   ================================================================ */
+function toast(msg, kind = '') {
+  const el = document.createElement('div');
+  el.className = 'toast ' + kind;
+  el.textContent = msg;
+  const box = $('#toasts');
+  box.appendChild(el);
+  while (box.children.length > (W < 560 ? 1 : 3)) box.firstChild.remove();
+  setTimeout(() => { el.classList.add('out'); setTimeout(() => el.remove(), 450); }, 4200);
+}
+
+function headlines() {
+  const lines = [
+    'Weather: acid rain. Tomorrow: acid rain. Long-range outlook: acid rain',
+    'Ramen prices hold steady for the 40th consecutive week',
+    'Grid Security Bureau reminds citizens to patch their cyberdecks',
+    'Drone courier lost over Sector 0, payload still unrecovered',
+    'Maglev Line 4 delayed after a billboard fell onto the track',
+    `Local developer now holds ${owned()} of ${N * N} lots in Sector 0`,
+    `Credit flow out of Sector 0 hits ${fmt(CPS, true)} per second, analysts nervous`,
+  ];
+  if (S.best >= 5) lines.push('New corporate beacon confuses migrating pigeons');
+  if (S.best >= 6) lines.push('Sector 0 skyline now visible from the orbital ring');
+  if (S.best >= 8) lines.push('Arcology residents vote to stop using the word "outside"');
+  if ((S.crew.ai || 0) > 0) lines.push('Rogue AI denies being rogue, files for a business licence');
+  for (let i = lines.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [lines[i], lines[j]] = [lines[j], lines[i]]; }
+  return lines;
+}
+const tickerEl = $('#ticker');
+function fillTicker() {
+  if (reduceMotion) { tickerEl.textContent = headlines()[0]; return; }
+  tickerEl.textContent = headlines().join('   ◆   ');
+  const width = tickerEl.scrollWidth;
+  tickerEl.style.animationDuration = Math.max(20, width / 70) + 's';
+}
+tickerEl.addEventListener('animationiteration', fillTicker);
+if (reduceMotion) setInterval(fillTicker, 9000);
+
+/* ================================================================
+   Main loop
+   ================================================================ */
+let last = performance.now();
+let uiClock = 0, slowClock = 0, saveClock = 0;
+let techSig = '';
+
+function frame(now) {
+  const real = Math.min((now - last) / 1000, OFFLINE_CAP);
+  last = now;
+  const dt = Math.min(real, 0.1);
+  if (real > 0) earn(CPS * real);
+
+  const target = cameraTarget();
+  const k = cam.ready && !reduceMotion ? 1 - Math.exp(-dt * 2.5) : 1;
+  cam.x += (target.x - cam.x) * k;
+  cam.y += (target.y - cam.y) * k;
+  cam.s = Math.exp(Math.log(cam.s) + (Math.log(target.s) - Math.log(cam.s)) * k);
+  cam.ready = true;
+
+  draw(now, dt);
+
+  uiClock += dt; slowClock += dt; saveClock += real;
+  if (dirty) render();
+  else if (uiClock > 0.1) { uiClock = 0; refresh(); }
+  if (slowClock > 1) {
+    slowClock = 0;
+    const avail = TECH.filter(t => !S.tech.includes(t.id) && t.req()).map(t => t.id);
+    const sig = avail.join(',');
+    if (sig !== techSig) {
+      for (const id of avail) if (!S.seen.includes(id)) {
+        S.seen.push(id);
+        toast(`New tech decrypted: ${TECH_BY_ID[id].name}. Find it under Tech.`, 'pink');
+      }
+      techSig = sig;
+      if (tab === 'tech') dirty = true;
+    }
+  }
+  if (saveClock > 10) { saveClock = 0; save(); }
+  requestAnimationFrame(frame);
+}
+
+function boot(hot) {
+  let data = hot && Array.isArray(hot.lots) ? hot : null;
+  let fromDisk = false;
+  if (!data) {
+    try { data = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); fromDisk = !!data; } catch (e) { data = null; }
+  }
+  S = restore(data);
+  recalc();
+  scheduleCourier(performance.now());
+  if (fromDisk && data.savedAt) {
+    const away = clamp((Date.now() - data.savedAt) / 1000, 0, OFFLINE_CAP);
+    if (away > 30 && CPS > 0) {
+      const gain = CPS * away;
+      earn(gain);
+      setTimeout(() => toast(`Welcome back. Sector 0 earned ${fmt(gain)} credits in the ${duration(away)} you were away.`, 'gold'), 400);
+    }
+  } else if (!data) {
+    startFabrication(S.selected);
+    setTimeout(() => toast('One shack, one lot. It earns a credit a second. Grow it.'), 600);
+  }
+  resize();
+  new ResizeObserver(resize).observe(cvs);
+  fillTicker();
+  document.addEventListener('visibilitychange', () => { if (document.hidden) save(); });
+  window.addEventListener('pagehide', save);
+  last = performance.now();
+  requestAnimationFrame(frame);
+}
+
+window.claude?.hot?.snapshot?.(() => serialize());
+window.claude?.hot?.ready ? window.claude.hot.ready(boot) : boot(window.claude?.hot?.data ?? {});
+})();
+</script>
+</body>
+</html>
