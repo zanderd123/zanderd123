@@ -199,23 +199,32 @@ button { font: inherit; color: inherit; }
 .tabs { display: flex; border-bottom: 1px solid var(--line); }
 .tab {
   flex: 1;
-  padding: 12px 4px 10px;
+  padding: 12px 2px 10px;
   border: 0;
   border-bottom: 2px solid transparent;
   background: none;
-  font: 600 14px/1 var(--f-display);
-  letter-spacing: 0.1em;
+  font: 600 13px/1 var(--f-display);
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--dim);
   cursor: pointer;
 }
+.tab { position: relative; white-space: nowrap; }
 .tab:hover { color: var(--ink); }
 .tab[aria-selected="true"] { color: var(--cyan); border-bottom-color: var(--cyan); }
 .tab:focus-visible { outline: 2px solid var(--cyan); outline-offset: -4px; }
+.tab .badge {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  min-width: 15px;
+  padding: 1px 3px;
+  font-size: 10px;
+}
 .badge {
   display: inline-block;
   min-width: 18px;
-  margin-left: 6px;
+  margin-left: 4px;
   padding: 2px 5px;
   background: var(--magenta);
   color: var(--bg);
@@ -416,6 +425,63 @@ button { font: inherit; color: inherit; }
 .mapbtn[aria-pressed="true"] { background: var(--cyan); color: var(--bg); }
 .mapbtn:focus-visible { outline: 2px solid var(--magenta); outline-offset: 1px; }
 .city.has-sectors .toasts { bottom: 96px; }
+.hud-actions { display: flex; gap: 8px; align-items: stretch; }
+.sound {
+  width: 44px;
+  border: 1px solid var(--line);
+  background: rgba(8, 7, 15, 0.7);
+  color: var(--dim);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+.sound:hover { color: var(--ink); }
+.sound:focus-visible { outline: 2px solid var(--cyan); outline-offset: 1px; }
+.sound .waves { display: none; }
+.sound[aria-pressed="true"] { color: var(--cyan); border-color: var(--cyan); }
+.sound[aria-pressed="true"] .waves { display: inline; }
+.sound[aria-pressed="true"] .mute { display: none; }
+
+/* bulk buying and automation */
+.cost .eta { display: block; margin-top: 3px; font-size: 11.5px; color: var(--dim); text-align: right; }
+.cost .eta:empty { display: none; }
+.auto-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  background: var(--panel-2);
+  font: 14px var(--f-body);
+  cursor: pointer;
+}
+.toggle b { font: 14px var(--f-mono); font-weight: 400; color: var(--dim); }
+.toggle .knob { width: 30px; height: 14px; border: 1px solid var(--dim); position: relative; flex: none; }
+.toggle .knob::after { content: ''; position: absolute; top: 2px; left: 2px; width: 10px; height: 8px; background: var(--dim); transition: transform 0.15s; }
+.toggle[aria-pressed="true"] { border-color: var(--ok); }
+.toggle[aria-pressed="true"] b { color: var(--ok); }
+.toggle[aria-pressed="true"] .knob { border-color: var(--ok); }
+.toggle[aria-pressed="true"] .knob::after { background: var(--ok); transform: translateX(14px); }
+.toggle:focus-visible { outline: 2px solid var(--cyan); outline-offset: 1px; }
+.auto-line { display: inline-flex; align-items: center; gap: 8px; color: var(--dim); font-size: 14px; }
+.auto-line select {
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  background: var(--panel-2);
+  color: var(--ink);
+  font: 14px var(--f-body);
+}
+.buy.armed { border-color: var(--magenta); }
+
+/* achievements */
+.achs { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.ach { display: grid; gap: 1px; padding: 7px 9px; border: 1px dashed var(--line); color: var(--dim); min-width: 0; }
+.ach b { font: 600 13.5px/1.25 var(--f-body); color: var(--dim); }
+.ach span { font: 12px/1.3 var(--f-mono); }
+.ach.got { border: 1px solid rgba(255, 194, 62, 0.55); background: rgba(255, 194, 62, 0.06); }
+.ach.got b { color: var(--amber); }
+.ach.got span { color: var(--ink); }
 
 /* building types */
 .choices { display: flex; flex-direction: column; gap: 8px; }
@@ -474,10 +540,15 @@ button { font: inherit; color: inherit; }
         <div class="credits-value" id="credits">0</div>
         <div class="credits-rate" id="rate">+1.0 / sec</div>
       </div>
+      <div class="hud-actions">
+      <button class="sound" id="sound" type="button" aria-pressed="false" aria-label="Sound">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path class="waves" d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path class="mute" d="M16 9l6 6M22 9l-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
       <button class="hack" id="hack" type="button">
         <b>Jack in</b>
         <span id="hack-value">+1.1 per hack</span>
       </button>
+      </div>
     </header>
     <div class="ticker" aria-hidden="true">
       <div class="ticker-label">City news</div>
@@ -502,6 +573,7 @@ button { font: inherit; color: inherit; }
       <button class="tab" role="tab" id="tab-crew" data-tab="crew" aria-selected="false">Crew<span class="badge" id="badge-crew" hidden></span></button>
       <button class="tab" role="tab" id="tab-tech" data-tab="tech" aria-selected="false">Tech<span class="badge" id="badge-tech" hidden></span></button>
       <button class="tab" role="tab" id="tab-infra" data-tab="infra" aria-selected="false" aria-label="Infrastructure">Infra<span class="badge" id="badge-infra" hidden></span></button>
+      <button class="tab" role="tab" id="tab-goals" data-tab="goals" aria-selected="false">Goals<span class="badge" id="badge-goals" hidden></span></button>
     </nav>
     <div class="panel-body" id="panel" role="tabpanel"></div>
   </aside>
@@ -525,10 +597,10 @@ const CREW_GROWTH = 1.15;
 const OFFLINE_CAP = 8 * 3600;     // seconds of away-time that pay out
 const SAVE_KEY = 'neon-sprawl/v1';
 
-const SECTOR_COST = 300;          // each newer sector's prices are this much higher
+const SECTOR_COST = 600;          // each newer sector's prices are this much higher
 const SECTOR_OUT = 40;            // and its buildings earn this much more
 const ROAD_BASE = 5e8;            // road to sector 1
-const ROAD_GROWTH = 300;          // each further road costs this much more
+const ROAD_GROWTH = 600;          // each further road costs this much more
 const ROAD_REQ = 25;              // lots needed in the newest sector before the next road
 const ROAD_BONUS = 0.2;           // all output, per road grade above the first
 const CREW_SECTOR = 5;            // every connected sector multiplies crew pay by this
@@ -543,9 +615,14 @@ const ROAD_LEVELS = [
 
 const TIER_CPS = [0, 1, 3, 10, 40, 160, 700, 3000, 14000];
 const TIER_COST = [0, 0, 25, 200, 1500, 12000, 1e5, 9e5, 8e6];
-const LINE_OUTPUT = 0.6;          // crew buildings earn this share of a housing building
-const CREW_POINTS = [0, 0, 1, 2, 3, 5, 8, 12, 18];   // what each crew building contributes, by tier
-const BOOST_K = 0.25;             // crew boost = 1 + BOOST_K x sqrt(points), so each extra building adds a little less
+const LINE_OUTPUT = 0.6;          // an unstaffed crew building earns this share of a housing building
+const STAFF_K = 0.15;             // staffing multiplier = 1 + STAFF_K x sqrt(headcount of that crew)
+const PERK_MULT = 3;              // a district's matching building type earns this much more there
+const CAPITAL_MULT = 1.5;         // the Capital has no specialty; every type earns this much more there
+const CHIP_DIV = 1e9;             // Neural Chips owned = (lifetime earnings / CHIP_DIV) ^ CHIP_EXP
+const CHIP_EXP = 0.15;
+const CHIP_BONUS = 0.02;          // income per Neural Chip
+const ACH_BONUS = 0.02;           // income per achievement
 const MAX_TIER = 8;
 
 // Building massing by tier. sections: [footprint width as a fraction of a lot, top height in lot-widths]
@@ -608,14 +685,29 @@ const CREW = [
 ];
 const CREW_BY_ID = Object.fromEntries(CREW.map(c => [c.id, c]));
 
-const SECTOR_THEMES = [
-  { name: 'The Sprawl', haze: '255, 43, 214', mid: '#3a1150' },
-  { name: 'Chrome Docks', haze: '62, 242, 255', mid: '#0e2f48' },
-  { name: 'Red Lantern', haze: '255, 70, 80', mid: '#46101f' },
-  { name: 'Greenline', haze: '77, 255, 154', mid: '#0e382b' },
-  { name: 'Ultraviolet', haze: '167, 123, 255', mid: '#251357' },
-  { name: 'Goldfields', haze: '255, 194, 62', mid: '#432d0d' },
-];
+// The city grows by district. The Capital comes first; every road after it builds a district you
+// choose, and the building type that matches a district earns PERK_MULT times more there.
+const DISTRICTS = {
+  capital: { name: 'The Capital', perk: 'all', haze: '255, 43, 214', mid: '#3a1150',
+    blurb: 'City hall, the old ramen markets and the first towers. The Capital favours no trade.' },
+  residential: { name: 'Residential Ring', perk: 'hab', haze: '255, 179, 92', mid: '#3a220e',
+    blurb: 'Hab stacks to the horizon.' },
+  entertainment: { name: 'Entertainment District', perk: 'kiddie', haze: '255, 79, 216', mid: '#3d0f3f',
+    blurb: 'Arcades, holo-theatres and all-night VR.' },
+  docks: { name: 'Loading Docks', perk: 'fixer', haze: '255, 150, 60', mid: '#3a1c0c',
+    blurb: 'Container cranes and no questions asked. The Fixers broker cargo from the Bars.' },
+  net: { name: 'Net Quarter', perk: 'runner', haze: '62, 242, 255', mid: '#0e2f48',
+    blurb: 'Fibre trunks under every street.' },
+  financial: { name: 'Financial District', perk: 'broker', haze: '167, 123, 255', mid: '#251357',
+    blurb: 'Trading floors and data exchanges.' },
+  industrial: { name: 'Industrial Zone', perk: 'ai', haze: '77, 255, 154', mid: '#0e382b',
+    blurb: 'Fabs, coolant towers and humming server halls.' },
+  corporate: { name: 'Corporate Plaza', perk: 'exec', haze: '200, 220, 255', mid: '#1c2440',
+    blurb: 'Headquarters behind mirrored glass.' },
+  ghost: { name: 'Ghost Market', perk: 'ghost', haze: '255, 59, 92', mid: '#3d0b1c',
+    blurb: 'Lantern-lit alleys where the net feels haunted.' },
+};
+const DISTRICT_IDS = Object.keys(DISTRICTS);
 
 const TECH = [
   { id: 'signage', name: 'Neon Signage', cost: 100, desc: 'Shacks and every tier 2 building earn ×2.',
@@ -636,6 +728,9 @@ const TECH = [
   { id: 'zoning', name: 'Zoning Permits', cost: 30000, desc: 'Crew buildings earn 80% of a housing building\u2019s output, up from 60%.',
     req: () => crewBuildings() >= 3, hint: 'Own 3 crew buildings',
     apply: m => { m.lineOut = 0.8; } },
+  { id: 'drones', name: 'Construction Drones', cost: 20000, desc: 'Unlocks the auto-builder, which buys the cheapest upgrade or lot for you. Switch it on under Build.',
+    req: () => ownedTotal() >= 8, hint: 'Own 8 lots',
+    apply: m => { m.autoBuild = true; } },
   { id: 'synergy', name: 'Grid Synergy', cost: 40000, desc: 'Each lot you own in a sector adds +3% to that sector’s buildings.',
     req: () => ownedTotal() >= 8, hint: 'Own 8 lots',
     apply: m => { m.synergy += 0.03; } },
@@ -645,9 +740,12 @@ const TECH = [
   { id: 'blackice', name: 'Black ICE', cost: 150000, desc: 'All output ×2.',
     req: () => S.total >= 50000, hint: 'Earn 50K credits in total',
     apply: m => { m.all *= 2; } },
-  { id: 'union', name: 'Union Halls', cost: 4e5, desc: 'Crew buildings boost their crew twice as much.',
+  { id: 'recruiter', name: 'Recruiter AI', cost: 2e5, desc: 'Unlocks auto-hire, which hires your cheapest crew for you. Switch it on under Crew.',
+    req: () => crewTotal() >= 25, hint: 'Hire 25 crew',
+    apply: m => { m.autoHire = true; } },
+  { id: 'union', name: 'Union Halls', cost: 4e5, desc: 'Crew buildings get 50% more out of their staff.',
     req: () => crewBuildings() >= 8, hint: 'Own 8 crew buildings',
-    apply: m => { m.boost *= 2; } },
+    apply: m => { m.staff *= 1.5; } },
   { id: 'charter', name: 'Corporate Charter', cost: 8e5, desc: 'Tier 5 and tier 6 buildings earn ×2.',
     req: () => S.best >= 6, hint: 'Reach tier 6 with any building',
     apply: m => { m.tier[5] *= 2; m.tier[6] *= 2; } },
@@ -664,19 +762,19 @@ const TECH = [
     req: () => ownedTotal() >= 30, hint: 'Own 30 lots',
     apply: m => { m.all *= 3; } },
   { id: 'tolls', name: 'Toll Gantries', cost: 5e11, desc: 'All output ×2.',
-    req: () => S.sectors.length >= 2, hint: 'Connect a second sector',
+    req: () => S.sectors.length >= 2, hint: 'Build your first district',
     apply: m => { m.all *= 2; } },
   { id: 'singularity', name: 'Sprawl Singularity', cost: 2e12, desc: 'All output ×5.',
-    req: () => S.sectors.some((_, i) => ownedIn(i) === N * N), hint: 'Fill every lot in one sector',
+    req: () => S.sectors.some((_, i) => ownedIn(i) === N * N), hint: 'Fill every lot in one district',
     apply: m => { m.all *= 5; } },
   { id: 'freight', name: 'Autonomous Freight', cost: 2e14, desc: 'Crew output ×4.',
-    req: () => S.sectors.length >= 3, hint: 'Connect a third sector',
+    req: () => S.sectors.length >= 3, hint: 'Own 2 districts besides the Capital',
     apply: m => { m.crew *= 4; } },
   { id: 'fusion', name: 'Fusion Grid', cost: 1e17, desc: 'All output ×3.',
-    req: () => S.sectors.length >= 4, hint: 'Connect a fourth sector',
+    req: () => S.sectors.length >= 4, hint: 'Own 3 districts besides the Capital',
     apply: m => { m.all *= 3; } },
   { id: 'hivemind', name: 'City Hivemind', cost: 1e20, desc: 'All output ×5.',
-    req: () => S.sectors.length >= 5, hint: 'Connect a fifth sector',
+    req: () => S.sectors.length >= 5, hint: 'Own 4 districts besides the Capital',
     apply: m => { m.all *= 5; } },
 ];
 const TECH_BY_ID = Object.fromEntries(TECH.map(t => [t.id, t]));
@@ -690,6 +788,53 @@ const MILESTONES = {
   7: 'First tier 7 megastructure. The clouds part around it.',
   8: 'First tier 8 arcology. A city inside your city.',
 };
+
+// Achievements stay through a reboot; each adds ACH_BONUS to all income.
+const sumLots = f => S.sectors.reduce((n, sec) => n + sec.lots.filter(f).length, 0);
+const ACHIEVEMENTS = [
+  { id: 'lots5', name: 'Squatter’s Rights', desc: 'Own 5 lots', test: () => ownedTotal() >= 5 },
+  { id: 'lots25', name: 'Block Captain', desc: 'Own 25 lots', test: () => ownedTotal() >= 25 },
+  { id: 'fill', name: 'Wall to Wall', desc: 'Fill all 49 lots in a district', test: () => S.sectors.some((_, i) => ownedIn(i) === N * N) },
+  { id: 'lots100', name: 'Land Baron', desc: 'Own 100 lots', test: () => ownedTotal() >= 100 },
+  { id: 'lots250', name: 'Continental', desc: 'Own 250 lots', test: () => ownedTotal() >= 250 },
+  { id: 'tier3', name: 'Moving Up', desc: 'Reach tier 3 with any building', test: () => S.best >= 3 },
+  { id: 'tier5', name: 'Glass and Steel', desc: 'Reach tier 5', test: () => S.best >= 5 },
+  { id: 'tier6', name: 'Above the Smog', desc: 'Reach tier 6', test: () => S.best >= 6 },
+  { id: 'tier8', name: 'Arcologist', desc: 'Reach tier 8', test: () => S.best >= 8 },
+  { id: 'arco10', name: 'Skyline', desc: 'Own 10 tier 8 buildings', test: () => sumLots(t => t === 8) >= 10 },
+  { id: 'arco49', name: 'Megacity', desc: 'Own 49 tier 8 buildings', test: () => sumLots(t => t === 8) >= 49 },
+  { id: 'type1', name: 'Mixed Company', desc: 'Build your first crew building', test: () => crewBuildings() >= 1 },
+  { id: 'typeAll', name: 'Full Roster', desc: 'Build every building type somewhere', test: () => Object.keys(LINES).every(l => S.sectors.some(sec => sec.lines.includes(l))) },
+  { id: 'mix8', name: 'Zoning Nightmare', desc: 'Have all 8 building types in one district', test: () => S.sectors.some((_, i) => sectorTypes(i) >= 8) },
+  { id: 'crew10', name: 'Gang of Ten', desc: 'Hire 10 crew', test: () => crewTotal() >= 10 },
+  { id: 'crew100', name: 'Payroll', desc: 'Hire 100 crew', test: () => crewTotal() >= 100 },
+  { id: 'crew500', name: 'Syndicate', desc: 'Hire 500 crew', test: () => crewTotal() >= 500 },
+  { id: 'crew1000', name: 'Private Army', desc: 'Hire 1,000 crew', test: () => crewTotal() >= 1000 },
+  { id: 'role100', name: 'Specialist', desc: 'Hire 100 of one crew role', test: () => CREW.some(c => (S.crew[c.id] || 0) >= 100) },
+  { id: 'ghost', name: 'Haunted', desc: 'Hire a Ghost in the Grid', test: () => (S.crew.ghost || 0) > 0 },
+  { id: 'cps100', name: 'Pocket Money', desc: 'Earn 100 per second', test: () => CPS >= 100 },
+  { id: 'cps1e4', name: 'Steady Income', desc: 'Earn 10K per second', test: () => CPS >= 1e4 },
+  { id: 'cps1e6', name: 'Millionaire Minute', desc: 'Earn 1M per second', test: () => CPS >= 1e6 },
+  { id: 'cps1e9', name: 'Billion Flow', desc: 'Earn 1B per second', test: () => CPS >= 1e9 },
+  { id: 'cps1e12', name: 'Trillionaire Tick', desc: 'Earn 1T per second', test: () => CPS >= 1e12 },
+  { id: 'cps1e15', name: 'Quadrillion Pulse', desc: 'Earn 1Qa per second', test: () => CPS >= 1e15 },
+  { id: 'cps1e18', name: 'Economy of One', desc: 'Earn 1Qi per second', test: () => CPS >= 1e18 },
+  { id: 'hack100', name: 'Script Runner', desc: 'Jack in 100 times', test: () => S.hacks >= 100 },
+  { id: 'hack1000', name: 'Carpal Tunnel', desc: 'Jack in 1,000 times', test: () => S.hacks >= 1000 },
+  { id: 'cour1', name: 'Interceptor', desc: 'Catch a data courier', test: () => S.couriers >= 1 },
+  { id: 'cour10', name: 'Sky Pirate', desc: 'Catch 10 data couriers', test: () => S.couriers >= 10 },
+  { id: 'cour50', name: 'No-Fly Zone', desc: 'Catch 50 data couriers', test: () => S.couriers >= 50 },
+  { id: 'road1', name: 'Open Road', desc: 'Build your first district', test: () => S.sectors.length >= 2 },
+  { id: 'road3', name: 'Commuter Belt', desc: 'Own 3 districts besides the Capital', test: () => S.sectors.length >= 4 },
+  { id: 'road6', name: 'Metroplex', desc: 'Own 6 districts besides the Capital', test: () => S.sectors.length >= 7 },
+  { id: 'distAll', name: 'Every Corner', desc: 'Build one of each district type', test: () => DISTRICT_IDS.filter(d => d !== 'capital').every(d => S.sectors.some(sec => sec.type === d)) },
+  { id: 'hyper', name: 'Faster Than Traffic', desc: 'Upgrade a road to Hyperloop', test: () => S.roads.some(l => l >= 4) },
+  { id: 'tech10', name: 'Early Adopter', desc: 'Install 10 techs', test: () => S.tech.length >= 10 },
+  { id: 'techAll', name: 'Fully Augmented', desc: 'Install every tech', test: () => S.tech.length >= TECH.length },
+  { id: 'reboot1', name: 'Have You Tried Turning It Off', desc: 'Reboot the Grid', test: () => S.reboots >= 1 },
+  { id: 'reboot5', name: 'Eternal Recurrence', desc: 'Reboot the Grid 5 times', test: () => S.reboots >= 5 },
+];
+const ACH_BY_ID = Object.fromEntries(ACHIEVEMENTS.map(a => [a.id, a]));
 
 /* ================================================================
    Helpers
@@ -760,11 +905,16 @@ const SECTOR_POS = (() => {
   return out;
 })();
 
-const theme = sec => SECTOR_THEMES[sec % SECTOR_THEMES.length];
+const theme = sec => DISTRICTS[S.sectors[sec] ? S.sectors[sec].type : 'capital'];
+// Repeat districts get a number: Loading Docks, Loading Docks 2, ...
 function sectorName(sec) {
-  const t = theme(sec), round = Math.floor(sec / SECTOR_THEMES.length);
-  return round ? `${t.name} ${round + 1}` : t.name;
+  const type = S.sectors[sec].type;
+  let n = 0;
+  for (let i = 0; i <= sec; i++) if (S.sectors[i].type === type) n++;
+  return n > 1 ? `${DISTRICTS[type].name} ${n}` : DISTRICTS[type].name;
 }
+const typeName = line => (line === 'hab' ? 'Housing' : `${LINES[line].name}s`);
+const perkText = line => (line === 'all' ? `Every type earns ×${CAPITAL_MULT}` : `${typeName(line)} earn ×${PERK_MULT}`);
 const seedOf = (sec, k) => hash(sec * 1000 + k + 17) % 100000;
 
 function buildingName(tier, line) {
@@ -783,40 +933,44 @@ const lineColor = (line, seed) => (line && LINES[line].color) || ['#3ef2ff', '#f
    State and economy
    ================================================================ */
 let S;          // the save-able game state
-let M;          // current modifiers from tech
+let M;          // current modifiers from tech, chips and achievements
 let CPS = 0, BUILD_CPS = 0, CREW_CPS = 0;
-let CREW_BOOST = {};      // crew id -> multiplier from its buildings
-let CREW_PTS = {};        // crew id -> summed points of its buildings
 let SECTOR_CPS = [];
 let SECTOR_MIX = [];      // mixed-use multiplier per sector
+let LINE_CPS = {};        // building type -> what all its buildings earn
 const sectorTypes = sec => new Set(S.sectors[sec].lines.filter(Boolean)).size;
 
-function newSector() {
+function newSector(type) {
   const lots = new Array(N * N).fill(0), lines = new Array(N * N).fill(null);
   const c = CENTER * N + CENTER;
   lots[c] = 1;
-  return { lots, lines, sel: c };
+  return { type, lots, lines, sel: c };
 }
 function fresh() {
-  return { credits: 0, total: 0, sectors: [newSector()], roads: [0], cur: 0, crew: {}, tech: [], seen: [],
-           hacks: 0, couriers: 0, best: 1, lastLine: 'hab', started: Date.now() };
+  return { credits: 0, total: 0, lifetime: 0, sectors: [newSector('capital')], roads: [0], cur: 0, crew: {}, tech: [], seen: [],
+           hacks: 0, couriers: 0, best: 1, lastLine: 'hab', started: Date.now(),
+           chips: 0, reboots: 0, ach: [], auto: { build: false, hire: false } };
 }
 function serialize() {
-  return { v: 2, credits: S.credits, total: S.total,
-           sectors: S.sectors.map(s => ({ lots: s.lots.slice(), lines: s.lines.slice(), sel: s.sel })),
+  return { v: 3, credits: S.credits, total: S.total, lifetime: S.lifetime,
+           sectors: S.sectors.map(s => ({ type: s.type, lots: s.lots.slice(), lines: s.lines.slice(), sel: s.sel })),
            roads: S.roads.slice(), cur: S.cur, crew: { ...S.crew }, tech: S.tech.slice(), seen: S.seen.slice(),
-           hacks: S.hacks, couriers: S.couriers, best: S.best, lastLine: S.lastLine, started: S.started, savedAt: Date.now() };
+           hacks: S.hacks, couriers: S.couriers, best: S.best, lastLine: S.lastLine, started: S.started,
+           chips: S.chips, reboots: S.reboots, ach: S.ach.slice(), auto: { ...S.auto }, savedAt: Date.now() };
 }
+// Older saves had sectors without a district type; give them one each, in a fixed order.
+const LEGACY_DISTRICTS = ['net', 'docks', 'industrial', 'financial', 'corporate', 'ghost', 'residential', 'entertainment'];
 function restore(d) {
   const s = fresh();
   if (!d) return s;
   const num = (v, f) => (typeof v === 'number' && isFinite(v) && v >= 0 ? v : f);
   // version 1 saves had a single grid of tiers and no building types; those buildings were all housing
-  let secs = Array.isArray(d.sectors) ? d.sectors
+  const secs = Array.isArray(d.sectors) ? d.sectors
     : Array.isArray(d.lots) ? [{ lots: d.lots, lines: d.lots.map(t => (t >= 2 ? 'hab' : null)), sel: d.selected }] : null;
   if (!secs || !secs.length) return s;
-  s.sectors = secs.map(raw => {
-    const sec = newSector();
+  s.sectors = secs.map((raw, i) => {
+    const type = i === 0 ? 'capital' : DISTRICTS[raw.type] && raw.type !== 'capital' ? raw.type : LEGACY_DISTRICTS[(i - 1) % LEGACY_DISTRICTS.length];
+    const sec = newSector(type);
     if (!Array.isArray(raw.lots) || raw.lots.length !== N * N) return sec;
     sec.lots = raw.lots.map(t => clamp(Math.floor(num(t, 0)), 0, MAX_TIER));
     sec.lines = sec.lots.map((t, k) => {
@@ -831,6 +985,7 @@ function restore(d) {
   s.cur = clamp(Math.floor(num(d.cur, 0)), 0, s.sectors.length - 1);
   s.credits = num(d.credits, 0);
   s.total = num(d.total, s.credits);
+  s.lifetime = Math.max(num(d.lifetime, 0), s.total);
   for (const c of CREW) if (d.crew && num(d.crew[c.id], 0) > 0) s.crew[c.id] = Math.floor(d.crew[c.id]);
   s.tech = Array.isArray(d.tech) ? d.tech.filter(id => TECH_BY_ID[id]) : [];
   s.seen = Array.isArray(d.seen) ? d.seen.filter(id => TECH_BY_ID[id]) : [];
@@ -839,6 +994,10 @@ function restore(d) {
   s.best = Math.max(...s.sectors.map(sec => Math.max(...sec.lots)));
   s.lastLine = LINES[d.lastLine] ? d.lastLine : 'hab';
   s.started = num(d.started, Date.now());
+  s.chips = Math.floor(num(d.chips, 0));
+  s.reboots = Math.floor(num(d.reboots, 0));
+  s.ach = Array.isArray(d.ach) ? d.ach.filter(id => ACH_BY_ID[id]) : [];
+  s.auto = { build: !!(d.auto && d.auto.build), hire: !!(d.auto && d.auto.hire) };
   return s;
 }
 function save() {
@@ -851,44 +1010,59 @@ const ownedTotal = () => S.sectors.reduce((n, _, i) => n + ownedIn(i), 0);
 const crewTotal = () => CREW.reduce((n, c) => n + (S.crew[c.id] || 0), 0);
 const crewBuildings = () => S.sectors.reduce((n, sec) => n + sec.lines.filter(l => l && l !== 'hab').length, 0);
 const lineUnlocked = line => line === 'hab' || (S.crew[line] || 0) > 0;
+const districtUnlocked = id => id !== 'capital' && (DISTRICTS[id].perk === 'hab' || lineUnlocked(DISTRICTS[id].perk));
 const secCost = sec => Math.pow(SECTOR_COST, sec);
 const secOut = sec => Math.pow(SECTOR_OUT, sec);
 const roadMult = () => 1 + ROAD_BONUS * S.roads.reduce((n, lv) => n + Math.max(0, lv - 1), 0);
+const perkOf = sec => DISTRICTS[S.sectors[sec].type].perk;
+const chipsFor = lifetime => (lifetime > CHIP_DIV ? Math.floor(Math.pow(lifetime / CHIP_DIV, CHIP_EXP)) : 0);
+const pendingChips = () => Math.max(0, chipsFor(S.lifetime) - S.chips);
+const canReboot = () => S.sectors.length >= 2 && pendingChips() >= 1;
 
 function computeMods() {
   const m = { tier: new Array(MAX_TIER + 1).fill(1), build: 1, crew: 1, all: 1, hack: 1, synergy: 0,
-              courierRate: 1, courierPay: 1, lineOut: LINE_OUTPUT, boost: 1 };
+              courierRate: 1, courierPay: 1, lineOut: LINE_OUTPUT, staff: 1, autoBuild: false, autoHire: false };
   for (const id of S.tech) TECH_BY_ID[id].apply(m);
+  m.chip = 1 + CHIP_BONUS * S.chips;
+  m.achieve = 1 + ACH_BONUS * S.ach.length;
+  m.all *= m.chip * m.achieve;
   return m;
 }
+// A crew building earns more the more of its crew you employ. Housing is filled by tenants from
+// every role, so it follows your average headcount instead.
+// Senior roles are rarer, so each one counts as more staff: a Ghost is worth 1.6 Script Kiddies.
+const STAFF_WEIGHT = Object.fromEntries(CREW.map((c, i) => [c.id, 1 + 0.1 * i]));
+const staffPoints = id => (S.crew[id] || 0) * STAFF_WEIGHT[id];
+const staffMult = (line, extra = 0) => 1 + STAFF_K * M.staff * Math.sqrt(line === 'hab'
+  ? (CREW.reduce((n, c) => n + staffPoints(c.id), 0) + extra) / CREW.length
+  : staffPoints(line) + extra * STAFF_WEIGHT[line]);
 function lotOutput(sec, tier, line, ownedOverride) {
   if (!tier) return 0;
   const own = ownedOverride ?? ownedIn(sec);
-  const lineF = tier >= 2 && line && line !== 'hab' ? M.lineOut : 1;
-  return TIER_CPS[tier] * lineF * M.tier[tier] * M.build * (1 + M.synergy * own) * (SECTOR_MIX[sec] || 1) * secOut(sec) * M.all * roadMult();
+  const crewLine = tier >= 2 && line && line !== 'hab';
+  const lineF = crewLine ? M.lineOut * staffMult(line) : tier >= 2 ? staffMult('hab') : 1;
+  const perk = tier < 2 ? 1 : perkOf(sec) === 'all' ? CAPITAL_MULT : (line || 'hab') === perkOf(sec) ? PERK_MULT : 1;
+  return TIER_CPS[tier] * lineF * perk * M.tier[tier] * M.build * (1 + M.synergy * own) * (SECTOR_MIX[sec] || 1) * secOut(sec) * M.all * roadMult();
 }
-const boostFor = (id, extraPts) => 1 + BOOST_K * M.boost * Math.sqrt(CREW_PTS[id] + extraPts);
-// Total income change from taking a lot from one tier/type to another, crew boost included.
+// Total income change from taking a lot from one tier/type to another.
 function upgradeGain(sec, fromTier, fromLine, toTier, toLine) {
   let g = lotOutput(sec, toTier, toLine) - lotOutput(sec, fromTier, fromLine);
   // a type new to this sector raises its mixed-use bonus
   if (toLine && toLine !== fromLine && !S.sectors[sec].lines.includes(toLine) && sectorTypes(sec) >= 1) {
     g += (SECTOR_CPS[sec] + lotOutput(sec, toTier, toLine)) * MIX_BONUS / SECTOR_MIX[sec];
   }
-  const pts = (l, t) => (l && l !== 'hab' ? CREW_POINTS[t] : 0);
-  if (toLine && toLine !== 'hab') {
-    const extra = pts(toLine, toTier) - (fromLine === toLine ? pts(fromLine, fromTier) : 0);
-    const n = S.crew[toLine] || 0;
-    if (n) g += n * crewEach(toLine) / CREW_BOOST[toLine] * (boostFor(toLine, extra) - CREW_BOOST[toLine]);
-  }
   return g;
 }
 const crewSectorMult = () => Math.pow(CREW_SECTOR, S.sectors.length - 1);
-function crewEach(id) { return CREW_BY_ID[id].cps * M.crew * (CREW_BOOST[id] || 1) * crewSectorMult() * M.all * roadMult(); }
+function crewEach(id) { return CREW_BY_ID[id].cps * M.crew * crewSectorMult() * M.all * roadMult(); }
+// Hiring also staffs that crew's buildings, so a hire is worth its pay plus the buildings' raise.
+function hireGain(id, n) {
+  return n * crewEach(id) + (LINE_CPS[id] || 0) * (staffMult(id, n) / staffMult(id) - 1)
+    + (LINE_CPS.hab || 0) * (staffMult('hab', n) / staffMult('hab') - 1);
+}
 function recalc() {
   M = computeMods();
-  CREW_PTS = {};
-  for (const c of CREW) CREW_PTS[c.id] = 0;
+  LINE_CPS = {};
   BUILD_CPS = 0;
   SECTOR_MIX = S.sectors.map((_, i) => 1 + MIX_BONUS * Math.max(0, sectorTypes(i) - 1));
   SECTOR_CPS = S.sectors.map((sec, i) => {
@@ -897,15 +1071,13 @@ function recalc() {
     for (let k = 0; k < N * N; k++) {
       const t = sec.lots[k];
       if (!t) continue;
-      out += lotOutput(i, t, sec.lines[k], own);
-      const l = sec.lines[k];
-      if (l && l !== 'hab') CREW_PTS[l] += CREW_POINTS[t];
+      const o = lotOutput(i, t, sec.lines[k], own);
+      out += o;
+      if (sec.lines[k]) LINE_CPS[sec.lines[k]] = (LINE_CPS[sec.lines[k]] || 0) + o;
     }
     BUILD_CPS += out;
     return out;
   });
-  CREW_BOOST = {};
-  for (const c of CREW) CREW_BOOST[c.id] = boostFor(c.id, 0);
   CREW_CPS = 0;
   for (const c of CREW) CREW_CPS += (S.crew[c.id] || 0) * crewEach(c.id);
   CPS = BUILD_CPS + CREW_CPS;
@@ -945,13 +1117,16 @@ function spend(cost) {
   S.credits -= cost;
   return true;
 }
-function earn(n) { S.credits += n; S.total += n; }
+function earn(n) { S.credits += n; S.total += n; S.lifetime += n; }
+
+// The shack type used when the player does not pick one: their last pick, if still available.
+const defaultLine = () => (lineUnlocked(S.lastLine) ? S.lastLine : 'hab');
 
 function upgradeLot(sec, k, line) {
   const s = S.sectors[sec], t = s.lots[k];
   if (!t || t >= MAX_TIER) return false;
   if (t === 1) {
-    line = line || S.lastLine;
+    line = line || defaultLine();
     if (!LINES[line] || !lineUnlocked(line)) line = 'hab';
   }
   if (!spend(upgradeCost(sec, k))) return false;
@@ -975,9 +1150,8 @@ function acquireLot(sec) {
   afterChange();
   return true;
 }
-function hireCrew(id) {
+function hireN(id, n) {
   const c = CREW_BY_ID[id];
-  const n = crewMode === 'max' ? crewMax(c) : crewMode;
   if (n < 1 || !spend(crewCost(c, n))) return false;
   const first = !S.crew[id];
   S.crew[id] = (S.crew[id] || 0) + n;
@@ -985,6 +1159,7 @@ function hireCrew(id) {
   afterChange();
   return true;
 }
+const hireCrew = id => hireN(id, crewMode === 'max' ? crewMax(CREW_BY_ID[id]) : crewMode);
 function buyTech(id) {
   const t = TECH_BY_ID[id];
   if (!t || S.tech.includes(id) || !t.req() || !spend(t.cost)) return false;
@@ -993,15 +1168,17 @@ function buyTech(id) {
   afterChange();
   return true;
 }
-function buildRoad() {
+function buildRoad(type) {
   const k = S.sectors.length;
+  if (!DISTRICTS[type] || type === 'capital' || !districtUnlocked(type)) return false;
   if (!roadReady() || !spend(roadCost(k))) return false;
-  S.sectors.push(newSector());
+  S.sectors.push(newSector(type));
   S.roads[k] = 1;
   S.cur = k;
   view = 'city';
   startFabrication(k, CENTER * N + CENTER);
-  toast(`Cyber road open. Welcome to Sector ${k}, ${sectorName(k)}. Buildings here earn ×${fmt(secOut(k))}, and all crew pay rose ×${CREW_SECTOR}.`, 'gold');
+  const D = DISTRICTS[type];
+  toast(`Cyber road open to ${sectorName(k)}. ${perkText(D.perk)} here, everything earns ×${fmt(secOut(k))}, and all crew pay rose ×${CREW_SECTOR}.`, 'gold');
   afterChange();
   return true;
 }
@@ -1012,7 +1189,91 @@ function upgradeRoad(k) {
   afterChange();
   return true;
 }
+
+// Bulk buying. Build-tab buttons stay inside one district; the crew button only hires crew.
+let batching = 0;
+function batch(fn) {
+  batching++;
+  let n = 0;
+  try { n = fn(); } finally { batching--; }
+  if (n) { recalc(); dirty = true; save(); }
+  return n;
+}
+function upgradeAllIn(sec, limit = 5000) {
+  return batch(() => {
+    let n = 0;
+    for (; n < limit; n++) {
+      const c = cheapestUpgrade(sec);
+      if (!c || c.cost > S.credits || !upgradeLot(sec, c.k)) break;
+    }
+    return n;
+  });
+}
+function buyAllLotsIn(sec, limit = 49) {
+  return batch(() => {
+    let n = 0;
+    while (n < limit && acquireLot(sec)) n++;
+    return n;
+  });
+}
+// Cheapest single hire first, across every role you can see.
+function cheapestHire() {
+  let best = null;
+  CREW.forEach((c, i) => {
+    if (!crewVisible(i)) return;
+    const cost = crewCost(c, 1);
+    if (!best || cost < best.cost) best = { id: c.id, cost };
+  });
+  return best;
+}
+function hireAll(limit = 5000) {
+  return batch(() => {
+    let n = 0;
+    for (; n < limit; n++) {
+      const h = cheapestHire();
+      if (!h || h.cost > S.credits || !hireN(h.id, 1)) break;
+    }
+    return n;
+  });
+}
+// The auto-builder works on every district, cheapest purchase first.
+function autoBuildTick(limit) {
+  return batch(() => {
+    let n = 0;
+    while (n < limit) {
+      let best = null;
+      S.sectors.forEach((_, i) => {
+        const u = cheapestUpgrade(i);
+        if (u && (!best || u.cost < best.cost)) best = { cost: u.cost, run: () => upgradeLot(i, u.k) };
+        if (nextLot(i) !== undefined) {
+          const c = lotCost(i);
+          if (!best || c < best.cost) best = { cost: c, run: () => acquireLot(i) };
+        }
+      });
+      if (!best || best.cost > S.credits || !best.run()) break;
+      n++;
+    }
+    return n;
+  });
+}
+
+// Reboot the Grid: start over with Neural Chips. Achievements, chips and lifetime earnings stay.
+function reboot() {
+  if (!canReboot()) return false;
+  const gained = pendingChips();
+  const keep = { chips: S.chips + gained, reboots: S.reboots + 1, lifetime: S.lifetime, ach: S.ach.slice(), auto: { ...S.auto } };
+  S = Object.assign(fresh(), keep);
+  view = 'city';
+  fabs.clear();
+  startFabrication(0, cur().sel);
+  afterChange();
+  updateSectorBar();
+  toast(`Grid rebooted. ${gained} Neural Chips installed: all income +${Math.round(gained * CHIP_BONUS * 100)}% more than before.`, 'gold');
+  return gained;
+}
+
 function afterChange() {
+  if (batching) return;
   recalc();
   dirty = true;
   save();
@@ -1050,9 +1311,10 @@ function resize() {
   initRain();
 }
 
-function buildBackdrop(themeIndex) {
-  backdropTheme = themeIndex;
-  const T = SECTOR_THEMES[themeIndex];
+function buildBackdrop(themeKey) {
+  backdropTheme = themeKey;
+  const T = DISTRICTS[themeKey];
+  const themeIndex = DISTRICT_IDS.indexOf(themeKey);
   backdrop.width = cvs.width;
   backdrop.height = cvs.height;
   const g = backdrop.getContext('2d');
@@ -1520,8 +1782,7 @@ function floater(x, y, text, color) {
 function draw(now, dt) {
   const t = now / 1000;
   spriteBudget = 8;
-  const th = S.cur % SECTOR_THEMES.length;
-  if (backdropTheme !== th) buildBackdrop(th);
+  if (backdropTheme !== cur().type) buildBackdrop(cur().type);
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   ctx.drawImage(backdrop, 0, 0, W, H);
 
@@ -1679,9 +1940,9 @@ function drawGhostSector(sec, t) {
   ctx.textAlign = 'center';
   ctx.fillStyle = 'rgba(236, 232, 255, 0.75)';
   ctx.font = `600 ${clamp(cam.s * 0.32, 11, 15)}px "Share Tech Mono", ui-monospace, monospace`;
-  ctx.fillText(`SECTOR ${sec}`, cx, cy - 4);
+  ctx.fillText('NEW DISTRICT', cx, cy - 4);
   ctx.fillStyle = 'rgba(148, 140, 192, 0.9)';
-  ctx.fillText(roadReady() ? `ROAD ${fmt(roadCost(sec))}` : `NEEDS ${ROAD_REQ} LOTS`, cx, cy + 14);
+  ctx.fillText(roadReady() ? `ROAD ${fmt(roadCost(sec))} \u00b7 INFRA TAB` : `NEEDS ${ROAD_REQ} LOTS`, cx, cy + 14);
 }
 
 // Cyber roads cross the gap between each sector and the one before it.
@@ -1829,10 +2090,12 @@ function drawMapLabels() {
     const here = sec === S.cur;
     ctx.font = '700 13px "Tektur", "Chakra Petch", system-ui, sans-serif';
     ctx.fillStyle = here ? '#ff2bd6' : '#ece8ff';
-    ctx.fillText(`${sec}. ${sectorName(sec).toUpperCase()}`, x, y);
+    ctx.fillText(sectorName(sec).toUpperCase(), x, y);
     ctx.font = '12px "Share Tech Mono", ui-monospace, monospace';
     ctx.fillStyle = '#3ef2ff';
     ctx.fillText(`+${fmt(SECTOR_CPS[sec] || 0, true)}/s · ${ownedIn(sec)}/${N * N} lots`, x, y + 15);
+    ctx.fillStyle = `rgb(${theme(sec).haze})`;
+    ctx.fillText(perkText(perkOf(sec)), x, y + 30);
   }
 }
 
@@ -1896,6 +2159,7 @@ cvs.addEventListener('pointerdown', e => {
     floater(px, py, '+' + fmt(gain), '#ffc23e');
     spawnSparks(px, py, '#ffc23e');
     toast(`Courier intercepted. Its payload sold for ${fmt(gain)} credits.`, 'gold');
+    Sound.courier();
     dirty = true;
     return;
   }
@@ -1962,6 +2226,7 @@ $('#hack').addEventListener('click', () => {
   const s = cur();
   const [rx, ry] = view === 'city' ? roofPoint(S.cur, s.sel) : [W / 2, H / 2];
   floater(rx + (Math.random() - 0.5) * 30, ry - 18, '+' + fmt(gain, true), '#ff2bd6');
+  Sound.hack();
   const b = $('#hack');
   b.classList.remove('pulse'); void b.offsetWidth; b.classList.add('pulse');
 });
@@ -1971,7 +2236,7 @@ function updateSectorBar() {
   const multi = S.sectors.length > 1;
   sectorBar.hidden = !multi;
   $('#city-pane').classList.toggle('has-sectors', multi);
-  $('#sector-num').textContent = `Sector ${S.cur} · ${S.sectors.length} connected`;
+  $('#sector-num').textContent = `${perkText(perkOf(S.cur))} here`;
   $('#sector-name').textContent = sectorName(S.cur);
   const mb = $('#mapbtn');
   mb.setAttribute('aria-pressed', String(view === 'map'));
@@ -1993,11 +2258,13 @@ const panel = $('#panel');
 let tab = 'build';
 let crewMode = 1;
 let dirty = true;
-let wipeArmed = 0;
+let wipeArmed = 0, rebootArmed = 0;
+let newAch = 0;                  // achievements earned since the Goals tab was last opened
 
 function setTab(name) {
   if (tab === name) return;
   tab = name;
+  if (name === 'goals') newAch = 0;
   document.querySelectorAll('.tab').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === name)));
   panel.setAttribute('aria-labelledby', 'tab-' + name);
   panel.scrollTop = 0;
@@ -2010,19 +2277,27 @@ document.querySelector('.tabs').addEventListener('click', e => {
 
 const buyBtn = (act, attrs, what, sub, cost, cls = '') =>
   `<button class="buy ${cls}" type="button" data-act="${act}" ${attrs} data-cost="${cost}">
-     <span class="what">${what}</span>${sub ? `<span class="sub">${sub}</span>` : ''}<span class="cost">${fmt(cost)}</span>
+     <span class="what">${what}</span>${sub ? `<span class="sub">${sub}</span>` : ''}<span class="cost">${fmt(cost)}<small class="eta"></small></span>
    </button>`;
 const dot = color => `<span class="line-dot" style="background:${color}"></span>`;
-const boostText = (line, extraPts) =>
-  `${CREW_BY_ID[line].name}s ×${CREW_BOOST[line].toFixed(2)} → ×${boostFor(line, extraPts).toFixed(2)}`;
+const typeColor = line => LINES[line].color || '#ffc23e';
+const staffText = line => line === 'hab'
+  ? `tenants ×${staffMult('hab').toFixed(2)}`
+  : `staffed ×${staffMult(line).toFixed(2)} by ${fmt(S.crew[line] || 0)} ${CREW_BY_ID[line].name}s`;
+const toggleBtn = (act, on, label) =>
+  `<button class="toggle" type="button" data-act="${act}" aria-pressed="${on}"><span class="knob" aria-hidden="true"></span>${label}: <b>${on ? 'On' : 'Off'}</b></button>`;
 
 function lineChoice(k, line) {
   const sec = S.cur, L = LINES[line];
   const gain = upgradeGain(sec, 1, null, 2, line);
-  const color = L.color || '#ffc23e';
-  const sub = line === 'hab' ? `+${fmt(gain, true)} / sec` : `+${fmt(gain, true)} / sec · ${boostText(line, CREW_POINTS[2])}`;
+  const color = typeColor(line);
+  const notes = [];
+  notes.push(staffText(line));
+  if (perkOf(sec) === line) notes.push(`×${PERK_MULT} in this district`);
+  if (!cur().lines.includes(line) && sectorTypes(sec) >= 1) notes.push('new type here +10%');
   return buyBtn('upgrade', `data-id="${k}" data-line="${line}"`,
-    `${dot(color)}${L.names[0]}<span class="tag" style="color:${color}">${esc(L.name)}</span>`, sub, upgradeCost(sec, k));
+    `${dot(color)}${L.names[0]}<span class="tag" style="color:${color}">${esc(L.name)}</span>`,
+    `+${fmt(gain, true)} / sec${notes.length ? ' · ' + notes.join(' · ') : ''}`, upgradeCost(sec, k));
 }
 
 function buildHTML() {
@@ -2032,7 +2307,8 @@ function buildHTML() {
   const typeLabel = tier === 1 ? 'Unzoned' : LINES[line].name;
   let upgrade;
   if (tier === 1) {
-    const open = Object.keys(LINES).filter(lineUnlocked);
+    // the district's own type first, then the rest
+    const open = Object.keys(LINES).filter(lineUnlocked).sort((a, b) => (b === perkOf(sec)) - (a === perkOf(sec)));
     const locked = CREW.filter(c => !lineUnlocked(c.id));
     upgrade = `<div class="choices"><h3>Choose what this Shack becomes</h3>
       ${open.map(l => lineChoice(k, l)).join('')}
@@ -2040,28 +2316,34 @@ function buildHTML() {
     </div>`;
   } else if (tier < MAX_TIER) {
     const gain = upgradeGain(sec, tier, line, tier + 1, line);
-    const sub = isCrew ? `+${fmt(gain, true)} / sec · ${boostText(line, CREW_POINTS[tier + 1] - CREW_POINTS[tier])}` : `+${fmt(gain, true)} / sec`;
-    upgrade = buyBtn('upgrade', `data-id="${k}"`, `Upgrade to ${buildingName(tier + 1, line)}`, sub, upgradeCost(sec, k), 'big');
+    upgrade = buyBtn('upgrade', `data-id="${k}"`, `Upgrade to ${buildingName(tier + 1, line)}`, `+${fmt(gain, true)} / sec`, upgradeCost(sec, k), 'big');
   } else {
     upgrade = `<div class="maxed">Top tier. This building cannot grow taller.</div>`;
   }
+  const why = [];
+  if (isCrew) why.push(`<div class="kv"><span>Staffed by ${fmt(S.crew[line] || 0)} ${CREW_BY_ID[line].name}s</span><b>×${staffMult(line).toFixed(2)}</b></div>`);
+  if (line === 'hab') why.push(`<div class="kv"><span>Tenants from your crew</span><b>×${staffMult('hab').toFixed(2)}</b></div>`);
+  if (tier >= 2 && line === perkOf(sec)) why.push(`<div class="kv"><span>Matches this district</span><b>×${PERK_MULT}</b></div>`);
+
   const cheap = cheapestUpgrade(sec);
-  let cheapBtn = '';
-  if (cheap && cheap.k !== k) {
-    const ct = s.lots[cheap.k], cl = ct === 1 ? S.lastLine : s.lines[cheap.k];
-    const useLine = ct === 1 && !lineUnlocked(cl) ? 'hab' : cl;
-    cheapBtn = buyBtn('upgrade', `data-id="${cheap.k}" data-line="${useLine}"`,
-      `Lot ${lotName(cheap.k)}: ${buildingName(ct, useLine)} → ${buildingName(ct + 1, useLine)}`,
-      `+${fmt(upgradeGain(sec, ct, ct === 1 ? null : useLine, ct + 1, useLine), true)} / sec · cheapest upgrade`, cheap.cost);
-  }
   const nk = nextLot(sec);
+  const autoLine = defaultLine();
+  const bulk = `
+    ${cheap ? buyBtn('upgrade-all', '', 'Upgrade everything I can afford', `Cheapest first, in ${esc(sectorName(sec))} only · new Shacks become ${esc(LINES[autoLine].names[0])}s`, cheap.cost) : ''}
+    ${nk !== undefined ? buyBtn('lots-all', '', 'Buy every lot I can afford', `In ${esc(sectorName(sec))} only · ${N * N - ownedIn(sec)} lots left`, lotCost(sec), 'alt') : ''}
+    ${M.autoBuild ? `<div class="auto-row">${toggleBtn('auto-build', S.auto.build, 'Auto-builder')}
+       <label class="auto-line">Shacks become
+         <select id="auto-line" data-act="auto-line">${Object.keys(LINES).filter(lineUnlocked).map(l => `<option value="${l}" ${l === autoLine ? 'selected' : ''}>${esc(LINES[l].name)}</option>`).join('')}</select>
+       </label></div>
+       <p class="blurb">The auto-builder works across every district, buying the cheapest upgrade or lot each moment.</p>` : ''}`;
+
   const expand = nk === undefined
-    ? `<div class="maxed">You own all ${N * N} lots in ${esc(sectorName(sec))}. Build a road under Infra.</div>`
+    ? `<div class="maxed">You own all ${N * N} lots in ${esc(sectorName(sec))}. Build a new district under Infra.</div>`
     : buyBtn('acquire', '', `Buy lot ${lotName(nk)} with a Shack`, `+${fmt(lotOutput(sec, 1, null), true)} / sec · lot ${ownedIn(sec) + 1} of ${N * N}`, lotCost(sec), 'alt big');
 
   const counts = Object.keys(LINES).map(l => {
     const c = s.lines.filter(x => x === l).length;
-    return c ? `<div><span>${dot(LINES[l].color || '#ffc23e')}${LINES[l].name}</span><b>${c}</b></div>` : '';
+    return c ? `<div><span>${dot(typeColor(l))}${LINES[l].name}</span><b>${c}</b></div>` : '';
   }).join('');
   const shacks = s.lots.filter(t => t === 1).length;
 
@@ -2069,32 +2351,28 @@ function buildHTML() {
   <div class="lot-card">
     <div class="lot-head">
       <button class="nav" type="button" data-act="prev" aria-label="Previous building">‹</button>
-      <div><div class="eyebrow">${S.sectors.length > 1 ? `Sector ${sec} · ` : ''}Lot ${lotName(k)} · ${typeLabel} · tier ${tier}</div><h2>${buildingName(tier, line)}</h2></div>
+      <div><div class="eyebrow">${S.sectors.length > 1 ? `${esc(sectorName(sec))} · ` : ''}Lot ${lotName(k)} · ${typeLabel} · tier ${tier}</div><h2>${buildingName(tier, line)}</h2></div>
       <button class="nav" type="button" data-act="next" aria-label="Next building">›</button>
     </div>
     <div class="pips" aria-hidden="true">${pips}</div>
     <p class="blurb">${blurbOf(tier, line)}</p>
     <div class="kv"><span>This building earns</span><b>${fmt(lotOutput(sec, tier, line), true)} / sec</b></div>
-    ${isCrew ? `<div class="kv"><span>All your ${esc(LINES[line].name)}s boost ${CREW_BY_ID[line].name}s</span><b>×${CREW_BOOST[line].toFixed(2)}</b></div>` : ''}
+    ${why.join('')}
     ${upgrade}
   </div>
-  ${cheapBtn ? `<div class="group"><h3>Best deal in this sector</h3>${cheapBtn}</div>` : ''}
-  <div class="group"><h3>Expand the sprawl</h3>${expand}</div>
+  <div class="group"><h3>Expand the district</h3>${expand}</div>
+  <div class="group"><h3>Buy in bulk</h3>${bulk}</div>
   <div class="group">
-    <h3>${esc(sectorName(sec))} records</h3>
+    <h3>${esc(sectorName(sec))}</h3>
+    <p class="blurb">${esc(theme(sec).blurb)} ${perkText(perkOf(sec))} here.</p>
     <div class="stats">
       <div><span>Lots owned</span><b>${ownedIn(sec)} / ${N * N}</b></div>
-      <div><span>Earned in total</span><b id="stat-total">${fmt(S.total)}</b></div>
-      <div><span>This sector</span><b>${fmt(SECTOR_CPS[sec], true)}/s</b></div>
+      <div><span>District income</span><b>${fmt(SECTOR_CPS[sec], true)}/s</b></div>
       <div><span>Mixed-use bonus</span><b>+${Math.round((SECTOR_MIX[sec] - 1) * 100)}%</b></div>
-      <div><span>Crew</span><b>${fmt(CREW_CPS, true)}/s</b></div>
+      <div><span>Crew, citywide</span><b>${fmt(CREW_CPS, true)}/s</b></div>
       ${shacks ? `<div><span>${dot('#948cc0')}Shacks</span><b>${shacks}</b></div>` : ''}
       ${counts}
     </div>
-  </div>
-  <div class="foot">
-    <span>Progress saves in this browser.</span>
-    <button class="wipe ${wipeArmed ? 'armed' : ''}" type="button" data-act="wipe">${wipeArmed ? 'Click again to wipe the city' : 'Start over'}</button>
   </div>`;
 }
 
@@ -2114,21 +2392,27 @@ function crewHTML() {
     const qty = crewMode === 'max' ? Math.max(1, crewMax(c)) : crewMode;
     const L = LINES[c.id];
     const nb = S.sectors.reduce((a, s) => a + s.lines.filter(x => x === c.id).length, 0);
-    const boostLine = nb
-      ? `${nb} ${esc(L.name)}${nb === 1 ? '' : 's'} boost them ×${(CREW_BOOST[c.id]).toFixed(2)}`
-      : (S.crew[c.id] ? `Upgrade a Shack into a ${esc(L.name)} to boost them` : `Hiring one unlocks ${esc(L.name)} buildings`);
+    const staffLine = nb
+      ? `Staff ${nb} ${esc(L.name)}${nb === 1 ? '' : 's'}, each earning ×${staffMult(c.id).toFixed(2)}`
+      : (S.crew[c.id] ? `Upgrade a Shack into a ${esc(L.name)} to put them to work` : `Hiring one unlocks ${esc(L.name)} buildings`);
     rows.push(`<div class="row" data-crew="${c.id}">
       <span class="name">${dot(L.color)}${c.name}</span>
-      <span class="owned">${S.crew[c.id] || 0}</span>
+      <span class="owned">${fmt(S.crew[c.id] || 0)}</span>
       <span class="desc">${c.desc}</span>
-      <span class="boost">${boostLine}</span>
-      ${buyBtn('crew', `data-id="${c.id}"`, `Hire <span data-q>${qty}</span>`, `+${fmt(crewEach(c.id), true)} / sec each`, crewCost(c, qty))}
+      <span class="boost">${staffLine}</span>
+      ${buyBtn('crew', `data-id="${c.id}"`, `Hire <span data-q>${qty}</span>`, `+<span data-g>${fmt(hireGain(c.id, qty), true)}</span> / sec`, crewCost(c, qty))}
     </div>`);
   }
+  const ch = cheapestHire();
   return `
+  <div class="group">
+    <h3>Buy in bulk</h3>
+    ${ch ? buyBtn('hire-all', '', 'Hire everyone I can afford', 'Crew only · cheapest hire first, across every role', ch.cost) : ''}
+    ${M.autoHire ? toggleBtn('auto-hire', S.auto.hire, 'Auto-hire') : ''}
+  </div>
   <div class="head-row"><h3>Hire crew</h3><div class="modes">${modes}</div></div>
   <div class="group">${rows.join('')}</div>
-  <p class="blurb">There is no cap on crew. Each hire costs 15% more than the last. Each role has its own building type, and every one you build boosts that role’s output.</p>`;
+  <p class="blurb">There is no cap on crew. Each hire costs 15% more than the last. Crew earn pay, and they also staff their own building type: the more you hire, the more those buildings earn. Housing fills with tenants from every role.</p>`;
 }
 
 function techHTML() {
@@ -2141,19 +2425,29 @@ function techHTML() {
     ${avail.length ? avail.map(t => buyBtn('tech', `data-id="${t.id}"`, t.name, t.desc, t.cost, 'alt')).join('')
                    : `<div class="locked">Nothing to install yet.</div>`}
   </div>
-  ${locked.length ? `<div class="group"><h3>Next unlock</h3>
-     <div class="locked"><b>${locked[0].name}</b>. ${locked[0].hint} to unlock it.</div>
-     ${locked.length > 1 ? `<p class="blurb">${locked.length - 1} more upgrades are still encrypted.</p>` : ''}</div>` : ''}
+  ${locked.length ? `<div class="group"><h3>Coming up</h3>
+     ${locked.slice(0, 3).map(t => `<div class="locked"><b>${t.name}</b>. ${t.hint} to unlock it.</div>`).join('')}
+     ${locked.length > 3 ? `<p class="blurb">${locked.length - 3} more upgrades are still encrypted.</p>` : ''}</div>` : ''}
   ${done.length ? `<div class="group"><h3>Installed</h3><div class="installed">${done.map(t => `<span class="chip">${t.name}</span>`).join('')}</div></div>` : ''}`;
 }
 
 function infraHTML() {
   const k = S.sectors.length, last = k - 1;
   const have = ownedIn(last);
-  const next = roadReady()
-    ? buyBtn('road', '', `Build a cyber road to Sector ${k}: ${esc(sectorName(k))}`,
-        `New ${N}×${N} sector · its buildings earn ×${fmt(secOut(k))} · all crew pay ×${CREW_SECTOR}`, roadCost(k), 'big')
-    : `<div class="locked">Own <b>${ROAD_REQ}</b> lots in ${esc(sectorName(last))} to survey a road to Sector ${k}. You have <b>${have}</b>.</div>`;
+  let next;
+  if (roadReady()) {
+    const open = DISTRICT_IDS.filter(d => d !== 'capital' && districtUnlocked(d));
+    const locked = DISTRICT_IDS.filter(d => d !== 'capital' && !districtUnlocked(d));
+    next = `<p class="blurb">Pick what the next district is for. Every option costs the same. Its matching building type earns ×${PERK_MULT} there, everything there earns ×${fmt(secOut(k))}, and all crew pay rises ×${CREW_SECTOR}.</p>
+      ${open.map(d => {
+        const D = DISTRICTS[d], built = S.sectors.filter(x => x.type === d).length;
+        return buyBtn('road', `data-id="${d}"`, `${dot(`rgb(${D.haze})`)}${D.name}${built ? `<span class="tag" style="color:var(--dim)">own ${built}</span>` : ''}`,
+          `${perkText(D.perk)} · ${esc(D.blurb)}`, roadCost(k));
+      }).join('')}
+      ${locked.length ? `<p class="blurb">Hire crew to plan more: ${locked.map(d => `${DISTRICTS[d].name} (${CREW_BY_ID[DISTRICTS[d].perk].name})`).join(', ')}.</p>` : ''}`;
+  } else {
+    next = `<div class="locked">Own <b>${ROAD_REQ}</b> lots in ${esc(sectorName(last))} to plan your next district. You have <b>${have}</b>.</div>`;
+  }
   const roads = [];
   for (let r = 1; r < k; r++) {
     const lv = S.roads[r];
@@ -2165,18 +2459,53 @@ function infraHTML() {
       : `<div class="maxed" style="grid-column:1/-1;margin-top:6px">Top grade.</div>`}</div>`);
   }
   const sectors = S.sectors.map((_, i) => `<div class="sector-row ${i === S.cur ? 'here' : ''}">
-      <span><b>${i}. ${esc(sectorName(i))}</b><small>${ownedIn(i)}/${N * N} lots · +${fmt(SECTOR_CPS[i], true)}/s</small></span>
+      <span><b>${dot(`rgb(${theme(i).haze})`)}${esc(sectorName(i))}</b><small>${perkText(perkOf(i))} · ${ownedIn(i)}/${N * N} lots · +${fmt(SECTOR_CPS[i], true)}/s</small></span>
       <button class="mode" type="button" data-act="goto" data-id="${i}" ${i === S.cur && view === 'city' ? 'aria-pressed="true"' : ''}>${i === S.cur && view === 'city' ? 'Viewing' : 'View'}</button>
     </div>`).join('');
   return `
-  <div class="group">
-    <h3>Cyber roads</h3>
-    <p class="blurb">Each road opens a new sector next to your newest one, with a free Shack to start. Prices there are ×${SECTOR_COST} higher than the sector before and buildings earn ×${SECTOR_OUT} more. Every road also multiplies all crew pay ×${CREW_SECTOR}.</p>
-    ${next}
-  </div>
+  <div class="group"><h3>Your districts</h3>${sectors}</div>
+  <div class="group"><h3>Build a cyber road to a new district</h3>${next}</div>
   ${roads.length ? `<div class="group"><h3>Road network</h3>${roads.join('')}
-     <p class="blurb">Road grades add up. You have +${Math.round((roadMult() - 1) * 100)}% to all output from roads.</p></div>` : ''}
-  <div class="group"><h3>Sectors</h3>${sectors}</div>`;
+     <p class="blurb">Road grades add up. You have +${Math.round((roadMult() - 1) * 100)}% to all output from roads.</p></div>` : ''}`;
+}
+
+function goalsHTML() {
+  const pend = pendingChips();
+  const got = new Set(S.ach);
+  const nextChipAt = Math.pow(chipsFor(S.lifetime) + 1, 1 / CHIP_EXP) * CHIP_DIV;
+  let rebootBody;
+  if (canReboot()) {
+    rebootBody = `<button class="buy big ${rebootArmed ? 'armed' : ''}" type="button" data-act="reboot">
+        <span class="what">${rebootArmed ? 'Click again to reboot. Your city resets.' : `Reboot for ${fmt(pend)} Neural Chips`}</span>
+        <span class="sub">+${Math.round(pend * CHIP_BONUS * 100)}% to all income, for every run after this</span>
+        <span class="cost">${fmt(pend)}</span>
+      </button>`;
+  } else if (S.sectors.length < 2) {
+    rebootBody = `<div class="locked">Build your first district to unlock rebooting. You will have <b>${fmt(Math.max(pend, 0))}</b> chips waiting.</div>`;
+  } else {
+    rebootBody = `<div class="locked">Your first chip arrives at <b>${fmt(nextChipAt)}</b> credits earned across all runs. You have <b>${fmt(S.lifetime)}</b>.</div>`;
+  }
+  const achRows = ACHIEVEMENTS.map(a => `<li class="ach ${got.has(a.id) ? 'got' : ''}"><b>${esc(a.name)}</b><span>${esc(a.desc)}</span></li>`).join('');
+  return `
+  <div class="group">
+    <h3>Reboot the Grid</h3>
+    <p class="blurb">Wipe the city and start again with Neural Chips. Each chip adds +${Math.round(CHIP_BONUS * 100)}% to all income for good. Chips come from everything you have ever earned, so every run makes the next one faster. Achievements and chips survive a reboot.</p>
+    <div class="stats">
+      <div><span>Neural Chips</span><b>${fmt(S.chips)}</b></div>
+      <div><span>Chip bonus</span><b>+${Math.round((M.chip - 1) * 100)}%</b></div>
+      <div><span>Ready to claim</span><b>${fmt(pend)}</b></div>
+      <div><span>Reboots</span><b>${S.reboots}</b></div>
+    </div>
+    ${rebootBody}
+  </div>
+  <div class="group">
+    <div class="head-row"><h3>Achievements</h3><span class="eyebrow">${S.ach.length} / ${ACHIEVEMENTS.length} · +${Math.round((M.achieve - 1) * 100)}% income</span></div>
+    <ul class="achs">${achRows}</ul>
+  </div>
+  <div class="foot">
+    <span>Progress saves in this browser.</span>
+    <button class="wipe ${wipeArmed ? 'armed' : ''}" type="button" data-act="wipe">${wipeArmed ? 'Click again to erase everything' : 'Erase save'}</button>
+  </div>`;
 }
 
 function render() {
@@ -2185,7 +2514,8 @@ function render() {
   // keep keyboard focus on the same control across a re-render
   const f = panel.contains(document.activeElement) ? document.activeElement : null;
   const fAct = f && f.dataset.act, fId = f && f.dataset.id, fLine = f && f.dataset.line;
-  panel.innerHTML = tab === 'build' ? buildHTML() : tab === 'crew' ? crewHTML() : tab === 'tech' ? techHTML() : infraHTML();
+  panel.innerHTML = tab === 'build' ? buildHTML() : tab === 'crew' ? crewHTML() : tab === 'tech' ? techHTML()
+    : tab === 'infra' ? infraHTML() : goalsHTML();
   panel.scrollTop = scroll;
   if (fAct) {
     const all = [...panel.querySelectorAll(`[data-act="${fAct}"]`)];
@@ -2199,8 +2529,6 @@ function refresh() {
   $('#credits').textContent = fmt(S.credits);
   $('#rate').textContent = `+${fmt(CPS, true)} / sec`;
   $('#hack-value').textContent = `+${fmt(hackValue(), true)} per hack`;
-  const total = $('#stat-total');
-  if (total) total.textContent = fmt(S.total);
   if (tab === 'crew' && crewMode === 'max') {
     panel.querySelectorAll('[data-crew]').forEach(row => {
       const c = CREW_BY_ID[row.dataset.crew];
@@ -2208,13 +2536,20 @@ function refresh() {
       const b = row.querySelector('.buy');
       b.dataset.cost = crewCost(c, q);
       b.querySelector('[data-q]').textContent = q;
-      b.querySelector('.cost').textContent = fmt(+b.dataset.cost);
+      b.querySelector('[data-g]').textContent = fmt(hireGain(c.id, q), true);
+      b.querySelector('.cost').firstChild.textContent = fmt(+b.dataset.cost);
     });
   }
   panel.querySelectorAll('[data-cost]').forEach(b => {
     const cost = +b.dataset.cost;
-    b.disabled = S.credits < cost;
+    const short = S.credits < cost;
+    b.disabled = short;
     b.style.setProperty('--p', Math.min(1, S.credits / cost).toFixed(3));
+    const eta = b.querySelector('.eta');
+    if (eta) {
+      const sec = short && CPS > 0 ? (cost - S.credits) / CPS : 0;
+      eta.textContent = !short ? '' : sec > 86400 ? 'over a day' : CPS > 0 ? 'in ' + duration(Math.max(1, sec)) : '';
+    }
   });
   const crewAff = CREW.filter((c, n) => crewVisible(n) && S.credits >= crewCost(c, 1)).length;
   const techAff = TECH.filter(t => !S.tech.includes(t.id) && t.req() && S.credits >= t.cost).length;
@@ -2226,6 +2561,7 @@ function refresh() {
   setBadge('crew', tab === 'crew' ? 0 : crewAff);
   setBadge('tech', tab === 'tech' ? 0 : techAff);
   setBadge('infra', tab === 'infra' ? 0 : infraAff);
+  setBadge('goals', tab === 'goals' ? 0 : newAch + (canReboot() ? 1 : 0));
 }
 function setBadge(name, n) {
   const el = $('#badge-' + name);
@@ -2233,9 +2569,19 @@ function setBadge(name, n) {
   el.textContent = n;
 }
 
+// Two-step confirm for anything that erases progress.
+function armed(which) {
+  const t = performance.now();
+  if (which === 'wipe' ? wipeArmed && t - wipeArmed < 4000 : rebootArmed && t - rebootArmed < 4000) return true;
+  if (which === 'wipe') wipeArmed = t; else rebootArmed = t;
+  setTimeout(() => { wipeArmed = rebootArmed = 0; dirty = true; }, 4000);
+  dirty = true;
+  return false;
+}
+
 panel.addEventListener('click', e => {
   const b = e.target.closest('[data-act]');
-  if (!b || b.disabled) return;
+  if (!b || b.disabled || b.tagName === 'SELECT') return;
   const act = b.dataset.act, id = b.dataset.id;
   if (act === 'upgrade') {
     const k = +id, s = cur();
@@ -2243,9 +2589,23 @@ panel.addEventListener('click', e => {
       s.sel = k;
       const [x, y] = roofPoint(S.cur, k);
       floater(x, y - 12, buildingName(s.lots[k], s.lines[k]), '#3ef2ff');
+      Sound.build();
     }
   } else if (act === 'acquire') {
-    acquireLot(S.cur);
+    if (acquireLot(S.cur)) Sound.buy();
+  } else if (act === 'upgrade-all') {
+    const n = upgradeAllIn(S.cur);
+    if (n) { toast(`${n} upgrade${n === 1 ? '' : 's'} built in ${sectorName(S.cur)}.`); Sound.build(); }
+  } else if (act === 'lots-all') {
+    const n = buyAllLotsIn(S.cur);
+    if (n) { toast(`${n} lot${n === 1 ? '' : 's'} bought in ${sectorName(S.cur)}.`); Sound.buy(); }
+  } else if (act === 'hire-all') {
+    const n = hireAll();
+    if (n) { toast(`${n} crew hired.`); Sound.buy(); }
+  } else if (act === 'auto-build') {
+    S.auto.build = !S.auto.build; save(); dirty = true;
+  } else if (act === 'auto-hire') {
+    S.auto.hire = !S.auto.hire; save(); dirty = true;
   } else if (act === 'prev' || act === 'next') {
     const s = cur();
     const list = ORDER.filter(k => s.lots[k]);
@@ -2253,33 +2613,35 @@ panel.addEventListener('click', e => {
     s.sel = list[(at + (act === 'next' ? 1 : -1) + list.length) % list.length];
     dirty = true;
   } else if (act === 'crew') {
-    hireCrew(id);
+    if (hireCrew(id)) Sound.buy();
   } else if (act === 'mode') {
     crewMode = id === 'max' ? 'max' : +id;
     dirty = true;
   } else if (act === 'tech') {
-    buyTech(id);
+    if (buyTech(id)) Sound.big();
   } else if (act === 'road') {
-    buildRoad();
+    if (buildRoad(id)) Sound.big();
     updateSectorBar();
   } else if (act === 'roadup') {
-    upgradeRoad(+id);
+    if (upgradeRoad(+id)) Sound.build();
   } else if (act === 'goto') {
     goSector(+id);
     setView('city');
     dirty = true;
+  } else if (act === 'reboot') {
+    if (armed('reboot')) { rebootArmed = 0; reboot(); Sound.big(); setTab('build'); }
   } else if (act === 'wipe') {
-    if (wipeArmed && performance.now() - wipeArmed < 4000) {
+    if (armed('wipe')) {
       S = fresh(); wipeArmed = 0; fabs.clear(); view = 'city'; afterChange();
       updateSectorBar();
       startFabrication(0, cur().sel);
-      toast('City wiped. One shack, one sign, back to work.');
-    } else {
-      wipeArmed = performance.now();
-      setTimeout(() => { if (wipeArmed) { wipeArmed = 0; dirty = true; } }, 4000);
-      dirty = true;
+      toast('Save erased. One shack, one sign, back to work.');
+      setTab('build');
     }
   }
+});
+panel.addEventListener('change', e => {
+  if (e.target.id === 'auto-line' && LINES[e.target.value]) { S.lastLine = e.target.value; save(); dirty = true; }
 });
 
 /* ================================================================
@@ -2302,7 +2664,7 @@ function headlines() {
     'Grid Security Bureau reminds citizens to patch their cyberdecks',
     'Drone courier lost over the city, payload still unrecovered',
     'Maglev Line 4 delayed after a billboard fell onto the track',
-    `Local developer now holds ${ownedTotal()} lots across ${S.sectors.length} sector${S.sectors.length === 1 ? '' : 's'}`,
+    `Local developer now holds ${ownedTotal()} lots across ${S.sectors.length} district${S.sectors.length === 1 ? '' : 's'}`,
     `Credit flow out of the sprawl hits ${fmt(CPS, true)} per second, analysts nervous`,
   ];
   if (S.best >= 5) lines.push('New corporate beacon confuses migrating pigeons');
@@ -2311,6 +2673,8 @@ function headlines() {
   if ((S.crew.ai || 0) > 0) lines.push('Rogue AI denies being rogue, files for a business licence');
   if (crewBuildings() > 0) lines.push('Zoning board gives up trying to tell an arcade from a netcafé');
   if (S.sectors.length > 1) lines.push(`Cyber road to ${sectorName(S.sectors.length - 1)} sees record traffic on opening night`);
+  if (S.sectors.some(x => x.type === 'docks')) lines.push('Loading Docks report a container of "miscellaneous" goods, again');
+  if (S.chips > 0) lines.push('Citizens report a strong feeling they have lived this week before');
   if (S.roads.some(l => l >= 4)) lines.push('Hyperloop commuters report arriving before they left');
   for (let i = lines.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [lines[i], lines[j]] = [lines[j], lines[i]]; }
   return lines;
@@ -2326,11 +2690,84 @@ tickerEl.addEventListener('animationiteration', fillTicker);
 if (reduceMotion) setInterval(fillTicker, 9000);
 
 /* ================================================================
+   Sound: synthesised in the browser, off until the player turns it on
+   ================================================================ */
+const SOUND_KEY = 'neon-sprawl/sound';
+const Sound = (() => {
+  let ac = null, master = null, on = false, lastBlip = 0;
+  function init() {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return false;
+    ac = new AC();
+    master = ac.createGain();
+    master.gain.value = 0.5;
+    master.connect(ac.destination);
+    // rain: looping noise through a band-pass filter
+    const len = ac.sampleRate * 2, buf = ac.createBuffer(1, len, ac.sampleRate), d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+    const rain = ac.createBufferSource(); rain.buffer = buf; rain.loop = true;
+    const bp = ac.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 1400; bp.Q.value = 0.5;
+    const rg = ac.createGain(); rg.gain.value = 0.05;
+    rain.connect(bp).connect(rg).connect(master); rain.start();
+    // a low, detuned synth pad under the rain
+    for (const f of [55, 82.4, 110.2]) {
+      const o = ac.createOscillator(); o.type = 'sawtooth'; o.frequency.value = f; o.detune.value = Math.random() * 14 - 7;
+      const lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 260;
+      const g = ac.createGain(); g.gain.value = 0.018;
+      o.connect(lp).connect(g).connect(master); o.start();
+    }
+    return true;
+  }
+  function blip(freq, dur, type, vol, slide, delay = 0) {
+    if (!on || !ac) return;
+    const t = ac.currentTime + delay;
+    const o = ac.createOscillator(); o.type = type; o.frequency.setValueAtTime(freq, t);
+    if (slide) o.frequency.exponentialRampToValueAtTime(freq * slide, t + dur);
+    const g = ac.createGain(); g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g).connect(master); o.start(t); o.stop(t + dur + 0.02);
+  }
+  const throttled = fn => () => { const t = performance.now(); if (t - lastBlip < 70) return; lastBlip = t; fn(); };
+  return {
+    get on() { return on; },
+    set(v) {
+      if (v && !ac && !init()) return false;
+      on = v;
+      if (ac) (on ? ac.resume() : ac.suspend()).catch(() => {});
+      try { localStorage.setItem(SOUND_KEY, on ? '1' : '0'); } catch (e) { /* storage unavailable */ }
+      return on;
+    },
+    buy: throttled(() => blip(660, 0.07, 'square', 0.04, 1.5)),
+    build: throttled(() => { blip(330, 0.25, 'sawtooth', 0.05, 2); blip(660, 0.2, 'triangle', 0.04, 0, 0.09); }),
+    hack: () => blip(180 + Math.random() * 420, 0.05, 'square', 0.035, 0.5),
+    courier: () => [523, 659, 784, 1046].forEach((f, i) => blip(f, 0.14, 'triangle', 0.05, 0, i * 0.07)),
+    big: () => [262, 330, 392, 523].forEach((f, i) => blip(f, 0.45, 'sawtooth', 0.04, 0, i * 0.12)),
+  };
+})();
+const soundBtn = $('#sound');
+function paintSound() {
+  soundBtn.setAttribute('aria-pressed', String(Sound.on));
+  soundBtn.title = Sound.on ? 'Sound on' : 'Sound off';
+}
+soundBtn.addEventListener('click', () => { Sound.set(!Sound.on); paintSound(); Sound.buy(); });
+
+/* ================================================================
    Main loop
    ================================================================ */
 let last = performance.now();
-let uiClock = 0, slowClock = 0, saveClock = 0;
+let uiClock = 0, slowClock = 0, saveClock = 0, autoClock = 0;
 let techSig = '';
+
+function checkAchievements() {
+  const earned = ACHIEVEMENTS.filter(a => !S.ach.includes(a.id) && a.test());
+  if (!earned.length) return;
+  for (const a of earned) {
+    S.ach.push(a.id);
+    newAch++;
+    toast(`Achievement: ${a.name}. All income +${Math.round(ACH_BONUS * 100)}%.`, 'gold');
+  }
+  Sound.courier();
+  afterChange();
+}
 
 function frame(now) {
   const real = Math.min((now - last) / 1000, OFFLINE_CAP);
@@ -2347,20 +2784,31 @@ function frame(now) {
 
   draw(now, dt);
 
+  // automation runs a few purchases at a time so the city visibly builds itself
+  autoClock += real;
+  if (autoClock > 0.5) {
+    autoClock = 0;
+    let n = 0;
+    if (M.autoBuild && S.auto.build) n += autoBuildTick(25);
+    if (M.autoHire && S.auto.hire) n += hireAll(50);
+    if (n) Sound.buy();
+  }
+
   uiClock += dt; slowClock += dt; saveClock += real;
   if (dirty) render();
   else if (uiClock > 0.1) { uiClock = 0; refresh(); }
   if (slowClock > 1) {
     slowClock = 0;
+    checkAchievements();
     const avail = TECH.filter(t => !S.tech.includes(t.id) && t.req()).map(t => t.id);
-    const sig = avail.join(',') + '|' + roadReady();
+    const sig = avail.join(',') + '|' + roadReady() + '|' + canReboot();
     if (sig !== techSig) {
       for (const id of avail) if (!S.seen.includes(id)) {
         S.seen.push(id);
         toast(`New tech decrypted: ${TECH_BY_ID[id].name}. Find it under Tech.`, 'pink');
       }
       techSig = sig;
-      if (tab === 'tech' || tab === 'infra') dirty = true;
+      if (tab !== 'build' && tab !== 'crew') dirty = true;
     }
   }
   if (saveClock > 10) { saveClock = 0; save(); }
@@ -2387,6 +2835,11 @@ function boot(hot) {
     startFabrication(0, cur().sel);
     setTimeout(() => toast('One shack, one lot. It earns a credit a second. Grow it.'), 600);
   }
+  // Browsers only allow audio after a click, so a saved "sound on" waits for the first one.
+  let wantSound = false;
+  try { wantSound = localStorage.getItem(SOUND_KEY) === '1'; } catch (e) { /* storage unavailable */ }
+  if (wantSound) document.addEventListener('pointerdown', () => { if (!Sound.on) { Sound.set(true); paintSound(); } }, { once: true });
+  paintSound();
   resize();
   new ResizeObserver(resize).observe(cvs);
   updateSectorBar();
@@ -2402,9 +2855,10 @@ window.neonSprawl = {
   get state() { return S; },
   get cps() { return CPS; },
   advance(sec) { earn(CPS * sec); },
-  upgradeLot, acquireLot, hireCrew: (id, n) => { const m = crewMode; crewMode = n || 1; const ok = hireCrew(id); crewMode = m; return ok; },
+  upgradeLot, acquireLot, hireCrew: (id, n) => hireN(id, n || 1), hireAll, upgradeAllIn, buyAllLotsIn, autoBuildTick,
   buyTech, buildRoad, upgradeRoad, upgradeCost, lotCost, crewCost, roadCost, roadUpgradeCost, roadReady, nextLot,
-  lotOutput, crewEach, recalc, lineUnlocked, setView, goSector, TECH, CREW, LINES,
+  lotOutput, upgradeGain, crewEach, recalc, lineUnlocked, districtUnlocked, setView, goSector, reboot, pendingChips, canReboot,
+  checkAchievements, TECH, CREW, LINES, DISTRICTS,
 };
 
 window.claude?.hot?.snapshot?.(() => serialize());
