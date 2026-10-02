@@ -31,7 +31,7 @@ You start with one Shack in the Capital, earning 1 cyber credit a second.
   - **Reboot the Grid** wipes the city in exchange for Neural Chips, each worth +2% income for good.
   - **Achievements**: 41 of them, each worth +2% income. Chips and achievements survive a reboot.
 
-Buttons you can't afford yet show how long until you can. Once you have two districts, a bar over the city switches between them, and the map shows them all. Sound (synth effects and rain) is off until you turn it on.
+Buttons you can't afford yet show how long until you can. Once you have two districts, a bar over the city switches between them, and the map shows them all. Sound is a Tron-style techno track plus synth effects, all generated in the browser, and is off until you turn it on.
 
 Progress saves to `localStorage` every 10 seconds. While you're away the city keeps earning, for up to 8 hours. Saves from earlier versions load, with their first sector becoming the Capital.
 
