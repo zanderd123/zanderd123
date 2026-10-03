@@ -2,6 +2,14 @@
 
 A cyberpunk idle city builder in a single HTML file. Open `index.html` in a browser; there's no build step.
 
+**Play it:** https://zanderd123.github.io/zanderd123/
+
+## Publishing
+
+`.github/workflows/pages.yml` publishes this folder to GitHub Pages whenever `neon-sprawl/` changes on the repo's default branch. It needs one setting: **Settings → Pages → Source: GitHub Actions**. `preview.png` is the image shown when the link is shared.
+
+On the public site there's no claude.ai cloud save; players keep the browser save and save codes.
+
 You start with one Shack in the Capital, earning 1 cyber credit a second.
 
 ## Tabs
