@@ -1,0 +1,3174 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Neon Sprawl</title>
+<meta name="description" content="A cyberpunk idle city builder. Grow one neon shack into a Capital and a sprawl of districts, staff them with crew, and reboot the grid for Neural Chips.">
+<meta name="theme-color" content="#08070f">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Neon Sprawl">
+<meta property="og:description" content="A cyberpunk idle city builder. Grow one neon shack into a skyline of arcologies.">
+<meta property="og:url" content="https://zanderd123.github.io/zanderd123/">
+<meta property="og:image" content="https://zanderd123.github.io/zanderd123/preview.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='10' fill='%2308070f'/%3E%3Cpath d='M32 6v8' stroke='%23a49ccc' stroke-width='2'/%3E%3Cpath d='M24 18l8-4 8 4v30l-8 4-8-4z' fill='%23221a3d'/%3E%3Cpath d='M32 22v30l8-4V18z' fill='%23302654'/%3E%3Cpath d='M24 18l8 4 8-4M32 22v30' stroke='%23ff2bd6' stroke-width='2' fill='none'/%3E%3Cpath d='M12 40l8-4 4 2v12l-4 2-8-4zM44 38l4-2 8 4v10l-8 4-4-2z' fill='%233ef2ff' opacity='.85'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=Share+Tech+Mono&family=Tektur:wght@500;700;800&display=swap">
+<style>
+/* Layout: a two-pane municipal console. The live isometric city fills the left pane, the upgrade terminal sits on the right; they stack on phones. */
+:root {
+  --bg: #08070f;
+  --panel: #110f1e;
+  --panel-2: #181530;
+  --line: #2b2648;
+  --ink: #ece8ff;
+  --dim: #948cc0;
+  --cyan: #3ef2ff;
+  --magenta: #ff2bd6;
+  --amber: #ffc23e;
+  --ok: #5dffb0;
+  --f-display: 'Tektur', 'Chakra Petch', system-ui, sans-serif;
+  --f-body: 'Chakra Petch', system-ui, sans-serif;
+  --f-mono: 'Share Tech Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  --cut: 10px;
+  color-scheme: dark;
+}
+html, body { height: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 15px/1.45 var(--f-body);
+  -webkit-font-smoothing: antialiased;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+button { font: inherit; color: inherit; }
+
+.app {
+  height: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 390px;
+  gap: 16px;
+  padding-block: 16px;
+  padding-inline: 16px;
+}
+
+/* ---------- City pane ---------- */
+.city {
+  position: relative;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  background: #0b0918;
+}
+.city canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  cursor: crosshair;
+  touch-action: manipulation;
+}
+.hud {
+  position: absolute;
+  inset: 0 0 auto 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 14px 16px;
+  pointer-events: none;
+  background: linear-gradient(to bottom, rgba(8, 7, 15, 0.85), rgba(8, 7, 15, 0));
+}
+.hud > * { pointer-events: auto; }
+.eyebrow {
+  font: 12px/1.2 var(--f-mono);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+.credits-value {
+  font: 800 clamp(30px, 4.4vw, 48px)/1 var(--f-display);
+  color: var(--amber);
+  text-shadow: 0 0 18px rgba(255, 194, 62, 0.45);
+  font-variant-numeric: tabular-nums;
+  margin-block: 4px 2px;
+}
+.credits-rate {
+  font: 15px/1.2 var(--f-mono);
+  color: var(--cyan);
+  font-variant-numeric: tabular-nums;
+}
+.hack {
+  display: grid;
+  gap: 2px;
+  justify-items: start;
+  padding: 10px 18px 10px 16px;
+  border: 1px solid var(--magenta);
+  background: rgba(255, 43, 214, 0.12);
+  clip-path: polygon(0 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% 100%, var(--cut) 100%, 0 calc(100% - var(--cut)));
+  cursor: pointer;
+  transition: background 0.15s, transform 0.08s;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.hack:hover { background: rgba(255, 43, 214, 0.24); }
+.hack:active { transform: scale(0.97); }
+.hack:focus-visible { outline: 2px solid var(--cyan); outline-offset: -4px; }
+.hack b {
+  font: 700 18px/1.1 var(--f-display);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--magenta);
+  text-shadow: 0 0 12px rgba(255, 43, 214, 0.6);
+}
+.hack span { font: 12.5px/1.2 var(--f-mono); color: var(--ink); font-variant-numeric: tabular-nums; }
+.hack.pulse { animation: hackpulse 0.25s ease-out; }
+@keyframes hackpulse { from { background: rgba(255, 43, 214, 0.5); } }
+
+.ticker {
+  position: absolute;
+  inset: auto 0 0 0;
+  display: flex;
+  align-items: stretch;
+  height: 32px;
+  border-top: 1px solid var(--line);
+  background: rgba(8, 7, 15, 0.86);
+  font: 13px/32px var(--f-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.ticker-label {
+  flex: none;
+  padding-inline: 12px;
+  background: var(--magenta);
+  color: var(--bg);
+  font-weight: 700;
+}
+.ticker-track { position: relative; flex: 1; min-width: 0; overflow: hidden; color: var(--ink); }
+.ticker-text {
+  display: inline-block;
+  white-space: nowrap;
+  padding-left: 100%;
+  animation: marquee 40s linear infinite;
+}
+@keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-100%); } }
+
+.toasts {
+  position: absolute;
+  left: 16px;
+  bottom: 46px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: min(420px, calc(100% - 32px));
+  pointer-events: none;
+}
+.toast {
+  padding: 9px 14px;
+  background: rgba(17, 15, 30, 0.94);
+  border: 1px solid var(--cyan);
+  color: var(--ink);
+  font-size: 14px;
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%);
+  animation: toastin 0.25s ease-out;
+}
+.toast.gold { border-color: var(--amber); }
+.toast.pink { border-color: var(--magenta); }
+.toast.out { opacity: 0; transition: opacity 0.4s; }
+@keyframes toastin { from { opacity: 0; transform: translateY(8px); } }
+
+/* ---------- Console pane ---------- */
+.panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border: 1px solid var(--line);
+  background: var(--panel);
+}
+.brand {
+  padding: 16px 18px 12px;
+  border-bottom: 1px solid var(--line);
+}
+.brand h1 {
+  margin: 0;
+  font: 800 26px/1 var(--f-display);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+.brand h1 em { font-style: normal; color: var(--cyan); text-shadow: 0 0 14px rgba(62, 242, 255, 0.5); }
+.brand p { margin: 6px 0 0; }
+
+.tabs { display: flex; border-bottom: 1px solid var(--line); }
+.tab {
+  flex: 1;
+  padding: 12px 2px 10px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  font: 600 13px/1 var(--f-display);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--dim);
+  cursor: pointer;
+}
+.tab { position: relative; white-space: nowrap; }
+.tab:hover { color: var(--ink); }
+.tab[aria-selected="true"] { color: var(--cyan); border-bottom-color: var(--cyan); }
+.tab:focus-visible { outline: 2px solid var(--cyan); outline-offset: -4px; }
+.tab .badge {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  min-width: 15px;
+  padding: 1px 3px;
+  font-size: 10px;
+}
+.badge {
+  display: inline-block;
+  min-width: 18px;
+  margin-left: 4px;
+  padding: 2px 5px;
+  background: var(--magenta);
+  color: var(--bg);
+  font: 700 11px/1 var(--f-mono);
+  vertical-align: 1px;
+}
+
+.panel-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 16px 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.panel-body h3 {
+  margin: 0;
+  font: 600 13px/1.2 var(--f-mono);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+.group { display: flex; flex-direction: column; gap: 10px; }
+
+.lot-card {
+  border: 1px solid var(--line);
+  background: var(--panel-2);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.lot-head { display: flex; align-items: center; gap: 10px; }
+.lot-head > div { flex: 1; min-width: 0; }
+.lot-head h2 {
+  margin: 2px 0 0;
+  font: 700 24px/1.1 var(--f-display);
+  text-wrap: balance;
+}
+.nav {
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--dim);
+  font: 18px/1 var(--f-mono);
+  cursor: pointer;
+}
+.nav:hover { color: var(--cyan); border-color: var(--cyan); }
+.nav:focus-visible { outline: 2px solid var(--cyan); outline-offset: 1px; }
+.pips { display: flex; gap: 4px; }
+.pip { flex: 1; height: 8px; transform: skewX(-24deg); background: #221d3d; }
+.pip.on { background: var(--cyan); box-shadow: 0 0 8px rgba(62, 242, 255, 0.5); }
+.pip.next { background: transparent; outline: 1px solid var(--magenta); outline-offset: -1px; }
+.blurb { margin: 0; color: var(--dim); font-size: 14px; }
+.kv { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; }
+.kv b { font: 15px/1.3 var(--f-mono); color: var(--cyan); font-variant-numeric: tabular-nums; font-weight: 400; }
+
+.buy {
+  --p: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 4px 12px;
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid rgba(62, 242, 255, 0.7);
+  background:
+    linear-gradient(90deg, rgba(62, 242, 255, 0.16) calc(var(--p) * 100%), transparent 0),
+    rgba(62, 242, 255, 0.04);
+  text-align: left;
+  cursor: pointer;
+  clip-path: polygon(0 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% 100%, 0 100%);
+  transition: border-color 0.15s, filter 0.15s;
+}
+.buy:hover:not(:disabled) { filter: brightness(1.25); }
+.buy:focus-visible { outline: 2px solid var(--magenta); outline-offset: -4px; }
+.buy:disabled {
+  cursor: not-allowed;
+  border-color: var(--line);
+  background:
+    linear-gradient(90deg, rgba(148, 140, 192, 0.12) calc(var(--p) * 100%), transparent 0),
+    transparent;
+}
+.buy .what { font-weight: 600; min-width: 0; }
+.buy .sub { grid-column: 1; font: 12.5px/1.3 var(--f-mono); color: var(--ok); font-variant-numeric: tabular-nums; }
+.buy:disabled .sub { color: var(--dim); }
+.buy .cost {
+  grid-row: 1 / span 2;
+  grid-column: 2;
+  font: 16px/1 var(--f-mono);
+  color: var(--amber);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.buy:disabled .cost { color: var(--dim); }
+.buy.big .what { font: 700 16px/1.25 var(--f-display); letter-spacing: 0.02em; }
+.buy.alt { border-color: rgba(255, 43, 214, 0.7); background: linear-gradient(90deg, rgba(255, 43, 214, 0.16) calc(var(--p) * 100%), transparent 0), rgba(255, 43, 214, 0.04); }
+.buy.alt:disabled { border-color: var(--line); background: linear-gradient(90deg, rgba(148, 140, 192, 0.12) calc(var(--p) * 100%), transparent 0), transparent; }
+.maxed {
+  padding: 10px 14px;
+  border: 1px dashed var(--line);
+  color: var(--ok);
+  font: 14px/1.3 var(--f-mono);
+  text-align: center;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px 12px;
+  padding-block: 10px;
+  border-top: 1px solid var(--line);
+}
+.row:first-of-type { border-top: 0; padding-top: 0; }
+.row .name { font-weight: 600; font-size: 16px; }
+.row .name small { font: 13px var(--f-mono); color: var(--magenta); margin-left: 6px; }
+.row .desc { grid-column: 1; color: var(--dim); font-size: 13.5px; }
+.row .owned { grid-row: 1 / span 2; grid-column: 2; align-self: center; font: 22px/1 var(--f-mono); color: var(--ink); font-variant-numeric: tabular-nums; }
+.row .buy { grid-column: 1 / -1; margin-top: 6px; }
+
+.modes { display: flex; gap: 6px; }
+.mode {
+  padding: 5px 12px;
+  border: 1px solid var(--line);
+  background: none;
+  font: 13px/1 var(--f-mono);
+  color: var(--dim);
+  cursor: pointer;
+}
+.mode[aria-pressed="true"] { border-color: var(--cyan); color: var(--cyan); }
+.mode:focus-visible { outline: 2px solid var(--cyan); outline-offset: 1px; }
+.head-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+
+.locked {
+  padding: 10px 14px;
+  border: 1px dashed var(--line);
+  color: var(--dim);
+  font-size: 14px;
+}
+.locked b { font-family: var(--f-mono); color: var(--ink); font-weight: 400; }
+.installed { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip {
+  padding: 4px 9px;
+  border: 1px solid rgba(93, 255, 176, 0.45);
+  color: var(--ok);
+  font: 12.5px/1.2 var(--f-mono);
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 16px;
+  font-size: 14px;
+}
+.stats div { display: flex; justify-content: space-between; gap: 8px; border-bottom: 1px solid var(--line); padding-block: 4px; }
+.stats b { font: 14px var(--f-mono); font-weight: 400; color: var(--ink); font-variant-numeric: tabular-nums; }
+.stats span { color: var(--dim); }
+
+.foot { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; color: var(--dim); font-size: 13px; }
+.wipe {
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  background: none;
+  color: var(--dim);
+  font: 12.5px var(--f-mono);
+  cursor: pointer;
+}
+.wipe.armed { border-color: var(--magenta); color: var(--magenta); }
+.wipe:focus-visible { outline: 2px solid var(--cyan); outline-offset: 1px; }
+
+/* sector switcher over the city */
+.sectorbar {
+  position: absolute;
+  right: 12px;
+  bottom: 42px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px;
+  border: 1px solid var(--line);
+  background: rgba(8, 7, 15, 0.88);
+}
+.sectorbar .nav { width: 30px; height: 30px; }
+.sector-label { display: grid; min-width: 0; padding-inline: 4px; }
+.sector-label b { font: 700 15px/1.15 var(--f-display); letter-spacing: 0.04em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mapbtn {
+  padding: 8px 12px;
+  border: 1px solid var(--cyan);
+  background: rgba(62, 242, 255, 0.1);
+  color: var(--cyan);
+  font: 600 13px/1 var(--f-display);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.mapbtn[aria-pressed="true"] { background: var(--cyan); color: var(--bg); }
+.mapbtn:focus-visible { outline: 2px solid var(--magenta); outline-offset: 1px; }
+.city.has-sectors .toasts { bottom: 96px; }
+.hud-actions { display: flex; gap: 8px; align-items: stretch; }
+.sound {
+  width: 44px;
+  border: 1px solid var(--line);
+  background: rgba(8, 7, 15, 0.7);
+  color: var(--dim);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+.sound:hover { color: var(--ink); }
+.sound:focus-visible { outline: 2px solid var(--cyan); outline-offset: 1px; }
+.sound .waves { display: none; }
+.sound[aria-pressed="true"] { color: var(--cyan); border-color: var(--cyan); }
+.sound[aria-pressed="true"] .waves { display: inline; }
+.sound[aria-pressed="true"] .mute { display: none; }
+
+/* bulk buying and automation */
+.cost .eta { display: block; margin-top: 3px; font-size: 11.5px; color: var(--dim); text-align: right; }
+.cost .eta:empty { display: none; }
+.auto-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  background: var(--panel-2);
+  font: 14px var(--f-body);
+  cursor: pointer;
+}
+.toggle b { font: 14px var(--f-mono); font-weight: 400; color: var(--dim); }
+.toggle .knob { width: 30px; height: 14px; border: 1px solid var(--dim); position: relative; flex: none; }
+.toggle .knob::after { content: ''; position: absolute; top: 2px; left: 2px; width: 10px; height: 8px; background: var(--dim); transition: transform 0.15s; }
+.toggle[aria-pressed="true"] { border-color: var(--ok); }
+.toggle[aria-pressed="true"] b { color: var(--ok); }
+.toggle[aria-pressed="true"] .knob { border-color: var(--ok); }
+.toggle[aria-pressed="true"] .knob::after { background: var(--ok); transform: translateX(14px); }
+.toggle:focus-visible { outline: 2px solid var(--cyan); outline-offset: 1px; }
+.auto-line { display: inline-flex; align-items: center; gap: 8px; color: var(--dim); font-size: 14px; }
+.auto-line select {
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  background: var(--panel-2);
+  color: var(--ink);
+  font: 14px var(--f-body);
+}
+.buy.armed { border-color: var(--magenta); }
+
+/* save */
+.lot-card.capitol { border-color: var(--amber); box-shadow: inset 0 0 0 1px rgba(255, 194, 62, 0.25); }
+.cloud { padding: 9px 12px; border: 1px dashed var(--line); color: var(--dim); font-size: 14px; }
+.cloud.ok { border: 1px solid rgba(93, 255, 176, 0.5); color: var(--ok); }
+.code-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.code {
+  width: 100%;
+  min-width: 0;
+  resize: vertical;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  background: var(--panel-2);
+  color: var(--ink);
+  font: 12px/1.4 var(--f-mono);
+  word-break: break-all;
+}
+.code:focus-visible { outline: 2px solid var(--cyan); outline-offset: 1px; }
+
+/* achievements */
+.achs { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.ach { display: grid; gap: 1px; padding: 7px 9px; border: 1px dashed var(--line); color: var(--dim); min-width: 0; }
+.ach b { font: 600 13.5px/1.25 var(--f-body); color: var(--dim); }
+.ach span { font: 12px/1.3 var(--f-mono); }
+.ach.got { border: 1px solid rgba(255, 194, 62, 0.55); background: rgba(255, 194, 62, 0.06); }
+.ach.got b { color: var(--amber); }
+.ach.got span { color: var(--ink); }
+
+/* building types */
+.choices { display: flex; flex-direction: column; gap: 8px; }
+.line-dot { display: inline-block; width: 8px; height: 8px; margin-right: 8px; transform: rotate(45deg); vertical-align: 1px; flex: none; }
+.tag {
+  margin-left: 8px;
+  padding: 1px 6px;
+  border: 1px solid currentColor;
+  font: 11px/1.3 var(--f-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  vertical-align: 2px;
+  white-space: nowrap;
+}
+.row .boost { grid-column: 1; font: 13px/1.3 var(--f-mono); color: var(--ok); }
+.sector-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+}
+.sector-row.here { border-color: var(--magenta); }
+.sector-row span { display: grid; min-width: 0; }
+.sector-row small { font: 12.5px var(--f-mono); color: var(--dim); }
+
+@media (max-width: 860px) {
+  html, body { height: auto; }
+  .app { height: auto; grid-template-columns: minmax(0, 1fr); }
+  .city { height: 62svh; min-height: 380px; }
+  .panel-body { overflow: visible; }
+}
+@media (max-width: 480px) {
+  .sectorbar { left: 12px; }
+  .sector-label { flex: 1; }
+  .hud { padding: 10px 12px; }
+  .hack { padding: 8px 14px 8px 12px; }
+  .hack b { font-size: 15px; }
+  .ticker { font-size: 12px; }
+  .ticker-label { padding-inline: 8px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ticker-text { animation: none; padding-left: 12px; }
+  .toast, .hack.pulse { animation: none; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <main class="city" id="city-pane">
+    <canvas id="city" aria-label="Your city. Click a building to select it, or click the glowing empty lot to buy it."></canvas>
+    <header class="hud">
+      <div>
+        <div class="eyebrow">Cyber credits</div>
+        <div class="credits-value" id="credits">0</div>
+        <div class="credits-rate" id="rate">+1.0 / sec</div>
+      </div>
+      <div class="hud-actions">
+      <button class="sound" id="sound" type="button" aria-pressed="false" aria-label="Sound">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path class="waves" d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path class="mute" d="M16 9l6 6M22 9l-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+      <button class="hack" id="hack" type="button">
+        <b>Jack in</b>
+        <span id="hack-value">+1.1 per hack</span>
+      </button>
+      </div>
+    </header>
+    <div class="ticker" aria-hidden="true">
+      <div class="ticker-label">City news</div>
+      <div class="ticker-track"><span class="ticker-text" id="ticker"></span></div>
+    </div>
+    <div class="sectorbar" id="sectorbar" hidden>
+      <button class="nav" type="button" data-step="-1" aria-label="Previous sector">‹</button>
+      <div class="sector-label"><span class="eyebrow" id="sector-num">Sector 0</span><b id="sector-name">The Sprawl</b></div>
+      <button class="nav" type="button" data-step="1" aria-label="Next sector">›</button>
+      <button class="mapbtn" type="button" id="mapbtn" aria-pressed="false">Map</button>
+    </div>
+    <div class="toasts" id="toasts" aria-live="polite"></div>
+  </main>
+
+  <aside class="panel">
+    <div class="brand">
+      <h1>Neon <em>Sprawl</em></h1>
+      <p class="eyebrow">City zoning console</p>
+    </div>
+    <nav class="tabs" role="tablist">
+      <button class="tab" role="tab" id="tab-build" data-tab="build" aria-selected="true">Build<span class="badge" id="badge-build" hidden></span></button>
+      <button class="tab" role="tab" id="tab-crew" data-tab="crew" aria-selected="false">Crew<span class="badge" id="badge-crew" hidden></span></button>
+      <button class="tab" role="tab" id="tab-tech" data-tab="tech" aria-selected="false">Tech<span class="badge" id="badge-tech" hidden></span></button>
+      <button class="tab" role="tab" id="tab-infra" data-tab="infra" aria-selected="false" aria-label="Infrastructure">Infra<span class="badge" id="badge-infra" hidden></span></button>
+      <button class="tab" role="tab" id="tab-goals" data-tab="goals" aria-selected="false">Goals<span class="badge" id="badge-goals" hidden></span></button>
+    </nav>
+    <div class="panel-body" id="panel" role="tabpanel"></div>
+  </aside>
+</div>
+
+<script>
+(() => {
+'use strict';
+
+/* ================================================================
+   Data
+   ================================================================ */
+const N = 7;                      // each sector is N x N lots
+const CENTER = 3;
+const COLS = 'ABCDEFG';
+const SPAN = N + 2;               // sector pitch on the world grid, leaving a two-lot gap for roads
+const LOT_BASE = 60;              // second lot in a sector costs this much
+const LOT_GROWTH = 1.5;           // each further lot costs this much more
+const TIER_GROWTH = 1.1;          // each building already at a tier raises that tier's price
+const CREW_GROWTH = 1.15;
+const OFFLINE_CAP = 8 * 3600;     // seconds of away-time that pay out
+const SAVE_KEY = 'neon-sprawl/v1';
+
+const SECTOR_COST = 600;          // each newer sector's prices are this much higher
+const SECTOR_OUT = 40;            // and its buildings earn this much more
+const ROAD_BASE = 5e8;            // road to sector 1
+const ROAD_GROWTH = 600;          // each further road costs this much more
+const ROAD_REQ = 25;              // lots needed in the newest sector before the next road
+const ROAD_BONUS = 0.2;           // all output, per road grade above the first
+const CREW_SECTOR = 5;            // every connected sector multiplies crew pay by this
+const MIX_BONUS = 0.1;            // each building type in a sector after the first adds this to its output
+const ROAD_LEVELS = [
+  null,
+  { name: 'Cyber Road', price: 1, color: '#3ef2ff' },
+  { name: 'Neon Highway', price: 4, color: '#ff2bd6' },
+  { name: 'Maglev Line', price: 20, color: '#ffc23e' },
+  { name: 'Hyperloop', price: 100, color: '#5dffb0' },
+];
+
+const TIER_CPS = [0, 1, 3, 10, 40, 160, 700, 3000, 14000];
+const TIER_COST = [0, 0, 25, 200, 1500, 12000, 1e5, 9e5, 8e6];
+const LINE_OUTPUT = 0.6;          // an unstaffed crew building earns this share of a housing building
+const STAFF_K = 0.15;             // staffing multiplier = 1 + STAFF_K x sqrt(headcount of that crew)
+const PERK_MULT = 3;              // a district's matching building type earns this much more there
+const CAPITAL_MULT = 1.5;         // the Capital has no specialty; every type earns this much more there
+const CHIP_DIV = 1e9;             // Neural Chips owned = (lifetime earnings / CHIP_DIV) ^ CHIP_EXP
+const CHIP_EXP = 0.15;
+const CHIP_BONUS = 0.02;          // income per Neural Chip
+const ACH_BONUS = 0.02;           // income per achievement
+const MAX_TIER = 8;
+
+// Building massing by tier. sections: [footprint width as a fraction of a lot, top height in lot-widths]
+const SHAPES = [
+  null,
+  { sections: [[0.46, 0.2]] },
+  { sections: [[0.56, 0.3]] },
+  { sections: [[0.62, 0.72]] },
+  { sections: [[0.66, 1.05], [0.42, 1.16]] },
+  { sections: [[0.64, 1.6], [0.46, 1.78]], spire: 0.22 },
+  { sections: [[0.7, 2.1], [0.52, 2.45]], spire: 0.32 },
+  { sections: [[0.8, 1.4], [0.64, 2.55], [0.46, 3.15]], spire: 0.42 },
+  { sections: [[0.9, 1.0], [0.76, 2.05], [0.6, 3.0], [0.4, 3.7]], spire: 0.5 },
+  // 9: the Capitol Spire, which the whole Capital fuses into once all 49 lots reach tier 8
+  { sections: [[6.6, 0.8], [5.4, 2.0], [4.2, 3.6], [3.0, 5.4], [1.9, 7.2], [1.0, 8.6]], spire: 1.4 },
+];
+const CAPITOL = 9;
+const CAPITOL_LOT = CENTER * N + CENTER;
+const CAPITOL_BONUS = 1.25;       // all income while the Capitol Spire stands
+
+const SHACK_BLURB = 'Corrugated walls, one flickering sign, and a power line spliced off the grid. Upgrade it to choose what it becomes.';
+const LINES = {
+  hab: { name: 'Housing', color: null,
+    names: ['Ramen Stall', 'Hab Block', 'Stack Tenement', 'Corp Tower', 'Skyscraper', 'Megascraper', 'Arcology'],
+    blurbs: [
+      'Steam, neon and noodles. The night shift eats here and pays in credits.',
+      'Stacked capsule flats. Rent is collected by drone at midnight.',
+      'Forty floors of bunks, noodle bars and illegal satellite dishes.',
+      'Mirrored glass and a logo you can read from low orbit.',
+      'Two hundred floors of offices that never switch off.',
+      'A city stacked on a city. The top floors have their own weather.',
+      'Self-contained, self-governing, with rooftop gardens above the smog line.',
+    ] },
+  kiddie: { name: 'Arcade', color: '#ff4fd8',
+    names: ['Pixel Arcade', 'Game Parlor', 'VR Den', 'Esports Hall', 'Sim Tower', 'Hyperarcade', 'Dreamplex'],
+    blurb: 'Script Kiddies learn their trade between rounds on the cabinets.' },
+  fixer: { name: 'Bar', color: '#ffb13b',
+    names: ['Dive Bar', 'Neon Lounge', 'Back-room Club', 'Fixer Hotel', 'Syndicate Tower', 'Underworld Spire', 'Shadow Exchange'],
+    blurb: 'Every job in the city is agreed in a booth at the back.' },
+  runner: { name: 'Netcafé', color: '#3ef2ff',
+    names: ['Netcafé', 'Data Den', 'Runner Hive', 'Uplink Tower', 'ICE Spire', 'Deep-Dive Citadel', 'Netspace Nexus'],
+    blurb: 'Rows of neural jacks, cheap coffee and very fast pipes.' },
+  broker: { name: 'Data Vault', color: '#a77bff',
+    names: ['Info Kiosk', 'Data Vault', 'Archive Block', 'Exchange Tower', 'Ledger Spire', 'Datacore Megastack', 'Memory Palace'],
+    blurb: 'Every secret in the city, indexed and for sale.' },
+  ai: { name: 'Server Farm', color: '#4dff9a',
+    names: ['Server Shed', 'Server Farm', 'Coolant Block', 'Compute Tower', 'Neural Spire', 'Mind Megastack', 'Thinking Arcology'],
+    blurb: 'Racks of hot silicon. Something in there is thinking.' },
+  exec: { name: 'Corp Office', color: '#e8f0ff',
+    names: ['Satellite Office', 'Branch Office', 'Regional HQ', 'Boardroom Tower', 'Executive Spire', 'Megacorp Citadel', 'Corporate Arcology'],
+    blurb: 'Glass, marble and a very discreet back door.' },
+  ghost: { name: 'Signal Shrine', color: '#ff3b5c',
+    names: ['Signal Shrine', 'Static Temple', 'Echo Pagoda', 'Phantom Tower', 'Ghost Spire', 'Haunted Megastack', 'Grid Cathedral'],
+    blurb: 'Offerings of spare bandwidth for whatever lives in the wires.' },
+};
+
+const CREW = [
+  { id: 'kiddie', name: 'Script Kiddie', base: 15, cps: 0.5, desc: 'Skims loose change out of vending machines.' },
+  { id: 'fixer', name: 'Fixer', base: 150, cps: 3, desc: 'Knows a guy who knows a guy.' },
+  { id: 'runner', name: 'Netrunner', base: 1600, cps: 20, desc: 'Dives the net for unguarded accounts.' },
+  { id: 'broker', name: 'Data Broker', base: 20000, cps: 150, desc: 'Sells secrets by the terabyte.' },
+  { id: 'ai', name: 'Rogue AI', base: 3e5, cps: 1200, desc: 'Trades the markets a million times a second.' },
+  { id: 'exec', name: 'Turncoat Exec', base: 5e6, cps: 10000, desc: 'Leaks a megacorp’s books straight to you.' },
+  { id: 'ghost', name: 'Ghost in the Grid', base: 9e7, cps: 90000, desc: 'Nobody hired it. It works for you anyway.' },
+];
+const CREW_BY_ID = Object.fromEntries(CREW.map(c => [c.id, c]));
+
+// The city grows by district. The Capital comes first; every road after it builds a district you
+// choose, and the building type that matches a district earns PERK_MULT times more there.
+const DISTRICTS = {
+  capital: { name: 'The Capital', perk: 'all', haze: '255, 43, 214', mid: '#3a1150',
+    blurb: 'City hall, the old ramen markets and the first towers. The Capital favours no trade.' },
+  residential: { name: 'Residential Ring', perk: 'hab', haze: '255, 179, 92', mid: '#3a220e',
+    blurb: 'Hab stacks to the horizon.' },
+  entertainment: { name: 'Entertainment District', perk: 'kiddie', haze: '255, 79, 216', mid: '#3d0f3f',
+    blurb: 'Arcades, holo-theatres and all-night VR.' },
+  docks: { name: 'Loading Docks', perk: 'fixer', haze: '255, 150, 60', mid: '#3a1c0c',
+    blurb: 'Container cranes and no questions asked. The Fixers broker cargo from the Bars.' },
+  net: { name: 'Net Quarter', perk: 'runner', haze: '62, 242, 255', mid: '#0e2f48',
+    blurb: 'Fibre trunks under every street.' },
+  financial: { name: 'Financial District', perk: 'broker', haze: '167, 123, 255', mid: '#251357',
+    blurb: 'Trading floors and data exchanges.' },
+  industrial: { name: 'Industrial Zone', perk: 'ai', haze: '77, 255, 154', mid: '#0e382b',
+    blurb: 'Fabs, coolant towers and humming server halls.' },
+  corporate: { name: 'Corporate Plaza', perk: 'exec', haze: '200, 220, 255', mid: '#1c2440',
+    blurb: 'Headquarters behind mirrored glass.' },
+  ghost: { name: 'Ghost Market', perk: 'ghost', haze: '255, 59, 92', mid: '#3d0b1c',
+    blurb: 'Lantern-lit alleys where the net feels haunted.' },
+};
+const DISTRICT_IDS = Object.keys(DISTRICTS);
+
+const TECH = [
+  { id: 'signage', name: 'Neon Signage', cost: 100, desc: 'Shacks and every tier 2 building earn ×2.',
+    req: () => S.best >= 2, hint: 'Upgrade a Shack',
+    apply: m => { m.tier[1] *= 2; m.tier[2] *= 2; } },
+  { id: 'ice', name: 'ICEbreaker Suite', cost: 300, desc: 'Jacking in pays ×3.',
+    req: () => S.hacks >= 20, hint: 'Jack in 20 times',
+    apply: m => { m.hack *= 3; } },
+  { id: 'fiber', name: 'Fiber Backbone', cost: 1000, desc: 'Every building earns ×1.5.',
+    req: () => ownedTotal() >= 3, hint: 'Own 3 lots',
+    apply: m => { m.build *= 1.5; } },
+  { id: 'deck', name: 'Cyberdeck Mk.II', cost: 2500, desc: 'Crew output ×2.',
+    req: () => crewTotal() >= 5, hint: 'Hire 5 crew',
+    apply: m => { m.crew *= 2; } },
+  { id: 'holo', name: 'Holo Billboards', cost: 12000, desc: 'Tier 3 and tier 4 buildings earn ×2.',
+    req: () => S.best >= 4, hint: 'Reach tier 4 with any building',
+    apply: m => { m.tier[3] *= 2; m.tier[4] *= 2; } },
+  { id: 'zoning', name: 'Zoning Permits', cost: 30000, desc: 'Crew buildings earn 80% of a housing building\u2019s output, up from 60%.',
+    req: () => crewBuildings() >= 3, hint: 'Own 3 crew buildings',
+    apply: m => { m.lineOut = 0.8; } },
+  { id: 'drones', name: 'Construction Drones', cost: 20000, desc: 'Unlocks the auto-builder, which buys the cheapest upgrade or lot for you. Switch it on under Build.',
+    req: () => ownedTotal() >= 8, hint: 'Own 8 lots',
+    apply: m => { m.autoBuild = true; } },
+  { id: 'synergy', name: 'Grid Synergy', cost: 40000, desc: 'Each lot you own in a sector adds +3% to that sector’s buildings.',
+    req: () => ownedTotal() >= 8, hint: 'Own 8 lots',
+    apply: m => { m.synergy += 0.03; } },
+  { id: 'scanner', name: 'Courier Scanner', cost: 75000, desc: 'Data couriers fly by twice as often and carry twice as much.',
+    req: () => S.couriers >= 2, hint: 'Catch 2 data couriers',
+    apply: m => { m.courierRate *= 2; m.courierPay *= 2; } },
+  { id: 'blackice', name: 'Black ICE', cost: 150000, desc: 'All output ×2.',
+    req: () => S.total >= 50000, hint: 'Earn 50K credits in total',
+    apply: m => { m.all *= 2; } },
+  { id: 'recruiter', name: 'Recruiter AI', cost: 2e5, desc: 'Unlocks auto-hire, which hires your cheapest crew for you. Switch it on under Crew.',
+    req: () => crewTotal() >= 25, hint: 'Hire 25 crew',
+    apply: m => { m.autoHire = true; } },
+  { id: 'union', name: 'Union Halls', cost: 4e5, desc: 'Crew buildings get 50% more out of their staff.',
+    req: () => crewBuildings() >= 8, hint: 'Own 8 crew buildings',
+    apply: m => { m.staff *= 1.5; } },
+  { id: 'charter', name: 'Corporate Charter', cost: 8e5, desc: 'Tier 5 and tier 6 buildings earn ×2.',
+    req: () => S.best >= 6, hint: 'Reach tier 6 with any building',
+    apply: m => { m.tier[5] *= 2; m.tier[6] *= 2; } },
+  { id: 'uplink', name: 'Orbital Uplink', cost: 5e6, desc: 'All output ×2.',
+    req: () => ownedTotal() >= 16, hint: 'Own 16 lots',
+    apply: m => { m.all *= 2; } },
+  { id: 'mesh', name: 'Neural Mesh', cost: 2.5e7, desc: 'Crew output ×3, and Jacking in pays ×5.',
+    req: () => crewTotal() >= 60, hint: 'Hire 60 crew',
+    apply: m => { m.crew *= 3; m.hack *= 5; } },
+  { id: 'arco', name: 'Arcology Protocol', cost: 1.2e8, desc: 'Tier 7 and tier 8 buildings earn ×2.',
+    req: () => S.best >= 8, hint: 'Reach tier 8 with any building',
+    apply: m => { m.tier[7] *= 2; m.tier[8] *= 2; } },
+  { id: 'ledger', name: 'Quantum Ledger', cost: 1e9, desc: 'All output ×3.',
+    req: () => ownedTotal() >= 30, hint: 'Own 30 lots',
+    apply: m => { m.all *= 3; } },
+  { id: 'tolls', name: 'Toll Gantries', cost: 5e11, desc: 'All output ×2.',
+    req: () => S.sectors.length >= 2, hint: 'Build your first district',
+    apply: m => { m.all *= 2; } },
+  { id: 'singularity', name: 'Sprawl Singularity', cost: 2e12, desc: 'All output ×5.',
+    req: () => S.sectors.some((_, i) => ownedIn(i) === N * N), hint: 'Fill every lot in one district',
+    apply: m => { m.all *= 5; } },
+  { id: 'freight', name: 'Autonomous Freight', cost: 2e14, desc: 'Crew output ×4.',
+    req: () => S.sectors.length >= 3, hint: 'Own 2 districts besides the Capital',
+    apply: m => { m.crew *= 4; } },
+  { id: 'fusion', name: 'Fusion Grid', cost: 1e17, desc: 'All output ×3.',
+    req: () => S.sectors.length >= 4, hint: 'Own 3 districts besides the Capital',
+    apply: m => { m.all *= 3; } },
+  { id: 'hivemind', name: 'City Hivemind', cost: 1e20, desc: 'All output ×5.',
+    req: () => S.sectors.length >= 5, hint: 'Own 4 districts besides the Capital',
+    apply: m => { m.all *= 5; } },
+];
+const TECH_BY_ID = Object.fromEntries(TECH.map(t => [t.id, t]));
+
+const MILESTONES = {
+  2: 'Your first upgrade is open for business.',
+  3: 'First tier 3 building. Tenants and regulars are moving in.',
+  4: 'First tier 4 building. The basement hums.',
+  5: 'First tier 5 tower. Its beacon blinks over the sector.',
+  6: 'First tier 6 skyscraper. It pierces the smog layer.',
+  7: 'First tier 7 megastructure. The clouds part around it.',
+  8: 'First tier 8 arcology. A city inside your city.',
+};
+
+// Achievements stay through a reboot; each adds ACH_BONUS to all income.
+const sumLots = f => S.sectors.reduce((n, sec) => n + sec.lots.filter(f).length, 0);
+const ACHIEVEMENTS = [
+  { id: 'lots5', name: 'Squatter’s Rights', desc: 'Own 5 lots', test: () => ownedTotal() >= 5 },
+  { id: 'lots25', name: 'Block Captain', desc: 'Own 25 lots', test: () => ownedTotal() >= 25 },
+  { id: 'fill', name: 'Wall to Wall', desc: 'Fill all 49 lots in a district', test: () => S.sectors.some((_, i) => ownedIn(i) === N * N) },
+  { id: 'lots100', name: 'Land Baron', desc: 'Own 100 lots', test: () => ownedTotal() >= 100 },
+  { id: 'lots250', name: 'Continental', desc: 'Own 250 lots', test: () => ownedTotal() >= 250 },
+  { id: 'tier3', name: 'Moving Up', desc: 'Reach tier 3 with any building', test: () => S.best >= 3 },
+  { id: 'tier5', name: 'Glass and Steel', desc: 'Reach tier 5', test: () => S.best >= 5 },
+  { id: 'tier6', name: 'Above the Smog', desc: 'Reach tier 6', test: () => S.best >= 6 },
+  { id: 'tier8', name: 'Arcologist', desc: 'Reach tier 8', test: () => S.best >= 8 },
+  { id: 'capitol', name: 'Seat of Power', desc: 'Fuse the Capital into the Capitol Spire', test: () => capitalMerged() },
+  { id: 'arco10', name: 'Skyline', desc: 'Own 10 tier 8 buildings', test: () => sumLots(t => t === 8) >= 10 },
+  { id: 'arco49', name: 'Megacity', desc: 'Own 49 tier 8 buildings', test: () => sumLots(t => t === 8) >= 49 },
+  { id: 'type1', name: 'Mixed Company', desc: 'Build your first crew building', test: () => crewBuildings() >= 1 },
+  { id: 'typeAll', name: 'Full Roster', desc: 'Build every building type somewhere', test: () => Object.keys(LINES).every(l => S.sectors.some(sec => sec.lines.includes(l))) },
+  { id: 'mix8', name: 'Zoning Nightmare', desc: 'Have all 8 building types in one district', test: () => S.sectors.some((_, i) => sectorTypes(i) >= 8) },
+  { id: 'crew10', name: 'Gang of Ten', desc: 'Hire 10 crew', test: () => crewTotal() >= 10 },
+  { id: 'crew100', name: 'Payroll', desc: 'Hire 100 crew', test: () => crewTotal() >= 100 },
+  { id: 'crew500', name: 'Syndicate', desc: 'Hire 500 crew', test: () => crewTotal() >= 500 },
+  { id: 'crew1000', name: 'Private Army', desc: 'Hire 1,000 crew', test: () => crewTotal() >= 1000 },
+  { id: 'role100', name: 'Specialist', desc: 'Hire 100 of one crew role', test: () => CREW.some(c => (S.crew[c.id] || 0) >= 100) },
+  { id: 'ghost', name: 'Haunted', desc: 'Hire a Ghost in the Grid', test: () => (S.crew.ghost || 0) > 0 },
+  { id: 'cps100', name: 'Pocket Money', desc: 'Earn 100 per second', test: () => CPS >= 100 },
+  { id: 'cps1e4', name: 'Steady Income', desc: 'Earn 10K per second', test: () => CPS >= 1e4 },
+  { id: 'cps1e6', name: 'Millionaire Minute', desc: 'Earn 1M per second', test: () => CPS >= 1e6 },
+  { id: 'cps1e9', name: 'Billion Flow', desc: 'Earn 1B per second', test: () => CPS >= 1e9 },
+  { id: 'cps1e12', name: 'Trillionaire Tick', desc: 'Earn 1T per second', test: () => CPS >= 1e12 },
+  { id: 'cps1e15', name: 'Quadrillion Pulse', desc: 'Earn 1Qa per second', test: () => CPS >= 1e15 },
+  { id: 'cps1e18', name: 'Economy of One', desc: 'Earn 1Qi per second', test: () => CPS >= 1e18 },
+  { id: 'hack100', name: 'Script Runner', desc: 'Jack in 100 times', test: () => S.hacks >= 100 },
+  { id: 'hack1000', name: 'Carpal Tunnel', desc: 'Jack in 1,000 times', test: () => S.hacks >= 1000 },
+  { id: 'cour1', name: 'Interceptor', desc: 'Catch a data courier', test: () => S.couriers >= 1 },
+  { id: 'cour10', name: 'Sky Pirate', desc: 'Catch 10 data couriers', test: () => S.couriers >= 10 },
+  { id: 'cour50', name: 'No-Fly Zone', desc: 'Catch 50 data couriers', test: () => S.couriers >= 50 },
+  { id: 'road1', name: 'Open Road', desc: 'Build your first district', test: () => S.sectors.length >= 2 },
+  { id: 'road3', name: 'Commuter Belt', desc: 'Own 3 districts besides the Capital', test: () => S.sectors.length >= 4 },
+  { id: 'road6', name: 'Metroplex', desc: 'Own 6 districts besides the Capital', test: () => S.sectors.length >= 7 },
+  { id: 'distAll', name: 'Every Corner', desc: 'Build one of each district type', test: () => DISTRICT_IDS.filter(d => d !== 'capital').every(d => S.sectors.some(sec => sec.type === d)) },
+  { id: 'hyper', name: 'Faster Than Traffic', desc: 'Upgrade a road to Hyperloop', test: () => S.roads.some(l => l >= 4) },
+  { id: 'tech10', name: 'Early Adopter', desc: 'Install 10 techs', test: () => S.tech.length >= 10 },
+  { id: 'techAll', name: 'Fully Augmented', desc: 'Install every tech', test: () => S.tech.length >= TECH.length },
+  { id: 'reboot1', name: 'Have You Tried Turning It Off', desc: 'Reboot the Grid', test: () => S.reboots >= 1 },
+  { id: 'reboot5', name: 'Eternal Recurrence', desc: 'Reboot the Grid 5 times', test: () => S.reboots >= 5 },
+];
+const ACH_BY_ID = Object.fromEntries(ACHIEVEMENTS.map(a => [a.id, a]));
+
+/* ================================================================
+   Helpers
+   ================================================================ */
+const $ = sel => document.querySelector(sel);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const lotName = k => COLS[k % N] + (Math.floor(k / N) + 1);
+const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+const SUFFIX = ['', 'K', 'M', 'B', 'T', 'Qa', 'Qi', 'Sx', 'Sp', 'Oc', 'No', 'Dc'];
+function fmt(n, decimals) {
+  if (!isFinite(n)) return '∞';
+  if (n < 1000) {
+    if (decimals && n < 100) return (Math.floor(n * 10) / 10).toFixed(1);
+    return Math.floor(n).toLocaleString('en-US');
+  }
+  const e = Math.floor(Math.log10(n) / 3);
+  if (e >= SUFFIX.length) return n.toExponential(2);
+  const v = n / Math.pow(1000, e);
+  const s = v < 10 ? v.toFixed(2) : v < 100 ? v.toFixed(1) : Math.floor(v).toString();
+  return s + SUFFIX[e];
+}
+function duration(sec) {
+  const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60);
+  if (h) return `${h}h ${m}m`;
+  if (m) return `${m}m`;
+  return `${Math.floor(sec)}s`;
+}
+function hash(n) {
+  n = Math.imul(n ^ 0x9e3779b9, 0x85ebca6b);
+  n = Math.imul(n ^ (n >>> 13), 0xc2b2ae35);
+  return (n ^ (n >>> 16)) >>> 0;
+}
+function rng(seed) {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+// Within a sector, lots are bought outward from the centre, nearest first.
+const ORDER = Array.from({ length: N * N }, (_, k) => k).sort((a, b) => {
+  const da = (a % N - CENTER) ** 2 + (Math.floor(a / N) - CENTER) ** 2;
+  const db = (b % N - CENTER) ** 2 + (Math.floor(b / N) - CENTER) ** 2;
+  if (da !== db) return da - db;
+  const aa = Math.atan2(Math.floor(a / N) - CENTER, a % N - CENTER);
+  const ab = Math.atan2(Math.floor(b / N) - CENTER, b % N - CENTER);
+  return aa - ab;
+});
+
+// Sectors are laid out on a square spiral, so each new one touches the last.
+const SECTOR_POS = (() => {
+  const out = [[0, 0]];
+  let a = 0, b = 0, step = 1;
+  const dirs = [[1, 0], [0, 1], [-1, 0], [0, -1]];
+  let d = 0;
+  while (out.length < 200) {
+    for (let rep = 0; rep < 2; rep++) {
+      for (let n = 0; n < step; n++) { a += dirs[d][0]; b += dirs[d][1]; out.push([a, b]); }
+      d = (d + 1) % 4;
+    }
+    step++;
+  }
+  return out;
+})();
+
+const theme = sec => DISTRICTS[S.sectors[sec] ? S.sectors[sec].type : 'capital'];
+// Repeat districts get a number: Loading Docks, Loading Docks 2, ...
+function sectorName(sec) {
+  const type = S.sectors[sec].type;
+  let n = 0;
+  for (let i = 0; i <= sec; i++) if (S.sectors[i].type === type) n++;
+  return n > 1 ? `${DISTRICTS[type].name} ${n}` : DISTRICTS[type].name;
+}
+const typeName = line => (line === 'hab' ? 'Housing' : `${LINES[line].name}s`);
+const perkText = line => (line === 'all' ? `Every type earns ×${CAPITAL_MULT}` : `${typeName(line)} earn ×${PERK_MULT}`);
+const seedOf = (sec, k) => hash(sec * 1000 + k + 17) % 100000;
+
+function buildingName(tier, line) {
+  if (!tier) return 'Empty lot';
+  if (tier === 1) return 'Shack';
+  return LINES[line || 'hab'].names[tier - 2];
+}
+function blurbOf(tier, line) {
+  if (tier <= 1) return SHACK_BLURB;
+  const L = LINES[line || 'hab'];
+  return L.blurbs ? L.blurbs[tier - 2] : L.blurb;
+}
+const lineColor = (line, seed) => (line && LINES[line].color) || ['#3ef2ff', '#ff2bd6', '#ffc23e'][seed % 3];
+
+/* ================================================================
+   State and economy
+   ================================================================ */
+let S;          // the save-able game state
+let M;          // current modifiers from tech, chips and achievements
+let CPS = 0, BUILD_CPS = 0, CREW_CPS = 0;
+let SECTOR_CPS = [];
+let SECTOR_MIX = [];      // mixed-use multiplier per sector
+let LINE_CPS = {};        // building type -> what all its buildings earn
+const sectorTypes = sec => new Set(S.sectors[sec].lines.filter(Boolean)).size;
+
+function newSector(type) {
+  const lots = new Array(N * N).fill(0), lines = new Array(N * N).fill(null);
+  const c = CENTER * N + CENTER;
+  lots[c] = 1;
+  return { type, lots, lines, sel: c };
+}
+function fresh() {
+  return { credits: 0, total: 0, lifetime: 0, sectors: [newSector('capital')], roads: [0], cur: 0, crew: {}, tech: [], seen: [],
+           hacks: 0, couriers: 0, best: 1, lastLine: 'hab', started: Date.now(),
+           chips: 0, reboots: 0, ach: [], auto: { build: false, hire: false } };
+}
+function serialize() {
+  return { v: 3, credits: S.credits, total: S.total, lifetime: S.lifetime,
+           sectors: S.sectors.map(s => ({ type: s.type, lots: s.lots.slice(), lines: s.lines.slice(), sel: s.sel })),
+           roads: S.roads.slice(), cur: S.cur, crew: { ...S.crew }, tech: S.tech.slice(), seen: S.seen.slice(),
+           hacks: S.hacks, couriers: S.couriers, best: S.best, lastLine: S.lastLine, started: S.started,
+           chips: S.chips, reboots: S.reboots, ach: S.ach.slice(), auto: { ...S.auto }, savedAt: Date.now() };
+}
+// Older saves had sectors without a district type; give them one each, in a fixed order.
+const LEGACY_DISTRICTS = ['net', 'docks', 'industrial', 'financial', 'corporate', 'ghost', 'residential', 'entertainment'];
+function restore(d) {
+  const s = fresh();
+  if (!d) return s;
+  const num = (v, f) => (typeof v === 'number' && isFinite(v) && v >= 0 ? v : f);
+  // version 1 saves had a single grid of tiers and no building types; those buildings were all housing
+  const secs = Array.isArray(d.sectors) ? d.sectors
+    : Array.isArray(d.lots) ? [{ lots: d.lots, lines: d.lots.map(t => (t >= 2 ? 'hab' : null)), sel: d.selected }] : null;
+  if (!secs || !secs.length) return s;
+  s.sectors = secs.map((raw, i) => {
+    const type = i === 0 ? 'capital' : DISTRICTS[raw.type] && raw.type !== 'capital' ? raw.type : LEGACY_DISTRICTS[(i - 1) % LEGACY_DISTRICTS.length];
+    const sec = newSector(type);
+    if (!Array.isArray(raw.lots) || raw.lots.length !== N * N) return sec;
+    sec.lots = raw.lots.map(t => clamp(Math.floor(num(t, 0)), 0, MAX_TIER));
+    sec.lines = sec.lots.map((t, k) => {
+      const l = Array.isArray(raw.lines) ? raw.lines[k] : null;
+      return t >= 2 ? (LINES[l] ? l : 'hab') : null;
+    });
+    if (!sec.lots.some(t => t > 0)) sec.lots[CENTER * N + CENTER] = 1;
+    sec.sel = sec.lots[raw.sel] > 0 ? raw.sel : sec.lots.findIndex(t => t > 0);
+    return sec;
+  });
+  s.roads = s.sectors.map((_, k) => (k === 0 ? 0 : clamp(Math.floor(num(Array.isArray(d.roads) ? d.roads[k] : 1, 1)), 1, 4)));
+  s.cur = clamp(Math.floor(num(d.cur, 0)), 0, s.sectors.length - 1);
+  s.credits = num(d.credits, 0);
+  s.total = num(d.total, s.credits);
+  s.lifetime = Math.max(num(d.lifetime, 0), s.total);
+  for (const c of CREW) if (d.crew && num(d.crew[c.id], 0) > 0) s.crew[c.id] = Math.floor(d.crew[c.id]);
+  s.tech = Array.isArray(d.tech) ? d.tech.filter(id => TECH_BY_ID[id]) : [];
+  s.seen = Array.isArray(d.seen) ? d.seen.filter(id => TECH_BY_ID[id]) : [];
+  s.hacks = Math.floor(num(d.hacks, 0));
+  s.couriers = Math.floor(num(d.couriers, 0));
+  s.best = Math.max(...s.sectors.map(sec => Math.max(...sec.lots)));
+  s.lastLine = LINES[d.lastLine] ? d.lastLine : 'hab';
+  s.started = num(d.started, Date.now());
+  s.chips = Math.floor(num(d.chips, 0));
+  s.reboots = Math.floor(num(d.reboots, 0));
+  s.ach = Array.isArray(d.ach) ? d.ach.filter(id => ACH_BY_ID[id]) : [];
+  s.auto = { build: !!(d.auto && d.auto.build), hire: !!(d.auto && d.auto.hire) };
+  return s;
+}
+function save() {
+  try { localStorage.setItem(SAVE_KEY, JSON.stringify(serialize())); } catch (e) { /* storage unavailable */ }
+}
+
+const cur = () => S.sectors[S.cur];
+const capitalMerged = () => S.sectors[0].lots.every(t => t === MAX_TIER);
+const ownedIn = sec => S.sectors[sec].lots.reduce((n, t) => n + (t > 0), 0);
+const ownedTotal = () => S.sectors.reduce((n, _, i) => n + ownedIn(i), 0);
+const crewTotal = () => CREW.reduce((n, c) => n + (S.crew[c.id] || 0), 0);
+const crewBuildings = () => S.sectors.reduce((n, sec) => n + sec.lines.filter(l => l && l !== 'hab').length, 0);
+const lineUnlocked = line => line === 'hab' || (S.crew[line] || 0) > 0;
+const districtUnlocked = id => id !== 'capital' && (DISTRICTS[id].perk === 'hab' || lineUnlocked(DISTRICTS[id].perk));
+const secCost = sec => Math.pow(SECTOR_COST, sec);
+const secOut = sec => Math.pow(SECTOR_OUT, sec);
+const roadMult = () => 1 + ROAD_BONUS * S.roads.reduce((n, lv) => n + Math.max(0, lv - 1), 0);
+const perkOf = sec => DISTRICTS[S.sectors[sec].type].perk;
+const chipsFor = lifetime => (lifetime > CHIP_DIV ? Math.floor(Math.pow(lifetime / CHIP_DIV, CHIP_EXP)) : 0);
+const pendingChips = () => Math.max(0, chipsFor(S.lifetime) - S.chips);
+const canReboot = () => S.sectors.length >= 2 && pendingChips() >= 1;
+
+function computeMods() {
+  const m = { tier: new Array(MAX_TIER + 1).fill(1), build: 1, crew: 1, all: 1, hack: 1, synergy: 0,
+              courierRate: 1, courierPay: 1, lineOut: LINE_OUTPUT, staff: 1, autoBuild: false, autoHire: false };
+  for (const id of S.tech) TECH_BY_ID[id].apply(m);
+  m.chip = 1 + CHIP_BONUS * S.chips;
+  m.achieve = 1 + ACH_BONUS * S.ach.length;
+  m.all *= m.chip * m.achieve;
+  if (capitalMerged()) m.all *= CAPITOL_BONUS;
+  return m;
+}
+// A crew building earns more the more of its crew you employ. Housing is filled by tenants from
+// every role, so it follows your average headcount instead.
+// Senior roles are rarer, so each one counts as more staff: a Ghost is worth 1.6 Script Kiddies.
+const STAFF_WEIGHT = Object.fromEntries(CREW.map((c, i) => [c.id, 1 + 0.1 * i]));
+const staffPoints = id => (S.crew[id] || 0) * STAFF_WEIGHT[id];
+const staffMult = (line, extra = 0) => 1 + STAFF_K * M.staff * Math.sqrt(line === 'hab'
+  ? (CREW.reduce((n, c) => n + staffPoints(c.id), 0) + extra) / CREW.length
+  : staffPoints(line) + extra * STAFF_WEIGHT[line]);
+function lotOutput(sec, tier, line, ownedOverride) {
+  if (!tier) return 0;
+  const own = ownedOverride ?? ownedIn(sec);
+  const crewLine = tier >= 2 && line && line !== 'hab';
+  const lineF = crewLine ? M.lineOut * staffMult(line) : tier >= 2 ? staffMult('hab') : 1;
+  const perk = tier < 2 ? 1 : perkOf(sec) === 'all' ? CAPITAL_MULT : (line || 'hab') === perkOf(sec) ? PERK_MULT : 1;
+  return TIER_CPS[tier] * lineF * perk * M.tier[tier] * M.build * (1 + M.synergy * own) * (SECTOR_MIX[sec] || 1) * secOut(sec) * M.all * roadMult();
+}
+// Total income change from taking a lot from one tier/type to another.
+function upgradeGain(sec, fromTier, fromLine, toTier, toLine) {
+  let g = lotOutput(sec, toTier, toLine) - lotOutput(sec, fromTier, fromLine);
+  // a type new to this sector raises its mixed-use bonus
+  if (toLine && toLine !== fromLine && !S.sectors[sec].lines.includes(toLine) && sectorTypes(sec) >= 1) {
+    g += (SECTOR_CPS[sec] + lotOutput(sec, toTier, toLine)) * MIX_BONUS / SECTOR_MIX[sec];
+  }
+  return g;
+}
+const crewSectorMult = () => Math.pow(CREW_SECTOR, S.sectors.length - 1);
+function crewEach(id) { return CREW_BY_ID[id].cps * M.crew * crewSectorMult() * M.all * roadMult(); }
+// Hiring also staffs that crew's buildings, so a hire is worth its pay plus the buildings' raise.
+function hireGain(id, n) {
+  return n * crewEach(id) + (LINE_CPS[id] || 0) * (staffMult(id, n) / staffMult(id) - 1)
+    + (LINE_CPS.hab || 0) * (staffMult('hab', n) / staffMult('hab') - 1);
+}
+function recalc() {
+  M = computeMods();
+  LINE_CPS = {};
+  BUILD_CPS = 0;
+  SECTOR_MIX = S.sectors.map((_, i) => 1 + MIX_BONUS * Math.max(0, sectorTypes(i) - 1));
+  SECTOR_CPS = S.sectors.map((sec, i) => {
+    let out = 0;
+    const own = ownedIn(i);
+    for (let k = 0; k < N * N; k++) {
+      const t = sec.lots[k];
+      if (!t) continue;
+      const o = lotOutput(i, t, sec.lines[k], own);
+      out += o;
+      if (sec.lines[k]) LINE_CPS[sec.lines[k]] = (LINE_CPS[sec.lines[k]] || 0) + o;
+    }
+    BUILD_CPS += out;
+    return out;
+  });
+  CREW_CPS = 0;
+  for (const c of CREW) CREW_CPS += (S.crew[c.id] || 0) * crewEach(c.id);
+  CPS = BUILD_CPS + CREW_CPS;
+  checkMerge();
+}
+let mergeWatch = { s: null, merged: false };
+function checkMerge() {
+  const merged = capitalMerged();
+  if (mergeWatch.s === S && merged && !mergeWatch.merged) {
+    startFabrication(0, CAPITOL_LOT);
+    toast(`The Capital's 49 towers have fused into the Capitol Spire. All income +${Math.round((CAPITOL_BONUS - 1) * 100)}%.`, 'gold');
+    Sound.big();
+  }
+  mergeWatch = { s: S, merged };
+}
+const hackValue = () => (1 + CPS * 0.1) * M.hack;
+
+function upgradeCost(sec, k) {
+  const lots = S.sectors[sec].lots, next = lots[k] + 1;
+  if (next > MAX_TIER) return Infinity;
+  let n = 0;
+  for (const t of lots) if (t >= next) n++;
+  return TIER_COST[next] * Math.pow(TIER_GROWTH, n) * secCost(sec);
+}
+const lotCost = sec => LOT_BASE * Math.pow(LOT_GROWTH, ownedIn(sec) - 1) * secCost(sec);
+const nextLot = sec => ORDER.find(k => S.sectors[sec].lots[k] === 0);
+function cheapestUpgrade(sec) {
+  const lots = S.sectors[sec].lots;
+  let best = null;
+  for (let k = 0; k < N * N; k++) {
+    if (!lots[k] || lots[k] >= MAX_TIER) continue;
+    const c = upgradeCost(sec, k);
+    if (!best || c < best.cost) best = { k, cost: c };
+  }
+  return best;
+}
+const crewCost = (c, n) => c.base * Math.pow(CREW_GROWTH, S.crew[c.id] || 0) * (Math.pow(CREW_GROWTH, n) - 1) / (CREW_GROWTH - 1);
+function crewMax(c) {
+  const first = c.base * Math.pow(CREW_GROWTH, S.crew[c.id] || 0);
+  return Math.max(0, Math.floor(Math.log(S.credits * (CREW_GROWTH - 1) / first + 1) / Math.log(CREW_GROWTH)));
+}
+const roadCost = k => ROAD_BASE * Math.pow(ROAD_GROWTH, k - 1);       // road that opens sector k
+const roadUpgradeCost = k => roadCost(k) * ROAD_LEVELS[S.roads[k] + 1].price;
+const roadReady = () => ownedIn(S.sectors.length - 1) >= ROAD_REQ;
+
+function spend(cost) {
+  if (!(S.credits >= cost)) return false;
+  S.credits -= cost;
+  return true;
+}
+function earn(n) { S.credits += n; S.total += n; S.lifetime += n; }
+
+// The shack type used when the player does not pick one: their last pick, if still available.
+const defaultLine = () => (lineUnlocked(S.lastLine) ? S.lastLine : 'hab');
+
+function upgradeLot(sec, k, line) {
+  const s = S.sectors[sec], t = s.lots[k];
+  if (!t || t >= MAX_TIER) return false;
+  if (t === 1) {
+    line = line || defaultLine();
+    if (!LINES[line] || !lineUnlocked(line)) line = 'hab';
+  }
+  if (!spend(upgradeCost(sec, k))) return false;
+  s.lots[k] = t + 1;
+  if (t === 1) { s.lines[k] = line; S.lastLine = line; }
+  startFabrication(sec, k);
+  if (t + 1 > S.best) {
+    S.best = t + 1;
+    toast(MILESTONES[t + 1], 'gold');
+  }
+  afterChange();
+  return true;
+}
+function acquireLot(sec) {
+  const k = nextLot(sec);
+  if (k === undefined || !spend(lotCost(sec))) return false;
+  S.sectors[sec].lots[k] = 1;
+  S.sectors[sec].sel = k;
+  startFabrication(sec, k);
+  if (ownedIn(sec) === N * N) toast(`Every lot in ${sectorName(sec)} is yours.`, 'gold');
+  afterChange();
+  return true;
+}
+function hireN(id, n) {
+  const c = CREW_BY_ID[id];
+  if (n < 1 || !spend(crewCost(c, n))) return false;
+  const first = !S.crew[id];
+  S.crew[id] = (S.crew[id] || 0) + n;
+  if (first) toast(`${LINES[id].name} buildings unlocked. Upgrade a Shack to build one for your ${c.name}s.`, 'pink');
+  afterChange();
+  return true;
+}
+const hireCrew = id => hireN(id, crewMode === 'max' ? crewMax(CREW_BY_ID[id]) : crewMode);
+function buyTech(id) {
+  const t = TECH_BY_ID[id];
+  if (!t || S.tech.includes(id) || !t.req() || !spend(t.cost)) return false;
+  S.tech.push(id);
+  toast(`${t.name} installed. ${t.desc}`, 'pink');
+  afterChange();
+  return true;
+}
+function buildRoad(type) {
+  const k = S.sectors.length;
+  if (!DISTRICTS[type] || type === 'capital' || !districtUnlocked(type)) return false;
+  if (!roadReady() || !spend(roadCost(k))) return false;
+  S.sectors.push(newSector(type));
+  S.roads[k] = 1;
+  S.cur = k;
+  view = 'city';
+  startFabrication(k, CENTER * N + CENTER);
+  const D = DISTRICTS[type];
+  toast(`Cyber road open to ${sectorName(k)}. ${perkText(D.perk)} here, everything earns ×${fmt(secOut(k))}, and all crew pay rose ×${CREW_SECTOR}.`, 'gold');
+  afterChange();
+  return true;
+}
+function upgradeRoad(k) {
+  if (!S.roads[k] || S.roads[k] >= 4 || !spend(roadUpgradeCost(k))) return false;
+  S.roads[k]++;
+  toast(`Road to ${sectorName(k)} upgraded to ${ROAD_LEVELS[S.roads[k]].name}. All output +${Math.round(ROAD_BONUS * 100)}%.`, 'pink');
+  afterChange();
+  return true;
+}
+
+// Bulk buying. Build-tab buttons stay inside one district; the crew button only hires crew.
+let batching = 0;
+function batch(fn) {
+  batching++;
+  let n = 0;
+  try { n = fn(); } finally { batching--; }
+  if (n) { recalc(); dirty = true; save(); }
+  return n;
+}
+function upgradeAllIn(sec, limit = 5000) {
+  return batch(() => {
+    let n = 0;
+    for (; n < limit; n++) {
+      const c = cheapestUpgrade(sec);
+      if (!c || c.cost > S.credits || !upgradeLot(sec, c.k)) break;
+    }
+    return n;
+  });
+}
+function buyAllLotsIn(sec, limit = 49) {
+  return batch(() => {
+    let n = 0;
+    while (n < limit && acquireLot(sec)) n++;
+    return n;
+  });
+}
+// Cheapest single hire first, across every role you can see.
+function cheapestHire() {
+  let best = null;
+  CREW.forEach((c, i) => {
+    if (!crewVisible(i)) return;
+    const cost = crewCost(c, 1);
+    if (!best || cost < best.cost) best = { id: c.id, cost };
+  });
+  return best;
+}
+function hireAll(limit = 5000) {
+  return batch(() => {
+    let n = 0;
+    for (; n < limit; n++) {
+      const h = cheapestHire();
+      if (!h || h.cost > S.credits || !hireN(h.id, 1)) break;
+    }
+    return n;
+  });
+}
+// The auto-builder works on every district, cheapest purchase first.
+function autoBuildTick(limit) {
+  return batch(() => {
+    let n = 0;
+    while (n < limit) {
+      let best = null;
+      S.sectors.forEach((_, i) => {
+        const u = cheapestUpgrade(i);
+        if (u && (!best || u.cost < best.cost)) best = { cost: u.cost, run: () => upgradeLot(i, u.k) };
+        if (nextLot(i) !== undefined) {
+          const c = lotCost(i);
+          if (!best || c < best.cost) best = { cost: c, run: () => acquireLot(i) };
+        }
+      });
+      if (!best || best.cost > S.credits || !best.run()) break;
+      n++;
+    }
+    return n;
+  });
+}
+
+// Reboot the Grid: start over with Neural Chips. Achievements, chips and lifetime earnings stay.
+function reboot() {
+  if (!canReboot()) return false;
+  const gained = pendingChips();
+  const keep = { chips: S.chips + gained, reboots: S.reboots + 1, lifetime: S.lifetime, ach: S.ach.slice(), auto: { ...S.auto } };
+  S = Object.assign(fresh(), keep);
+  view = 'city';
+  fabs.clear();
+  startFabrication(0, cur().sel);
+  afterChange();
+  updateSectorBar();
+  toast(`Grid rebooted. ${gained} Neural Chips installed: all income +${Math.round(gained * CHIP_BONUS * 100)}% more than before.`, 'gold');
+  return gained;
+}
+
+function afterChange() {
+  if (batching) return;
+  recalc();
+  dirty = true;
+  save();
+}
+
+/* ================================================================
+   Canvas: camera, backdrop, sprites
+   ================================================================ */
+const cvs = $('#city');
+const ctx = cvs.getContext('2d');
+let W = 1, H = 1, DPR = 1;
+let view = 'city';
+const backdrop = document.createElement('canvas');
+let backdropTheme = -1;
+const spriteCache = new Map();
+const spriteLatest = new Map();
+let spriteBudget = 0;
+const cam = { x: 0, y: 1.5, s: 120, ready: false };
+const HUD_TOP = 104;
+const hudBottom = () => (S.sectors.length > 1 ? 92 : 40);
+
+const WARM = '#ffb35c';
+const PAL = ['#3ef2ff', '#ff2bd6', '#ffc23e'];
+
+function resize() {
+  const r = cvs.getBoundingClientRect();
+  DPR = Math.min(2, window.devicePixelRatio || 1);
+  W = Math.max(1, r.width);
+  H = Math.max(1, r.height);
+  cvs.width = Math.round(W * DPR);
+  cvs.height = Math.round(H * DPR);
+  spriteCache.clear();
+  spriteLatest.clear();
+  backdropTheme = -1;
+  initRain();
+}
+
+function buildBackdrop(themeKey) {
+  backdropTheme = themeKey;
+  const T = DISTRICTS[themeKey];
+  const themeIndex = DISTRICT_IDS.indexOf(themeKey);
+  backdrop.width = cvs.width;
+  backdrop.height = cvs.height;
+  const g = backdrop.getContext('2d');
+  g.setTransform(DPR, 0, 0, DPR, 0, 0);
+  const horizon = H * 0.62;
+  const sky = g.createLinearGradient(0, 0, 0, H);
+  sky.addColorStop(0, '#06050d');
+  sky.addColorStop(0.35, '#100b22');
+  sky.addColorStop(0.62, T.mid);
+  sky.addColorStop(0.64, '#160d28');
+  sky.addColorStop(1, '#07060d');
+  g.fillStyle = sky;
+  g.fillRect(0, 0, W, H);
+
+  const haze = g.createRadialGradient(W * 0.5, horizon, 10, W * 0.5, horizon, W * 0.7);
+  haze.addColorStop(0, `rgba(${T.haze}, 0.22)`);
+  haze.addColorStop(1, `rgba(${T.haze}, 0)`);
+  g.fillStyle = haze;
+  g.fillRect(0, 0, W, H);
+
+  const R = rng(1234 + themeIndex * 77);
+  for (let n = 0; n < 60; n++) {
+    g.fillStyle = `rgba(220, 210, 255, ${0.08 + R() * 0.25})`;
+    g.fillRect(R() * W, R() * H * 0.4, 1, 1);
+  }
+  const layers = [
+    { col: '#1d1236', min: 0.05, max: 0.2, win: 0.0 },
+    { col: '#160e2b', min: 0.08, max: 0.3, win: 0.25 },
+    { col: '#100a20', min: 0.04, max: 0.16, win: 0.45 },
+  ];
+  layers.forEach((L, li) => {
+    let x = -10;
+    while (x < W + 10) {
+      const bw = 14 + R() * 40;
+      const bh = H * (L.min + R() * (L.max - L.min));
+      const base = horizon + li * 6;
+      g.fillStyle = L.col;
+      g.fillRect(x, base - bh, bw, bh + H);
+      if (R() < 0.25) {
+        g.fillRect(x + bw / 2 - 1, base - bh - 10 - R() * 20, 2, 30);
+        g.fillStyle = 'rgba(255, 60, 90, 0.8)';
+        g.fillRect(x + bw / 2 - 1, base - bh - 30, 2, 2);
+      }
+      if (L.win) {
+        for (let wy = base - bh + 4; wy < base - 2; wy += 5) {
+          for (let wx = x + 3; wx < x + bw - 3; wx += 4) {
+            if (R() < L.win * 0.35) {
+              g.fillStyle = R() < 0.5 ? `rgba(${T.haze}, 0.35)` : R() < 0.6 ? 'rgba(62,242,255,0.3)' : 'rgba(255,194,62,0.35)';
+              g.fillRect(wx, wy, 1.5, 1.5);
+            }
+          }
+        }
+      }
+      x += bw + R() * 4;
+    }
+  });
+  const fog = g.createLinearGradient(0, horizon, 0, H);
+  fog.addColorStop(0, T.mid + 'aa');
+  fog.addColorStop(0.4, 'rgba(10, 8, 22, 0.9)');
+  fog.addColorStop(1, '#07060d');
+  g.fillStyle = fog;
+  g.fillRect(0, horizon + 10, W, H);
+}
+
+const topZ = t => (t ? SHAPES[t].sections[SHAPES[t].sections.length - 1][1] + (SHAPES[t].spire || 0) : 0);
+
+// World coordinates: lot (I, J) on one big grid shared by every sector.
+function lotIJ(sec, k) {
+  const [a, b] = SECTOR_POS[sec];
+  return [a * SPAN + (k % N), b * SPAN + Math.floor(k / N)];
+}
+const worldX = (I, J) => (I - J) * 0.5;
+const worldY = (I, J) => (I + J) * 0.25;
+const midY = () => HUD_TOP + (H - HUD_TOP - hudBottom()) / 2;
+const sx = wx => W / 2 + (wx - cam.x) * cam.s;
+const sy = wy => midY() + (wy - cam.y) * cam.s;
+function lotScreen(sec, k) {
+  const [I, J] = lotIJ(sec, k);
+  return [sx(worldX(I, J)), sy(worldY(I, J))];
+}
+function buildingList() {
+  const out = [];
+  const merged = capitalMerged();
+  for (let sec = 0; sec < S.sectors.length; sec++) {
+    const s = S.sectors[sec];
+    if (sec === 0 && merged) {
+      const [I, J] = lotIJ(0, CAPITOL_LOT);
+      out.push({ d: I + J, sec: 0, k: CAPITOL_LOT, tier: CAPITOL, line: null });
+      continue;
+    }
+    for (let k = 0; k < N * N; k++) if (s.lots[k]) {
+      const [I, J] = lotIJ(sec, k);
+      out.push({ d: I + J, sec, k, tier: s.lots[k], line: s.lots[k] >= 2 ? s.lines[k] : null });
+    }
+  }
+  return out;
+}
+function roofPoint(sec, k) {
+  if (sec === 0 && capitalMerged()) {
+    const [x, y] = lotScreen(0, CAPITOL_LOT);
+    return [x, y - topZ(CAPITOL) * cam.s];
+  }
+  const [x, y] = lotScreen(sec, k);
+  return [x, y - topZ(S.sectors[sec].lots[k]) * cam.s];
+}
+const showGhost = () => roadReady() || view === 'map';
+
+function cameraTarget() {
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  const include = (I, J, h) => {
+    const x = worldX(I, J), y = worldY(I, J);
+    minX = Math.min(minX, x - 0.5); maxX = Math.max(maxX, x + 0.5);
+    minY = Math.min(minY, y - 0.25 - h); maxY = Math.max(maxY, y + 0.25);
+  };
+  if (view === 'map') {
+    const count = S.sectors.length + (showGhost() ? 1 : 0);
+    for (let sec = 0; sec < count; sec++) {
+      const [I0, J0] = lotIJ(sec, 0);
+      let h = 0;
+      if (S.sectors[sec]) for (const t of S.sectors[sec].lots) h = Math.max(h, topZ(t));
+      if (sec === 0 && capitalMerged()) h = topZ(CAPITOL);
+      include(I0, J0, h); include(I0 + N - 1, J0, h); include(I0, J0 + N - 1, h); include(I0 + N - 1, J0 + N - 1, h);
+    }
+  } else {
+    const s = cur();
+    for (let k = 0; k < N * N; k++) {
+      if (!s.lots[k]) continue;
+      const i = k % N, j = Math.floor(k / N);
+      const [I, J] = lotIJ(S.cur, k);
+      for (let di = -1; di <= 1; di++) for (let dj = -1; dj <= 1; dj++) {
+        if (i + di >= 0 && j + dj >= 0 && i + di < N && j + dj < N) include(I + di, J + dj, 0);
+      }
+      include(I, J, topZ(s.lots[k]) + 0.1);
+    }
+    if (S.cur === 0 && capitalMerged()) {
+      const [I, J] = lotIJ(0, CAPITOL_LOT);
+      include(I, J, topZ(CAPITOL) + 0.2);
+    }
+  }
+  const avH = Math.max(80, H - HUD_TOP - hudBottom());
+  let s = Math.min(W * 0.88 / (maxX - minX), avH * 0.9 / (maxY - minY));
+  s = Math.min(s, W * 0.36, 360);
+  return { x: (minX + maxX) / 2, y: (minY + maxY) / 2, s };
+}
+
+function poly(g, pts) {
+  g.beginPath();
+  g.moveTo(pts[0][0], pts[0][1]);
+  for (let n = 1; n < pts.length; n++) g.lineTo(pts[n][0], pts[n][1]);
+  g.closePath();
+  g.fill();
+}
+
+// A box standing on a diamond footprint centred at (x, y), from height z0 to z1 (pixels).
+function box(g, x, y, hw, hh, z0, z1, skin) {
+  g.fillStyle = skin.l;
+  poly(g, [[x - hw, y - z0], [x, y + hh - z0], [x, y + hh - z1], [x - hw, y - z1]]);
+  g.fillStyle = skin.r;
+  poly(g, [[x, y + hh - z0], [x + hw, y - z0], [x + hw, y - z1], [x, y + hh - z1]]);
+  g.fillStyle = skin.t;
+  poly(g, [[x - hw, y - z1], [x, y + hh - z1], [x + hw, y - z1], [x, y - hh - z1]]);
+  g.strokeStyle = skin.e;
+  g.lineWidth = 1;
+  g.beginPath();
+  g.moveTo(x - hw, y - z1); g.lineTo(x, y - hh - z1); g.lineTo(x + hw, y - z1); g.lineTo(x, y + hh - z1); g.closePath();
+  g.moveTo(x, y + hh - z1); g.lineTo(x, y + hh - z0);
+  g.stroke();
+}
+
+// Map a point on a box face (u across 0..1, v up 0..1) to sprite coordinates.
+function faceTransform(g, side, x, y, hw, hh, z0, z1) {
+  const h = z1 - z0;
+  if (side === 'L') g.transform(hw, hh, 0, -h, x - hw, y - z0);
+  else g.transform(hw, -hh, 0, -h, x, y + hh - z0);
+}
+function facePoint(side, x, y, hw, hh, z0, z1, u, v) {
+  const h = z1 - z0;
+  return side === 'L'
+    ? [x - hw + hw * u, y - z0 + hh * u - h * v]
+    : [x + hw * u, y + hh - z0 - hh * u - h * v];
+}
+
+function windows(g, s, tier, x, y, hw, hh, z0, z1, R, dom, alt) {
+  const floors = Math.max(1, Math.round((z1 - z0) / (s * 0.075)));
+  const cols = clamp(Math.round((hw * 2 / s) * 8), 2, tier === CAPITOL ? 48 : 7);
+  const glass = tier >= 5;
+  const litP = 0.28 + tier * 0.05;
+  const ww = glass ? 0.78 : 0.56, wh = glass ? 0.42 : 0.5;
+  for (const side of ['L', 'R']) {
+    g.save();
+    faceTransform(g, side, x, y, hw, hh, z0, z1);
+    g.globalAlpha = side === 'L' ? 0.72 : 1;
+    for (let r = 0; r < floors; r++) {
+      for (let c = 0; c < cols; c++) {
+        if (R() < litP) {
+          const pick = R();
+          g.fillStyle = pick < 0.6 ? dom : pick < 0.82 ? alt : pick < 0.92 ? WARM : '#e9e4ff';
+        } else {
+          g.fillStyle = glass ? '#1b2346' : '#241c44';
+        }
+        g.fillRect((c + (1 - ww) / 2) / cols, (r + 0.18) / floors, ww / cols, wh / floors);
+      }
+    }
+    g.restore();
+  }
+}
+
+function glowRect(g, x, y, w, h, color, blur) {
+  g.save();
+  g.shadowColor = color;
+  g.shadowBlur = blur;
+  g.fillStyle = color;
+  g.fillRect(x, y, w, h);
+  g.restore();
+}
+
+// The rooftop sign that tells each crew building type apart at a glance.
+function emblem(g, line, x, y, s) {
+  const c = LINES[line].color, u = Math.max(0.8, s * 0.022);
+  g.save();
+  g.shadowColor = c; g.shadowBlur = 8; g.fillStyle = c; g.strokeStyle = c;
+  g.lineWidth = Math.max(1, u * 0.8);
+  if (line === 'kiddie') {
+    // pixel invader on a board
+    g.fillStyle = '#0a0814';
+    g.fillRect(x - 3.6 * u, y - 6.4 * u, 7.2 * u, 5.4 * u);
+    g.fillStyle = c;
+    const P = ['0100010', '0011100', '0111110', '1101011', '1111111', '0100010'];
+    P.forEach((row, r) => [...row].forEach((b, q) => { if (b === '1') g.fillRect(x - 3.5 * u + q * u, y - 6.2 * u + r * 0.85 * u, u * 0.9, u * 0.75); }));
+    g.fillRect(x - 3 * u, y - u, 0.6 * u, u); g.fillRect(x + 2.4 * u, y - u, 0.6 * u, u);
+  } else if (line === 'fixer') {
+    // cocktail glass
+    g.beginPath(); g.moveTo(x - 3 * u, y - 7 * u); g.lineTo(x + 3 * u, y - 7 * u); g.lineTo(x, y - 3.5 * u); g.closePath(); g.fill();
+    g.beginPath(); g.moveTo(x, y - 3.5 * u); g.lineTo(x, y - 0.8 * u); g.moveTo(x - 1.8 * u, y - 0.6 * u); g.lineTo(x + 1.8 * u, y - 0.6 * u); g.stroke();
+    g.beginPath(); g.arc(x + 2.2 * u, y - 7.6 * u, 0.9 * u, 0, Math.PI * 2); g.stroke();
+  } else if (line === 'runner') {
+    // uplink dish
+    g.beginPath(); g.ellipse(x, y - 5 * u, 3.2 * u, 1.6 * u, -0.55, 0, Math.PI * 2); g.stroke();
+    g.beginPath(); g.moveTo(x, y - 5 * u); g.lineTo(x + 1.6 * u, y - 7.5 * u); g.moveTo(x, y - 4 * u); g.lineTo(x, y); g.stroke();
+    g.fillRect(x + 1.2 * u, y - 8 * u, u, u);
+  } else if (line === 'broker') {
+    // glowing data cube
+    const r = 2.6 * u;
+    g.beginPath();
+    g.moveTo(x, y - r * 2.6); g.lineTo(x + r, y - r * 2.1); g.lineTo(x + r, y - r * 0.9); g.lineTo(x, y - r * 0.4);
+    g.lineTo(x - r, y - r * 0.9); g.lineTo(x - r, y - r * 2.1); g.closePath();
+    g.moveTo(x, y - r * 1.6); g.lineTo(x, y - r * 0.4); g.moveTo(x, y - r * 1.6); g.lineTo(x - r, y - r * 2.1); g.moveTo(x, y - r * 1.6); g.lineTo(x + r, y - r * 2.1);
+    g.stroke();
+  } else if (line === 'ai') {
+    // cooling stacks with green status strips
+    for (const dx of [-2.6, 0, 2.6]) {
+      g.fillStyle = '#1a2b2a'; g.fillRect(x + dx * u - u, y - 5.5 * u, 2 * u, 5.5 * u);
+      g.fillStyle = c; g.fillRect(x + dx * u - u, y - 5.5 * u, 2 * u, 0.6 * u); g.fillRect(x + dx * u - 0.3 * u, y - 4 * u, 0.6 * u, 2.6 * u);
+    }
+  } else if (line === 'exec') {
+    // corporate logo disc
+    g.beginPath(); g.ellipse(x, y - 5 * u, 3 * u, 3 * u, 0, 0, Math.PI * 2); g.globalAlpha = 0.9; g.fill();
+    g.globalAlpha = 1; g.fillStyle = '#0a0814'; g.shadowBlur = 0;
+    g.beginPath(); g.moveTo(x - 1.6 * u, y - 4 * u); g.lineTo(x, y - 6.8 * u); g.lineTo(x + 1.6 * u, y - 4 * u); g.closePath(); g.fill();
+    g.fillStyle = c; g.fillRect(x - 0.3 * u, y - 2 * u, 0.6 * u, 2 * u);
+  } else if (line === 'ghost') {
+    // torii gate
+    g.fillRect(x - 2.6 * u, y - 5.5 * u, 0.8 * u, 5.5 * u);
+    g.fillRect(x + 1.8 * u, y - 5.5 * u, 0.8 * u, 5.5 * u);
+    g.fillRect(x - 3.8 * u, y - 6.6 * u, 7.6 * u, 0.9 * u);
+    g.fillRect(x - 3 * u, y - 4.8 * u, 6 * u, 0.6 * u);
+  }
+  g.restore();
+}
+
+function makeSprite(tier, line, seed, s) {
+  const T = SHAPES[tier];
+  const R = rng(seed * 7919 + tier * 104729);
+  const crewLine = line && line !== 'hab' && tier >= 2;
+  const maxW = T.sections[0][0];
+  const hwMax = s * 0.5 * maxW, hhMax = s * 0.25 * maxW;
+  const pad = Math.ceil(s * 0.2) + 6;
+  const w = Math.ceil(2 * hwMax + pad * 2);
+  const h = Math.ceil((topZ(tier) + 0.25) * s + 2 * hhMax + pad * 2);
+  const c = document.createElement('canvas');
+  c.width = Math.ceil(w * DPR);
+  c.height = Math.ceil(h * DPR);
+  const g = c.getContext('2d');
+  g.scale(DPR, DPR);
+  const x = w / 2, y = h - hhMax - pad;
+  const dom = lineColor(crewLine ? line : null, seed);
+  const alt = crewLine ? PAL[seed % 3] === dom ? PAL[(seed + 1) % 3] : PAL[seed % 3]
+                       : PAL[(seed % 3 + 1 + ((seed >> 3) & 1)) % 3];
+  const glass = tier >= 5;
+  const skin = glass
+    ? { l: '#0d1228', r: '#141d3c', t: '#222e58', e: 'rgba(62, 242, 255, 0.35)' }
+    : { l: '#17122b', r: '#221a3d', t: '#2f2654', e: 'rgba(255, 43, 214, 0.3)' };
+  if (crewLine) skin.e = dom + '66';
+
+  let zPrev = 0;
+  T.sections.forEach(([sw, zt], si) => {
+    const hw = s * 0.5 * sw, hh = s * 0.25 * sw, z0 = zPrev * s, z1 = zt * s;
+    box(g, x, y, hw, hh, z0, z1, skin);
+    if (tier >= 3) windows(g, s, tier, x, y, hw, hh, z0, z1, R, dom, alt);
+    // terraces of greenery on an arcology's setbacks
+    if (tier >= 8 && si < T.sections.length - 1) {
+      const inner = T.sections[si + 1][0] / sw;
+      for (let n = 0; n < 40; n++) {
+        const a = R() * 2 - 1, b = (R() * 2 - 1) * (1 - Math.abs(a));
+        if (Math.abs(a) + Math.abs(b) < inner + 0.06 || Math.abs(a) + Math.abs(b) > 0.92) continue;
+        const px = x + a * hw, py = y - z1 + b * hh;
+        g.fillStyle = R() < 0.5 ? '#2fe39a' : '#169a6a';
+        g.beginPath(); g.arc(px, py, Math.max(1, s * 0.012), 0, Math.PI * 2); g.fill();
+      }
+    }
+    // neon band along each setback edge
+    if (si < T.sections.length - 1 && tier >= 6) {
+      g.save();
+      g.strokeStyle = dom; g.shadowColor = dom; g.shadowBlur = 8; g.lineWidth = 1.5;
+      g.beginPath();
+      g.moveTo(x - hw, y - z1); g.lineTo(x, y + hh - z1); g.lineTo(x + hw, y - z1);
+      g.stroke();
+      g.restore();
+    }
+    // glowing front edge on bigger buildings
+    if (tier >= 4) {
+      g.save();
+      g.strokeStyle = dom; g.globalAlpha = 0.85; g.shadowColor = dom; g.shadowBlur = 6; g.lineWidth = 1.4;
+      g.beginPath(); g.moveTo(x, y + hh - z0); g.lineTo(x, y + hh - z1); g.stroke();
+      g.restore();
+    }
+    zPrev = zt;
+  });
+
+  const [sw0, zt0] = T.sections[0];
+  const hw0 = s * 0.5 * sw0, hh0 = s * 0.25 * sw0, z1 = zt0 * s;
+
+  if (tier === 1) {
+    // door, one window, a rooftop sign
+    g.save(); faceTransform(g, 'R', x, y, hw0, hh0, 0, z1);
+    g.fillStyle = '#07060d'; g.fillRect(0.55, 0, 0.24, 0.62);
+    g.restore();
+    g.save(); faceTransform(g, 'L', x, y, hw0, hh0, 0, z1);
+    g.fillStyle = WARM; g.fillRect(0.3, 0.35, 0.32, 0.32);
+    g.restore();
+    g.strokeStyle = '#5a5180'; g.lineWidth = 1;
+    g.beginPath(); g.moveTo(x - s * 0.05, y - z1); g.lineTo(x - s * 0.05, y - z1 - s * 0.08);
+    g.moveTo(x + s * 0.05, y - z1); g.lineTo(x + s * 0.05, y - z1 - s * 0.08); g.stroke();
+    glowRect(g, x - s * 0.08, y - z1 - s * 0.13, s * 0.16, s * 0.06, '#ff2bd6', 10);
+  }
+  if (tier === 2 && !crewLine) {
+    // ramen stall: shopfront, striped awning, lanterns and a vertical sign
+    g.save(); faceTransform(g, 'R', x, y, hw0, hh0, 0, z1);
+    g.fillStyle = WARM; g.fillRect(0.08, 0.06, 0.84, 0.44);
+    for (let n = 0; n < 8; n++) {
+      g.fillStyle = n % 2 ? '#ffd9f5' : '#ff2bd6';
+      g.fillRect(n / 8, 0.52, 1 / 8, 0.16);
+    }
+    g.restore();
+    g.save(); faceTransform(g, 'L', x, y, hw0, hh0, 0, z1);
+    g.fillStyle = '#ffb35c'; g.globalAlpha = 0.7; g.fillRect(0.2, 0.3, 0.3, 0.35);
+    g.restore();
+    for (const u of [0.2, 0.5, 0.8]) {
+      const [px, py] = facePoint('R', x, y, hw0, hh0, 0, z1, u, 0.46);
+      g.save(); g.fillStyle = '#ff3b4f'; g.shadowColor = '#ff3b4f'; g.shadowBlur = 8;
+      g.beginPath(); g.arc(px, py, Math.max(1.5, s * 0.016), 0, Math.PI * 2); g.fill(); g.restore();
+    }
+    g.save(); faceTransform(g, 'L', x, y, hw0, hh0, 0, z1);
+    g.shadowColor = '#3ef2ff'; g.shadowBlur = 10; g.fillStyle = '#3ef2ff';
+    g.fillRect(0.78, 0.35, 0.14, 1.1);
+    g.restore();
+  }
+  if (tier === 2 && crewLine) {
+    // crew shopfront: a lit window and a neon strip in the building type's colour
+    g.save(); faceTransform(g, 'R', x, y, hw0, hh0, 0, z1);
+    g.fillStyle = dom; g.globalAlpha = 0.75; g.fillRect(0.1, 0.08, 0.8, 0.42);
+    g.globalAlpha = 1; g.fillStyle = '#07060d'; g.fillRect(0.42, 0.08, 0.16, 0.42);
+    g.shadowColor = dom; g.shadowBlur = 8; g.fillStyle = dom; g.fillRect(0.05, 0.6, 0.9, 0.08);
+    g.restore();
+    g.save(); faceTransform(g, 'L', x, y, hw0, hh0, 0, z1);
+    g.fillStyle = dom; g.globalAlpha = 0.45; g.fillRect(0.2, 0.3, 0.5, 0.3);
+    g.restore();
+  }
+  if (tier === 3 && !crewLine) {
+    // water tank on the roof and a hotel sign
+    const tx = x - hw0 * 0.35, ty = y - z1 - hh0 * 0.1;
+    box(g, tx, ty + z1, s * 0.06, s * 0.03, z1, z1 + s * 0.1, skin);
+    g.save(); faceTransform(g, 'R', x, y, hw0, hh0, 0, z1);
+    g.shadowColor = '#ff2bd6'; g.shadowBlur = 8; g.fillStyle = '#ff2bd6';
+    g.fillRect(0.2, 0.9, 0.6, 0.06);
+    g.restore();
+  }
+  if (tier === 4) {
+    // a hanging vertical sign on the front corner
+    const [px, py] = facePoint('R', x, y, hw0, hh0, 0, z1, 0.05, 0.85);
+    const signC = crewLine ? dom : dom === '#3ef2ff' ? '#ff2bd6' : '#3ef2ff';
+    glowRect(g, px + 2, py, Math.max(2, s * 0.035), z1 * 0.55, signC, 10);
+    if (!crewLine) {
+      const topH = T.sections[1][1] * s;
+      g.strokeStyle = '#8f88b8'; g.lineWidth = 1.2;
+      g.beginPath(); g.ellipse(x + hw0 * 0.45, y - z1 - s * 0.05, s * 0.06, s * 0.03, -0.5, 0, Math.PI * 2); g.stroke();
+      g.beginPath(); g.moveTo(x, y - topH); g.lineTo(x, y - topH - s * 0.1); g.stroke();
+    }
+  }
+  if (tier >= 6) {
+    // holographic billboard
+    g.save(); faceTransform(g, 'R', x, y, hw0, hh0, 0, z1);
+    const grad = g.createLinearGradient(0, 0, 1, 0);
+    grad.addColorStop(0, crewLine ? dom : 'rgba(255, 43, 214, 0.85)');
+    grad.addColorStop(1, crewLine ? alt : 'rgba(62, 242, 255, 0.85)');
+    g.globalAlpha = crewLine ? 0.85 : 1;
+    g.fillStyle = grad;
+    g.fillRect(0.14, 0.42, 0.72, 0.2);
+    g.globalAlpha = 1;
+    g.fillStyle = 'rgba(8, 7, 15, 0.55)';
+    for (let n = 0; n < 6; n++) g.fillRect(0.14, 0.44 + n * 0.03, 0.72, 0.008);
+    g.restore();
+  }
+  if (tier >= 8) {
+    // halo around the crown
+    const [lsw, lzt] = T.sections[T.sections.length - 1];
+    const ring = crewLine ? dom : '#5dffb0';
+    g.save();
+    g.strokeStyle = ring; g.shadowColor = ring; g.shadowBlur = 12; g.lineWidth = 1.6;
+    g.beginPath(); g.ellipse(x, y - lzt * s + s * 0.04, s * 0.5 * lsw * 1.25, s * 0.25 * lsw * 1.25, 0, 0, Math.PI * 2); g.stroke();
+    g.restore();
+  }
+  if (T.spire) {
+    const zt = T.sections[T.sections.length - 1][1] * s;
+    g.strokeStyle = '#a49ccc'; g.lineWidth = 1.5;
+    g.beginPath(); g.moveTo(x, y - zt); g.lineTo(x, y - zt - T.spire * s); g.stroke();
+  }
+  if (crewLine) {
+    const [lsw, lzt] = T.sections[T.sections.length - 1];
+    const off = T.spire ? -s * 0.5 * lsw * 0.42 : 0;
+    emblem(g, line, x + off, y - lzt * s + s * 0.25 * lsw * (T.spire ? 0.12 : 0.05), s * (0.75 + tier * 0.06));
+  }
+  return { c, ox: x, oy: y, w, h };
+}
+
+function sprite(tier, line, seed, s) {
+  const q = Math.pow(2, Math.round(Math.log2(s) * 8) / 8);
+  const base = `${tier}:${line || ''}:${seed}`;
+  const key = `${base}:${q.toFixed(2)}:${DPR}`;
+  let sp = spriteCache.get(key);
+  if (sp) return sp;
+  // Drawing a sprite costs a few hundred rectangles, so only a handful are made per frame.
+  // While zooming, the nearest existing size stands in until its turn comes.
+  if (spriteBudget <= 0 && spriteLatest.has(base)) return spriteLatest.get(base);
+  spriteBudget--;
+  if (spriteCache.size > 600) spriteCache.clear();
+  sp = makeSprite(tier, line, seed, q);
+  sp.q = q;
+  spriteCache.set(key, sp);
+  spriteLatest.set(base, sp);
+  return sp;
+}
+
+/* ================================================================
+   Canvas: living details
+   ================================================================ */
+const fabs = new Map();          // "sector:lot" -> fabrication start time
+const particles = [];
+const floaters = [];
+let rain = [];
+const cars = [];
+const courier = { active: false, x: 0, y: 0, cy: 0, dir: 1, next: 0 };
+
+function startFabrication(sec, k) { fabs.set(sec + ':' + k, performance.now()); }
+
+function initRain() {
+  rain = [];
+  if (reduceMotion) return;
+  const n = Math.round(W * H / 6000);
+  for (let i = 0; i < n; i++) rain.push({ x: Math.random() * W, y: Math.random() * H, v: 500 + Math.random() * 300 });
+}
+for (let i = 0; i < 9; i++) {
+  cars.push({ lane: i % 3, x: Math.random(), v: (0.03 + Math.random() * 0.05) * (i % 2 ? 1 : -1), c: PAL[i % 3] });
+}
+
+function spawnSparks(x, y, color) {
+  if (reduceMotion) return;
+  for (let n = 0; n < 22; n++) {
+    const a = Math.random() * Math.PI * 2, v = 40 + Math.random() * 120;
+    particles.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 60, life: 0.8 + Math.random() * 0.5, c: color });
+  }
+}
+function floater(x, y, text, color) {
+  floaters.push({ x, y, text, c: color, life: 1.3 });
+  if (floaters.length > 30) floaters.shift();
+}
+
+/* ================================================================
+   Drawing
+   ================================================================ */
+function draw(now, dt) {
+  const t = now / 1000;
+  spriteBudget = 8;
+  if (backdropTheme !== cur().type) buildBackdrop(cur().type);
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  ctx.drawImage(backdrop, 0, 0, W, H);
+
+  // sky traffic behind the city
+  for (const car of cars) {
+    if (!reduceMotion) { car.x += car.v * dt; if (car.x > 1.1) car.x = -0.1; if (car.x < -0.1) car.x = 1.1; }
+    const y = H * (0.2 + car.lane * 0.07), x = car.x * W, dir = Math.sign(car.v);
+    const tr = ctx.createLinearGradient(x, y, x - dir * 34, y);
+    tr.addColorStop(0, car.c); tr.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.strokeStyle = tr; ctx.lineWidth = 1.5; ctx.globalAlpha = 0.55;
+    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - dir * 34, y); ctx.stroke();
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = '#fff'; ctx.fillRect(x - 1, y - 1, 2, 2);
+  }
+
+  for (let sec = 0; sec < S.sectors.length; sec++) drawGround(sec, t);
+  if (showGhost()) drawGhostSector(S.sectors.length, t);
+  drawRoads(t);
+  drawBuildings(now, t);
+  if (view === 'map') drawMapLabels();
+
+  for (let n = particles.length - 1; n >= 0; n--) {
+    const p = particles[n];
+    p.life -= dt; if (p.life <= 0) { particles.splice(n, 1); continue; }
+    p.vy += 180 * dt; p.x += p.vx * dt; p.y += p.vy * dt;
+    ctx.globalAlpha = Math.min(1, p.life * 1.5);
+    ctx.fillStyle = p.c; ctx.fillRect(p.x - 1, p.y - 1, 2.2, 2.2);
+  }
+  ctx.globalAlpha = 1;
+
+  drawCourier(now, dt);
+
+  ctx.textAlign = 'center';
+  for (let n = floaters.length - 1; n >= 0; n--) {
+    const f = floaters[n];
+    f.life -= dt; if (f.life <= 0) { floaters.splice(n, 1); continue; }
+    if (!reduceMotion) f.y -= 34 * dt;
+    ctx.globalAlpha = Math.min(1, f.life * 1.4);
+    ctx.font = '600 16px "Share Tech Mono", ui-monospace, monospace';
+    ctx.fillStyle = f.c; ctx.shadowColor = f.c; ctx.shadowBlur = 8;
+    ctx.fillText(f.text, f.x, f.y);
+  }
+  ctx.shadowBlur = 0; ctx.globalAlpha = 1;
+
+  if (rain.length) {
+    ctx.strokeStyle = 'rgba(170, 185, 255, 0.16)'; ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (const d of rain) {
+      d.y += d.v * dt; d.x -= d.v * 0.12 * dt;
+      if (d.y > H) { d.y = -14; d.x = Math.random() * (W + 60); }
+      ctx.moveTo(d.x, d.y); ctx.lineTo(d.x + 1.6, d.y - 13);
+    }
+    ctx.stroke();
+  }
+}
+
+function sectorCorners(sec) {
+  const [I0, J0] = lotIJ(sec, 0);
+  const P = (I, J) => [sx(worldX(I, J)), sy(worldY(I, J))];
+  return {
+    top: P(I0 - 0.5, J0 - 0.5), right: P(I0 + N - 0.5, J0 - 0.5),
+    bottom: P(I0 + N - 0.5, J0 + N - 0.5), left: P(I0 - 0.5, J0 + N - 0.5), P, I0, J0,
+  };
+}
+const offscreen = c => c.right[0] < -20 || c.left[0] > W + 20 || c.bottom[1] < -20 || c.top[1] > H + 5 * cam.s;
+
+function drawGround(sec, t) {
+  const c = sectorCorners(sec);
+  if (offscreen(c)) return;
+  ctx.save();
+  if (view === 'city' && sec !== S.cur) ctx.globalAlpha = 0.45;
+  drawGroundInner(sec, t, c);
+  ctx.restore();
+}
+function drawGroundInner(sec, t, c) {
+  const { top, right, bottom, left, P, I0, J0 } = c;
+  const haze = theme(sec).haze;
+  const d = 0.22 * cam.s;
+  ctx.fillStyle = '#0a0816';
+  poly(ctx, [left, bottom, [bottom[0], bottom[1] + d], [left[0], left[1] + d]]);
+  ctx.fillStyle = '#110e22';
+  poly(ctx, [bottom, right, [right[0], right[1] + d], [bottom[0], bottom[1] + d]]);
+  ctx.fillStyle = '#0f0c1e';
+  poly(ctx, [top, right, bottom, left]);
+  ctx.strokeStyle = `rgba(${haze}, 0.4)`; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(left[0], left[1]); ctx.lineTo(bottom[0], bottom[1]); ctx.lineTo(right[0], right[1]); ctx.stroke();
+
+  // streets between lots
+  ctx.strokeStyle = `rgba(${haze}, 0.09)`;
+  ctx.beginPath();
+  for (let k = 0; k <= N; k++) {
+    let p1 = P(I0 + k - 0.5, J0 - 0.5), p2 = P(I0 + k - 0.5, J0 + N - 0.5);
+    ctx.moveTo(p1[0], p1[1]); ctx.lineTo(p2[0], p2[1]);
+    p1 = P(I0 - 0.5, J0 + k - 0.5); p2 = P(I0 + N - 0.5, J0 + k - 0.5);
+    ctx.moveTo(p1[0], p1[1]); ctx.lineTo(p2[0], p2[1]);
+  }
+  ctx.stroke();
+  if (cam.s > 30) {
+    ctx.fillStyle = 'rgba(255, 194, 62, 0.55)';
+    for (let a = 0; a <= N; a++) for (let b = 0; b <= N; b++) {
+      const [x, y] = P(I0 + a - 0.5, J0 + b - 0.5);
+      ctx.fillRect(x - 1, y - 1, 2, 2);
+    }
+  }
+
+  const s = S.sectors[sec];
+  const active = view === 'city' && sec === S.cur;
+  const nk = active ? nextLot(sec) : -1;
+  const pulse = 0.5 + 0.5 * Math.sin(t * 3);
+  for (let k = 0; k < N * N; k++) {
+    if (!s.lots[k] && k !== nk) continue;
+    const [x, y] = lotScreen(sec, k);
+    const f = 0.84, hw = cam.s * 0.5 * f, hh = cam.s * 0.25 * f;
+    ctx.beginPath(); ctx.moveTo(x, y - hh); ctx.lineTo(x + hw, y); ctx.lineTo(x, y + hh); ctx.lineTo(x - hw, y); ctx.closePath();
+    if (s.lots[k]) {
+      ctx.fillStyle = '#171331'; ctx.fill();
+      ctx.strokeStyle = '#2e2756'; ctx.lineWidth = 1; ctx.stroke();
+      if (active && k === s.sel) {
+        ctx.save();
+        ctx.strokeStyle = '#ff2bd6'; ctx.shadowColor = '#ff2bd6'; ctx.shadowBlur = 12;
+        ctx.globalAlpha = 0.6 + 0.4 * pulse; ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.restore();
+      }
+    } else {
+      ctx.save();
+      ctx.setLineDash([5, 4]);
+      ctx.lineDashOffset = reduceMotion ? 0 : -t * 12;
+      ctx.strokeStyle = S.credits >= lotCost(sec) ? '#3ef2ff' : 'rgba(62, 242, 255, 0.45)';
+      ctx.globalAlpha = 0.5 + 0.5 * pulse; ctx.lineWidth = 1.5;
+      ctx.stroke();
+      ctx.setLineDash([]);
+      const r = Math.max(4, cam.s * 0.06);
+      ctx.beginPath(); ctx.moveTo(x - r, y); ctx.lineTo(x + r, y); ctx.moveTo(x, y - r / 2); ctx.lineTo(x, y + r / 2); ctx.stroke();
+      ctx.restore();
+    }
+  }
+}
+
+// The next sector, before its road is built: a dashed outline of land waiting.
+function drawGhostSector(sec, t) {
+  const c = sectorCorners(sec);
+  if (offscreen(c)) return;
+  const { top, right, bottom, left } = c;
+  ctx.save();
+  ctx.setLineDash([7, 6]);
+  ctx.lineDashOffset = reduceMotion ? 0 : -t * 14;
+  ctx.strokeStyle = S.credits >= roadCost(sec) && roadReady() ? '#3ef2ff' : 'rgba(148, 140, 192, 0.55)';
+  ctx.fillStyle = 'rgba(62, 242, 255, 0.03)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(top[0], top[1]); ctx.lineTo(right[0], right[1]); ctx.lineTo(bottom[0], bottom[1]); ctx.lineTo(left[0], left[1]); ctx.closePath();
+  ctx.fill(); ctx.stroke();
+  ctx.restore();
+  const cx = (top[0] + bottom[0]) / 2, cy = (top[1] + bottom[1]) / 2;
+  ctx.textAlign = 'center';
+  ctx.fillStyle = 'rgba(236, 232, 255, 0.75)';
+  ctx.font = `600 ${clamp(cam.s * 0.32, 11, 15)}px "Share Tech Mono", ui-monospace, monospace`;
+  ctx.fillText('NEW DISTRICT', cx, cy - 4);
+  ctx.fillStyle = 'rgba(148, 140, 192, 0.9)';
+  ctx.fillText(roadReady() ? `ROAD ${fmt(roadCost(sec))} \u00b7 INFRA TAB` : `NEEDS ${ROAD_REQ} LOTS`, cx, cy + 14);
+}
+
+// Cyber roads cross the gap between each sector and the one before it.
+function roadEnds(k) {
+  const [a1, b1] = SECTOR_POS[k - 1], [a2, b2] = SECTOR_POS[k];
+  const c1 = [a1 * SPAN + CENTER, b1 * SPAN + CENTER], c2 = [a2 * SPAN + CENTER, b2 * SPAN + CENTER];
+  if (a1 !== a2) {
+    const dir = Math.sign(a2 - a1);
+    return [[c1[0] + dir * (CENTER + 0.5), c1[1]], [c2[0] - dir * (CENTER + 0.5), c2[1]]];
+  }
+  const dir = Math.sign(b2 - b1);
+  return [[c1[0], c1[1] + dir * (CENTER + 0.5)], [c2[0], c2[1] - dir * (CENTER + 0.5)]];
+}
+function drawRoads(t) {
+  const count = S.sectors.length + (showGhost() ? 1 : 0);
+  for (let k = 1; k < count; k++) {
+    const built = k < S.sectors.length;
+    const [[I1, J1], [I2, J2]] = roadEnds(k);
+    // run the road a little into each sector so it meets the streets
+    const dI = Math.sign(I2 - I1), dJ = Math.sign(J2 - J1);
+    const p1 = [sx(worldX(I1 - dI * 0.5, J1 - dJ * 0.5)), sy(worldY(I1 - dI * 0.5, J1 - dJ * 0.5))];
+    const p2 = [sx(worldX(I2 + dI * 0.5, J2 + dJ * 0.5)), sy(worldY(I2 + dI * 0.5, J2 + dJ * 0.5))];
+    if (Math.max(p1[0], p2[0]) < -40 || Math.min(p1[0], p2[0]) > W + 40 || Math.max(p1[1], p2[1]) < -40 || Math.min(p1[1], p2[1]) > H + 40) continue;
+    const lv = built ? S.roads[k] : 0;
+    const color = built ? ROAD_LEVELS[lv].color : 'rgba(148, 140, 192, 0.5)';
+    const width = Math.max(2, cam.s * (0.12 + lv * 0.05));
+    ctx.save();
+    ctx.lineCap = 'round';
+    if (!built) {
+      ctx.setLineDash([6, 6]);
+      ctx.strokeStyle = color; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(p1[0], p1[1]); ctx.lineTo(p2[0], p2[1]); ctx.stroke();
+      ctx.restore();
+      continue;
+    }
+    ctx.strokeStyle = '#120f22'; ctx.lineWidth = width + 4;
+    ctx.beginPath(); ctx.moveTo(p1[0], p1[1]); ctx.lineTo(p2[0], p2[1]); ctx.stroke();
+    ctx.strokeStyle = color; ctx.shadowColor = color; ctx.shadowBlur = 12; ctx.lineWidth = 1.5;
+    const nx = -(p2[1] - p1[1]), ny = p2[0] - p1[0], nl = Math.hypot(nx, ny) || 1;
+    const ox = nx / nl * width / 2, oy = ny / nl * width / 2;
+    ctx.beginPath();
+    ctx.moveTo(p1[0] + ox, p1[1] + oy); ctx.lineTo(p2[0] + ox, p2[1] + oy);
+    ctx.moveTo(p1[0] - ox, p1[1] - oy); ctx.lineTo(p2[0] - ox, p2[1] - oy);
+    ctx.stroke();
+    // traffic pulses: more lanes and faster on better roads
+    ctx.shadowBlur = 8;
+    const lanes = lv, speed = 0.25 + lv * 0.15;
+    for (let ln = 0; ln < lanes; ln++) {
+      const off = (ln - (lanes - 1) / 2) / Math.max(1, lanes) * 0.8;
+      for (let n = 0; n < 4; n++) {
+        let f = ((reduceMotion ? 0 : t * speed) + n / 4 + ln * 0.13) % 1;
+        if (ln % 2) f = 1 - f;
+        const px = p1[0] + (p2[0] - p1[0]) * f + ox * 2 * off, py = p1[1] + (p2[1] - p1[1]) * f + oy * 2 * off;
+        ctx.fillStyle = ln % 2 ? '#ff3b4f' : '#ffffff';
+        ctx.fillRect(px - 1.2, py - 1.2, 2.4, 2.4);
+      }
+    }
+    ctx.restore();
+  }
+}
+
+function drawBuildings(now, t) {
+  const order = buildingList().sort((a, b) => a.d - b.d);
+  const glow = cam.s > 26;
+  for (const { sec, k, tier, line } of order) {
+    const seed = seedOf(sec, k);
+    const big = tier === CAPITOL ? 6 : 1;
+    const [x, y] = lotScreen(sec, k);
+    const top = topZ(tier) * cam.s;
+    if (x < -cam.s * big || x > W + cam.s * big || y - top > H + 10 || y < -cam.s * big) continue;
+    const dom = lineColor(line && line !== 'hab' ? line : null, seed);
+    const faded = view === 'city' && sec !== S.cur;
+    ctx.globalAlpha = faded ? 0.22 : 1;
+    if (glow && !faded) {
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      const pool = ctx.createRadialGradient(x, y, 2, x, y, cam.s * 0.55 * big);
+      pool.addColorStop(0, dom + '38'); pool.addColorStop(1, dom + '00');
+      ctx.fillStyle = pool;
+      ctx.fillRect(x - cam.s * 0.6 * big, y - cam.s * 0.35 * big, cam.s * 1.2 * big, cam.s * 0.7 * big);
+      ctx.restore();
+    }
+
+    const sp = sprite(tier, line, seed, cam.s);
+    const sc = cam.s / sp.q;
+    const dx = x - sp.ox * sc, dy = y - sp.oy * sc, dw = sp.w * sc, dh = sp.h * sc;
+    const fkey = sec + ':' + k;
+    const fab = fabs.get(fkey);
+    if (fab !== undefined) {
+      const p = clamp((now - fab) / 900, 0, 1);
+      if (p >= 1) {
+        fabs.delete(fkey);
+        spawnSparks(x, y - top, dom);
+      }
+      const ease = 1 - Math.pow(1 - p, 2);
+      const cut = dy + dh * (1 - ease);
+      ctx.save();
+      ctx.beginPath(); ctx.rect(dx - 2, cut, dw + 4, dh); ctx.clip();
+      ctx.drawImage(sp.c, dx, dy, dw, dh);
+      ctx.restore();
+      ctx.save();
+      ctx.strokeStyle = '#3ef2ff'; ctx.shadowColor = '#3ef2ff'; ctx.shadowBlur = 12; ctx.lineWidth = 2;
+      ctx.globalAlpha = 1 - p * 0.6;
+      ctx.beginPath(); ctx.moveTo(dx + dw * 0.1, cut); ctx.lineTo(dx + dw * 0.9, cut); ctx.stroke();
+      ctx.restore();
+    } else {
+      ctx.drawImage(sp.c, dx, dy, dw, dh);
+    }
+
+    // blinking aircraft beacon
+    ctx.globalAlpha = 1;
+    if (!faded && SHAPES[tier].spire && fab === undefined && Math.sin(t * 2.4 + seed) > 0.2) {
+      ctx.save();
+      ctx.fillStyle = '#ff3b4f'; ctx.shadowColor = '#ff3b4f'; ctx.shadowBlur = 10;
+      ctx.beginPath(); ctx.arc(x, y - top, 2.2, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    }
+  }
+  // selection chevron above the chosen building
+  const s = cur();
+  if (view === 'city' && s.lots[s.sel]) {
+    const [rx, ry] = roofPoint(S.cur, s.sel);
+    const bob = reduceMotion ? 0 : Math.sin(t * 3) * 3;
+    const y = ry - 14 + bob;
+    ctx.save();
+    ctx.strokeStyle = '#ff2bd6'; ctx.shadowColor = '#ff2bd6'; ctx.shadowBlur = 8; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(rx - 7, y - 6); ctx.lineTo(rx, y); ctx.lineTo(rx + 7, y - 6); ctx.stroke();
+    ctx.restore();
+  }
+}
+
+function drawMapLabels() {
+  ctx.textAlign = 'center';
+  for (let sec = 0; sec < S.sectors.length; sec++) {
+    const { bottom } = sectorCorners(sec);
+    const x = bottom[0], y = bottom[1] + 0.22 * cam.s + 18;
+    if (x < -100 || x > W + 100 || y < 0 || y > H + 40) continue;
+    const here = sec === S.cur;
+    ctx.font = '700 13px "Tektur", "Chakra Petch", system-ui, sans-serif';
+    ctx.fillStyle = here ? '#ff2bd6' : '#ece8ff';
+    ctx.fillText(sectorName(sec).toUpperCase(), x, y);
+    ctx.font = '12px "Share Tech Mono", ui-monospace, monospace';
+    ctx.fillStyle = '#3ef2ff';
+    ctx.fillText(`+${fmt(SECTOR_CPS[sec] || 0, true)}/s · ${ownedIn(sec)}/${N * N} lots`, x, y + 15);
+    ctx.fillStyle = `rgb(${theme(sec).haze})`;
+    ctx.fillText(perkText(perkOf(sec)), x, y + 30);
+  }
+}
+
+function drawCourier(now, dt) {
+  if (!courier.active) {
+    if (now > courier.next && !document.hidden) {
+      courier.active = true;
+      courier.dir = Math.random() < 0.5 ? 1 : -1;
+      courier.x = courier.dir > 0 ? -30 : W + 30;
+      courier.y = HUD_TOP + 10 + Math.random() * Math.max(20, (H - HUD_TOP) * 0.3);
+      courier.phase = Math.random() * 6;
+    }
+    return;
+  }
+  courier.x += courier.dir * (W / 11) * dt;
+  courier.phase += dt;
+  const y = courier.y + (reduceMotion ? 0 : Math.sin(courier.phase * 2) * 6);
+  courier.cy = y;
+  if (courier.x < -40 || courier.x > W + 40) { courier.active = false; scheduleCourier(now); return; }
+  const x = courier.x;
+  ctx.save();
+  ctx.strokeStyle = '#ffc23e'; ctx.fillStyle = '#ffc23e'; ctx.shadowColor = '#ffc23e'; ctx.shadowBlur = 14; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(x - 13, y - 5); ctx.lineTo(x + 13, y - 5); ctx.stroke();
+  ctx.fillRect(x - 6, y - 4, 12, 7);
+  ctx.beginPath(); ctx.moveTo(x - 4, y + 3); ctx.lineTo(x - 2, y + 11); ctx.lineTo(x + 2, y + 11); ctx.lineTo(x + 4, y + 3); ctx.fill();
+  if (Math.sin(courier.phase * 10) > 0) { ctx.fillStyle = '#fff'; ctx.fillRect(x - 1, y - 2, 2, 2); }
+  ctx.font = '12px "Share Tech Mono", ui-monospace, monospace';
+  ctx.textAlign = 'center'; ctx.shadowBlur = 0; ctx.fillStyle = 'rgba(255, 194, 62, 0.85)';
+  ctx.fillText('DATA COURIER', x, y - 12);
+  ctx.restore();
+}
+function scheduleCourier(now) {
+  courier.next = now + (45000 + Math.random() * 60000) / M.courierRate;
+}
+
+/* ================================================================
+   Input on the city
+   ================================================================ */
+function pickLot(px, py) {
+  const wx = (px - W / 2) / cam.s + cam.x;
+  const wy = (py - midY()) / cam.s + cam.y;
+  const I = Math.round(wx + 2 * wy), J = Math.round(2 * wy - wx);
+  const count = S.sectors.length + 1;
+  for (let sec = 0; sec < count; sec++) {
+    const [a, b] = SECTOR_POS[sec];
+    const i = I - a * SPAN, j = J - b * SPAN;
+    if (i >= 0 && j >= 0 && i < N && j < N) return { sec, k: j * N + i };
+  }
+  return null;
+}
+
+cvs.addEventListener('pointerdown', e => {
+  const r = cvs.getBoundingClientRect();
+  const px = e.clientX - r.left, py = e.clientY - r.top;
+  if (courier.active && Math.hypot(px - courier.x, py - courier.cy) < 30) {
+    const gain = Math.max(25, CPS * 45) * M.courierPay;
+    earn(gain);
+    S.couriers++;
+    courier.active = false;
+    scheduleCourier(performance.now());
+    floater(px, py, '+' + fmt(gain), '#ffc23e');
+    spawnSparks(px, py, '#ffc23e');
+    toast(`Courier intercepted. Its payload sold for ${fmt(gain)} credits.`, 'gold');
+    Sound.courier();
+    dirty = true;
+    return;
+  }
+  if (view === 'map') {
+    const hit = pickLot(px, py);
+    if (!hit) return;
+    if (hit.sec < S.sectors.length) { goSector(hit.sec); setView('city'); }
+    else setTab('infra');
+    return;
+  }
+  // buildings first, front to back, since tall ones cover the lots behind them
+  const order = buildingList().sort((a, b) => b.d - a.d);
+  for (const { sec, k, tier: t } of order) {
+    const [x, y] = lotScreen(sec, k);
+    const sw = SHAPES[t].sections[0][0], hw = cam.s * 0.5 * sw, hh = cam.s * 0.25 * sw;
+    if (px > x - hw && px < x + hw && py < y + hh && py > y - hh - topZ(t) * cam.s) {
+      select(sec, k);
+      return;
+    }
+  }
+  const hit = pickLot(px, py);
+  if (!hit) return;
+  if (hit.sec >= S.sectors.length) { setTab('infra'); return; }
+  const s = S.sectors[hit.sec];
+  if (s.lots[hit.k]) { select(hit.sec, hit.k); return; }
+  if (hit.sec === S.cur && hit.k === nextLot(hit.sec)) {
+    if (acquireLot(hit.sec)) {
+      const [x, y] = lotScreen(hit.sec, hit.k);
+      floater(x, y - 10, 'Lot ' + lotName(hit.k), '#3ef2ff');
+    } else {
+      toast(`Lot ${lotName(hit.k)} costs ${fmt(lotCost(hit.sec))} credits. You have ${fmt(S.credits)}.`);
+    }
+  }
+});
+
+function select(sec, k) {
+  if (sec !== S.cur) goSector(sec);
+  S.sectors[sec].sel = k;
+  setTab('build');
+  dirty = true;
+}
+function goSector(sec) {
+  if (sec === S.cur) return;
+  S.cur = sec;
+  updateSectorBar();
+  dirty = true;
+}
+function setView(v) {
+  view = v;
+  updateSectorBar();
+  dirty = true;
+}
+
+$('#hack').addEventListener('click', () => {
+  const gain = hackValue();
+  earn(gain);
+  S.hacks++;
+  const s = cur();
+  const [rx, ry] = view === 'city' ? roofPoint(S.cur, s.sel) : [W / 2, H / 2];
+  floater(rx + (Math.random() - 0.5) * 30, ry - 18, '+' + fmt(gain, true), '#ff2bd6');
+  Sound.hack();
+  const b = $('#hack');
+  b.classList.remove('pulse'); void b.offsetWidth; b.classList.add('pulse');
+});
+
+const sectorBar = $('#sectorbar');
+function updateSectorBar() {
+  const multi = S.sectors.length > 1;
+  sectorBar.hidden = !multi;
+  $('#city-pane').classList.toggle('has-sectors', multi);
+  $('#sector-num').textContent = `${perkText(perkOf(S.cur))} here`;
+  $('#sector-name').textContent = sectorName(S.cur);
+  const mb = $('#mapbtn');
+  mb.setAttribute('aria-pressed', String(view === 'map'));
+  mb.textContent = view === 'map' ? 'Close map' : 'Map';
+}
+sectorBar.addEventListener('click', e => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  if (b.id === 'mapbtn') { setView(view === 'map' ? 'city' : 'map'); return; }
+  const d = +b.dataset.step;
+  goSector((S.cur + d + S.sectors.length) % S.sectors.length);
+  if (view === 'map') setView('city');
+});
+
+/* ================================================================
+   Console panel
+   ================================================================ */
+const panel = $('#panel');
+let tab = 'build';
+let crewMode = 1;
+let dirty = true;
+let wipeArmed = 0, rebootArmed = 0, importArmed = 0;
+let exportedCode = '', importDraft = '';
+let newAch = 0;                  // achievements earned since the Goals tab was last opened
+
+function setTab(name) {
+  if (tab === name) return;
+  tab = name;
+  if (name === 'goals') newAch = 0;
+  document.querySelectorAll('.tab').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === name)));
+  panel.setAttribute('aria-labelledby', 'tab-' + name);
+  panel.scrollTop = 0;
+  dirty = true;
+}
+document.querySelector('.tabs').addEventListener('click', e => {
+  const b = e.target.closest('[data-tab]');
+  if (b) setTab(b.dataset.tab);
+});
+
+const buyBtn = (act, attrs, what, sub, cost, cls = '') =>
+  `<button class="buy ${cls}" type="button" data-act="${act}" ${attrs} data-cost="${cost}">
+     <span class="what">${what}</span>${sub ? `<span class="sub">${sub}</span>` : ''}<span class="cost">${fmt(cost)}<small class="eta"></small></span>
+   </button>`;
+const dot = color => `<span class="line-dot" style="background:${color}"></span>`;
+const typeColor = line => LINES[line].color || '#ffc23e';
+const staffText = line => line === 'hab'
+  ? `tenants ×${staffMult('hab').toFixed(2)}`
+  : `staffed ×${staffMult(line).toFixed(2)} by ${fmt(S.crew[line] || 0)} ${CREW_BY_ID[line].name}s`;
+const toggleBtn = (act, on, label) =>
+  `<button class="toggle" type="button" data-act="${act}" aria-pressed="${on}"><span class="knob" aria-hidden="true"></span>${label}: <b>${on ? 'On' : 'Off'}</b></button>`;
+
+function lineChoice(k, line) {
+  const sec = S.cur, L = LINES[line];
+  const gain = upgradeGain(sec, 1, null, 2, line);
+  const color = typeColor(line);
+  const notes = [];
+  notes.push(staffText(line));
+  if (perkOf(sec) === line) notes.push(`×${PERK_MULT} in this district`);
+  if (!cur().lines.includes(line) && sectorTypes(sec) >= 1) notes.push('new type here +10%');
+  return buyBtn('upgrade', `data-id="${k}" data-line="${line}"`,
+    `${dot(color)}${L.names[0]}<span class="tag" style="color:${color}">${esc(L.name)}</span>`,
+    `+${fmt(gain, true)} / sec${notes.length ? ' · ' + notes.join(' · ') : ''}`, upgradeCost(sec, k));
+}
+
+function capitolHTML() {
+  return `
+  <div class="lot-card capitol">
+    <div><div class="eyebrow">The Capital · all 49 lots at tier 8</div><h2>Capitol Spire</h2></div>
+    <div class="pips" aria-hidden="true">${Array.from({ length: MAX_TIER }, () => '<span class="pip on"></span>').join('')}</div>
+    <p class="blurb">Every tower in the Capital has grown into one megastructure, the seat of your city. It cannot grow any further.</p>
+    <div class="kv"><span>The Capital earns</span><b>${fmt(SECTOR_CPS[0], true)} / sec</b></div>
+    <div class="kv"><span>Spire bonus, citywide</span><b>+${Math.round((CAPITOL_BONUS - 1) * 100)}% all income</b></div>
+  </div>
+  ${M.autoBuild ? `<div class="group"><h3>Auto-builder</h3><div class="auto-row">${toggleBtn('auto-build', S.auto.build, 'Auto-builder')}</div>
+     <p class="blurb">It keeps building in your other districts.</p></div>` : ''}
+  <div class="group"><h3>Keep growing</h3><p class="blurb">Build new districts under Infra, or switch districts with the bar over the city.</p></div>`;
+}
+
+function buildHTML() {
+  if (S.cur === 0 && capitalMerged()) return capitolHTML();
+  const sec = S.cur, s = cur(), k = s.sel, tier = s.lots[k], line = tier >= 2 ? s.lines[k] : null;
+  const isCrew = line && line !== 'hab';
+  const pips = Array.from({ length: MAX_TIER }, (_, n) => `<span class="pip ${n < tier ? 'on' : n === tier ? 'next' : ''}"></span>`).join('');
+  const typeLabel = tier === 1 ? 'Unzoned' : LINES[line].name;
+  let upgrade;
+  if (tier === 1) {
+    // the district's own type first, then the rest
+    const open = Object.keys(LINES).filter(lineUnlocked).sort((a, b) => (b === perkOf(sec)) - (a === perkOf(sec)));
+    const locked = CREW.filter(c => !lineUnlocked(c.id));
+    upgrade = `<div class="choices"><h3>Choose what this Shack becomes</h3>
+      ${open.map(l => lineChoice(k, l)).join('')}
+      ${locked.length ? `<p class="blurb">Hire crew to unlock more types: ${locked.map(c => `${LINES[c.id].name} (${c.name})`).join(', ')}.</p>` : ''}
+    </div>`;
+  } else if (tier < MAX_TIER) {
+    const gain = upgradeGain(sec, tier, line, tier + 1, line);
+    upgrade = buyBtn('upgrade', `data-id="${k}"`, `Upgrade to ${buildingName(tier + 1, line)}`, `+${fmt(gain, true)} / sec`, upgradeCost(sec, k), 'big');
+  } else {
+    upgrade = `<div class="maxed">Top tier. This building cannot grow taller.</div>`;
+  }
+  const why = [];
+  if (isCrew) why.push(`<div class="kv"><span>Staffed by ${fmt(S.crew[line] || 0)} ${CREW_BY_ID[line].name}s</span><b>×${staffMult(line).toFixed(2)}</b></div>`);
+  if (line === 'hab') why.push(`<div class="kv"><span>Tenants from your crew</span><b>×${staffMult('hab').toFixed(2)}</b></div>`);
+  if (tier >= 2 && line === perkOf(sec)) why.push(`<div class="kv"><span>Matches this district</span><b>×${PERK_MULT}</b></div>`);
+
+  const cheap = cheapestUpgrade(sec);
+  const nk = nextLot(sec);
+  const autoLine = defaultLine();
+  const bulk = `
+    ${cheap ? buyBtn('upgrade-all', '', 'Upgrade everything I can afford', `Cheapest first, in ${esc(sectorName(sec))} only · new Shacks become ${esc(LINES[autoLine].names[0])}s`, cheap.cost) : ''}
+    ${nk !== undefined ? buyBtn('lots-all', '', 'Buy every lot I can afford', `In ${esc(sectorName(sec))} only · ${N * N - ownedIn(sec)} lots left`, lotCost(sec), 'alt') : ''}
+    ${M.autoBuild ? `<div class="auto-row">${toggleBtn('auto-build', S.auto.build, 'Auto-builder')}
+       <label class="auto-line">Shacks become
+         <select id="auto-line" data-act="auto-line">${Object.keys(LINES).filter(lineUnlocked).map(l => `<option value="${l}" ${l === autoLine ? 'selected' : ''}>${esc(LINES[l].name)}</option>`).join('')}</select>
+       </label></div>
+       <p class="blurb">The auto-builder works across every district, buying the cheapest upgrade or lot each moment.</p>` : ''}`;
+
+  const expand = nk === undefined
+    ? `<div class="maxed">You own all ${N * N} lots in ${esc(sectorName(sec))}. Build a new district under Infra.</div>`
+    : buyBtn('acquire', '', `Buy lot ${lotName(nk)} with a Shack`, `+${fmt(lotOutput(sec, 1, null), true)} / sec · lot ${ownedIn(sec) + 1} of ${N * N}`, lotCost(sec), 'alt big');
+
+  const counts = Object.keys(LINES).map(l => {
+    const c = s.lines.filter(x => x === l).length;
+    return c ? `<div><span>${dot(typeColor(l))}${LINES[l].name}</span><b>${c}</b></div>` : '';
+  }).join('');
+  const shacks = s.lots.filter(t => t === 1).length;
+
+  return `
+  <div class="lot-card">
+    <div class="lot-head">
+      <button class="nav" type="button" data-act="prev" aria-label="Previous building">‹</button>
+      <div><div class="eyebrow">${S.sectors.length > 1 ? `${esc(sectorName(sec))} · ` : ''}Lot ${lotName(k)} · ${typeLabel} · tier ${tier}</div><h2>${buildingName(tier, line)}</h2></div>
+      <button class="nav" type="button" data-act="next" aria-label="Next building">›</button>
+    </div>
+    <div class="pips" aria-hidden="true">${pips}</div>
+    <p class="blurb">${blurbOf(tier, line)}</p>
+    <div class="kv"><span>This building earns</span><b>${fmt(lotOutput(sec, tier, line), true)} / sec</b></div>
+    ${why.join('')}
+    ${upgrade}
+  </div>
+  <div class="group"><h3>Expand the district</h3>${expand}</div>
+  <div class="group"><h3>Buy in bulk</h3>${bulk}</div>
+  <div class="group">
+    <h3>${esc(sectorName(sec))}</h3>
+    <p class="blurb">${esc(theme(sec).blurb)} ${perkText(perkOf(sec))} here.</p>
+    <div class="stats">
+      <div><span>Lots owned</span><b>${ownedIn(sec)} / ${N * N}</b></div>
+      <div><span>District income</span><b>${fmt(SECTOR_CPS[sec], true)}/s</b></div>
+      <div><span>Mixed-use bonus</span><b>+${Math.round((SECTOR_MIX[sec] - 1) * 100)}%</b></div>
+      <div><span>Crew, citywide</span><b>${fmt(CREW_CPS, true)}/s</b></div>
+      ${shacks ? `<div><span>${dot('#948cc0')}Shacks</span><b>${shacks}</b></div>` : ''}
+      ${counts}
+    </div>
+  </div>`;
+}
+
+function crewVisible(n) {
+  return n === 0 || (S.crew[CREW[n - 1].id] || 0) > 0 || S.total >= CREW[n].base * 0.5;
+}
+function crewHTML() {
+  const modes = [1, 10, 'max'].map(m =>
+    `<button class="mode" type="button" data-act="mode" data-id="${m}" aria-pressed="${crewMode === m}">${m === 'max' ? 'Max' : '×' + m}</button>`).join('');
+  const rows = [];
+  for (let n = 0; n < CREW.length; n++) {
+    const c = CREW[n];
+    if (!crewVisible(n)) {
+      rows.push(`<div class="locked">Unknown contact. Hire a ${CREW[n - 1].name} to make the introduction.</div>`);
+      break;
+    }
+    const qty = crewMode === 'max' ? Math.max(1, crewMax(c)) : crewMode;
+    const L = LINES[c.id];
+    const nb = S.sectors.reduce((a, s) => a + s.lines.filter(x => x === c.id).length, 0);
+    const staffLine = nb
+      ? `Staff ${nb} ${esc(L.name)}${nb === 1 ? '' : 's'}, each earning ×${staffMult(c.id).toFixed(2)}`
+      : (S.crew[c.id] ? `Upgrade a Shack into a ${esc(L.name)} to put them to work` : `Hiring one unlocks ${esc(L.name)} buildings`);
+    rows.push(`<div class="row" data-crew="${c.id}">
+      <span class="name">${dot(L.color)}${c.name}</span>
+      <span class="owned">${fmt(S.crew[c.id] || 0)}</span>
+      <span class="desc">${c.desc}</span>
+      <span class="boost">${staffLine}</span>
+      ${buyBtn('crew', `data-id="${c.id}"`, `Hire <span data-q>${qty}</span>`, `+<span data-g>${fmt(hireGain(c.id, qty), true)}</span> / sec`, crewCost(c, qty))}
+    </div>`);
+  }
+  const ch = cheapestHire();
+  return `
+  <div class="group">
+    <h3>Buy in bulk</h3>
+    ${ch ? buyBtn('hire-all', '', 'Hire everyone I can afford', 'Crew only · cheapest hire first, across every role', ch.cost) : ''}
+    ${M.autoHire ? toggleBtn('auto-hire', S.auto.hire, 'Auto-hire') : ''}
+  </div>
+  <div class="head-row"><h3>Hire crew</h3><div class="modes">${modes}</div></div>
+  <div class="group">${rows.join('')}</div>
+  <p class="blurb">There is no cap on crew. Each hire costs 15% more than the last. Crew earn pay, and they also staff their own building type: the more you hire, the more those buildings earn. Housing fills with tenants from every role.</p>`;
+}
+
+function techHTML() {
+  const avail = TECH.filter(t => !S.tech.includes(t.id) && t.req());
+  const locked = TECH.filter(t => !S.tech.includes(t.id) && !t.req());
+  const done = TECH.filter(t => S.tech.includes(t.id));
+  return `
+  <div class="group">
+    <h3>Available</h3>
+    ${avail.length ? avail.map(t => buyBtn('tech', `data-id="${t.id}"`, t.name, t.desc, t.cost, 'alt')).join('')
+                   : `<div class="locked">Nothing to install yet.</div>`}
+  </div>
+  ${locked.length ? `<div class="group"><h3>Coming up</h3>
+     ${locked.slice(0, 3).map(t => `<div class="locked"><b>${t.name}</b>. ${t.hint} to unlock it.</div>`).join('')}
+     ${locked.length > 3 ? `<p class="blurb">${locked.length - 3} more upgrades are still encrypted.</p>` : ''}</div>` : ''}
+  ${done.length ? `<div class="group"><h3>Installed</h3><div class="installed">${done.map(t => `<span class="chip">${t.name}</span>`).join('')}</div></div>` : ''}`;
+}
+
+function infraHTML() {
+  const k = S.sectors.length, last = k - 1;
+  const have = ownedIn(last);
+  let next;
+  if (roadReady()) {
+    const open = DISTRICT_IDS.filter(d => d !== 'capital' && districtUnlocked(d));
+    const locked = DISTRICT_IDS.filter(d => d !== 'capital' && !districtUnlocked(d));
+    next = `<p class="blurb">Pick what the next district is for. Every option costs the same. Its matching building type earns ×${PERK_MULT} there, everything there earns ×${fmt(secOut(k))}, and all crew pay rises ×${CREW_SECTOR}.</p>
+      ${open.map(d => {
+        const D = DISTRICTS[d], built = S.sectors.filter(x => x.type === d).length;
+        return buyBtn('road', `data-id="${d}"`, `${dot(`rgb(${D.haze})`)}${D.name}${built ? `<span class="tag" style="color:var(--dim)">own ${built}</span>` : ''}`,
+          `${perkText(D.perk)} · ${esc(D.blurb)}`, roadCost(k));
+      }).join('')}
+      ${locked.length ? `<p class="blurb">Hire crew to plan more: ${locked.map(d => `${DISTRICTS[d].name} (${CREW_BY_ID[DISTRICTS[d].perk].name})`).join(', ')}.</p>` : ''}`;
+  } else {
+    next = `<div class="locked">Own <b>${ROAD_REQ}</b> lots in ${esc(sectorName(last))} to plan your next district. You have <b>${have}</b>.</div>`;
+  }
+  const roads = [];
+  for (let r = 1; r < k; r++) {
+    const lv = S.roads[r];
+    const head = `<span class="name">${dot(ROAD_LEVELS[lv].color)}${esc(sectorName(r - 1))} → ${esc(sectorName(r))}</span>
+      <span class="owned" title="Road grade">${lv}/4</span>
+      <span class="desc">${ROAD_LEVELS[lv].name}</span>`;
+    roads.push(`<div class="row">${head}${lv < 4
+      ? buyBtn('roadup', `data-id="${r}"`, `Upgrade to ${ROAD_LEVELS[lv + 1].name}`, `+${Math.round(ROAD_BONUS * 100)}% to all output`, roadUpgradeCost(r), 'alt')
+      : `<div class="maxed" style="grid-column:1/-1;margin-top:6px">Top grade.</div>`}</div>`);
+  }
+  const sectors = S.sectors.map((_, i) => `<div class="sector-row ${i === S.cur ? 'here' : ''}">
+      <span><b>${dot(`rgb(${theme(i).haze})`)}${esc(sectorName(i))}</b><small>${perkText(perkOf(i))} · ${ownedIn(i)}/${N * N} lots · +${fmt(SECTOR_CPS[i], true)}/s</small></span>
+      <button class="mode" type="button" data-act="goto" data-id="${i}" ${i === S.cur && view === 'city' ? 'aria-pressed="true"' : ''}>${i === S.cur && view === 'city' ? 'Viewing' : 'View'}</button>
+    </div>`).join('');
+  return `
+  <div class="group"><h3>Your districts</h3>${sectors}</div>
+  <div class="group"><h3>Build a cyber road to a new district</h3>${next}</div>
+  ${roads.length ? `<div class="group"><h3>Road network</h3>${roads.join('')}
+     <p class="blurb">Road grades add up. You have +${Math.round((roadMult() - 1) * 100)}% to all output from roads.</p></div>` : ''}`;
+}
+
+function goalsHTML() {
+  const pend = pendingChips();
+  const got = new Set(S.ach);
+  const nextChipAt = Math.pow(chipsFor(S.lifetime) + 1, 1 / CHIP_EXP) * CHIP_DIV;
+  let rebootBody;
+  if (canReboot()) {
+    rebootBody = `<button class="buy big ${rebootArmed ? 'armed' : ''}" type="button" data-act="reboot">
+        <span class="what">${rebootArmed ? 'Click again to reboot. Your city resets.' : `Reboot for ${fmt(pend)} Neural Chips`}</span>
+        <span class="sub">+${Math.round(pend * CHIP_BONUS * 100)}% to all income, for every run after this</span>
+        <span class="cost">${fmt(pend)}</span>
+      </button>`;
+  } else if (S.sectors.length < 2) {
+    rebootBody = `<div class="locked">Build your first district to unlock rebooting. You will have <b>${fmt(Math.max(pend, 0))}</b> chips waiting.</div>`;
+  } else {
+    rebootBody = `<div class="locked">Your first chip arrives at <b>${fmt(nextChipAt)}</b> credits earned across all runs. You have <b>${fmt(S.lifetime)}</b>.</div>`;
+  }
+  const cloudLine = {
+    checking: 'Checking for your cloud save…',
+    on: `Cloud save is on. It keeps a private copy on your claude.ai account every minute${Cloud.lastSaved ? `, last at ${new Date(Cloud.lastSaved).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}` : ''}.`,
+    readonly: 'Cloud save is not available to you on this shared link. Your game still saves in this browser; copy a save code to keep a backup.',
+    full: 'Cloud save is full right now. Your game still saves in this browser; copy a save code to keep a backup.',
+    off: 'Cloud save needs you signed in to claude.ai. Your game still saves in this browser; copy a save code to keep a backup.',
+  }[Cloud.status];
+  const saveBox = `
+  <div class="group">
+    <h3>Your save</h3>
+    <p class="blurb">The game saves in this browser every 10 seconds and when you close it. Private windows and clearing your browsing data erase that copy.</p>
+    <div class="cloud ${Cloud.status === 'on' ? 'ok' : ''}">${cloudLine}</div>
+    ${Cloud.status === 'on' ? `<button class="mode" type="button" data-act="cloud-save">Save to cloud now</button>` : ''}
+    <div class="code-row">
+      <button class="mode" type="button" data-act="export">Copy save code</button>
+      <span class="eyebrow">Paste it somewhere safe, like a note or an email to yourself</span>
+    </div>
+    ${exportedCode ? `<label class="eyebrow" for="export-code">Your save code</label>
+      <textarea id="export-code" class="code" readonly rows="3">${esc(exportedCode)}</textarea>` : ''}
+    <label class="eyebrow" for="import-code">Load a save code</label>
+    <textarea id="import-code" class="code" rows="3" placeholder="Paste a code that starts with ${CODE_PREFIX}">${esc(importDraft)}</textarea>
+    <button class="buy ${importArmed ? 'armed' : ''}" type="button" data-act="import">
+      <span class="what">${importArmed ? 'Click again to replace your current city' : 'Load this save'}</span>
+      <span class="sub">Replaces the city you have now</span>
+    </button>
+  </div>`;
+  const achRows = ACHIEVEMENTS.map(a => `<li class="ach ${got.has(a.id) ? 'got' : ''}"><b>${esc(a.name)}</b><span>${esc(a.desc)}</span></li>`).join('');
+  return `
+  <div class="group">
+    <h3>Reboot the Grid</h3>
+    <p class="blurb">Wipe the city and start again with Neural Chips. Each chip adds +${Math.round(CHIP_BONUS * 100)}% to all income for good. Chips come from everything you have ever earned, so every run makes the next one faster. Achievements and chips survive a reboot.</p>
+    <div class="stats">
+      <div><span>Neural Chips</span><b>${fmt(S.chips)}</b></div>
+      <div><span>Chip bonus</span><b>+${Math.round((M.chip - 1) * 100)}%</b></div>
+      <div><span>Ready to claim</span><b>${fmt(pend)}</b></div>
+      <div><span>Reboots</span><b>${S.reboots}</b></div>
+    </div>
+    ${rebootBody}
+  </div>
+  ${saveBox}
+  <div class="group">
+    <div class="head-row"><h3>Achievements</h3><span class="eyebrow">${S.ach.length} / ${ACHIEVEMENTS.length} · +${Math.round((M.achieve - 1) * 100)}% income</span></div>
+    <ul class="achs">${achRows}</ul>
+  </div>
+  <div class="foot">
+    <span>Erasing clears this browser and your cloud copy.</span>
+    <button class="wipe ${wipeArmed ? 'armed' : ''}" type="button" data-act="wipe">${wipeArmed ? 'Click again to erase everything' : 'Erase save'}</button>
+  </div>`;
+}
+
+function render() {
+  dirty = false;
+  const scroll = panel.scrollTop;
+  // keep keyboard focus on the same control across a re-render
+  const f = panel.contains(document.activeElement) ? document.activeElement : null;
+  const fAct = f && f.dataset.act, fId = f && f.dataset.id, fLine = f && f.dataset.line;
+  panel.innerHTML = tab === 'build' ? buildHTML() : tab === 'crew' ? crewHTML() : tab === 'tech' ? techHTML()
+    : tab === 'infra' ? infraHTML() : goalsHTML();
+  panel.scrollTop = scroll;
+  if (fAct) {
+    const all = [...panel.querySelectorAll(`[data-act="${fAct}"]`)];
+    const same = all.find(el => el.dataset.id === fId && el.dataset.line === fLine) || all.find(el => el.dataset.id === fId) || all[0];
+    if (same) same.focus({ preventScroll: true });
+  }
+  refresh();
+}
+
+function refresh() {
+  $('#credits').textContent = fmt(S.credits);
+  $('#rate').textContent = `+${fmt(CPS, true)} / sec`;
+  $('#hack-value').textContent = `+${fmt(hackValue(), true)} per hack`;
+  if (tab === 'crew' && crewMode === 'max') {
+    panel.querySelectorAll('[data-crew]').forEach(row => {
+      const c = CREW_BY_ID[row.dataset.crew];
+      const q = Math.max(1, crewMax(c));
+      const b = row.querySelector('.buy');
+      b.dataset.cost = crewCost(c, q);
+      b.querySelector('[data-q]').textContent = q;
+      b.querySelector('[data-g]').textContent = fmt(hireGain(c.id, q), true);
+      b.querySelector('.cost').firstChild.textContent = fmt(+b.dataset.cost);
+    });
+  }
+  panel.querySelectorAll('[data-cost]').forEach(b => {
+    const cost = +b.dataset.cost;
+    const short = S.credits < cost;
+    b.disabled = short;
+    b.style.setProperty('--p', Math.min(1, S.credits / cost).toFixed(3));
+    const eta = b.querySelector('.eta');
+    if (eta) {
+      const sec = short && CPS > 0 ? (cost - S.credits) / CPS : 0;
+      eta.textContent = !short ? '' : sec > 86400 ? 'over a day' : CPS > 0 ? 'in ' + duration(Math.max(1, sec)) : '';
+    }
+  });
+  const crewAff = CREW.filter((c, n) => crewVisible(n) && S.credits >= crewCost(c, 1)).length;
+  const techAff = TECH.filter(t => !S.tech.includes(t.id) && t.req() && S.credits >= t.cost).length;
+  const cheap = cheapestUpgrade(S.cur);
+  const buildAff = (cheap && S.credits >= cheap.cost ? 1 : 0) + (nextLot(S.cur) !== undefined && S.credits >= lotCost(S.cur) ? 1 : 0);
+  let infraAff = roadReady() && S.credits >= roadCost(S.sectors.length) ? 1 : 0;
+  for (let r = 1; r < S.sectors.length; r++) if (S.roads[r] < 4 && S.credits >= roadUpgradeCost(r)) infraAff++;
+  setBadge('build', tab === 'build' ? 0 : buildAff);
+  setBadge('crew', tab === 'crew' ? 0 : crewAff);
+  setBadge('tech', tab === 'tech' ? 0 : techAff);
+  setBadge('infra', tab === 'infra' ? 0 : infraAff);
+  setBadge('goals', tab === 'goals' ? 0 : newAch + (canReboot() ? 1 : 0));
+}
+function setBadge(name, n) {
+  const el = $('#badge-' + name);
+  el.hidden = !n;
+  el.textContent = n;
+}
+
+// Two-step confirm for anything that erases progress.
+function armed(which) {
+  const t = performance.now();
+  if (which === 'wipe' ? wipeArmed && t - wipeArmed < 4000 : rebootArmed && t - rebootArmed < 4000) return true;
+  if (which === 'wipe') wipeArmed = t; else rebootArmed = t;
+  setTimeout(() => { wipeArmed = rebootArmed = 0; dirty = true; }, 4000);
+  dirty = true;
+  return false;
+}
+
+panel.addEventListener('click', e => {
+  const b = e.target.closest('[data-act]');
+  if (!b || b.disabled || b.tagName === 'SELECT') return;
+  const act = b.dataset.act, id = b.dataset.id;
+  if (act === 'upgrade') {
+    const k = +id, s = cur();
+    if (upgradeLot(S.cur, k, b.dataset.line)) {
+      s.sel = k;
+      const [x, y] = roofPoint(S.cur, k);
+      floater(x, y - 12, buildingName(s.lots[k], s.lines[k]), '#3ef2ff');
+      Sound.build();
+    }
+  } else if (act === 'acquire') {
+    if (acquireLot(S.cur)) Sound.buy();
+  } else if (act === 'upgrade-all') {
+    const n = upgradeAllIn(S.cur);
+    if (n) { toast(`${n} upgrade${n === 1 ? '' : 's'} built in ${sectorName(S.cur)}.`); Sound.build(); }
+  } else if (act === 'lots-all') {
+    const n = buyAllLotsIn(S.cur);
+    if (n) { toast(`${n} lot${n === 1 ? '' : 's'} bought in ${sectorName(S.cur)}.`); Sound.buy(); }
+  } else if (act === 'hire-all') {
+    const n = hireAll();
+    if (n) { toast(`${n} crew hired.`); Sound.buy(); }
+  } else if (act === 'auto-build') {
+    S.auto.build = !S.auto.build; save(); dirty = true;
+  } else if (act === 'auto-hire') {
+    S.auto.hire = !S.auto.hire; save(); dirty = true;
+  } else if (act === 'prev' || act === 'next') {
+    const s = cur();
+    const list = ORDER.filter(k => s.lots[k]);
+    const at = list.indexOf(s.sel);
+    s.sel = list[(at + (act === 'next' ? 1 : -1) + list.length) % list.length];
+    dirty = true;
+  } else if (act === 'crew') {
+    if (hireCrew(id)) Sound.buy();
+  } else if (act === 'mode') {
+    crewMode = id === 'max' ? 'max' : +id;
+    dirty = true;
+  } else if (act === 'tech') {
+    if (buyTech(id)) Sound.big();
+  } else if (act === 'road') {
+    if (buildRoad(id)) Sound.big();
+    updateSectorBar();
+  } else if (act === 'roadup') {
+    if (upgradeRoad(+id)) Sound.build();
+  } else if (act === 'goto') {
+    goSector(+id);
+    setView('city');
+    dirty = true;
+  } else if (act === 'reboot') {
+    if (armed('reboot')) { rebootArmed = 0; reboot(); Sound.big(); setTab('build'); }
+  } else if (act === 'cloud-save') {
+    cloudSave().then(ok => toast(ok ? 'Saved to the cloud.' : 'Cloud save failed. Your game is still saved in this browser.'));
+  } else if (act === 'export') {
+    exportedCode = exportCode();
+    dirty = true;
+    const copied = () => toast('Save code copied. Paste it somewhere safe.');
+    const manual = () => {
+      render();
+      const box = $('#export-code');
+      if (box) { box.focus(); box.select(); }
+      toast('Select the code below and copy it.');
+    };
+    try { navigator.clipboard.writeText(exportedCode).then(copied, manual); } catch (e) { manual(); }
+  } else if (act === 'import') {
+    const box = $('#import-code');
+    importDraft = box ? box.value : importDraft;
+    const data = parseCode(importDraft);
+    if (!data) {
+      toast(`That isn't a complete save code. Copy all of it, starting with ${CODE_PREFIX}`);
+      importArmed = 0; dirty = true;
+    } else if (importArmed && performance.now() - importArmed < 4000) {
+      importArmed = 0; importDraft = '';
+      loadState(data, 'Save code loaded.');
+      cloudSave();
+      setTab('build');
+    } else {
+      importArmed = performance.now();
+      setTimeout(() => { importArmed = 0; dirty = true; }, 4000);
+      dirty = true;
+    }
+  } else if (act === 'wipe') {
+    if (armed('wipe')) {
+      S = fresh(); wipeArmed = 0; fabs.clear(); view = 'city'; afterChange();
+      cloudSave();
+      updateSectorBar();
+      startFabrication(0, cur().sel);
+      toast('Save erased. One shack, one sign, back to work.');
+      setTab('build');
+    }
+  }
+});
+panel.addEventListener('input', e => {
+  if (e.target.id === 'import-code') importDraft = e.target.value;
+});
+panel.addEventListener('change', e => {
+  if (e.target.id === 'auto-line' && LINES[e.target.value]) { S.lastLine = e.target.value; save(); dirty = true; }
+});
+
+/* ================================================================
+   Toasts and the news ticker
+   ================================================================ */
+function toast(msg, kind = '') {
+  const el = document.createElement('div');
+  el.className = 'toast ' + kind;
+  el.textContent = msg;
+  const box = $('#toasts');
+  box.appendChild(el);
+  while (box.children.length > (W < 560 ? 1 : 3)) box.firstChild.remove();
+  setTimeout(() => { el.classList.add('out'); setTimeout(() => el.remove(), 450); }, 4200);
+}
+
+function headlines() {
+  const lines = [
+    'Weather: acid rain. Tomorrow: acid rain. Long-range outlook: acid rain',
+    'Ramen prices hold steady for the 40th consecutive week',
+    'Grid Security Bureau reminds citizens to patch their cyberdecks',
+    'Drone courier lost over the city, payload still unrecovered',
+    'Maglev Line 4 delayed after a billboard fell onto the track',
+    `Local developer now holds ${ownedTotal()} lots across ${S.sectors.length} district${S.sectors.length === 1 ? '' : 's'}`,
+    `Credit flow out of the sprawl hits ${fmt(CPS, true)} per second, analysts nervous`,
+  ];
+  if (S.best >= 5) lines.push('New corporate beacon confuses migrating pigeons');
+  if (S.best >= 6) lines.push('Skyline now visible from the orbital ring');
+  if (S.best >= 8) lines.push('Arcology residents vote to stop using the word "outside"');
+  if ((S.crew.ai || 0) > 0) lines.push('Rogue AI denies being rogue, files for a business licence');
+  if (crewBuildings() > 0) lines.push('Zoning board gives up trying to tell an arcade from a netcafé');
+  if (S.sectors.length > 1) lines.push(`Cyber road to ${sectorName(S.sectors.length - 1)} sees record traffic on opening night`);
+  if (S.sectors.some(x => x.type === 'docks')) lines.push('Loading Docks report a container of "miscellaneous" goods, again');
+  if (S.chips > 0) lines.push('Citizens report a strong feeling they have lived this week before');
+  if (capitalMerged()) lines.push('Capitol Spire casts a shadow across three districts at sunset');
+  if (S.roads.some(l => l >= 4)) lines.push('Hyperloop commuters report arriving before they left');
+  for (let i = lines.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [lines[i], lines[j]] = [lines[j], lines[i]]; }
+  return lines;
+}
+const tickerEl = $('#ticker');
+function fillTicker() {
+  if (reduceMotion) { tickerEl.textContent = headlines()[0]; return; }
+  tickerEl.textContent = headlines().join('   ◆   ');
+  const width = tickerEl.scrollWidth;
+  tickerEl.style.animationDuration = Math.max(20, width / 70) + 's';
+}
+tickerEl.addEventListener('animationiteration', fillTicker);
+if (reduceMotion) setInterval(fillTicker, 9000);
+
+/* ================================================================
+   Sound: a synthesised techno track and effects, off until the player turns it on
+   ================================================================ */
+const SOUND_KEY = 'neon-sprawl/sound';
+const Sound = (() => {
+  let ac = null, master = null, sfx = null, music = null, delaySend = null, noise = null;
+  let on = false, lastBlip = 0, timer = null, step = 0, nextTime = 0;
+
+  // A Tron-style track: four-on-the-floor kick, offbeat hats, a pulsing 16th-note saw bass and
+  // slow analog pads over D minor, Bb, G minor, A. Sixteen bars that build, then loop.
+  const BPM = 122, SIX = 60 / BPM / 4, BAR = SIX * 16, LOOP = 16;
+  const midi = m => 440 * Math.pow(2, (m - 69) / 12);
+  const PROG = [
+    { bass: 38, pad: [50, 53, 57], arp: [62, 65, 69, 74] },   // D minor
+    { bass: 34, pad: [46, 50, 53], arp: [58, 62, 65, 70] },   // B flat
+    { bass: 31, pad: [55, 58, 62], arp: [67, 70, 74, 79] },   // G minor
+    { bass: 33, pad: [57, 61, 64], arp: [64, 69, 73, 76] },   // A major, the turnaround
+  ];
+  const BASS_STEPS = [0, 12, 0, 0, 0, 12, 0, 7, 0, 12, 0, 0, 0, 12, 7, 12];
+  const ARP_ORDER = [0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 2, 3, 1, 2, 0, 3];
+
+  function init() {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return false;
+    ac = new AC();
+    master = ac.createGain(); master.gain.value = 1.1;
+    const comp = ac.createDynamicsCompressor();
+    comp.threshold.value = -16; comp.ratio.value = 4;
+    master.connect(comp).connect(ac.destination);
+    music = ac.createGain(); music.gain.value = 0.42; music.connect(master);
+    sfx = ac.createGain(); sfx.gain.value = 0.7; sfx.connect(master);
+    // dotted-eighth echo for the pads and arpeggio
+    const delay = ac.createDelay(1); delay.delayTime.value = SIX * 3;
+    const fb = ac.createGain(); fb.gain.value = 0.38;
+    const tone = ac.createBiquadFilter(); tone.type = 'lowpass'; tone.frequency.value = 2400;
+    delaySend = ac.createGain(); delaySend.gain.value = 0.3;
+    delaySend.connect(delay); delay.connect(tone).connect(fb).connect(delay); tone.connect(music);
+    const len = ac.sampleRate;
+    noise = ac.createBuffer(1, len, ac.sampleRate);
+    const d = noise.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+    return true;
+  }
+
+  function kick(t) {
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(42, t + 0.12);
+    g.gain.setValueAtTime(0.95, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.38);
+    o.connect(g).connect(music); o.start(t); o.stop(t + 0.4);
+  }
+  function hiss(t, type, freq, vol, dur) {
+    const src = ac.createBufferSource(); src.buffer = noise;
+    const f = ac.createBiquadFilter(); f.type = type; f.frequency.value = freq;
+    const g = ac.createGain(); g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    src.connect(f).connect(g).connect(music); src.start(t, Math.random() * 0.5); src.stop(t + dur + 0.02);
+  }
+  function bass(t, note, cutoff) {
+    const o = ac.createOscillator(); o.type = 'sawtooth'; o.frequency.value = midi(note);
+    const f = ac.createBiquadFilter(); f.type = 'lowpass'; f.Q.value = 6;
+    f.frequency.setValueAtTime(cutoff, t); f.frequency.exponentialRampToValueAtTime(140, t + SIX * 0.9);
+    const g = ac.createGain(); g.gain.setValueAtTime(0.32, t); g.gain.exponentialRampToValueAtTime(0.001, t + SIX * 0.95);
+    o.connect(f).connect(g).connect(music); o.start(t); o.stop(t + SIX);
+  }
+  function pad(t, notes) {
+    const f = ac.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 1100; f.Q.value = 1;
+    const g = ac.createGain();
+    g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.07, t + 0.5);
+    g.gain.setValueAtTime(0.07, t + BAR - 0.3); g.gain.linearRampToValueAtTime(0.0001, t + BAR + 0.4);
+    f.connect(g); g.connect(music); g.connect(delaySend);
+    for (const n of notes) for (const det of [-9, 9]) {
+      const o = ac.createOscillator(); o.type = 'sawtooth'; o.frequency.value = midi(n); o.detune.value = det;
+      o.connect(f); o.start(t); o.stop(t + BAR + 0.5);
+    }
+  }
+  function arp(t, note) {
+    const o = ac.createOscillator(); o.type = 'square'; o.frequency.value = midi(note);
+    const f = ac.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 2600;
+    const g = ac.createGain(); g.gain.setValueAtTime(0.045, t); g.gain.exponentialRampToValueAtTime(0.001, t + SIX * 0.8);
+    o.connect(f).connect(g); g.connect(music); g.connect(delaySend); o.start(t); o.stop(t + SIX);
+  }
+
+  function playStep(s, t) {
+    const bar = Math.floor(s / 16), pos = s % 16, section = bar % LOOP, chord = PROG[bar % PROG.length];
+    if (pos % 4 === 0) kick(t);
+    if (pos % 4 === 2) hiss(t, 'highpass', 7000, 0.16, 0.06);
+    else if (section >= 2 && pos % 2 === 1) hiss(t, 'highpass', 9000, 0.05, 0.03);
+    if (section >= 4 && (pos === 4 || pos === 12)) hiss(t, 'bandpass', 1500, 0.22, 0.16);
+    // the bass filter opens a little more each bar of the loop
+    bass(t, chord.bass + BASS_STEPS[pos], 500 + 1300 * (section / LOOP) + (pos % 4 === 0 ? 400 : 0));
+    if (section >= 4 && pos === 0) pad(t, chord.pad);
+    if (section >= 8) arp(t, chord.arp[ARP_ORDER[pos]]);
+  }
+  function schedule() {
+    if (!ac || !on) return;
+    const ahead = document.hidden ? 1.5 : 0.2;
+    if (nextTime < ac.currentTime) nextTime = ac.currentTime + 0.05;
+    while (nextTime < ac.currentTime + ahead) {
+      playStep(step, nextTime);
+      nextTime += SIX;
+      step = (step + 1) % (16 * LOOP);
+    }
+  }
+
+  function blip(freq, dur, type, vol, slide, delay = 0) {
+    if (!on || !ac) return;
+    const t = ac.currentTime + delay;
+    const o = ac.createOscillator(); o.type = type; o.frequency.setValueAtTime(freq, t);
+    if (slide) o.frequency.exponentialRampToValueAtTime(freq * slide, t + dur);
+    const g = ac.createGain(); g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g).connect(sfx); o.start(t); o.stop(t + dur + 0.02);
+  }
+  const throttled = fn => () => { const t = performance.now(); if (t - lastBlip < 70) return; lastBlip = t; fn(); };
+  return {
+    get on() { return on; },
+    set(v) {
+      if (v && !ac && !init()) return false;
+      on = v;
+      if (ac) (on ? ac.resume() : ac.suspend()).catch(() => {});
+      clearInterval(timer);
+      if (on) { step = 0; nextTime = 0; schedule(); timer = setInterval(schedule, 25); }
+      try { localStorage.setItem(SOUND_KEY, on ? '1' : '0'); } catch (e) { /* storage unavailable */ }
+      return on;
+    },
+    buy: throttled(() => blip(660, 0.07, 'square', 0.04, 1.5)),
+    build: throttled(() => { blip(330, 0.25, 'sawtooth', 0.05, 2); blip(660, 0.2, 'triangle', 0.04, 0, 0.09); }),
+    hack: () => blip(180 + Math.random() * 420, 0.05, 'square', 0.035, 0.5),
+    courier: () => [523, 659, 784, 1046].forEach((f, i) => blip(f, 0.14, 'triangle', 0.05, 0, i * 0.07)),
+    big: () => [262, 330, 392, 523].forEach((f, i) => blip(f, 0.45, 'sawtooth', 0.04, 0, i * 0.12)),
+  };
+})();
+const soundBtn = $('#sound');
+function paintSound() {
+  soundBtn.setAttribute('aria-pressed', String(Sound.on));
+  soundBtn.title = Sound.on ? 'Sound on' : 'Sound off';
+}
+soundBtn.addEventListener('click', () => { Sound.set(!Sound.on); paintSound(); Sound.buy(); });
+
+/* ================================================================
+   Keeping the save: the browser copy, a cloud copy, and save codes
+   ================================================================ */
+// Load a whole game from a save object (cloud copy or pasted code), paying out time away.
+function loadState(data, label) {
+  S = restore(data);
+  recalc();
+  fabs.clear();
+  view = 'city';
+  const away = data.savedAt ? clamp((Date.now() - data.savedAt) / 1000, 0, OFFLINE_CAP) : 0;
+  const gain = away > 30 ? CPS * away : 0;
+  if (gain) earn(gain);
+  save();
+  updateSectorBar();
+  dirty = true;
+  toast(`${label}${gain ? ` The city earned ${fmt(gain)} credits in the ${duration(away)} since.` : ''}`, 'gold');
+}
+
+// The cloud copy lives in the viewer's private corner of this page's database.
+// It needs a signed-in viewer allowed to write there; anyone else keeps the browser copy.
+const Cloud = { ref: null, status: 'checking', lastSaved: 0, writing: false, lastBody: '' };
+async function initCloud(localSavedAt) {
+  try {
+    const use = window.claude && window.claude.use;
+    if (!use) { Cloud.status = 'off'; return; }
+    const [db, user] = await Promise.all([window.claude.use('db'), window.claude.use('user')]);
+    const id = user ? await user.id() : null;
+    if (!db || !id) { Cloud.status = 'off'; return; }
+    Cloud.ref = db.doc('data/users/' + id + '/save');
+    const snap = await Cloud.ref.get();
+    const remote = snap.exists && typeof snap.data().game === 'string' ? JSON.parse(snap.data().game) : null;
+    Cloud.status = 'on';
+    if (remote && (remote.savedAt || 0) > (localSavedAt || 0) + 5000) {
+      loadState(remote, 'Loaded your cloud save.');
+      Cloud.lastSaved = remote.savedAt;
+    } else {
+      await cloudSave();
+    }
+  } catch (e) {
+    Cloud.status = 'off';
+  } finally {
+    dirty = true;
+  }
+}
+async function cloudSave() {
+  if (Cloud.status !== 'on' || Cloud.writing) return false;
+  const data = serialize();
+  const body = JSON.stringify(data);
+  if (body === Cloud.lastBody) return true;
+  Cloud.writing = true;
+  try {
+    await Cloud.ref.set({ v: 3, savedAt: data.savedAt, game: body });
+    Cloud.lastBody = body;
+    Cloud.lastSaved = Date.now();
+    return true;
+  } catch (e) {
+    const code = e && e.code;
+    // a viewer who may not write here (link visitors, view-only members) stays on the browser copy
+    if (code === 'invalid_argument' || code === 'revoked' || code === 'not_granted' || code === 'capability_disabled') Cloud.status = 'readonly';
+    else if (code === 'quota_exceeded') Cloud.status = 'full';
+    return false;
+  } finally {
+    Cloud.writing = false;
+    if (tab === 'goals') dirty = true;
+  }
+}
+
+// Save codes: the whole save as text, to copy somewhere safe and paste back later.
+const CODE_PREFIX = 'NEONSPRAWL1:';
+function exportCode() {
+  const bytes = new TextEncoder().encode(JSON.stringify(serialize()));
+  let bin = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  return CODE_PREFIX + btoa(bin);
+}
+function parseCode(text) {
+  const t = String(text || '').replace(/\s+/g, '');
+  if (!t.startsWith(CODE_PREFIX)) return null;
+  try {
+    const bin = atob(t.slice(CODE_PREFIX.length));
+    const data = JSON.parse(new TextDecoder().decode(Uint8Array.from(bin, ch => ch.charCodeAt(0))));
+    return data && (Array.isArray(data.sectors) || Array.isArray(data.lots)) ? data : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+/* ================================================================
+   Main loop
+   ================================================================ */
+let last = performance.now();
+let uiClock = 0, slowClock = 0, saveClock = 0, autoClock = 0, cloudClock = 0;
+let techSig = '';
+
+function checkAchievements() {
+  const earned = ACHIEVEMENTS.filter(a => !S.ach.includes(a.id) && a.test());
+  if (!earned.length) return;
+  for (const a of earned) {
+    S.ach.push(a.id);
+    newAch++;
+    toast(`Achievement: ${a.name}. All income +${Math.round(ACH_BONUS * 100)}%.`, 'gold');
+  }
+  Sound.courier();
+  afterChange();
+}
+
+function frame(now) {
+  const real = Math.min((now - last) / 1000, OFFLINE_CAP);
+  last = now;
+  const dt = Math.min(real, 0.1);
+  if (real > 0) earn(CPS * real);
+
+  const target = cameraTarget();
+  const k = cam.ready && !reduceMotion ? 1 - Math.exp(-dt * 3) : 1;
+  cam.x += (target.x - cam.x) * k;
+  cam.y += (target.y - cam.y) * k;
+  cam.s = Math.exp(Math.log(cam.s) + (Math.log(target.s) - Math.log(cam.s)) * k);
+  cam.ready = true;
+
+  draw(now, dt);
+
+  // automation runs a few purchases at a time so the city visibly builds itself
+  autoClock += real;
+  if (autoClock > 0.5) {
+    autoClock = 0;
+    let n = 0;
+    if (M.autoBuild && S.auto.build) n += autoBuildTick(25);
+    if (M.autoHire && S.auto.hire) n += hireAll(50);
+    if (n) Sound.buy();
+  }
+
+  uiClock += dt; slowClock += dt; saveClock += real; cloudClock += real;
+  const typing = document.activeElement && document.activeElement.tagName === 'TEXTAREA' && panel.contains(document.activeElement);
+  if (dirty && !typing) render();
+  else if (uiClock > 0.1) { uiClock = 0; refresh(); }
+  if (slowClock > 1) {
+    slowClock = 0;
+    checkAchievements();
+    const avail = TECH.filter(t => !S.tech.includes(t.id) && t.req()).map(t => t.id);
+    const sig = avail.join(',') + '|' + roadReady() + '|' + canReboot();
+    if (sig !== techSig) {
+      for (const id of avail) if (!S.seen.includes(id)) {
+        S.seen.push(id);
+        toast(`New tech decrypted: ${TECH_BY_ID[id].name}. Find it under Tech.`, 'pink');
+      }
+      techSig = sig;
+      if (tab !== 'build' && tab !== 'crew') dirty = true;
+    }
+  }
+  if (saveClock > 10) { saveClock = 0; save(); }
+  if (cloudClock > 60) { cloudClock = 0; cloudSave(); }
+  requestAnimationFrame(frame);
+}
+
+function boot(hot) {
+  let data = hot && (Array.isArray(hot.sectors) || Array.isArray(hot.lots)) ? hot : null;
+  let fromDisk = false;
+  if (!data) {
+    try { data = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); fromDisk = !!data; } catch (e) { data = null; }
+  }
+  S = restore(data);
+  recalc();
+  scheduleCourier(performance.now());
+  if (fromDisk && data.savedAt) {
+    const away = clamp((Date.now() - data.savedAt) / 1000, 0, OFFLINE_CAP);
+    if (away > 30 && CPS > 0) {
+      const gain = CPS * away;
+      earn(gain);
+      setTimeout(() => toast(`Welcome back. The city earned ${fmt(gain)} credits in the ${duration(away)} you were away.`, 'gold'), 400);
+    }
+  } else if (!data) {
+    startFabrication(0, cur().sel);
+    setTimeout(() => toast('One shack, one lot. It earns a credit a second. Grow it.'), 600);
+  }
+  // Browsers only allow audio after a click, so a saved "sound on" waits for the first one.
+  let wantSound = false;
+  try { wantSound = localStorage.getItem(SOUND_KEY) === '1'; } catch (e) { /* storage unavailable */ }
+  if (wantSound) document.addEventListener('pointerdown', () => { if (!Sound.on) { Sound.set(true); paintSound(); } }, { once: true });
+  paintSound();
+  resize();
+  new ResizeObserver(resize).observe(cvs);
+  updateSectorBar();
+  fillTicker();
+  document.addEventListener('visibilitychange', () => { if (document.hidden) { save(); cloudSave(); } });
+  initCloud(data && data.savedAt);
+  window.addEventListener('pagehide', save);
+  last = performance.now();
+  requestAnimationFrame(frame);
+}
+
+// A small handle for testing and balancing from the console.
+window.neonSprawl = {
+  get state() { return S; },
+  get cps() { return CPS; },
+  advance(sec) { earn(CPS * sec); },
+  upgradeLot, acquireLot, hireCrew: (id, n) => hireN(id, n || 1), hireAll, upgradeAllIn, buyAllLotsIn, autoBuildTick,
+  buyTech, buildRoad, upgradeRoad, upgradeCost, lotCost, crewCost, roadCost, roadUpgradeCost, roadReady, nextLot,
+  lotOutput, upgradeGain, crewEach, recalc, lineUnlocked, districtUnlocked, setView, goSector, reboot, pendingChips, canReboot,
+  checkAchievements, exportCode, parseCode, loadState, cloudSave, get cloud() { return Cloud; }, TECH, CREW, LINES, DISTRICTS,
+};
+
+window.claude?.hot?.snapshot?.(() => serialize());
+window.claude?.hot?.ready ? window.claude.hot.ready(boot) : boot(window.claude?.hot?.data ?? {});
+})();
+</script>
+</body>
+</html>
