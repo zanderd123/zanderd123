@@ -486,7 +486,26 @@ button { font: inherit; color: inherit; }
 .buy.armed { border-color: var(--magenta); }
 
 /* save */
-.lot-card.capitol { border-color: var(--amber); box-shadow: inset 0 0 0 1px rgba(255, 194, 62, 0.25); }
+.edicts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.edict {
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  background: var(--panel-2);
+  text-align: left;
+  cursor: pointer;
+  min-width: 0;
+}
+.edict b { font: 600 14px/1.2 var(--f-body); color: var(--ink); }
+.edict span { font-size: 12.5px; color: var(--dim); }
+.edict small { font: 11.5px var(--f-mono); color: var(--cyan); }
+.edict:hover:not(:disabled) { border-color: var(--amber); }
+.edict:disabled { cursor: default; }
+.edict:disabled small { color: var(--dim); }
+.edict.on { border-color: var(--amber); background: rgba(255, 194, 62, 0.08); }
+.edict.on small { color: var(--amber); }
+.edict:focus-visible { outline: 2px solid var(--cyan); outline-offset: 1px; }
 .cloud { padding: 9px 12px; border: 1px dashed var(--line); color: var(--dim); font-size: 14px; }
 .cloud.ok { border: 1px solid rgba(93, 255, 176, 0.5); color: var(--ok); }
 .code-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
@@ -665,12 +684,39 @@ const SHAPES = [
   { sections: [[0.7, 2.1], [0.52, 2.45]], spire: 0.32 },
   { sections: [[0.8, 1.4], [0.64, 2.55], [0.46, 3.15]], spire: 0.42 },
   { sections: [[0.9, 1.0], [0.76, 2.05], [0.6, 3.0], [0.4, 3.7]], spire: 0.5 },
-  // 9: the Capitol Spire, which the whole Capital fuses into once all 49 lots reach tier 8
-  { sections: [[6.6, 0.8], [5.4, 2.0], [4.2, 3.6], [3.0, 5.4], [1.9, 7.2], [1.0, 8.6]], spire: 1.4 },
 ];
-const CAPITOL = 9;
-const CAPITOL_LOT = CENTER * N + CENTER;
-const CAPITOL_BONUS = 1.25;       // all income while the Capitol Spire stands
+
+// Skill trees: at tier 3, and again at tier 6, a building picks a specialization. The first
+// sets its massing, the second adds a crown, and each changes what the building does.
+const SPEC_TIERS = [3, 6];
+const SPECS = {
+  t: { name: 'Highrise', color: '#3ef2ff', look: 'Slender and tall',
+       what: 'This building earns ×1.3, now and as it grows' },
+  h: { name: 'Hub', color: '#ffc23e', look: 'Wide podium, twin towers and a sky-bridge',
+       what: 'Each building beside it earns +8%' },
+  u: { name: 'Uplink', color: '#ff2bd6', look: 'Antenna farm and dishes',
+       what: 'Jack in and data couriers pay more, citywide' },
+  b: { name: 'Barracks', color: '#5dffb0', look: 'Stacked crew quarters in neon',
+       what: 'All crew pay more, citywide' },
+};
+const HIGHRISE_MULT = 1.3;        // per Highrise specialization on a building
+const SIDE_MULT = 1.1;            // Uplink and Barracks buildings still earn a little more themselves
+const HUB_BONUS = 0.08;           // each Hub specialization adds this to the buildings beside it
+const UPLINK_K = 0.3;             // Jack in and courier pay x (1 + UPLINK_K x sqrt(uplink levels))
+const BARRACKS_K = 0.02;          // crew pay x (1 + BARRACKS_K x sqrt(barracks levels))
+
+// Edicts: the Capital enacts one city policy at a time.
+const EDICT_LOTS = 10;            // Capital lots needed before the council convenes
+const EDICT_COOLDOWN = 180;       // seconds before a new edict can replace the current one
+const EDICTS = {
+  nightlife: { name: 'Curfew Lifted', what: 'Bars and Arcades earn ×1.5.' },
+  taxholiday: { name: 'Tax Holiday', what: 'Lots cost 30% less.' },
+  boom: { name: 'Building Boom', what: 'Upgrades cost 20% less.' },
+  opendata: { name: 'Open Data Act', what: 'Jack in pays ×3 and couriers pay ×2.' },
+  labour: { name: 'Labour Accord', what: 'All crew pay +40%.' },
+  mixeduse: { name: 'Mixed-Use Mandate', what: 'Mixed-use bonuses are doubled.' },
+  smog: { name: 'Smog Waiver', what: 'Every building earns +15%.' },
+};
 
 const SHACK_BLURB = 'Corrugated walls, one flickering sign, and a power line spliced off the grid. Upgrade it to choose what it becomes.';
 const LINES = {
@@ -835,7 +881,8 @@ const ACHIEVEMENTS = [
   { id: 'tier5', name: 'Glass and Steel', desc: 'Reach tier 5', test: () => S.best >= 5 },
   { id: 'tier6', name: 'Above the Smog', desc: 'Reach tier 6', test: () => S.best >= 6 },
   { id: 'tier8', name: 'Arcologist', desc: 'Reach tier 8', test: () => S.best >= 8 },
-  { id: 'capitol', name: 'Seat of Power', desc: 'Fuse the Capital into the Capitol Spire', test: () => capitalMerged() },
+  { id: 'specAll', name: 'Architect', desc: 'Use all four specializations', test: () => Object.keys(SPECS).every(c => S.sectors.some(sec => sec.specs.some(sp => sp.includes(c)))) },
+  { id: 'edict', name: 'By Decree', desc: 'Enact a Capital edict', test: () => !!S.edict },
   { id: 'arco10', name: 'Skyline', desc: 'Own 10 tier 8 buildings', test: () => sumLots(t => t === 8) >= 10 },
   { id: 'arco49', name: 'Megacity', desc: 'Own 49 tier 8 buildings', test: () => sumLots(t => t === 8) >= 49 },
   { id: 'type1', name: 'Mixed Company', desc: 'Build your first crew building', test: () => crewBuildings() >= 1 },
@@ -976,22 +1023,24 @@ let LINE_CPS = {};        // building type -> what all its buildings earn
 const sectorTypes = sec => new Set(S.sectors[sec].lines.filter(Boolean)).size;
 
 function newSector(type) {
-  const lots = new Array(N * N).fill(0), lines = new Array(N * N).fill(null);
+  const lots = new Array(N * N).fill(0), lines = new Array(N * N).fill(null), specs = new Array(N * N).fill('');
   const c = CENTER * N + CENTER;
   lots[c] = 1;
-  return { type, lots, lines, sel: c };
+  return { type, lots, lines, specs, sel: c };
 }
 function fresh() {
   return { credits: 0, total: 0, lifetime: 0, sectors: [newSector('capital')], roads: [0], cur: 0, crew: {}, tech: [], seen: [],
            hacks: 0, couriers: 0, best: 1, lastLine: 'hab', started: Date.now(),
-           chips: 0, reboots: 0, ach: [], auto: { build: false, hire: false } };
+           chips: 0, reboots: 0, ach: [], auto: { build: false, hire: false },
+           lastSpec: 't', edict: null, edictAt: 0 };
 }
 function serialize() {
   return { v: 3, credits: S.credits, total: S.total, lifetime: S.lifetime,
-           sectors: S.sectors.map(s => ({ type: s.type, lots: s.lots.slice(), lines: s.lines.slice(), sel: s.sel })),
+           sectors: S.sectors.map(s => ({ type: s.type, lots: s.lots.slice(), lines: s.lines.slice(), specs: s.specs.slice(), sel: s.sel })),
            roads: S.roads.slice(), cur: S.cur, crew: { ...S.crew }, tech: S.tech.slice(), seen: S.seen.slice(),
            hacks: S.hacks, couriers: S.couriers, best: S.best, lastLine: S.lastLine, started: S.started,
-           chips: S.chips, reboots: S.reboots, ach: S.ach.slice(), auto: { ...S.auto }, savedAt: Date.now() };
+           chips: S.chips, reboots: S.reboots, ach: S.ach.slice(), auto: { ...S.auto },
+           lastSpec: S.lastSpec, edict: S.edict, edictAt: S.edictAt, savedAt: Date.now() };
 }
 // Older saves had sectors without a district type; give them one each, in a fixed order.
 const LEGACY_DISTRICTS = ['net', 'docks', 'industrial', 'financial', 'corporate', 'ghost', 'residential', 'entertainment'];
@@ -1011,6 +1060,14 @@ function restore(d) {
     sec.lines = sec.lots.map((t, k) => {
       const l = Array.isArray(raw.lines) ? raw.lines[k] : null;
       return t >= 2 ? (LINES[l] ? l : 'hab') : null;
+    });
+    // a specialization is one letter per branch taken; '-' marks a building that skipped the first
+    const rawSpecs = Array.isArray(raw.specs) ? raw.specs : [];
+    sec.specs = sec.lots.map((t, k) => {
+      const str = String(rawSpecs[k] || '');
+      const a = t >= 3 && (str[0] === '-' || SPECS[str[0]]) ? str[0] : '';
+      const b = t >= 6 && a && SPECS[str[1]] ? str[1] : '';
+      return a === '-' && !b ? '' : a + b;
     });
     if (!sec.lots.some(t => t > 0)) sec.lots[CENTER * N + CENTER] = 1;
     sec.sel = sec.lots[raw.sel] > 0 ? raw.sel : sec.lots.findIndex(t => t > 0);
@@ -1033,6 +1090,9 @@ function restore(d) {
   s.reboots = Math.floor(num(d.reboots, 0));
   s.ach = Array.isArray(d.ach) ? d.ach.filter(id => ACH_BY_ID[id]) : [];
   s.auto = { build: !!(d.auto && d.auto.build), hire: !!(d.auto && d.auto.hire) };
+  s.lastSpec = SPECS[d.lastSpec] ? d.lastSpec : 't';
+  s.edict = EDICTS[d.edict] ? d.edict : null;
+  s.edictAt = num(d.edictAt, 0);
   return s;
 }
 function save() {
@@ -1040,7 +1100,6 @@ function save() {
 }
 
 const cur = () => S.sectors[S.cur];
-const capitalMerged = () => S.sectors[0].lots.every(t => t === MAX_TIER);
 const ownedIn = sec => S.sectors[sec].lots.reduce((n, t) => n + (t > 0), 0);
 const ownedTotal = () => S.sectors.reduce((n, _, i) => n + ownedIn(i), 0);
 const crewTotal = () => CREW.reduce((n, c) => n + (S.crew[c.id] || 0), 0);
@@ -1062,7 +1121,20 @@ function computeMods() {
   m.chip = 1 + CHIP_BONUS * S.chips;
   m.achieve = 1 + ACH_BONUS * S.ach.length;
   m.all *= m.chip * m.achieve;
-  if (capitalMerged()) m.all *= CAPITOL_BONUS;
+  // specializations that act citywide
+  let up = 0, bar = 0;
+  for (const sec of S.sectors) for (const sp of sec.specs) {
+    for (const ch of sp) { if (ch === 'u') up++; else if (ch === 'b') bar++; }
+  }
+  m.hack *= 1 + UPLINK_K * Math.sqrt(up);
+  m.courierPay *= 1 + UPLINK_K * Math.sqrt(up);
+  m.crew *= 1 + BARRACKS_K * Math.sqrt(bar);
+  m.uplinks = up; m.barracks = bar;
+  // the Capital's edict
+  if (S.edict === 'opendata') { m.hack *= 3; m.courierPay *= 2; }
+  if (S.edict === 'labour') m.crew *= 1.4;
+  if (S.edict === 'smog') m.build *= 1.15;
+  m.mix = S.edict === 'mixeduse' ? 2 : 1;
   return m;
 }
 // A crew building earns more the more of its crew you employ. Housing is filled by tenants from
@@ -1079,16 +1151,39 @@ function lotOutput(sec, tier, line, ownedOverride) {
   const crewLine = tier >= 2 && line && line !== 'hab';
   const lineF = crewLine ? M.lineOut * staffMult(line) : tier >= 2 ? staffMult('hab') : 1;
   const perk = tier < 2 ? 1 : perkOf(sec) === 'all' ? CAPITAL_MULT : (line || 'hab') === perkOf(sec) ? PERK_MULT : 1;
-  return TIER_CPS[tier] * lineF * perk * M.tier[tier] * M.build * (1 + M.synergy * own) * (SECTOR_MIX[sec] || 1) * secOut(sec) * M.all * roadMult();
+  const night = S.edict === 'nightlife' && (line === 'fixer' || line === 'kiddie') && tier >= 2 ? 1.5 : 1;
+  return TIER_CPS[tier] * lineF * perk * night * M.tier[tier] * M.build * (1 + M.synergy * own) * (SECTOR_MIX[sec] || 1) * secOut(sec) * M.all * roadMult();
 }
-// Total income change from taking a lot from one tier/type to another.
-function upgradeGain(sec, fromTier, fromLine, toTier, toLine) {
-  let g = lotOutput(sec, toTier, toLine) - lotOutput(sec, fromTier, fromLine);
-  // a type new to this sector raises its mixed-use bonus
-  if (toLine && toLine !== fromLine && !S.sectors[sec].lines.includes(toLine) && sectorTypes(sec) >= 1) {
-    g += (SECTOR_CPS[sec] + lotOutput(sec, toTier, toLine)) * MIX_BONUS / SECTOR_MIX[sec];
+// What a specialization does to its own building, and the Hub bonus from the lots beside it.
+function specMult(spec) {
+  let m = 1;
+  for (const ch of spec || '') m *= ch === 't' ? HIGHRISE_MULT : ch === 'u' || ch === 'b' ? SIDE_MULT : 1;
+  return m;
+}
+function hubMult(sec, k) {
+  const s = S.sectors[sec], i = k % N;
+  let n = 0;
+  for (const j of [i > 0 ? k - 1 : -1, i < N - 1 ? k + 1 : -1, k - N, k + N]) {
+    if (j < 0 || j >= N * N || s.lots[j] < 3) continue;
+    for (const ch of s.specs[j]) if (ch === 'h') n++;
   }
-  return g;
+  return 1 + HUB_BONUS * n;
+}
+const lotOutputAt = (sec, k) => lotOutput(sec, S.sectors[sec].lots[k], S.sectors[sec].lines[k]) * specMult(S.sectors[sec].specs[k]) * hubMult(sec, k);
+// The income change an upgrade would make, everything included: try it, measure, put it back.
+function upgradeGain(sec, k, line, spec) {
+  const s = S.sectors[sec], before = CPS;
+  const keep = { t: s.lots[k], l: s.lines[k], p: s.specs[k] };
+  if (!keep.t || keep.t >= MAX_TIER) return 0;
+  s.lots[k] = keep.t + 1;
+  if (keep.t === 1) s.lines[k] = line || defaultLine();
+  if (keep.t + 1 === 3) s.specs[k] = spec || defaultSpec();
+  if (keep.t + 1 === 6) s.specs[k] = (keep.p || '-') + (spec || defaultSpec());
+  recalc();
+  const gain = CPS - before;
+  s.lots[k] = keep.t; s.lines[k] = keep.l; s.specs[k] = keep.p;
+  recalc();
+  return gain;
 }
 const crewSectorMult = () => Math.pow(CREW_SECTOR, S.sectors.length - 1);
 function crewEach(id) { return CREW_BY_ID[id].cps * M.crew * crewSectorMult() * M.all * roadMult(); }
@@ -1101,14 +1196,14 @@ function recalc() {
   M = computeMods();
   LINE_CPS = {};
   BUILD_CPS = 0;
-  SECTOR_MIX = S.sectors.map((_, i) => 1 + MIX_BONUS * Math.max(0, sectorTypes(i) - 1));
+  SECTOR_MIX = S.sectors.map((_, i) => 1 + MIX_BONUS * M.mix * Math.max(0, sectorTypes(i) - 1));
   SECTOR_CPS = S.sectors.map((sec, i) => {
     let out = 0;
     const own = ownedIn(i);
     for (let k = 0; k < N * N; k++) {
       const t = sec.lots[k];
       if (!t) continue;
-      const o = lotOutput(i, t, sec.lines[k], own);
+      const o = lotOutput(i, t, sec.lines[k], own) * specMult(sec.specs[k]) * hubMult(i, k);
       out += o;
       if (sec.lines[k]) LINE_CPS[sec.lines[k]] = (LINE_CPS[sec.lines[k]] || 0) + o;
     }
@@ -1118,17 +1213,6 @@ function recalc() {
   CREW_CPS = 0;
   for (const c of CREW) CREW_CPS += (S.crew[c.id] || 0) * crewEach(c.id);
   CPS = BUILD_CPS + CREW_CPS;
-  checkMerge();
-}
-let mergeWatch = { s: null, merged: false };
-function checkMerge() {
-  const merged = capitalMerged();
-  if (mergeWatch.s === S && merged && !mergeWatch.merged) {
-    startFabrication(0, CAPITOL_LOT);
-    toast(`The Capital's 49 towers have fused into the Capitol Spire. All income +${Math.round((CAPITOL_BONUS - 1) * 100)}%.`, 'gold');
-    Sound.big();
-  }
-  mergeWatch = { s: S, merged };
 }
 const hackValue = () => (1 + CPS * 0.1) * M.hack;
 
@@ -1137,9 +1221,9 @@ function upgradeCost(sec, k) {
   if (next > MAX_TIER) return Infinity;
   let n = 0;
   for (const t of lots) if (t >= next) n++;
-  return TIER_COST[next] * Math.pow(TIER_GROWTH, n) * secCost(sec);
+  return TIER_COST[next] * Math.pow(TIER_GROWTH, n) * secCost(sec) * (S.edict === 'boom' ? 0.8 : 1);
 }
-const lotCost = sec => LOT_BASE * Math.pow(LOT_GROWTH, ownedIn(sec) - 1) * secCost(sec);
+const lotCost = sec => LOT_BASE * Math.pow(LOT_GROWTH, ownedIn(sec) - 1) * secCost(sec) * (S.edict === 'taxholiday' ? 0.7 : 1);
 const nextLot = sec => ORDER.find(k => S.sectors[sec].lots[k] === 0);
 function cheapestUpgrade(sec) {
   const lots = S.sectors[sec].lots;
@@ -1169,17 +1253,23 @@ function earn(n) { S.credits += n; S.total += n; S.lifetime += n; }
 
 // The shack type used when the player does not pick one: their last pick, if still available.
 const defaultLine = () => (lineUnlocked(S.lastLine) ? S.lastLine : 'hab');
+const defaultSpec = () => (SPECS[S.lastSpec] ? S.lastSpec : 't');
 
-function upgradeLot(sec, k, line) {
+function upgradeLot(sec, k, line, spec) {
   const s = S.sectors[sec], t = s.lots[k];
   if (!t || t >= MAX_TIER) return false;
   if (t === 1) {
     line = line || defaultLine();
     if (!LINES[line] || !lineUnlocked(line)) line = 'hab';
   }
+  const branching = SPEC_TIERS.includes(t + 1);
+  if (branching) spec = SPECS[spec] ? spec : defaultSpec();
   if (!spend(upgradeCost(sec, k))) return false;
   s.lots[k] = t + 1;
   if (t === 1) { s.lines[k] = line; S.lastLine = line; }
+  if (t + 1 === 3) s.specs[k] = spec;
+  if (t + 1 === 6) s.specs[k] = (s.specs[k] || '-') + spec;
+  if (branching) S.lastSpec = spec;
   startFabrication(sec, k);
   if (t + 1 > S.best) {
     S.best = t + 1;
@@ -1320,6 +1410,16 @@ function reboot() {
   return gained;
 }
 
+function edictReadyIn() { return Math.max(0, EDICT_COOLDOWN - (Date.now() - S.edictAt) / 1000); }
+function enactEdict(id) {
+  if (!EDICTS[id] || S.edict === id || ownedIn(0) < EDICT_LOTS || (S.edict && edictReadyIn() > 0)) return false;
+  S.edict = id;
+  S.edictAt = Date.now();
+  toast(`Edict enacted: ${EDICTS[id].name}. ${EDICTS[id].what}`, 'gold');
+  afterChange();
+  return true;
+}
+
 function afterChange() {
   if (batching) return;
   recalc();
@@ -1427,7 +1527,6 @@ function buildBackdrop(themeKey) {
   g.fillRect(0, horizon + 10, W, H);
 }
 
-const topZ = t => (t ? SHAPES[t].sections[SHAPES[t].sections.length - 1][1] + (SHAPES[t].spire || 0) : 0);
 
 // World coordinates: lot (I, J) on one big grid shared by every sector.
 function lotIJ(sec, k) {
@@ -1443,31 +1542,6 @@ function lotScreen(sec, k) {
   const [I, J] = lotIJ(sec, k);
   return [sx(worldX(I, J)), sy(worldY(I, J))];
 }
-function buildingList() {
-  const out = [];
-  const merged = capitalMerged();
-  for (let sec = 0; sec < S.sectors.length; sec++) {
-    const s = S.sectors[sec];
-    if (sec === 0 && merged) {
-      const [I, J] = lotIJ(0, CAPITOL_LOT);
-      out.push({ d: I + J, sec: 0, k: CAPITOL_LOT, tier: CAPITOL, line: null });
-      continue;
-    }
-    for (let k = 0; k < N * N; k++) if (s.lots[k]) {
-      const [I, J] = lotIJ(sec, k);
-      out.push({ d: I + J, sec, k, tier: s.lots[k], line: s.lots[k] >= 2 ? s.lines[k] : null });
-    }
-  }
-  return out;
-}
-function roofPoint(sec, k) {
-  if (sec === 0 && capitalMerged()) {
-    const [x, y] = lotScreen(0, CAPITOL_LOT);
-    return [x, y - topZ(CAPITOL) * cam.s];
-  }
-  const [x, y] = lotScreen(sec, k);
-  return [x, y - topZ(S.sectors[sec].lots[k]) * cam.s];
-}
 const showGhost = () => roadReady() || view === 'map';
 
 function cameraTarget() {
@@ -1482,8 +1556,7 @@ function cameraTarget() {
     for (let sec = 0; sec < count; sec++) {
       const [I0, J0] = lotIJ(sec, 0);
       let h = 0;
-      if (S.sectors[sec]) for (const t of S.sectors[sec].lots) h = Math.max(h, topZ(t));
-      if (sec === 0 && capitalMerged()) h = topZ(CAPITOL);
+      if (S.sectors[sec]) S.sectors[sec].lots.forEach((t, k) => { if (t) h = Math.max(h, topOf(sec, k)); });
       include(I0, J0, h); include(I0 + N - 1, J0, h); include(I0, J0 + N - 1, h); include(I0 + N - 1, J0 + N - 1, h);
     }
   } else {
@@ -1495,11 +1568,7 @@ function cameraTarget() {
       for (let di = -1; di <= 1; di++) for (let dj = -1; dj <= 1; dj++) {
         if (i + di >= 0 && j + dj >= 0 && i + di < N && j + dj < N) include(I + di, J + dj, 0);
       }
-      include(I, J, topZ(s.lots[k]) + 0.1);
-    }
-    if (S.cur === 0 && capitalMerged()) {
-      const [I, J] = lotIJ(0, CAPITOL_LOT);
-      include(I, J, topZ(CAPITOL) + 0.2);
+      include(I, J, topOf(S.cur, k) + 0.1);
     }
   }
   const avH = Math.max(80, H - HUD_TOP - hudBottom());
@@ -1545,25 +1614,34 @@ function facePoint(side, x, y, hw, hh, z0, z1, u, v) {
     : [x + hw * u, y + hh - z0 - hh * u - h * v];
 }
 
-function windows(g, s, tier, x, y, hw, hh, z0, z1, R, dom, alt) {
+function windows(g, s, tier, x, y, hw, hh, z0, z1, R, dom, alt, wins, needle) {
   const floors = Math.max(1, Math.round((z1 - z0) / (s * 0.075)));
-  const cols = clamp(Math.round((hw * 2 / s) * 8), 2, tier === CAPITOL ? 48 : 7);
+  const cols = clamp(Math.round((hw * 2 / s) * 8), needle ? 1 : 2, 7);
   const glass = tier >= 5;
   const litP = 0.28 + tier * 0.05;
   const ww = glass ? 0.78 : 0.56, wh = glass ? 0.42 : 0.5;
+  const dark = glass ? '#1b2346' : '#241c44';
   for (const side of ['L', 'R']) {
     g.save();
     faceTransform(g, side, x, y, hw, hh, z0, z1);
-    g.globalAlpha = side === 'L' ? 0.72 : 1;
+    const a = side === 'L' ? 0.72 : 1;
+    g.globalAlpha = a;
     for (let r = 0; r < floors; r++) {
       for (let c = 0; c < cols; c++) {
-        if (R() < litP) {
+        const lit = R() < litP;
+        let col = dark;
+        if (lit) {
           const pick = R();
-          g.fillStyle = pick < 0.6 ? dom : pick < 0.82 ? alt : pick < 0.92 ? WARM : '#e9e4ff';
-        } else {
-          g.fillStyle = glass ? '#1b2346' : '#241c44';
+          col = pick < 0.6 ? dom : pick < 0.82 ? alt : pick < 0.92 ? WARM : '#e9e4ff';
         }
-        g.fillRect((c + (1 - ww) / 2) / cols, (r + 0.18) / floors, ww / cols, wh / floors);
+        g.fillStyle = col;
+        const u0 = (c + (1 - ww) / 2) / cols, v0 = (r + 0.18) / floors, u1 = u0 + ww / cols, v1 = v0 + wh / floors;
+        g.fillRect(u0, v0, u1 - u0, v1 - v0);
+        // keep a sample of windows whose lights will switch on and off at night
+        if (wins && wins.length < 14 && R() < 0.1) {
+          const pts = [[u0, v0], [u1, v0], [u1, v1], [u0, v1]].flatMap(([u, v]) => facePoint(side, x, y, hw, hh, z0, z1, u, v));
+          wins.push({ pts, a, on: lit ? col : (R() < 0.6 ? dom : WARM), off: dark, lit, per: 3 + R() * 14, ph: R() * 20 });
+        }
       }
     }
     g.restore();
@@ -1633,174 +1711,300 @@ function emblem(g, line, x, y, s) {
   g.restore();
 }
 
-function makeSprite(tier, line, seed, s) {
-  const T = SHAPES[tier];
-  const R = rng(seed * 7919 + tier * 104729);
+// A building's massing: the boxes it is made of, any crown on top, and its height.
+// Parts are boxes on a diamond footprint: w is the footprint as a share of a lot, z0/z1 their
+// bottom and top in lot-widths, dI/dJ an offset inside the lot along the grid axes.
+// The first specialization (tier 3) sets the massing; the second (tier 6) adds a crown.
+const TIER_TOP = [0, 0.2, 0.3, 0.72, 1.1, 1.75, 2.45, 3.15, 3.8];
+const shapeCache = new Map();
+function shapeOf(tier, spec) {
+  const key = tier + ':' + (spec || '');
+  let sh = shapeCache.get(key);
+  if (sh) return sh;
+  const b1 = tier >= 3 ? (spec && spec[0]) || '-' : '';
+  const b2 = tier >= 6 ? (spec && spec[1]) || '' : '';
+  const H = TIER_TOP[tier];
+  let parts = [], spire = 0, main = 0;
+  if (!b1 || b1 === '-') {
+    let z = 0;
+    for (const [w, top] of SHAPES[tier].sections) { parts.push({ w, z0: z, z1: top, dI: 0, dJ: 0 }); z = top; }
+    spire = SHAPES[tier].spire || 0;
+  } else if (b1 === 't') {
+    // Highrise: slender and tall, stepping in twice
+    const h = H * 1.3;
+    parts = [{ w: 0.5, z0: 0, z1: h * 0.52 }, { w: 0.41, z0: h * 0.52, z1: h * 0.84 }, { w: 0.31, z0: h * 0.84, z1: h }];
+    spire = 0.22 + tier * 0.05;
+  } else if (b1 === 'h') {
+    // Hub: a wide podium with two towers joined by a sky-bridge
+    const pod = 0.14 + tier * 0.03, h = H * 0.62;
+    parts = [{ w: 0.92, z0: 0, z1: pod }, { w: 0.34, z0: pod, z1: pod + h, dI: -0.2, dJ: 0.2 }, { w: 0.3, z0: pod, z1: pod + h * 0.72, dI: 0.2, dJ: -0.2 }];
+    main = 1;
+  } else if (b1 === 'u') {
+    // Uplink: a squat block crowned with masts and dishes
+    const h = H * 0.78;
+    parts = [{ w: 0.64, z0: 0, z1: h * 0.8 }, { w: 0.5, z0: h * 0.8, z1: h }];
+    spire = 0.3 + tier * 0.05;
+  } else if (b1 === 'b') {
+    // Barracks: crew quarters stacked like crates, each one offset from the last
+    const n = Math.min(5, 1 + Math.floor(tier / 2)), h = H * 0.95;
+    for (let i = 0; i < n; i++) {
+      const o = i % 2 ? 0.07 : -0.07;
+      parts.push({ w: 0.54, z0: h * i / n, z1: h * (i + 1) / n, dI: o, dJ: -o });
+    }
+  }
+  for (const p of parts) { p.dI = p.dI || 0; p.dJ = p.dJ || 0; }
+  let top = Math.max(...parts.map(p => p.z1));
+  let crownH = 0;
+  if (b2 === 't') { parts.push({ w: 0.17, z0: top, z1: top + 0.4, dI: 0, dJ: 0, needle: true }); top += 0.4; spire = Math.max(spire, 0.45); }
+  if (b2 === 'u') crownH = 0.32;
+  if (b2 === 'b') crownH = 0.34;
+  const reach = Math.max(...parts.map(p => Math.abs(p.dI - p.dJ) * 0.5 + p.w * 0.5));
+  sh = { tier, b1, b2, parts, spire, main, roof: top, top: top + Math.max(spire, crownH), reach };
+  shapeCache.set(key, sh);
+  return sh;
+}
+const specOf = (sec, k) => (S.sectors[sec].specs && S.sectors[sec].specs[k]) || '';
+const topOf = (sec, k) => shapeOf(S.sectors[sec].lots[k], specOf(sec, k)).top;
+
+function makeSprite(tier, line, spec, seed, s) {
+  const sh = shapeOf(tier, spec);
+  const R = rng(seed * 7919 + tier * 104729 + (spec ? spec.charCodeAt(0) * 31 + (spec.charCodeAt(1) || 0) : 0));
   const crewLine = line && line !== 'hab' && tier >= 2;
-  const maxW = T.sections[0][0];
-  const hwMax = s * 0.5 * maxW, hhMax = s * 0.25 * maxW;
   const pad = Math.ceil(s * 0.2) + 6;
-  const w = Math.ceil(2 * hwMax + pad * 2);
-  const h = Math.ceil((topZ(tier) + 0.25) * s + 2 * hhMax + pad * 2);
+  const w = Math.ceil(s * 2 * Math.max(0.5, sh.reach) + pad * 2);
+  const h = Math.ceil((sh.top + 0.3) * s + s * 0.5 + pad * 2);
   const c = document.createElement('canvas');
   c.width = Math.ceil(w * DPR);
   c.height = Math.ceil(h * DPR);
   const g = c.getContext('2d');
   g.scale(DPR, DPR);
-  const x = w / 2, y = h - hhMax - pad;
+  const x = w / 2, y = h - s * 0.25 - pad;
   const dom = lineColor(crewLine ? line : null, seed);
   const alt = crewLine ? PAL[seed % 3] === dom ? PAL[(seed + 1) % 3] : PAL[seed % 3]
                        : PAL[(seed % 3 + 1 + ((seed >> 3) & 1)) % 3];
-  const glass = tier >= 5;
+  const glass = tier >= 5 || sh.b1 === 't';
   const skin = glass
     ? { l: '#0d1228', r: '#141d3c', t: '#222e58', e: 'rgba(62, 242, 255, 0.35)' }
     : { l: '#17122b', r: '#221a3d', t: '#2f2654', e: 'rgba(255, 43, 214, 0.3)' };
+  if (sh.b1 === 'b') { skin.l = '#1c1426'; skin.r = '#2a1d33'; skin.t = '#3a2847'; }
   if (crewLine) skin.e = dom + '66';
+  const wins = [];                  // a sample of windows that will switch on and off
+  const geo = p => ({ x: x + (p.dI - p.dJ) * 0.5 * s, y: y + (p.dI + p.dJ) * 0.25 * s, hw: s * 0.5 * p.w, hh: s * 0.25 * p.w, z0: p.z0 * s, z1: p.z1 * s });
+  const order = sh.parts.map((p, i) => ({ p, i })).sort((a, b) => (a.p.dI + a.p.dJ) - (b.p.dI + b.p.dJ) || a.p.z0 - b.p.z0);
 
-  let zPrev = 0;
-  T.sections.forEach(([sw, zt], si) => {
-    const hw = s * 0.5 * sw, hh = s * 0.25 * sw, z0 = zPrev * s, z1 = zt * s;
-    box(g, x, y, hw, hh, z0, z1, skin);
-    if (tier >= 3) windows(g, s, tier, x, y, hw, hh, z0, z1, R, dom, alt);
-    // terraces of greenery on an arcology's setbacks
-    if (tier >= 8 && si < T.sections.length - 1) {
-      const inner = T.sections[si + 1][0] / sw;
-      for (let n = 0; n < 40; n++) {
-        const a = R() * 2 - 1, b = (R() * 2 - 1) * (1 - Math.abs(a));
-        if (Math.abs(a) + Math.abs(b) < inner + 0.06 || Math.abs(a) + Math.abs(b) > 0.92) continue;
-        const px = x + a * hw, py = y - z1 + b * hh;
-        g.fillStyle = R() < 0.5 ? '#2fe39a' : '#169a6a';
-        g.beginPath(); g.arc(px, py, Math.max(1, s * 0.012), 0, Math.PI * 2); g.fill();
+  for (const { p, i } of order) {
+    const q = geo(p);
+    box(g, q.x, q.y, q.hw, q.hh, q.z0, q.z1, skin);
+    if (tier >= 3 && !(sh.b1 === 'h' && i === 0)) windows(g, s, tier, q.x, q.y, q.hw, q.hh, q.z0, q.z1, R, dom, alt, wins, p.needle);
+    if (sh.b1 === 'h' && i === 0 && tier >= 3) {
+      // podium: a lit shopping arcade along both faces
+      for (const side of ['L', 'R']) {
+        g.save(); faceTransform(g, side, q.x, q.y, q.hw, q.hh, q.z0, q.z1);
+        g.globalAlpha = side === 'L' ? 0.7 : 0.9;
+        g.fillStyle = WARM; g.fillRect(0.06, 0.15, 0.88, 0.45);
+        g.fillStyle = '#07060d'; for (let n = 1; n < 6; n++) g.fillRect(n / 6 - 0.01, 0.15, 0.02, 0.45);
+        g.restore();
       }
     }
-    // neon band along each setback edge
-    if (si < T.sections.length - 1 && tier >= 6) {
-      g.save();
-      g.strokeStyle = dom; g.shadowColor = dom; g.shadowBlur = 8; g.lineWidth = 1.5;
-      g.beginPath();
-      g.moveTo(x - hw, y - z1); g.lineTo(x, y + hh - z1); g.lineTo(x + hw, y - z1);
-      g.stroke();
-      g.restore();
-    }
-    // glowing front edge on bigger buildings
     if (tier >= 4) {
       g.save();
       g.strokeStyle = dom; g.globalAlpha = 0.85; g.shadowColor = dom; g.shadowBlur = 6; g.lineWidth = 1.4;
-      g.beginPath(); g.moveTo(x, y + hh - z0); g.lineTo(x, y + hh - z1); g.stroke();
+      g.beginPath(); g.moveTo(q.x, q.y + q.hh - q.z0); g.lineTo(q.x, q.y + q.hh - q.z1); g.stroke();
       g.restore();
     }
-    zPrev = zt;
-  });
+    // terraces of greenery where a classic arcology steps in
+    const above = sh.parts[i + 1];
+    if (tier >= 8 && sh.b1 === '-' && above && above.w < p.w) {
+      const inner = above.w / p.w;
+      for (let n = 0; n < 40; n++) {
+        const a = R() * 2 - 1, b = (R() * 2 - 1) * (1 - Math.abs(a));
+        if (Math.abs(a) + Math.abs(b) < inner + 0.06 || Math.abs(a) + Math.abs(b) > 0.92) continue;
+        g.fillStyle = R() < 0.5 ? '#2fe39a' : '#169a6a';
+        g.beginPath(); g.arc(q.x + a * q.hw, q.y - q.z1 + b * q.hh, Math.max(1, s * 0.012), 0, Math.PI * 2); g.fill();
+      }
+    }
+    // neon band along each setback
+    if (above && tier >= 6 && above.w < p.w && sh.b1 !== 'b') {
+      g.save();
+      g.strokeStyle = dom; g.shadowColor = dom; g.shadowBlur = 8; g.lineWidth = 1.5;
+      g.beginPath(); g.moveTo(q.x - q.hw, q.y - q.z1); g.lineTo(q.x, q.y + q.hh - q.z1); g.lineTo(q.x + q.hw, q.y - q.z1); g.stroke();
+      g.restore();
+    }
+    if (sh.b1 === 'b') {
+      // a neon strip under each stacked block, alternating colours
+      g.save(); faceTransform(g, 'R', q.x, q.y, q.hw, q.hh, q.z0, q.z1);
+      const col = i % 2 ? dom : alt;
+      g.shadowColor = col; g.shadowBlur = 8; g.fillStyle = col; g.fillRect(0.04, 0.02, 0.92, 0.05);
+      g.restore();
+    }
+  }
 
-  const [sw0, zt0] = T.sections[0];
-  const hw0 = s * 0.5 * sw0, hh0 = s * 0.25 * sw0, z1 = zt0 * s;
+  const P0 = geo(sh.parts[sh.main]);
+  const hw0 = P0.hw, hh0 = P0.hh, z1 = P0.z1, x0 = P0.x, y0 = P0.y;
+  const topP = geo(sh.parts.filter(p => !p.needle).reduce((a, b) => (b.z1 > a.z1 ? b : a)));
 
   if (tier === 1) {
     // door, one window, a rooftop sign
-    g.save(); faceTransform(g, 'R', x, y, hw0, hh0, 0, z1);
+    g.save(); faceTransform(g, 'R', x0, y0, hw0, hh0, 0, z1);
     g.fillStyle = '#07060d'; g.fillRect(0.55, 0, 0.24, 0.62);
     g.restore();
-    g.save(); faceTransform(g, 'L', x, y, hw0, hh0, 0, z1);
+    g.save(); faceTransform(g, 'L', x0, y0, hw0, hh0, 0, z1);
     g.fillStyle = WARM; g.fillRect(0.3, 0.35, 0.32, 0.32);
     g.restore();
     g.strokeStyle = '#5a5180'; g.lineWidth = 1;
-    g.beginPath(); g.moveTo(x - s * 0.05, y - z1); g.lineTo(x - s * 0.05, y - z1 - s * 0.08);
-    g.moveTo(x + s * 0.05, y - z1); g.lineTo(x + s * 0.05, y - z1 - s * 0.08); g.stroke();
-    glowRect(g, x - s * 0.08, y - z1 - s * 0.13, s * 0.16, s * 0.06, '#ff2bd6', 10);
+    g.beginPath(); g.moveTo(x0 - s * 0.05, y0 - z1); g.lineTo(x0 - s * 0.05, y0 - z1 - s * 0.08);
+    g.moveTo(x0 + s * 0.05, y0 - z1); g.lineTo(x0 + s * 0.05, y0 - z1 - s * 0.08); g.stroke();
+    glowRect(g, x0 - s * 0.08, y0 - z1 - s * 0.13, s * 0.16, s * 0.06, '#ff2bd6', 10);
   }
   if (tier === 2 && !crewLine) {
     // ramen stall: shopfront, striped awning, lanterns and a vertical sign
-    g.save(); faceTransform(g, 'R', x, y, hw0, hh0, 0, z1);
+    g.save(); faceTransform(g, 'R', x0, y0, hw0, hh0, 0, z1);
     g.fillStyle = WARM; g.fillRect(0.08, 0.06, 0.84, 0.44);
-    for (let n = 0; n < 8; n++) {
-      g.fillStyle = n % 2 ? '#ffd9f5' : '#ff2bd6';
-      g.fillRect(n / 8, 0.52, 1 / 8, 0.16);
-    }
+    for (let n = 0; n < 8; n++) { g.fillStyle = n % 2 ? '#ffd9f5' : '#ff2bd6'; g.fillRect(n / 8, 0.52, 1 / 8, 0.16); }
     g.restore();
-    g.save(); faceTransform(g, 'L', x, y, hw0, hh0, 0, z1);
+    g.save(); faceTransform(g, 'L', x0, y0, hw0, hh0, 0, z1);
     g.fillStyle = '#ffb35c'; g.globalAlpha = 0.7; g.fillRect(0.2, 0.3, 0.3, 0.35);
     g.restore();
     for (const u of [0.2, 0.5, 0.8]) {
-      const [px, py] = facePoint('R', x, y, hw0, hh0, 0, z1, u, 0.46);
+      const [px, py] = facePoint('R', x0, y0, hw0, hh0, 0, z1, u, 0.46);
       g.save(); g.fillStyle = '#ff3b4f'; g.shadowColor = '#ff3b4f'; g.shadowBlur = 8;
       g.beginPath(); g.arc(px, py, Math.max(1.5, s * 0.016), 0, Math.PI * 2); g.fill(); g.restore();
     }
-    g.save(); faceTransform(g, 'L', x, y, hw0, hh0, 0, z1);
-    g.shadowColor = '#3ef2ff'; g.shadowBlur = 10; g.fillStyle = '#3ef2ff';
-    g.fillRect(0.78, 0.35, 0.14, 1.1);
+    g.save(); faceTransform(g, 'L', x0, y0, hw0, hh0, 0, z1);
+    g.shadowColor = '#3ef2ff'; g.shadowBlur = 10; g.fillStyle = '#3ef2ff'; g.fillRect(0.78, 0.35, 0.14, 1.1);
     g.restore();
   }
   if (tier === 2 && crewLine) {
-    // crew shopfront: a lit window and a neon strip in the building type's colour
-    g.save(); faceTransform(g, 'R', x, y, hw0, hh0, 0, z1);
+    g.save(); faceTransform(g, 'R', x0, y0, hw0, hh0, 0, z1);
     g.fillStyle = dom; g.globalAlpha = 0.75; g.fillRect(0.1, 0.08, 0.8, 0.42);
     g.globalAlpha = 1; g.fillStyle = '#07060d'; g.fillRect(0.42, 0.08, 0.16, 0.42);
     g.shadowColor = dom; g.shadowBlur = 8; g.fillStyle = dom; g.fillRect(0.05, 0.6, 0.9, 0.08);
     g.restore();
-    g.save(); faceTransform(g, 'L', x, y, hw0, hh0, 0, z1);
+    g.save(); faceTransform(g, 'L', x0, y0, hw0, hh0, 0, z1);
     g.fillStyle = dom; g.globalAlpha = 0.45; g.fillRect(0.2, 0.3, 0.5, 0.3);
     g.restore();
   }
-  if (tier === 3 && !crewLine) {
-    // water tank on the roof and a hotel sign
-    const tx = x - hw0 * 0.35, ty = y - z1 - hh0 * 0.1;
-    box(g, tx, ty + z1, s * 0.06, s * 0.03, z1, z1 + s * 0.1, skin);
-    g.save(); faceTransform(g, 'R', x, y, hw0, hh0, 0, z1);
-    g.shadowColor = '#ff2bd6'; g.shadowBlur = 8; g.fillStyle = '#ff2bd6';
-    g.fillRect(0.2, 0.9, 0.6, 0.06);
+  if (tier === 3 && sh.b1 === '-' && !crewLine) {
+    box(g, x0 - hw0 * 0.35, y0 - hh0 * 0.1, s * 0.06, s * 0.03, z1, z1 + s * 0.1, skin);
+    g.save(); faceTransform(g, 'R', x0, y0, hw0, hh0, 0, z1);
+    g.shadowColor = '#ff2bd6'; g.shadowBlur = 8; g.fillStyle = '#ff2bd6'; g.fillRect(0.2, 0.9, 0.6, 0.06);
     g.restore();
   }
-  if (tier === 4) {
+  if (tier >= 4 && (sh.b1 === '-' || sh.b1 === 't' || sh.b1 === 'b')) {
     // a hanging vertical sign on the front corner
-    const [px, py] = facePoint('R', x, y, hw0, hh0, 0, z1, 0.05, 0.85);
+    const [px, py] = facePoint('R', x0, y0, hw0, hh0, 0, z1, 0.05, 0.85);
     const signC = crewLine ? dom : dom === '#3ef2ff' ? '#ff2bd6' : '#3ef2ff';
-    glowRect(g, px + 2, py, Math.max(2, s * 0.035), z1 * 0.55, signC, 10);
-    if (!crewLine) {
-      const topH = T.sections[1][1] * s;
-      g.strokeStyle = '#8f88b8'; g.lineWidth = 1.2;
-      g.beginPath(); g.ellipse(x + hw0 * 0.45, y - z1 - s * 0.05, s * 0.06, s * 0.03, -0.5, 0, Math.PI * 2); g.stroke();
-      g.beginPath(); g.moveTo(x, y - topH); g.lineTo(x, y - topH - s * 0.1); g.stroke();
-    }
+    glowRect(g, px + 2, py, Math.max(2, s * 0.035), z1 * (sh.b1 === 'b' ? 0.75 : 0.55), signC, 10);
   }
-  if (tier >= 6) {
+  if (tier >= 6 && (sh.b1 === '-' || sh.b1 === 't')) {
     // holographic billboard
-    g.save(); faceTransform(g, 'R', x, y, hw0, hh0, 0, z1);
+    g.save(); faceTransform(g, 'R', x0, y0, hw0, hh0, 0, z1);
     const grad = g.createLinearGradient(0, 0, 1, 0);
     grad.addColorStop(0, crewLine ? dom : 'rgba(255, 43, 214, 0.85)');
     grad.addColorStop(1, crewLine ? alt : 'rgba(62, 242, 255, 0.85)');
     g.globalAlpha = crewLine ? 0.85 : 1;
-    g.fillStyle = grad;
-    g.fillRect(0.14, 0.42, 0.72, 0.2);
-    g.globalAlpha = 1;
-    g.fillStyle = 'rgba(8, 7, 15, 0.55)';
+    g.fillStyle = grad; g.fillRect(0.14, 0.42, 0.72, 0.2);
+    g.globalAlpha = 1; g.fillStyle = 'rgba(8, 7, 15, 0.55)';
     for (let n = 0; n < 6; n++) g.fillRect(0.14, 0.44 + n * 0.03, 0.72, 0.008);
     g.restore();
   }
+  if (sh.b1 === 'h') {
+    // sky-bridge between the towers, and a landing pad on the podium
+    const A = geo(sh.parts[1]), B = geo(sh.parts[2]);
+    const zb = (B.z0 + B.z1) * 0.5;
+    g.save();
+    g.strokeStyle = '#2f2654'; g.lineWidth = Math.max(2, s * 0.05);
+    g.beginPath(); g.moveTo(A.x + A.hw * 0.6, A.y - zb); g.lineTo(B.x - B.hw * 0.6, B.y - zb); g.stroke();
+    g.strokeStyle = dom; g.shadowColor = dom; g.shadowBlur = 8; g.lineWidth = 1.2;
+    g.beginPath(); g.moveTo(A.x + A.hw * 0.6, A.y - zb - s * 0.02); g.lineTo(B.x - B.hw * 0.6, B.y - zb - s * 0.02); g.stroke();
+    const pod = geo(sh.parts[0]);
+    const cx = x + 0.0 * s, cy = y + 0.2 * s - pod.z1;
+    g.strokeStyle = '#ffc23e'; g.shadowColor = '#ffc23e'; g.lineWidth = 1.2;
+    g.beginPath(); g.ellipse(cx, cy, s * 0.1, s * 0.05, 0, 0, Math.PI * 2); g.stroke();
+    g.beginPath(); g.moveTo(cx - s * 0.03, cy - s * 0.02); g.lineTo(cx - s * 0.03, cy + s * 0.02);
+    g.moveTo(cx + s * 0.03, cy - s * 0.02); g.lineTo(cx + s * 0.03, cy + s * 0.02);
+    g.moveTo(cx - s * 0.03, cy); g.lineTo(cx + s * 0.03, cy); g.stroke();
+    g.restore();
+  }
+  if (sh.b1 === 'u') {
+    // antenna farm and a pair of dishes
+    const rx = topP.x, ry = topP.y - topP.z1;
+    g.save();
+    g.strokeStyle = '#8f88b8'; g.lineWidth = 1;
+    for (let n = 0; n < 4; n++) {
+      const ax = rx + (n - 1.5) * topP.hw * 0.4, ay = ry + (n % 2 ? 1 : -1) * topP.hh * 0.25, ah = s * (0.12 + R() * 0.16);
+      g.beginPath(); g.moveTo(ax, ay); g.lineTo(ax, ay - ah);
+      for (let k = 1; k < 3; k++) { g.moveTo(ax - s * 0.025, ay - ah * k / 3); g.lineTo(ax + s * 0.025, ay - ah * k / 3); }
+      g.stroke();
+    }
+    for (const side of [-1, 1]) {
+      g.strokeStyle = '#c8c2ea'; g.lineWidth = 1.2;
+      g.beginPath(); g.ellipse(rx + side * topP.hw * 0.55, ry - s * 0.06, s * 0.07, s * 0.035, side * -0.5, 0, Math.PI * 2); g.stroke();
+    }
+    g.restore();
+  }
+  // second-specialization crowns
+  if (sh.b2 === 'h') {
+    // rooftop garden ring with a landing pad
+    const rx = topP.x, ry = topP.y - topP.z1;
+    g.save();
+    for (let n = 0; n < 26; n++) {
+      const a = R() * Math.PI * 2, r = 0.55 + R() * 0.35;
+      g.fillStyle = R() < 0.5 ? '#2fe39a' : '#169a6a';
+      g.beginPath(); g.arc(rx + Math.cos(a) * topP.hw * r * 0.7, ry + Math.sin(a) * topP.hh * r * 0.7, Math.max(1, s * 0.012), 0, Math.PI * 2); g.fill();
+    }
+    g.strokeStyle = '#5dffb0'; g.shadowColor = '#5dffb0'; g.shadowBlur = 10; g.lineWidth = 1.4;
+    g.beginPath(); g.ellipse(rx, ry, topP.hw * 0.35, topP.hh * 0.35, 0, 0, Math.PI * 2); g.stroke();
+    g.restore();
+  }
+  if (sh.b2 === 'u') {
+    // one giant dish
+    const rx = topP.x, ry = topP.y - topP.z1;
+    g.save();
+    g.strokeStyle = '#8f88b8'; g.lineWidth = 1.5;
+    g.beginPath(); g.moveTo(rx, ry); g.lineTo(rx, ry - s * 0.14); g.stroke();
+    g.fillStyle = '#2a2f55'; g.strokeStyle = '#e8f0ff'; g.lineWidth = 1.4;
+    g.beginPath(); g.ellipse(rx, ry - s * 0.2, s * 0.17, s * 0.09, -0.45, 0, Math.PI * 2); g.fill(); g.stroke();
+    g.fillStyle = '#3ef2ff'; g.fillRect(rx - 1, ry - s * 0.22, 2, 2);
+    g.restore();
+  }
+  if (sh.b2 === 'b') {
+    // a billboard frame standing on the roof
+    const rx = topP.x, ry = topP.y - topP.z1, bw = Math.max(topP.hw * 1.5, s * 0.3), bh = s * 0.2;
+    g.save();
+    g.fillStyle = '#5a5180'; g.fillRect(rx - bw * 0.35, ry - s * 0.12, 2, s * 0.12); g.fillRect(rx + bw * 0.35, ry - s * 0.12, 2, s * 0.12);
+    const grad = g.createLinearGradient(rx - bw / 2, 0, rx + bw / 2, 0);
+    grad.addColorStop(0, dom); grad.addColorStop(1, alt);
+    g.shadowColor = dom; g.shadowBlur = 10; g.fillStyle = grad;
+    g.fillRect(rx - bw / 2, ry - s * 0.12 - bh, bw, bh);
+    g.shadowBlur = 0; g.fillStyle = 'rgba(8, 7, 15, 0.6)';
+    for (let n = 0; n < 4; n++) g.fillRect(rx - bw / 2, ry - s * 0.12 - bh + bh * (0.2 + n * 0.2), bw, Math.max(1, bh * 0.05));
+    g.restore();
+  }
   if (tier >= 8) {
-    // halo around the crown
-    const [lsw, lzt] = T.sections[T.sections.length - 1];
     const ring = crewLine ? dom : '#5dffb0';
     g.save();
     g.strokeStyle = ring; g.shadowColor = ring; g.shadowBlur = 12; g.lineWidth = 1.6;
-    g.beginPath(); g.ellipse(x, y - lzt * s + s * 0.04, s * 0.5 * lsw * 1.25, s * 0.25 * lsw * 1.25, 0, 0, Math.PI * 2); g.stroke();
+    g.beginPath(); g.ellipse(topP.x, topP.y - topP.z1 + s * 0.04, topP.hw * 1.25, topP.hh * 1.25, 0, 0, Math.PI * 2); g.stroke();
     g.restore();
   }
-  if (T.spire) {
-    const zt = T.sections[T.sections.length - 1][1] * s;
+  if (sh.spire) {
+    const zt = sh.roof * s;
     g.strokeStyle = '#a49ccc'; g.lineWidth = 1.5;
-    g.beginPath(); g.moveTo(x, y - zt); g.lineTo(x, y - zt - T.spire * s); g.stroke();
+    g.beginPath(); g.moveTo(x, y - zt); g.lineTo(x, y - zt - sh.spire * s); g.stroke();
   }
   if (crewLine) {
-    const [lsw, lzt] = T.sections[T.sections.length - 1];
-    const off = T.spire ? -s * 0.5 * lsw * 0.42 : 0;
-    emblem(g, line, x + off, y - lzt * s + s * 0.25 * lsw * (T.spire ? 0.12 : 0.05), s * (0.75 + tier * 0.06));
+    const off = sh.spire ? -topP.hw * 0.42 : 0;
+    emblem(g, line, topP.x + off, topP.y - topP.z1 + topP.hh * (sh.spire ? 0.12 : 0.05), s * (0.75 + tier * 0.06));
   }
-  return { c, ox: x, oy: y, w, h };
+  // where the live overlays go, in this sprite's pixels
+  const beacon = sh.spire ? [x, y - (sh.roof + sh.spire) * s] : null;
+  return { c, ox: x, oy: y, w, h, wins, beacon, main: { x: P0.x - x, y: P0.y - y, hw: hw0, hh: hh0, z0: P0.z0, z1: P0.z1 } };
 }
 
-function sprite(tier, line, seed, s) {
+function sprite(tier, line, spec, seed, s) {
   const q = Math.pow(2, Math.round(Math.log2(s) * 8) / 8);
-  const base = `${tier}:${line || ''}:${seed}`;
+  const base = `${tier}:${line || ''}:${spec || ''}:${seed}`;
   const key = `${base}:${q.toFixed(2)}:${DPR}`;
   let sp = spriteCache.get(key);
   if (sp) return sp;
@@ -1809,7 +2013,7 @@ function sprite(tier, line, seed, s) {
   if (spriteBudget <= 0 && spriteLatest.has(base)) return spriteLatest.get(base);
   spriteBudget--;
   if (spriteCache.size > 600) spriteCache.clear();
-  sp = makeSprite(tier, line, seed, q);
+  sp = makeSprite(tier, line, spec, seed, q);
   sp.q = q;
   spriteCache.set(key, sp);
   spriteLatest.set(base, sp);
@@ -1875,6 +2079,8 @@ function draw(now, dt) {
   for (let sec = 0; sec < S.sectors.length; sec++) drawGround(sec, t);
   if (showGhost()) drawGhostSector(S.sectors.length, t);
   drawRoads(t);
+  drawSearchlights(t);
+  updateLife(dt);
   drawBuildings(now, t);
   if (view === 'map') drawMapLabels();
 
@@ -1944,8 +2150,8 @@ function drawGroundInner(sec, t, c) {
   ctx.strokeStyle = `rgba(${haze}, 0.4)`; ctx.lineWidth = 1;
   ctx.beginPath(); ctx.moveTo(left[0], left[1]); ctx.lineTo(bottom[0], bottom[1]); ctx.lineTo(right[0], right[1]); ctx.stroke();
 
-  // streets between lots
-  ctx.strokeStyle = `rgba(${haze}, 0.09)`;
+  // streets between lots; the Capital's are trimmed in gold
+  ctx.strokeStyle = sec === 0 ? 'rgba(255, 194, 62, 0.22)' : `rgba(${haze}, 0.09)`;
   ctx.beginPath();
   for (let k = 0; k <= N; k++) {
     let p1 = P(I0 + k - 0.5, J0 - 0.5), p2 = P(I0 + k - 0.5, J0 + N - 0.5);
@@ -2078,29 +2284,270 @@ function drawRoads(t) {
   }
 }
 
+function buildingList() {
+  const out = [];
+  for (let sec = 0; sec < S.sectors.length; sec++) {
+    const s = S.sectors[sec];
+    for (let k = 0; k < N * N; k++) if (s.lots[k]) {
+      const [I, J] = lotIJ(sec, k);
+      out.push({ kind: 'b', d: I + J, sec, k, tier: s.lots[k], line: s.lots[k] >= 2 ? s.lines[k] : null, spec: specOf(sec, k) });
+    }
+  }
+  return out;
+}
+function roofPoint(sec, k) {
+  const [x, y] = lotScreen(sec, k);
+  return [x, y - topOf(sec, k) * cam.s];
+}
+
+/* ---------- street life: pedestrians, hover cars, police drones ---------- */
+// Everything here lives on the world grid of the district being viewed. Pedestrians walk the
+// streets between lots; cars and drones fly above them. All of it is drawn in depth order
+// with the buildings, so a tower in front hides whoever is behind it.
+const life = { sec: -1, peds: [], cars: [], drones: [] };
+const busy = sec => sec === 0;          // the Capital has busier streets
+function streetPoint(sec) {
+  // a random street crossing next to an owned lot
+  const s = S.sectors[sec];
+  const owned = [];
+  for (let k = 0; k < N * N; k++) if (s.lots[k]) owned.push(k);
+  const k = owned[Math.floor(Math.random() * owned.length)] ?? CENTER * N + CENTER;
+  const [I, J] = lotIJ(sec, k);
+  return [I + (Math.random() < 0.5 ? -0.5 : 0.5), J + (Math.random() < 0.5 ? -0.5 : 0.5)];
+}
+function newPed(sec) {
+  const [I, J] = streetPoint(sec);
+  const axis = Math.random() < 0.5 ? 'I' : 'J';
+  return { I, J, axis, dir: Math.random() < 0.5 ? 1 : -1, v: 0.22 + Math.random() * 0.25, off: (Math.random() < 0.5 ? -1 : 1) * (0.05 + Math.random() * 0.04),
+           c: ['#ffd9f5', '#b8f7ff', '#ffe2a8', '#d9d2ff', '#ff9bd8'][Math.floor(Math.random() * 5)], pause: 0 };
+}
+function newCar(sec, police) {
+  const [a, b] = SECTOR_POS[sec];
+  const along = Math.random() < 0.5 ? 'I' : 'J';
+  const lane = Math.floor(Math.random() * (N + 1)) - 0.5;
+  const span = [-1.5, N + 0.5];
+  const dir = Math.random() < 0.5 ? 1 : -1;
+  const p = span[0] + Math.random() * (span[1] - span[0]);
+  return { along, dir, I: a * SPAN + (along === 'I' ? p : lane), J: b * SPAN + (along === 'J' ? p : lane), z: police ? 0.5 + Math.random() * 0.5 : 0.9 + Math.random() * 2.2,
+           v: police ? 0.9 + Math.random() * 0.4 : 1.4 + Math.random() * 1.6, c: PAL[Math.floor(Math.random() * 3)], police };
+}
+function updateLife(dt) {
+  const sec = S.cur;
+  if (life.sec !== sec) { life.sec = sec; life.peds = []; life.cars = []; life.drones = []; }
+  const own = ownedIn(sec);
+  const wantPeds = Math.min(130, Math.round((6 + own * 1.2) * (busy(sec) ? 1.8 : 1)));
+  const wantCars = busy(sec) ? Math.min(16, 4 + Math.floor(own / 4)) : Math.min(7, 1 + Math.floor(own / 8));
+  const wantDrones = busy(sec) && own >= 6 ? 3 : 0;
+  while (life.peds.length < wantPeds) life.peds.push(newPed(sec));
+  if (life.peds.length > wantPeds) life.peds.length = wantPeds;
+  while (life.cars.length < wantCars) life.cars.push(newCar(sec, false));
+  if (life.cars.length > wantCars) life.cars.length = wantCars;
+  while (life.drones.length < wantDrones) life.drones.push(newCar(sec, true));
+  if (life.drones.length > wantDrones) life.drones.length = wantDrones;
+  if (reduceMotion) return;
+  const [a, b] = SECTOR_POS[sec];
+  const I0 = a * SPAN, J0 = b * SPAN, lo = -0.5, hi = N - 0.5;
+  for (const p of life.peds) {
+    if (p.pause > 0) { p.pause -= dt; continue; }
+    const key = p.axis === 'I' ? 'I' : 'J';
+    const base = key === 'I' ? I0 : J0;
+    const before = p[key] - base;
+    p[key] += p.dir * p.v * dt;
+    const after = p[key] - base;
+    // reaching a crossing: carry on, turn, or stop for a moment
+    const cross = Math.floor(Math.max(before, after) + 0.5) - 0.5;
+    if ((before - cross) * (after - cross) < 0 && cross >= lo && cross <= hi) {
+      p[key] = base + cross;
+      const r = Math.random();
+      if (r < 0.35) { p.axis = key === 'I' ? 'J' : 'I'; p.dir = Math.random() < 0.5 ? 1 : -1; }
+      else if (r < 0.42) p.pause = 0.5 + Math.random() * 2;
+      const k2 = p.axis, b2 = k2 === 'I' ? I0 : J0, here = p[k2] - b2;
+      if ((here <= lo + 0.01 && p.dir < 0) || (here >= hi - 0.01 && p.dir > 0)) p.dir *= -1;
+    }
+    if (after < lo - 0.01 || after > hi + 0.01) { p[key] = base + clamp(after, lo, hi); p.dir *= -1; }
+  }
+  for (const c of [...life.cars, ...life.drones]) {
+    c[c.along] += c.dir * c.v * dt;
+    const base = c.along === 'I' ? I0 : J0, rel = c[c.along] - base;
+    if (rel > N + 1.5 || rel < -2.5) {
+      // fly off one edge, come back in on a fresh lane at the opposite edge
+      const n = newCar(sec, c.police);
+      n[n.along] = (n.along === 'I' ? I0 : J0) + (n.dir > 0 ? -2.4 : N + 1.4);
+      Object.assign(c, n);
+    }
+  }
+}
+function lifeEntries() {
+  if (view !== 'city' || cam.s < 22) return [];
+  const out = [];
+  for (const p of life.peds) {
+    const oI = p.axis === 'J' ? p.off : 0, oJ = p.axis === 'I' ? p.off : 0;
+    out.push({ kind: 'p', d: p.I + oI + p.J + oJ, o: p, I: p.I + oI, J: p.J + oJ });
+  }
+  for (const c of life.cars) out.push({ kind: 'c', d: c.I + c.J + 0.3, o: c });
+  for (const c of life.drones) out.push({ kind: 'c', d: c.I + c.J + 0.3, o: c });
+  if (S.cur === 0) {
+    const [a, b] = SECTOR_POS[0];
+    out.push({ kind: 'm', d: a * SPAN + b * SPAN + 2 * CENTER + 1, I: a * SPAN + CENTER + 0.5, J: b * SPAN + CENTER + 0.5 });
+  }
+  return out;
+}
+function drawPed(e, t) {
+  const x = sx(worldX(e.I, e.J)), y = sy(worldY(e.I, e.J));
+  if (x < -5 || x > W + 5 || y < -5 || y > H + 5) return;
+  const u = Math.max(1, cam.s * 0.014);
+  const bob = e.o.pause > 0 || reduceMotion ? 0 : Math.abs(Math.sin(t * 9 + e.o.off * 50)) * u * 0.6;
+  ctx.fillStyle = e.o.c;
+  ctx.fillRect(x - u * 0.6, y - u * 3.2 - bob, u * 1.2, u * 2.4);
+  ctx.fillRect(x - u * 0.55, y - u * 4.5 - bob, u * 1.1, u * 1.1);
+}
+function drawCar(c, t) {
+  const x = sx(worldX(c.I, c.J)), y = sy(worldY(c.I, c.J)) - c.z * cam.s;
+  if (x < -60 || x > W + 60 || y < -60 || y > H + 60) return;
+  const dI = c.along === 'I' ? c.dir : 0, dJ = c.along === 'J' ? c.dir : 0;
+  const tx = (dI - dJ) * 0.5 * cam.s * 0.5, ty = (dI + dJ) * 0.25 * cam.s * 0.5;   // half a lot back along the path
+  ctx.save();
+  if (c.police) {
+    const blue = Math.sin(t * 14 + c.v * 9) > 0;
+    const r = Math.max(1.6, cam.s * 0.022);
+    ctx.fillStyle = blue ? 'rgba(77, 123, 255, 0.25)' : 'rgba(255, 59, 79, 0.25)';
+    ctx.fillRect(x - r * 2.5, y - r * 2.5, r * 5, r * 5);
+    ctx.fillStyle = blue ? '#4d7bff' : '#ff3b4f';
+    ctx.fillRect(x - r, y - r, r * 2, r * 2);
+  } else {
+    const tr = ctx.createLinearGradient(x, y, x - tx, y - ty);
+    tr.addColorStop(0, c.c); tr.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.strokeStyle = tr; ctx.lineWidth = Math.max(1.5, cam.s * 0.02); ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - tx, y - ty); ctx.stroke();
+    ctx.fillStyle = '#fff'; ctx.fillRect(x - 1.2, y - 1.2, 2.4, 2.4);
+    // the car's shadow light on the street below
+    ctx.globalAlpha = 0.18; ctx.fillStyle = c.c;
+    ctx.beginPath(); ctx.ellipse(x, y + c.z * cam.s, cam.s * 0.06, cam.s * 0.03, 0, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.restore();
+}
+// The Capital's holographic monument in the plaza at its central crossing.
+function drawMonument(e, t) {
+  const x = sx(worldX(e.I, e.J)), y = sy(worldY(e.I, e.J)), s = cam.s;
+  ctx.save();
+  ctx.fillStyle = 'rgba(255, 194, 62, 0.25)'; ctx.strokeStyle = '#ffc23e'; ctx.lineWidth = 1.2;
+  ctx.beginPath(); ctx.moveTo(x, y - s * 0.12); ctx.lineTo(x + s * 0.24, y); ctx.lineTo(x, y + s * 0.12); ctx.lineTo(x - s * 0.24, y); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.globalCompositeOperation = 'lighter';
+  const beam = ctx.createLinearGradient(x, y, x, y - s * 1.1);
+  beam.addColorStop(0, 'rgba(62, 242, 255, 0.45)'); beam.addColorStop(1, 'rgba(62, 242, 255, 0)');
+  ctx.fillStyle = beam; ctx.fillRect(x - s * 0.06, y - s * 1.1, s * 0.12, s * 1.1);
+  // a slowly turning wireframe crystal: a wide faint stroke under a thin bright one reads as a glow
+  const a = reduceMotion ? 0.6 : t * 0.8, cy = y - s * 0.6, r = s * 0.16;
+  const pts = [0, 1, 2, 3].map(i => [x + Math.cos(a + i * Math.PI / 2) * r, cy + Math.sin(a + i * Math.PI / 2) * r * 0.35]);
+  ctx.beginPath();
+  for (const [px, py] of pts) { ctx.moveTo(x, cy - r * 1.4); ctx.lineTo(px, py); ctx.lineTo(x, cy + r * 1.4); }
+  pts.forEach(([px, py], i) => { const [qx, qy] = pts[(i + 1) % 4]; ctx.moveTo(px, py); ctx.lineTo(qx, qy); });
+  ctx.strokeStyle = 'rgba(62, 242, 255, 0.25)'; ctx.lineWidth = 4; ctx.stroke();
+  ctx.strokeStyle = '#3ef2ff'; ctx.lineWidth = 1.3; ctx.stroke();
+  ctx.restore();
+}
+// Searchlights sweeping the sky above the Capital, drawn behind its towers.
+function drawSearchlights(t) {
+  if (S.cur !== 0 && view === 'city') return;
+  const c = sectorCorners(0);
+  if (offscreen(c)) return;
+  const bases = [c.left, c.bottom, c.right];
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  bases.forEach(([bx, by], i) => {
+    const ang = -Math.PI / 2 + Math.sin((reduceMotion ? 0 : t * 0.35) + i * 1.7) * 0.55;
+    const len = H * 1.2, spread = 0.045;
+    const ex1 = bx + Math.cos(ang - spread) * len, ey1 = by + Math.sin(ang - spread) * len;
+    const ex2 = bx + Math.cos(ang + spread) * len, ey2 = by + Math.sin(ang + spread) * len;
+    const gr = ctx.createLinearGradient(bx, by, (ex1 + ex2) / 2, (ey1 + ey2) / 2);
+    gr.addColorStop(0, 'rgba(255, 236, 190, 0.22)'); gr.addColorStop(1, 'rgba(255, 236, 190, 0)');
+    ctx.fillStyle = gr;
+    ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(ex1, ey1); ctx.lineTo(ex2, ey2); ctx.closePath(); ctx.fill();
+  });
+  ctx.restore();
+}
+
+/* ---------- district signage drawn live on building faces ---------- */
+const TICKERS = ['NEO', 'KRT', 'ARA', 'ZEN', 'VXL', 'OMN', 'HLX', 'SYN', 'QBT', 'RYU', 'MKO', 'DTX'];
+function facePanel(sp, sc, dx, dy, side, u0, u1, v0, v1, PW, PH, fn) {
+  const m = sp.main;
+  ctx.save();
+  faceTransform(ctx, side, dx + (sp.ox + m.x) * sc, dy + (sp.oy + m.y) * sc, m.hw * sc, m.hh * sc, m.z0 * sc, m.z1 * sc);
+  ctx.translate(u0, v1);
+  ctx.scale((u1 - u0) / PW, -(v1 - v0) / PH);
+  ctx.beginPath(); ctx.rect(0, 0, PW, PH); ctx.clip();
+  fn();
+  ctx.restore();
+}
+function drawJumbotron(sp, sc, dx, dy, seed, t) {
+  facePanel(sp, sc, dx, dy, 'R', 0.08, 0.92, 0.62, 0.8, 240, 44, () => {
+    ctx.fillStyle = '#05040a'; ctx.fillRect(0, 0, 240, 44);
+    ctx.font = '700 26px "Share Tech Mono", ui-monospace, monospace';
+    ctx.textBaseline = 'middle';
+    const tick = Math.floor(t / 2.5);
+    let x = 240 - ((reduceMotion ? 0 : t * 38) + seed % 200) % 900;
+    for (let n = 0; n < 12; n++) {
+      const sym = TICKERS[(seed + n) % TICKERS.length];
+      const up = hash(seed * 13 + n * 7 + tick) % 100 < 55;
+      const pct = ((hash(seed + n * 3 + tick) % 900) / 100).toFixed(2);
+      const txt = `${sym} ${up ? '▲' : '▼'}${pct}  `;
+      ctx.fillStyle = up ? '#5dffb0' : '#ff3b5c';
+      ctx.fillText(txt, x, 23);
+      x += ctx.measureText(txt).width;
+      if (x > 260) break;
+    }
+    ctx.fillStyle = 'rgba(255,255,255,0.06)'; for (let r = 0; r < 44; r += 4) ctx.fillRect(0, r, 240, 1);
+  });
+}
+const BILL_WORDS = ['PLAY', 'WIN', 'JACK IN', 'LEVEL UP', 'NEON', 'VR NOW', 'GAME ON'];
+function drawElectricBillboard(sp, sc, dx, dy, seed, t) {
+  facePanel(sp, sc, dx, dy, 'L', 0.1, 0.9, 0.5, 0.78, 200, 70, () => {
+    const mode = Math.floor((t + seed % 7) / 4) % 3;
+    const hue = ((reduceMotion ? 0 : t * 60) + seed * 37) % 360;
+    ctx.fillStyle = '#07030c'; ctx.fillRect(0, 0, 200, 70);
+    if (mode === 0) {
+      for (let i = 0; i < 10; i++) { ctx.fillStyle = `hsl(${(hue + i * 36) % 360} 100% 60%)`; ctx.fillRect(i * 20, 0, 20, 70); }
+    } else if (mode === 1) {
+      ctx.fillStyle = `hsl(${hue} 100% 62%)`;
+      ctx.font = '800 38px "Tektur", "Chakra Petch", system-ui, sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      if (reduceMotion || Math.sin(t * 9) > -0.3) ctx.fillText(BILL_WORDS[(seed + Math.floor(t / 4)) % BILL_WORDS.length], 100, 37);
+    } else {
+      for (let i = 0; i < 6; i++) {
+        const r = ((reduceMotion ? 0 : t * 40) + i * 14) % 84;
+        ctx.strokeStyle = `hsl(${(hue + i * 50) % 360} 100% 60%)`; ctx.lineWidth = 4;
+        ctx.beginPath(); ctx.ellipse(100, 35, r, r * 0.42, 0, 0, Math.PI * 2); ctx.stroke();
+      }
+    }
+  });
+}
+
 function drawBuildings(now, t) {
-  const order = buildingList().sort((a, b) => a.d - b.d);
-  const glow = cam.s > 26;
-  for (const { sec, k, tier, line } of order) {
+  const order = buildingList().concat(lifeEntries()).sort((a, b) => a.d - b.d);
+  const glow = cam.s > 26, detail = cam.s > 30;
+  for (const e of order) {
+    if (e.kind === 'p') { drawPed(e, t); continue; }
+    if (e.kind === 'c') { drawCar(e.o, t); continue; }
+    if (e.kind === 'm') { drawMonument(e, t); continue; }
+    const { sec, k, tier, line, spec } = e;
     const seed = seedOf(sec, k);
-    const big = tier === CAPITOL ? 6 : 1;
     const [x, y] = lotScreen(sec, k);
-    const top = topZ(tier) * cam.s;
-    if (x < -cam.s * big || x > W + cam.s * big || y - top > H + 10 || y < -cam.s * big) continue;
+    const top = shapeOf(tier, spec).top * cam.s;
+    if (x < -cam.s || x > W + cam.s || y - top > H + 10 || y < -cam.s) continue;
     const dom = lineColor(line && line !== 'hab' ? line : null, seed);
     const faded = view === 'city' && sec !== S.cur;
     ctx.globalAlpha = faded ? 0.22 : 1;
     if (glow && !faded) {
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
-      const pool = ctx.createRadialGradient(x, y, 2, x, y, cam.s * 0.55 * big);
+      const pool = ctx.createRadialGradient(x, y, 2, x, y, cam.s * 0.55);
       pool.addColorStop(0, dom + '38'); pool.addColorStop(1, dom + '00');
       ctx.fillStyle = pool;
-      ctx.fillRect(x - cam.s * 0.6 * big, y - cam.s * 0.35 * big, cam.s * 1.2 * big, cam.s * 0.7 * big);
+      ctx.fillRect(x - cam.s * 0.6, y - cam.s * 0.35, cam.s * 1.2, cam.s * 0.7);
       ctx.restore();
     }
 
-    const sp = sprite(tier, line, seed, cam.s);
+    const sp = sprite(tier, line, spec, seed, cam.s);
     const sc = cam.s / sp.q;
     const dx = x - sp.ox * sc, dy = y - sp.oy * sc, dw = sp.w * sc, dh = sp.h * sc;
     const fkey = sec + ':' + k;
@@ -2122,19 +2569,43 @@ function drawBuildings(now, t) {
       ctx.globalAlpha = 1 - p * 0.6;
       ctx.beginPath(); ctx.moveTo(dx + dw * 0.1, cut); ctx.lineTo(dx + dw * 0.9, cut); ctx.stroke();
       ctx.restore();
-    } else {
-      ctx.drawImage(sp.c, dx, dy, dw, dh);
+      ctx.globalAlpha = 1;
+      continue;
     }
+    ctx.drawImage(sp.c, dx, dy, dw, dh);
+    ctx.globalAlpha = 1;
+    if (faded) continue;
+
+    // rooms switching their lights on and off
+    if (cam.s > 36 && sp.wins.length) {
+      for (let i = 0; i < sp.wins.length; i++) {
+        const w = sp.wins[i];
+        // the sprite already shows the window's usual state; only a switched light needs painting
+        if (hash(seed * 31 + i * 7 + Math.floor((t + w.ph) / w.per)) % 100 >= 45) continue;
+        ctx.globalAlpha = w.a;
+        ctx.fillStyle = w.lit ? w.off : w.on;
+        const p = w.pts;
+        ctx.beginPath();
+        ctx.moveTo(dx + p[0] * sc, dy + p[1] * sc); ctx.lineTo(dx + p[2] * sc, dy + p[3] * sc);
+        ctx.lineTo(dx + p[4] * sc, dy + p[5] * sc); ctx.lineTo(dx + p[6] * sc, dy + p[7] * sc);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    }
+    // district signage
+    const dtype = S.sectors[sec].type;
+    if (detail && dtype === 'financial' && tier >= 4) drawJumbotron(sp, sc, dx, dy, seed, t);
+    if (detail && dtype === 'entertainment' && tier >= 3) drawElectricBillboard(sp, sc, dx, dy, seed, t);
 
     // blinking aircraft beacon
-    ctx.globalAlpha = 1;
-    if (!faded && SHAPES[tier].spire && fab === undefined && Math.sin(t * 2.4 + seed) > 0.2) {
+    if (sp.beacon && Math.sin(t * 2.4 + seed) > 0.2) {
       ctx.save();
       ctx.fillStyle = '#ff3b4f'; ctx.shadowColor = '#ff3b4f'; ctx.shadowBlur = 10;
-      ctx.beginPath(); ctx.arc(x, y - top, 2.2, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(dx + sp.beacon[0] * sc, dy + sp.beacon[1] * sc, 2.2, 0, Math.PI * 2); ctx.fill();
       ctx.restore();
     }
   }
+  ctx.globalAlpha = 1;
   // selection chevron above the chosen building
   const s = cur();
   if (view === 'city' && s.lots[s.sel]) {
@@ -2239,10 +2710,10 @@ cvs.addEventListener('pointerdown', e => {
   }
   // buildings first, front to back, since tall ones cover the lots behind them
   const order = buildingList().sort((a, b) => b.d - a.d);
-  for (const { sec, k, tier: t } of order) {
+  for (const { sec, k, tier: t, spec } of order) {
     const [x, y] = lotScreen(sec, k);
-    const sw = SHAPES[t].sections[0][0], hw = cam.s * 0.5 * sw, hh = cam.s * 0.25 * sw;
-    if (px > x - hw && px < x + hw && py < y + hh && py > y - hh - topZ(t) * cam.s) {
+    const sh = shapeOf(t, spec), hw = cam.s * sh.reach, hh = cam.s * 0.5 * sh.reach;
+    if (px > x - hw && px < x + hw && py < y + hh && py > y - hh - sh.top * cam.s) {
       select(sec, k);
       return;
     }
@@ -2351,7 +2822,7 @@ const toggleBtn = (act, on, label) =>
 
 function lineChoice(k, line) {
   const sec = S.cur, L = LINES[line];
-  const gain = upgradeGain(sec, 1, null, 2, line);
+  const gain = upgradeGain(sec, k, line);
   const color = typeColor(line);
   const notes = [];
   notes.push(staffText(line));
@@ -2362,22 +2833,16 @@ function lineChoice(k, line) {
     `+${fmt(gain, true)} / sec${notes.length ? ' · ' + notes.join(' · ') : ''}`, upgradeCost(sec, k));
 }
 
-function capitolHTML() {
-  return `
-  <div class="lot-card capitol">
-    <div><div class="eyebrow">The Capital · all 49 lots at tier 8</div><h2>Capitol Spire</h2></div>
-    <div class="pips" aria-hidden="true">${Array.from({ length: MAX_TIER }, () => '<span class="pip on"></span>').join('')}</div>
-    <p class="blurb">Every tower in the Capital has grown into one megastructure, the seat of your city. It cannot grow any further.</p>
-    <div class="kv"><span>The Capital earns</span><b>${fmt(SECTOR_CPS[0], true)} / sec</b></div>
-    <div class="kv"><span>Spire bonus, citywide</span><b>+${Math.round((CAPITOL_BONUS - 1) * 100)}% all income</b></div>
-  </div>
-  ${M.autoBuild ? `<div class="group"><h3>Auto-builder</h3><div class="auto-row">${toggleBtn('auto-build', S.auto.build, 'Auto-builder')}</div>
-     <p class="blurb">It keeps building in your other districts.</p></div>` : ''}
-  <div class="group"><h3>Keep growing</h3><p class="blurb">Build new districts under Infra, or switch districts with the bar over the city.</p></div>`;
+function specChoice(k, code, second) {
+  const sec = S.cur, P = SPECS[code];
+  const gain = upgradeGain(sec, k, null, code);
+  return buyBtn('upgrade', `data-id="${k}" data-spec="${code}"`,
+    `${dot(P.color)}${P.name}<span class="tag" style="color:${P.color}">${second ? 'crown' : 'massing'}</span>`,
+    `+${fmt(gain, true)} / sec now · ${esc(P.what)} · ${esc(P.look)}`, upgradeCost(sec, k));
 }
+const specLabel = spec => [...(spec || '')].filter(c => SPECS[c]).map(c => SPECS[c].name).join(' + ');
 
 function buildHTML() {
-  if (S.cur === 0 && capitalMerged()) return capitolHTML();
   const sec = S.cur, s = cur(), k = s.sel, tier = s.lots[k], line = tier >= 2 ? s.lines[k] : null;
   const isCrew = line && line !== 'hab';
   const pips = Array.from({ length: MAX_TIER }, (_, n) => `<span class="pip ${n < tier ? 'on' : n === tier ? 'next' : ''}"></span>`).join('');
@@ -2391,8 +2856,14 @@ function buildHTML() {
       ${open.map(l => lineChoice(k, l)).join('')}
       ${locked.length ? `<p class="blurb">Hire crew to unlock more types: ${locked.map(c => `${LINES[c.id].name} (${c.name})`).join(', ')}.</p>` : ''}
     </div>`;
+  } else if (SPEC_TIERS.includes(tier + 1)) {
+    const second = tier + 1 === SPEC_TIERS[1];
+    upgrade = `<div class="choices"><h3>${second ? 'Second specialization' : 'Choose a specialization'}: upgrade to ${buildingName(tier + 1, line)}</h3>
+      <p class="blurb">${second ? 'It adds a crown to the building and stacks with its first specialization.' : 'It decides how this building grows from here, what it looks like and what it does.'}</p>
+      ${Object.keys(SPECS).map(c => specChoice(k, c, second)).join('')}
+    </div>`;
   } else if (tier < MAX_TIER) {
-    const gain = upgradeGain(sec, tier, line, tier + 1, line);
+    const gain = upgradeGain(sec, k, line);
     upgrade = buyBtn('upgrade', `data-id="${k}"`, `Upgrade to ${buildingName(tier + 1, line)}`, `+${fmt(gain, true)} / sec`, upgradeCost(sec, k), 'big');
   } else {
     upgrade = `<div class="maxed">Top tier. This building cannot grow taller.</div>`;
@@ -2401,16 +2872,22 @@ function buildHTML() {
   if (isCrew) why.push(`<div class="kv"><span>Staffed by ${fmt(S.crew[line] || 0)} ${CREW_BY_ID[line].name}s</span><b>×${staffMult(line).toFixed(2)}</b></div>`);
   if (line === 'hab') why.push(`<div class="kv"><span>Tenants from your crew</span><b>×${staffMult('hab').toFixed(2)}</b></div>`);
   if (tier >= 2 && line === perkOf(sec)) why.push(`<div class="kv"><span>Matches this district</span><b>×${PERK_MULT}</b></div>`);
+  const spec = s.specs[k];
+  if (specLabel(spec)) why.push(`<div class="kv"><span>Specialized as ${esc(specLabel(spec))}</span><b>${spec.includes('t') ? '×' + specMult(spec).toFixed(2) : spec.includes('h') ? 'boosts neighbours' : 'citywide'}</b></div>`);
+  if (hubMult(sec, k) > 1) why.push(`<div class="kv"><span>Next to a Hub</span><b>+${Math.round((hubMult(sec, k) - 1) * 100)}%</b></div>`);
 
   const cheap = cheapestUpgrade(sec);
   const nk = nextLot(sec);
   const autoLine = defaultLine();
   const bulk = `
-    ${cheap ? buyBtn('upgrade-all', '', 'Upgrade everything I can afford', `Cheapest first, in ${esc(sectorName(sec))} only · new Shacks become ${esc(LINES[autoLine].names[0])}s`, cheap.cost) : ''}
+    ${cheap ? buyBtn('upgrade-all', '', 'Upgrade everything I can afford', `Cheapest first, in ${esc(sectorName(sec))} only · Shacks become ${esc(LINES[autoLine].names[0])}s · specializing as ${SPECS[defaultSpec()].name}`, cheap.cost) : ''}
     ${nk !== undefined ? buyBtn('lots-all', '', 'Buy every lot I can afford', `In ${esc(sectorName(sec))} only · ${N * N - ownedIn(sec)} lots left`, lotCost(sec), 'alt') : ''}
     ${M.autoBuild ? `<div class="auto-row">${toggleBtn('auto-build', S.auto.build, 'Auto-builder')}
        <label class="auto-line">Shacks become
          <select id="auto-line" data-act="auto-line">${Object.keys(LINES).filter(lineUnlocked).map(l => `<option value="${l}" ${l === autoLine ? 'selected' : ''}>${esc(LINES[l].name)}</option>`).join('')}</select>
+       </label>
+       <label class="auto-line">Specialize as
+         <select id="auto-spec" data-act="auto-spec">${Object.keys(SPECS).map(c => `<option value="${c}" ${c === defaultSpec() ? 'selected' : ''}>${SPECS[c].name}</option>`).join('')}</select>
        </label></div>
        <p class="blurb">The auto-builder works across every district, buying the cheapest upgrade or lot each moment.</p>` : ''}`;
 
@@ -2433,7 +2910,7 @@ function buildHTML() {
     </div>
     <div class="pips" aria-hidden="true">${pips}</div>
     <p class="blurb">${blurbOf(tier, line)}</p>
-    <div class="kv"><span>This building earns</span><b>${fmt(lotOutput(sec, tier, line), true)} / sec</b></div>
+    <div class="kv"><span>This building earns</span><b>${fmt(lotOutputAt(sec, k), true)} / sec</b></div>
     ${why.join('')}
     ${upgrade}
   </div>
@@ -2539,7 +3016,18 @@ function infraHTML() {
       <span><b>${dot(`rgb(${theme(i).haze})`)}${esc(sectorName(i))}</b><small>${perkText(perkOf(i))} · ${ownedIn(i)}/${N * N} lots · +${fmt(SECTOR_CPS[i], true)}/s</small></span>
       <button class="mode" type="button" data-act="goto" data-id="${i}" ${i === S.cur && view === 'city' ? 'aria-pressed="true"' : ''}>${i === S.cur && view === 'city' ? 'Viewing' : 'View'}</button>
     </div>`).join('');
+  const capLots = ownedIn(0), wait = S.edict ? edictReadyIn() : 0;
+  const edicts = capLots < EDICT_LOTS
+    ? `<div class="locked">The Capital council convenes at <b>${EDICT_LOTS}</b> Capital lots. You have <b>${capLots}</b>.</div>`
+    : Object.keys(EDICTS).map(id => {
+        const E = EDICTS[id], on = S.edict === id;
+        return `<button class="edict ${on ? 'on' : ''}" type="button" data-act="edict" data-id="${id}" ${on || wait > 0 ? 'disabled' : ''}>
+          <b>${E.name}</b><span>${E.what}</span><small>${on ? 'In force' : wait > 0 ? `Council meets again in ${duration(wait)}` : 'Enact'}</small></button>`;
+      }).join('');
   return `
+  <div class="group"><h3>Capital edicts</h3>
+    <p class="blurb">One city policy is in force at a time. Changing it needs the council, which meets every ${Math.round(EDICT_COOLDOWN / 60)} minutes.</p>
+    <div class="edicts">${edicts}</div></div>
   <div class="group"><h3>Your districts</h3>${sectors}</div>
   <div class="group"><h3>Build a cyber road to a new district</h3>${next}</div>
   ${roads.length ? `<div class="group"><h3>Road network</h3>${roads.join('')}
@@ -2689,7 +3177,7 @@ panel.addEventListener('click', e => {
   const act = b.dataset.act, id = b.dataset.id;
   if (act === 'upgrade') {
     const k = +id, s = cur();
-    if (upgradeLot(S.cur, k, b.dataset.line)) {
+    if (upgradeLot(S.cur, k, b.dataset.line, b.dataset.spec)) {
       s.sel = k;
       const [x, y] = roofPoint(S.cur, k);
       floater(x, y - 12, buildingName(s.lots[k], s.lines[k]), '#3ef2ff');
@@ -2728,6 +3216,8 @@ panel.addEventListener('click', e => {
     updateSectorBar();
   } else if (act === 'roadup') {
     if (upgradeRoad(+id)) Sound.build();
+  } else if (act === 'edict') {
+    if (enactEdict(id)) Sound.big();
   } else if (act === 'goto') {
     goSector(+id);
     setView('city');
@@ -2780,6 +3270,7 @@ panel.addEventListener('input', e => {
 });
 panel.addEventListener('change', e => {
   if (e.target.id === 'auto-line' && LINES[e.target.value]) { S.lastLine = e.target.value; save(); dirty = true; }
+  if (e.target.id === 'auto-spec' && SPECS[e.target.value]) { S.lastSpec = e.target.value; save(); dirty = true; }
 });
 
 /* ================================================================
@@ -2813,7 +3304,9 @@ function headlines() {
   if (S.sectors.length > 1) lines.push(`Cyber road to ${sectorName(S.sectors.length - 1)} sees record traffic on opening night`);
   if (S.sectors.some(x => x.type === 'docks')) lines.push('Loading Docks report a container of "miscellaneous" goods, again');
   if (S.chips > 0) lines.push('Citizens report a strong feeling they have lived this week before');
-  if (capitalMerged()) lines.push('Capitol Spire casts a shadow across three districts at sunset');
+  if (S.edict) lines.push(`Capital council confirms the ${EDICTS[S.edict].name} will stay in force "for now"`);
+  if (S.sectors.some(sec => sec.specs.some(sp => sp.includes('u')))) lines.push('Uplink towers blamed for pigeons receiving satellite TV');
+  if (S.sectors.some(sec => sec.type === 'financial')) lines.push('Jumbotrons in the Financial District show the market up, down and sideways');
   if (S.roads.some(l => l >= 4)) lines.push('Hyperloop commuters report arriving before they left');
   for (let i = lines.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [lines[i], lines[j]] = [lines[j], lines[i]]; }
   return lines;

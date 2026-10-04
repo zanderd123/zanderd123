@@ -41,7 +41,26 @@ You start with one Shack in the Capital, earning 1 cyber credit a second.
 
 Buttons you can't afford yet show how long until you can. Once you have two districts, a bar over the city switches between them, and the map shows them all. Sound is a Tron-style techno track plus synth effects, all generated in the browser, and is off until you turn it on.
 
-When every Capital lot reaches tier 8, the Capital fuses into the **Capitol Spire**, one megastructure that adds +25% to all income.
+## Skill trees
+
+At tier 3, and again at tier 6, every building picks a specialization. The first sets its massing, the second adds a crown, and they stack:
+
+| Specialization | Looks like | Does |
+|---|---|---|
+| Highrise | Slender, tall tower with a needle | This building earns ×1.3 per level |
+| Hub | Wide podium, twin towers, sky-bridge, landing pad | Buildings beside it earn +8% per level |
+| Uplink | Antenna farm and satellite dishes | Jack in and couriers pay more, citywide |
+| Barracks | Offset stacked crew quarters in neon | All crew pay more, citywide |
+
+Buildings that reached tier 3 before skill trees existed keep their classic look.
+
+## The Capital
+
+The Capital has gold-trimmed streets, sweeping searchlights, a holographic monument, busier crowds, more hover cars and police drones. Once it has 10 lots, the council can enact one **edict** at a time (Curfew Lifted, Tax Holiday, Building Boom, Open Data Act, Labour Accord, Mixed-Use Mandate, Smog Waiver). Changing edicts waits for the council, which meets every 3 minutes.
+
+## A living city
+
+Pedestrians walk the streets between buildings, hover cars and drones fly overhead, and windows switch on and off at random. Financial District towers carry stock-ticker jumbotrons; Entertainment District buildings carry animated electric billboards.
 
 ## Saving
 
