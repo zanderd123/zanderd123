@@ -925,6 +925,36 @@ const $ = sel => document.querySelector(sel);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const lotName = k => COLS[k % N] + (Math.floor(k / N) + 1);
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// Frame-rate budget. A per-device choice, so it lives in this browser rather than in the save.
+const PERF_KEY = 'neon-sprawl/perf';
+const PERF_MODES = {
+  auto: { label: 'Auto', active: 60, idle: 20, deep: 8,
+    blurb: 'Full animation while you play. After 30 seconds without input the city animates at a slower pace, and slower still after 3 minutes.' },
+  full: { label: 'Full', active: 60, idle: 60, deep: 60,
+    blurb: 'Always full animation, even when you are not touching the game. Uses the most power.' },
+  saver: { label: 'Battery saver', active: 30, idle: 10, deep: 4,
+    blurb: 'Lower resolution, no rain and a slower frame rate. Best for laptops on battery and phones.' },
+};
+const Perf = {
+  mode: (() => { try { const m = localStorage.getItem(PERF_KEY); return PERF_MODES[m] ? m : 'auto'; } catch (e) { return 'auto'; } })(),
+  idleFor(now) { return now - lastInput; },
+  fps(now) {
+    const m = PERF_MODES[this.mode], idle = this.idleFor(now);
+    if (idle > DEEP_IDLE_AFTER) return m.deep;
+    // a window in the background (not focused) counts as idle once the pointer has been still a moment
+    if (idle > IDLE_AFTER || (idle > 5000 && !document.hasFocus())) return m.idle;
+    return m.active;
+  },
+  // drop the purely decorative extras when saving power or left alone for minutes
+  lite() { return this.mode === 'saver' || (this.mode === 'auto' && this.idleFor(performance.now()) > DEEP_IDLE_AFTER); },
+  set(m) {
+    if (!PERF_MODES[m] || m === this.mode) return;
+    this.mode = m;
+    try { localStorage.setItem(PERF_KEY, m); } catch (e) { /* storage unavailable */ }
+    resize();
+  },
+};
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 const SUFFIX = ['', 'K', 'M', 'B', 'T', 'Qa', 'Qi', 'Sx', 'Sp', 'Oc', 'No', 'Dc'];
@@ -1448,7 +1478,7 @@ const PAL = ['#3ef2ff', '#ff2bd6', '#ffc23e'];
 
 function resize() {
   const r = cvs.getBoundingClientRect();
-  DPR = Math.min(2, window.devicePixelRatio || 1);
+  DPR = Math.min(Perf.mode === 'saver' ? 1 : 2, window.devicePixelRatio || 1);
   W = Math.max(1, r.width);
   H = Math.max(1, r.height);
   cvs.width = Math.round(W * DPR);
@@ -2030,6 +2060,36 @@ let rain = [];
 const cars = [];
 const courier = { active: false, x: 0, y: 0, cy: 0, dir: 1, next: 0 };
 
+// Small gradient textures made once per colour and stamped with drawImage,
+// which is far cheaper than building a fresh gradient for every car and tower each frame.
+const fxCache = new Map();
+function poolSprite(color) {
+  const key = 'p' + color;
+  let c = fxCache.get(key);
+  if (!c) {
+    c = document.createElement('canvas'); c.width = 96; c.height = 56;
+    const g = c.getContext('2d');
+    const gr = g.createRadialGradient(48, 28, 2, 48, 28, 44);
+    gr.addColorStop(0, color + '38'); gr.addColorStop(1, color + '00');
+    g.fillStyle = gr; g.fillRect(0, 0, 96, 56);
+    fxCache.set(key, c);
+  }
+  return c;
+}
+function trailSprite(color, dir) {
+  const key = 't' + color + dir;
+  let c = fxCache.get(key);
+  if (!c) {
+    c = document.createElement('canvas'); c.width = 68; c.height = 3;
+    const g = c.getContext('2d');
+    const gr = dir > 0 ? g.createLinearGradient(68, 0, 0, 0) : g.createLinearGradient(0, 0, 68, 0);
+    gr.addColorStop(0, color); gr.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = gr; g.fillRect(0, 0, 68, 3);
+    fxCache.set(key, c);
+  }
+  return c;
+}
+
 function startFabrication(sec, k) { fabs.set(sec + ':' + k, performance.now()); }
 
 function initRain() {
@@ -2068,10 +2128,8 @@ function draw(now, dt) {
   for (const car of cars) {
     if (!reduceMotion) { car.x += car.v * dt; if (car.x > 1.1) car.x = -0.1; if (car.x < -0.1) car.x = 1.1; }
     const y = H * (0.2 + car.lane * 0.07), x = car.x * W, dir = Math.sign(car.v);
-    const tr = ctx.createLinearGradient(x, y, x - dir * 34, y);
-    tr.addColorStop(0, car.c); tr.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.strokeStyle = tr; ctx.lineWidth = 1.5; ctx.globalAlpha = 0.55;
-    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - dir * 34, y); ctx.stroke();
+    ctx.globalAlpha = 0.55;
+    ctx.drawImage(trailSprite(car.c, dir), dir > 0 ? x - 34 : x, y - 0.75, 34, 1.5);
     ctx.globalAlpha = 1;
     ctx.fillStyle = '#fff'; ctx.fillRect(x - 1, y - 1, 2, 2);
   }
@@ -2107,7 +2165,7 @@ function draw(now, dt) {
   }
   ctx.shadowBlur = 0; ctx.globalAlpha = 1;
 
-  if (rain.length) {
+  if (rain.length && !Perf.lite()) {
     ctx.strokeStyle = 'rgba(170, 185, 255, 0.16)'; ctx.lineWidth = 1;
     ctx.beginPath();
     for (const d of rain) {
@@ -2415,10 +2473,12 @@ function drawCar(c, t) {
     ctx.fillStyle = blue ? '#4d7bff' : '#ff3b4f';
     ctx.fillRect(x - r, y - r, r * 2, r * 2);
   } else {
-    const tr = ctx.createLinearGradient(x, y, x - tx, y - ty);
-    tr.addColorStop(0, c.c); tr.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.strokeStyle = tr; ctx.lineWidth = Math.max(1.5, cam.s * 0.02); ctx.lineCap = 'round';
-    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - tx, y - ty); ctx.stroke();
+    ctx.strokeStyle = c.c; ctx.lineWidth = Math.max(1.5, cam.s * 0.02); ctx.lineCap = 'round';
+    ctx.globalAlpha = 0.8;
+    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - tx * 0.45, y - ty * 0.45); ctx.stroke();
+    ctx.globalAlpha = 0.3;
+    ctx.beginPath(); ctx.moveTo(x - tx * 0.45, y - ty * 0.45); ctx.lineTo(x - tx, y - ty); ctx.stroke();
+    ctx.globalAlpha = 1;
     ctx.fillStyle = '#fff'; ctx.fillRect(x - 1.2, y - 1.2, 2.4, 2.4);
     // the car's shadow light on the street below
     ctx.globalAlpha = 0.18; ctx.fillStyle = c.c;
@@ -2524,7 +2584,7 @@ function drawElectricBillboard(sp, sc, dx, dy, seed, t) {
 
 function drawBuildings(now, t) {
   const order = buildingList().concat(lifeEntries()).sort((a, b) => a.d - b.d);
-  const glow = cam.s > 26, detail = cam.s > 30;
+  const glow = cam.s > 26 && !Perf.lite(), detail = cam.s > 30;
   for (const e of order) {
     if (e.kind === 'p') { drawPed(e, t); continue; }
     if (e.kind === 'c') { drawCar(e.o, t); continue; }
@@ -2538,13 +2598,9 @@ function drawBuildings(now, t) {
     const faded = view === 'city' && sec !== S.cur;
     ctx.globalAlpha = faded ? 0.22 : 1;
     if (glow && !faded) {
-      ctx.save();
       ctx.globalCompositeOperation = 'lighter';
-      const pool = ctx.createRadialGradient(x, y, 2, x, y, cam.s * 0.55);
-      pool.addColorStop(0, dom + '38'); pool.addColorStop(1, dom + '00');
-      ctx.fillStyle = pool;
-      ctx.fillRect(x - cam.s * 0.6, y - cam.s * 0.35, cam.s * 1.2, cam.s * 0.7);
-      ctx.restore();
+      ctx.drawImage(poolSprite(dom), x - cam.s * 0.6, y - cam.s * 0.35, cam.s * 1.2, cam.s * 0.7);
+      ctx.globalCompositeOperation = 'source-over';
     }
 
     const sp = sprite(tier, line, spec, seed, cam.s);
@@ -3076,6 +3132,13 @@ function goalsHTML() {
       <span class="sub">Replaces the city you have now</span>
     </button>
   </div>`;
+  const perfBtns = Object.entries(PERF_MODES).map(([id, m]) =>
+    `<button class="mode" type="button" data-act="perf" data-id="${id}" aria-pressed="${Perf.mode === id}">${m.label}</button>`).join('');
+  const perfBox = `
+  <div class="group">
+    <div class="head-row"><h3>Performance</h3><div class="modes">${perfBtns}</div></div>
+    <p class="blurb">${PERF_MODES[Perf.mode].blurb} The city always keeps earning, even in a hidden tab.</p>
+  </div>`;
   const achRows = ACHIEVEMENTS.map(a => `<li class="ach ${got.has(a.id) ? 'got' : ''}"><b>${esc(a.name)}</b><span>${esc(a.desc)}</span></li>`).join('');
   return `
   <div class="group">
@@ -3090,6 +3153,7 @@ function goalsHTML() {
     ${rebootBody}
   </div>
   ${saveBox}
+  ${perfBox}
   <div class="group">
     <div class="head-row"><h3>Achievements</h3><span class="eyebrow">${S.ach.length} / ${ACHIEVEMENTS.length} · +${Math.round((M.achieve - 1) * 100)}% income</span></div>
     <ul class="achs">${achRows}</ul>
@@ -3102,6 +3166,7 @@ function goalsHTML() {
 
 function render() {
   dirty = false;
+  lastRender = performance.now();
   const scroll = panel.scrollTop;
   // keep keyboard focus on the same control across a re-render
   const f = panel.contains(document.activeElement) ? document.activeElement : null;
@@ -3117,10 +3182,12 @@ function render() {
   refresh();
 }
 
+// Writes to the page are the costly part of a refresh, so each one is skipped when the value is unchanged.
+function setText(el, v) { if (el && el._v !== v) { el._v = v; el.textContent = v; } }
 function refresh() {
-  $('#credits').textContent = fmt(S.credits);
-  $('#rate').textContent = `+${fmt(CPS, true)} / sec`;
-  $('#hack-value').textContent = `+${fmt(hackValue(), true)} per hack`;
+  setText($('#credits'), fmt(S.credits));
+  setText($('#rate'), `+${fmt(CPS, true)} / sec`);
+  setText($('#hack-value'), `+${fmt(hackValue(), true)} per hack`);
   if (tab === 'crew' && crewMode === 'max') {
     panel.querySelectorAll('[data-crew]').forEach(row => {
       const c = CREW_BY_ID[row.dataset.crew];
@@ -3135,12 +3202,13 @@ function refresh() {
   panel.querySelectorAll('[data-cost]').forEach(b => {
     const cost = +b.dataset.cost;
     const short = S.credits < cost;
-    b.disabled = short;
-    b.style.setProperty('--p', Math.min(1, S.credits / cost).toFixed(3));
+    if (b.disabled !== short) b.disabled = short;
+    const pv = Math.min(1, S.credits / cost).toFixed(2);
+    if (b._p !== pv) { b._p = pv; b.style.setProperty('--p', pv); }
     const eta = b.querySelector('.eta');
     if (eta) {
       const sec = short && CPS > 0 ? (cost - S.credits) / CPS : 0;
-      eta.textContent = !short ? '' : sec > 86400 ? 'over a day' : CPS > 0 ? 'in ' + duration(Math.max(1, sec)) : '';
+      setText(eta, !short ? '' : sec > 86400 ? 'over a day' : CPS > 0 ? 'in ' + duration(Math.max(1, sec)) : '');
     }
   });
   const crewAff = CREW.filter((c, n) => crewVisible(n) && S.credits >= crewCost(c, 1)).length;
@@ -3157,8 +3225,8 @@ function refresh() {
 }
 function setBadge(name, n) {
   const el = $('#badge-' + name);
-  el.hidden = !n;
-  el.textContent = n;
+  if (el.hidden !== !n) el.hidden = !n;
+  setText(el, String(n));
 }
 
 // Two-step confirm for anything that erases progress.
@@ -3224,6 +3292,9 @@ panel.addEventListener('click', e => {
     dirty = true;
   } else if (act === 'reboot') {
     if (armed('reboot')) { rebootArmed = 0; reboot(); Sound.big(); setTab('build'); }
+  } else if (act === 'perf') {
+    Perf.set(id);
+    dirty = true;
   } else if (act === 'cloud-save') {
     cloudSave().then(ok => toast(ok ? 'Saved to the cloud.' : 'Cloud save failed. Your game is still saved in this browser.'));
   } else if (act === 'export') {
@@ -3444,6 +3515,14 @@ const Sound = (() => {
       try { localStorage.setItem(SOUND_KEY, on ? '1' : '0'); } catch (e) { /* storage unavailable */ }
       return on;
     },
+    // Hidden tabs pause the music and its scheduler; it picks up where it left off on return.
+    background(hidden) {
+      if (!on || !ac) return;
+      clearInterval(timer);
+      if (hidden) { ac.suspend().catch(() => {}); return; }
+      ac.resume().catch(() => {});
+      nextTime = 0; schedule(); timer = setInterval(schedule, 25);
+    },
     buy: throttled(() => blip(660, 0.07, 'square', 0.04, 1.5)),
     build: throttled(() => { blip(330, 0.25, 'sawtooth', 0.05, 2); blip(660, 0.2, 'triangle', 0.04, 0, 0.09); }),
     hack: () => blip(180 + Math.random() * 420, 0.05, 'square', 0.035, 0.5),
@@ -3549,6 +3628,8 @@ function parseCode(text) {
    Main loop
    ================================================================ */
 let last = performance.now();
+let lastInput = performance.now(), lastRender = 0, loopTimer = 0, loopRaf = 0;
+const IDLE_AFTER = 30000, DEEP_IDLE_AFTER = 180000;
 let uiClock = 0, slowClock = 0, saveClock = 0, autoClock = 0, cloudClock = 0;
 let techSig = '';
 
@@ -3565,10 +3646,13 @@ function checkAchievements() {
 }
 
 function frame(now) {
+  loopRaf = 0;
   const real = Math.min((now - last) / 1000, OFFLINE_CAP);
   last = now;
   const dt = Math.min(real, 0.1);
   if (real > 0) earn(CPS * real);
+  const hidden = document.hidden;
+  if (!hidden) {
 
   const target = cameraTarget();
   const k = cam.ready && !reduceMotion ? 1 - Math.exp(-dt * 3) : 1;
@@ -3576,8 +3660,8 @@ function frame(now) {
   cam.y += (target.y - cam.y) * k;
   cam.s = Math.exp(Math.log(cam.s) + (Math.log(target.s) - Math.log(cam.s)) * k);
   cam.ready = true;
-
   draw(now, dt);
+  }
 
   // automation runs a few purchases at a time so the city visibly builds itself
   autoClock += real;
@@ -3589,10 +3673,16 @@ function frame(now) {
     if (n) Sound.buy();
   }
 
-  uiClock += dt; slowClock += dt; saveClock += real; cloudClock += real;
-  const typing = document.activeElement && document.activeElement.tagName === 'TEXTAREA' && panel.contains(document.activeElement);
-  if (dirty && !typing) render();
-  else if (uiClock > 0.1) { uiClock = 0; refresh(); }
+  uiClock += real; slowClock += real; saveClock += real; cloudClock += real;
+  if (!hidden) {
+    // Right after a click the panel redraws at once; otherwise at most a few times a second,
+    // and the numbers tick less often when nobody is watching.
+    const typing = document.activeElement && document.activeElement.tagName === 'TEXTAREA' && panel.contains(document.activeElement);
+    const quiet = Perf.idleFor(now) > IDLE_AFTER;
+    const recent = now - lastInput < 800;
+    if (dirty && !typing && (recent || now - lastRender > (quiet ? 2000 : 400))) render();
+    else if (uiClock > (quiet ? 1 : 0.15)) { uiClock = 0; refresh(); }
+  }
   if (slowClock > 1) {
     slowClock = 0;
     checkAchievements();
@@ -3609,7 +3699,26 @@ function frame(now) {
   }
   if (saveClock > 10) { saveClock = 0; save(); }
   if (cloudClock > 60) { cloudClock = 0; cloudSave(); }
-  requestAnimationFrame(frame);
+  scheduleFrame(now);
+}
+
+// Pick the next frame time from the performance setting and how recently anyone touched the game.
+// Full speed while you play; slower when you step away; no drawing at all in a hidden tab, where a
+// once-a-second tick keeps income, automation and saves running.
+function scheduleFrame(now) {
+  if (loopTimer || loopRaf) return;
+  if (document.hidden) { loopTimer = setTimeout(() => { loopTimer = 0; frame(performance.now()); }, 1000); return; }
+  const fps = Perf.fps(now);
+  if (fps >= 50) { loopRaf = requestAnimationFrame(frame); return; }
+  const wait = Math.max(0, 1000 / fps - (performance.now() - now) - 4);
+  loopTimer = setTimeout(() => { loopTimer = 0; loopRaf = requestAnimationFrame(frame); }, wait);
+}
+// Any input, or the tab coming back, cuts a slow wait short.
+function wakeLoop() {
+  if (loopTimer) { clearTimeout(loopTimer); loopTimer = 0; }
+  // a hidden tab never runs animation frames, so hand over to the timer tick
+  if (document.hidden) { cancelAnimationFrame(loopRaf); loopRaf = 0; scheduleFrame(performance.now()); return; }
+  if (!loopRaf) loopRaf = requestAnimationFrame(frame);
 }
 
 function boot(hot) {
@@ -3641,11 +3750,19 @@ function boot(hot) {
   new ResizeObserver(resize).observe(cvs);
   updateSectorBar();
   fillTicker();
-  document.addEventListener('visibilitychange', () => { if (document.hidden) { save(); cloudSave(); } });
+  document.addEventListener('visibilitychange', () => {
+    Sound.background(document.hidden);
+    if (document.hidden) { save(); cloudSave(); }
+    else lastInput = performance.now();
+    wakeLoop();
+  });
+  for (const ev of ['pointerdown', 'pointermove', 'keydown', 'wheel', 'touchstart']) {
+    window.addEventListener(ev, () => { lastInput = performance.now(); if (loopTimer && !document.hidden) wakeLoop(); }, { capture: true, passive: true });
+  }
   initCloud(data && data.savedAt);
   window.addEventListener('pagehide', save);
   last = performance.now();
-  requestAnimationFrame(frame);
+  scheduleFrame(last);
 }
 
 // A small handle for testing and balancing from the console.
@@ -3656,7 +3773,9 @@ window.neonSprawl = {
   upgradeLot, acquireLot, hireCrew: (id, n) => hireN(id, n || 1), hireAll, upgradeAllIn, buyAllLotsIn, autoBuildTick,
   buyTech, buildRoad, upgradeRoad, upgradeCost, lotCost, crewCost, roadCost, roadUpgradeCost, roadReady, nextLot,
   lotOutput, upgradeGain, crewEach, recalc, lineUnlocked, districtUnlocked, setView, goSector, reboot, pendingChips, canReboot,
-  checkAchievements, exportCode, parseCode, loadState, cloudSave, get cloud() { return Cloud; }, TECH, CREW, LINES, DISTRICTS,
+  checkAchievements, exportCode, parseCode, loadState, cloudSave, get cloud() { return Cloud; },
+  get perf() { return Perf.mode; }, setPerf: m => { Perf.set(m); dirty = true; }, get fps() { return Perf.fps(performance.now()); },
+  idle(ms) { lastInput = performance.now() - ms; }, TECH, CREW, LINES, DISTRICTS,
 };
 
 window.claude?.hot?.snapshot?.(() => serialize());

@@ -62,6 +62,10 @@ The Capital has gold-trimmed streets, sweeping searchlights, a holographic monum
 
 Pedestrians walk the streets between buildings, hover cars and drones fly overhead, and windows switch on and off at random. Financial District towers carry stock-ticker jumbotrons; Entertainment District buildings carry animated electric billboards.
 
+## Performance
+
+The game draws at full speed while you play and eases off when you step away: about 20 frames a second after 30 seconds without input (or when the window loses focus), 8 after 3 minutes, and none at all in a hidden tab. Music pauses with the tab. Income, the auto-builder and saves keep running on real time throughout, so a background tab still earns and builds. The Goals tab has a Performance setting, stored per device: **Auto** (the default), **Full** (always 60 fps) or **Battery saver** (standard resolution, no rain or glow pools, 30 fps while playing).
+
 ## Saving
 
 - The game saves in the browser every 10 seconds and when you close it. While you're away the city keeps earning, for up to 8 hours.
