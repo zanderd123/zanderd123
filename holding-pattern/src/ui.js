@@ -30,7 +30,7 @@ export const ui = {
 // ------------------------------------------------------------------ helpers
 
 function pct(u) { return `${Math.round(u * 100)}%`; }
-function level(u) { return u >= 1 ? 'bad' : u >= 0.85 ? 'warn' : ''; }
+function level(u) { return u >= 1 ? 'bad' : u >= 0.8 ? 'warn' : ''; }
 function barHtml(before, after = null) {
   const b = clamp(before, 0, 1.2) / 1.2 * 100;
   const cls = level(after ?? before);

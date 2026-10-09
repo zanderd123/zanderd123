@@ -160,7 +160,7 @@ h3.sec::after { content: ""; flex: 1; height: 1px; background: var(--line); }
 .bar i.after { opacity: 0.45; }
 .bar.warn i { background: var(--amber); }
 .bar.bad i { background: var(--red); }
-.bar b { position: absolute; top: -2px; bottom: -2px; width: 2px; background: #fff; opacity: 0.5; left: 85%; }
+.bar b { position: absolute; top: -2px; bottom: -2px; width: 2px; background: #fff; opacity: 0.5; }
 
 .btn {
   border: 0; border-radius: 2px; padding: 8px 12px;
@@ -223,8 +223,8 @@ textarea { width: 100%; min-height: 80px; background: var(--ink); color: var(--t
 @keyframes tin { from { transform: translateY(-8px); opacity: 0; } }
 
 #hint {
-  position: absolute; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); transform: translateX(calc(-50% - 200px));
-  max-width: min(460px, calc(100% - 32px)); z-index: 6;
+  position: absolute; left: 326px; bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  max-width: min(480px, calc(100% - 750px)); z-index: 6;
   background: var(--sign); color: var(--ink); padding: 10px 36px 10px 14px; border-radius: 2px;
   font: 600 14px/1.35 var(--body); box-shadow: 0 8px 24px rgba(0,0,0,0.35);
 }
@@ -256,6 +256,11 @@ textarea { width: 100%; min-height: 80px; background: var(--ink); color: var(--t
 .legend span { display: inline-flex; align-items: center; gap: 6px; }
 .legend i { width: 9px; height: 9px; display: inline-block; }
 
+@media (max-width: 1280px) {
+  .wide-only { display: none; }
+  .brand .word { display: none; }
+}
+
 /* ---------------------------------------------------------------- narrow */
 @media (max-width: 860px) {
   #topbar { gap: 8px 10px; padding-left: 10px; padding-right: 10px; }
@@ -268,7 +273,8 @@ textarea { width: 100%; min-height: 80px; background: var(--ink); color: var(--t
   #panel.min #panelBody { display: none; }
   #ops { top: var(--top, 96px); bottom: auto; left: 8px; width: min(280px, calc(100% - 16px)); }
   #ops:not(.open) #opsList { display: none; }
-  #hint { transform: translateX(-50%); bottom: calc(46% + 10px); }
+  #hint { left: 8px; right: 8px; max-width: none; bottom: calc(46% + 8px); font-size: 13px; padding: 8px 32px 8px 10px; }
+  #panel.min ~ #hint { bottom: 58px; }
   #toasts { margin-left: 0; }
   .map-body { grid-template-columns: 1fr; grid-template-rows: 45% 1fr; }
   #mapSide { border-left: 0; border-top: 1px solid var(--line); }

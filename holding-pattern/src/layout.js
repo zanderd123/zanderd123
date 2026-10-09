@@ -16,7 +16,7 @@ export const TWY_A = 258;
 export const TWY_B = 292;
 export const LANE2 = 560;
 export const RUNWAY_HALF = 17;
-export const EXITS = [650, 920, 1220];
+export const EXITS = [580, 760, 960];
 export const LONG_RUNWAY_X1 = 1880;
 export const HOLD_POINT = { x: 225, y: TWY_B };
 export const IAF = { x: 60 };
@@ -60,7 +60,8 @@ export const SLOTS = {
   fareast:   { name: 'East Remote',        row: 'main', x0: 1600, x1: 1890, plot: 'fareast', maxGates: 5, adjacent: false },
 };
 export const SLOT_ORDER = ['main', 'midcenter', 'westwing', 'eastwing', 'midwest', 'mideast', 'farwest', 'fareast'];
-export const TERMINAL_CODES = { main: 'T1', midcenter: 'M', westwing: 'W', eastwing: 'E', midwest: 'MW', mideast: 'ME', farwest: 'WR', fareast: 'ER' };
+// Concourse letters, as on real airport signage: gates are A1, B3 and so on.
+export const TERMINAL_CODES = { main: 'A', midcenter: 'B', westwing: 'C', eastwing: 'D', midwest: 'E', mideast: 'F', farwest: 'G', fareast: 'H' };
 
 export function slotCenter(slotId) {
   const s = SLOTS[slotId];

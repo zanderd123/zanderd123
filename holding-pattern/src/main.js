@@ -60,6 +60,7 @@ function start(hotData) {
   setInterval(() => save(game), 5000);
   document.addEventListener('visibilitychange', () => { if (document.hidden) save(game); });
   window.addEventListener('pagehide', () => save(game));
+  window.__hp = { game: () => game, cam, sim: S };
   if (window.claude && window.claude.hot && window.claude.hot.snapshot) {
     window.claude.hot.snapshot(() => ({ save: serialize(game) }));
   }
@@ -99,7 +100,7 @@ function frame(now) {
     uiAcc = 0;
     renderTop(game);
     const ph = dayPhase(ap.t).ph;
-    const mins = Math.floor(((ph * 24 + 0) % 24) * 60);
+    const mins = Math.floor(((ph * 24 + 6) % 24) * 60); // darkest at midnight
     renderOps(game, `${String(Math.floor(mins / 60)).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}`);
     renderPanel();
     renderHint(game);

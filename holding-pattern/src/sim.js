@@ -176,8 +176,11 @@ export function atcCapacity(ap) {
 }
 
 export function runwayPhysical(ap) {
-  const single = ap.upgrades.rapidExits ? 21 : 17;
-  return (ap.upgrades.runway2 ? single * 2.05 : single) * stormFactor(ap);
+  // Measured with tools/runway.mjs: a saturated mixed-mode runway handles
+  // about 15 movements a minute, 16.5 with rapid exits, and a second runway
+  // (arrivals north, departures south) brings that to about 27.
+  const single = ap.upgrades.rapidExits ? 16 : 14;
+  return (ap.upgrades.runway2 ? single * 1.65 : single) * stormFactor(ap);
 }
 
 export function securityRate(ap) {
@@ -680,6 +683,13 @@ export function step(game, ap, dt) {
     ap.costLines = computeCosts(ap);
   }
 
+  // Missed flights are reported in batches so a bad hour is one message.
+  if (t >= (ap.missedReportAt || 0)) {
+    ap.missedReportAt = t + 30;
+    if ((ap.missedAcc || 0) >= 5) notify(ap, 'missed', `${Math.round(ap.missedAcc)} passengers missed their flights in the last 30s`);
+    ap.missedAcc = 0;
+  }
+
   // levels
   while (ap.level < LEVELS.length && ap.paxServed >= LEVELS[ap.level]) {
     ap.level++;
@@ -713,7 +723,7 @@ function scheduleFlights(game, ap) {
         expected: Math.round(A.pax * c.load),
         arriving: Math.round(A.pax * c.load * (0.85 + ap.rand() * 0.2)),
         generated: 0, boarded: 0, closed: false, missed: 0,
-        spawnAt: std - turnTime(ap, c.cls) - inboundEstimate(ap, c),
+        spawnAt: std - turnTime(ap, c.cls) - inboundEstimate(ap, c) - FLIGHT.scheduleBuffer,
         plane: null,
       };
       ap.flights.set(f.id, f);
@@ -757,14 +767,23 @@ function setPath(p, pts) {
   p.len = pathLength(pts);
 }
 
+const DEP_OCCUPANCY = 4.2; // seconds a departure needs the runway
+
 function canClearArrival(ap, p, eta) {
   const R = ap.runways[p.rw];
   if (ap.atcTokens < 1 || R.reservedArr) return false;
-  if (R.occupant && R.clearEta > ap.t + eta - 0.2) return false;
-  if (p.rw === 0 && ap.depQueue.length && !R.occupant) {
-    // Let a departure that has waited long enough go first.
+  const freeAt = R.occupant ? R.clearEta : ap.t;
+  if (freeAt > ap.t + eta - 0.2) return false;
+  if (p.rw === 0 && ap.depQueue.length) {
+    // Mixed-mode runway: alternate. Once a departure has waited a little,
+    // an arrival only gets a slot if a take-off still fits in front of it,
+    // and it must leave a controller free for that take-off.
     const head = ap.depQueue[0];
-    if (ap.t - head.holdSince > 7 && eta < 4.5) return false;
+    const waited = ap.t - head.holdSince;
+    if (waited > 3 || ap.depQueue.length > 1) {
+      if (freeAt + DEP_OCCUPANCY > ap.t + eta) return false;
+      if (ap.atcTokens < 2) return false;
+    }
   }
   return true;
 }
@@ -851,7 +870,7 @@ function updatePlanes(game, ap, dt) {
           p.exitSpeed = vx;
           p.exitX = ex;
           setPath(p, [{ x: rw.x0, y: rw.y }, { x: ex - 60, y: rw.y }, { x: ex - 25, y: rw.y + 12 }, { x: ex, y: rw.exitY }]);
-          R.clearEta = t + 2 * rollD / (FLIGHT.touchdownSpeed + vx) + 70 / vx;
+          R.clearEta = t + 2 * rollD / (FLIGHT.touchdownSpeed + vx) + 48 / vx;
           p.state = 'rollout';
           earn(game, ap, 'landing', A.landingFee * site(ap).rev);
           ap.lifetime.flights++;
@@ -864,9 +883,9 @@ function updatePlanes(game, ap, dt) {
         p.d += p.speed * dt;
         const q = pointAlong(p.path, p.d);
         p.x = q.x; p.y = q.y; p.ang = q.ang;
+        // The runway is free once the tail is clear of it, before the turn-off ends.
+        if (p.d >= p.len - 22) { const R = ap.runways[p.rw]; if (R.occupant === p) R.occupant = null; }
         if (p.d >= p.len) {
-          const R = ap.runways[p.rw];
-          if (R.occupant === p) R.occupant = null;
           if (p.rw === 1) {
             // Off the north runway: hold short of the main runway, then cross.
             p.state = 'crossHold';
@@ -954,10 +973,13 @@ function updatePlanes(game, ap, dt) {
         const R = ap.runways[0];
         const arr = R.reservedArr;
         const arrEta = arr ? (arr.len - arr.d) / FLIGHT.approachSpeed : Infinity;
-        if (ap.atcTokens >= 1 && !R.occupant && arrEta > 4.2) {
+        // Line up behind a departure that is already rolling well clear.
+        const occ = R.occupant;
+        const free = !occ || (occ.state === 'takeoff' && occ.x > RW[0].x0 + 140);
+        if (ap.atcTokens >= 1 && free && arrEta > DEP_OCCUPANCY) {
           ap.atcTokens -= 1;
           R.occupant = p;
-          R.clearEta = t + 4;
+          R.clearEta = t + DEP_OCCUPANCY;
           ap.depQueue.shift();
           p.state = 'takeoff';
           p.speed = 30;
@@ -969,14 +991,14 @@ function updatePlanes(game, ap, dt) {
       }
       case 'takeoff': {
         const rw = RW[0];
-        if (p.x < rw.x0 + 5) p.speed = Math.min(p.speed + 30 * dt, 40);
+        if (p.x < rw.x0 + 5) p.speed = Math.min(p.speed + 40 * dt, 48);
         else p.speed += FLIGHT.takeoffAccel * dt;
         p.d += p.speed * dt;
         const q = pointAlong(p.path, p.d);
         p.x = q.x; p.y = q.y; p.ang = q.ang;
         if (p.speed > FLIGHT.liftoffSpeed) p.alt += (p.speed - FLIGHT.liftoffSpeed + 30) * 0.35 * dt;
         const R = ap.runways[0];
-        if (R.occupant === p && (p.alt > 6 || p.x > rw.x0 + 560)) R.occupant = null;
+        if (R.occupant === p && p.speed > FLIGHT.liftoffSpeed + 20) R.occupant = null; // airborne
         if (p.x > 2250) p.state = 'gone';
         break;
       }
@@ -1083,7 +1105,10 @@ function releaseSpot(ap, p) { p.spot = null; }
 function arriveAtGate(game, ap, p) {
   p.state = 'gate';
   p.x = p.stand.x; p.y = p.stand.y; p.ang = Math.PI / 2;
-  p.turnTotal = turnTime(ap, p.cls);
+  // Crews hurry a late aircraft: up to a quarter off the turnaround.
+  const late = Math.max(0, ap.t - (p.f.std - turnTime(ap, p.cls)));
+  p.f.gateInLate = ap.t - (p.f.std - turnTime(ap, p.cls));
+  p.turnTotal = turnTime(ap, p.cls) * Math.max(0.75, 1 - late / 120 * 0.25);
   p.turnLeft = p.turnTotal;
   p.deplaned = 0;
   p.speed = 0;
@@ -1145,7 +1170,7 @@ function closeFlight(game, ap, f) {
   f.missed = Math.max(0, f.expected - boarded);
   if (f.missed > 0) {
     earn(game, ap, 'refunds', -f.missed * PAX.missedRefund * site(ap).rev);
-    if (f.missed > 3) notify(ap, 'missed', `${Math.round(f.missed)} passengers missed ${f.no} to ${f.city}`);
+    ap.missedAcc = (ap.missedAcc || 0) + f.missed;
   }
   ap.rolling.missed += ((f.missed / Math.max(1, f.expected)) - ap.rolling.missed) * 0.08;
   const T = terminalBySlot(ap, f.terminal);

@@ -18,17 +18,17 @@ export const FLIGHT = {
   approachSpeed: 210,    // px/s on final
   cruiseSpeed: 260,      // px/s inbound to the fix and in the hold
   touchdownSpeed: 190,
-  exitSpeed: 42,         // speed at which a plane turns off the runway
-  exitSpeedRapid: 75,    // with rapid-exit taxiways
+  exitSpeed: 60,         // speed at which a plane turns off the runway
+  exitSpeedRapid: 100,   // with rapid-exit taxiways
   taxiSpeed: 62,
   pushSpeed: 16,
-  takeoffAccel: 120,     // px/s²
+  takeoffAccel: 150,     // px/s²
   liftoffSpeed: 250,
   holdRadius: 95,
   gateHeadway: 3,        // seconds between flight arrival and the next
-  onTimeSlack: 10,       // seconds past STD that still count as on time
+  onTimeSlack: 15,       // seconds past STD that still count as on time (the airline "15 minutes")
   boardingGrace: 22,     // seconds past STD a plane waits for late passengers
-  spawnLead: 12,         // seconds from spawn to scheduled gate-in
+  scheduleBuffer: 5,     // airlines pad the inbound leg by this much
 };
 
 // ---------------------------------------------------------------- people
@@ -153,7 +153,7 @@ export const UNLOCKS = {
 // Each new airport grows faster: revenue scales harder than costs do.
 export const SITES = [
   { id: 'PWR', name: 'Pinewood Regional',   x: 0.22, y: 0.36, rev: 1.0,  cost: 1.0, demand: 1.0,  price: 0 },
-  { id: 'BSI', name: 'Bayside International', x: 0.38, y: 0.62, rev: 1.7,  cost: 1.3, demand: 1.15, price: 120000 },
+  { id: 'BSI', name: 'Bayside International', x: 0.38, y: 0.62, rev: 1.7,  cost: 1.3, demand: 1.15, price: 90000 },
   { id: 'HMA', name: 'High Mesa',           x: 0.13, y: 0.72, rev: 2.9,  cost: 1.7, demand: 1.3,  price: 650000 },
   { id: 'HBC', name: 'Harbor City',         x: 0.58, y: 0.40, rev: 4.9,  cost: 2.25, demand: 1.45, price: 3.2e6 },
   { id: 'NGT', name: 'Northgate',           x: 0.47, y: 0.14, rev: 8.3,  cost: 3.0, demand: 1.6,  price: 1.6e7 },

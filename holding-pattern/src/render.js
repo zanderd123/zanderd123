@@ -26,11 +26,13 @@ export function makeCamera() {
   return { x: WORLD.w / 2, y: WORLD.h / 2 + 40, zoom: 0.5, minZoom: 0.25, maxZoom: 3 };
 }
 
+// Open on the working part of the field; zoom out to see the land for sale.
 export function fitCamera(cam, w, h) {
-  cam.zoom = Math.min(w / (WORLD.w * 0.92), h / (WORLD.h * 0.92));
-  cam.minZoom = cam.zoom * 0.6;
-  cam.x = WORLD.w / 2;
-  cam.y = WORLD.h / 2;
+  const whole = Math.min(w / (WORLD.w * 0.92), h / (WORLD.h * 0.92));
+  cam.minZoom = whole * 0.8;
+  cam.zoom = Math.min(w / 1250, h / 820);
+  cam.x = 1000;
+  cam.y = 500;
 }
 
 export function screenToWorld(cam, w, h, sx, sy) {
@@ -387,8 +389,14 @@ function staticConnector(g, T) {
   const Cn = T.connector;
   const r = Cn.route;
   if (Cn.type === 'tunnel') {
-    g.strokeStyle = 'rgba(60,50,40,0.45)'; g.lineWidth = 10; g.setLineDash([10, 8]);
-    line(g, r.map((p) => [p.x, p.y])); g.setLineDash([]);
+    // Underground: two faint walls, drawn as if seen through the surface.
+    const a = r[0], b = r[r.length - 1];
+    const ang = Math.atan2(b.y - a.y, b.x - a.x);
+    const nx = -Math.sin(ang) * 5, ny = Math.cos(ang) * 5;
+    g.strokeStyle = 'rgba(40,34,30,0.35)'; g.lineWidth = 1.5; g.setLineDash([8, 6]);
+    line(g, [[a.x + nx, a.y + ny], [b.x + nx, b.y + ny]]);
+    line(g, [[a.x - nx, a.y - ny], [b.x - nx, b.y - ny]]);
+    g.setLineDash([]);
     for (const p of [r[0], r[r.length - 1]]) {
       g.fillStyle = '#3a3330'; g.beginPath(); g.arc(p.x, p.y, 8, 0, Math.PI * 2); g.fill();
       g.fillStyle = '#ffc20e'; g.beginPath(); g.arc(p.x, p.y, 3, 0, Math.PI * 2); g.fill();
@@ -786,7 +794,7 @@ export function render(g, w, h, dpr, cam, ap, view) {
   g.setTransform(dpr, 0, 0, dpr, 0, 0);
   const storm = ap.weather.stormUntil > t;
   if (day.dark > 0 || storm) {
-    g.fillStyle = `rgba(14,22,48,${Math.min(0.55, day.dark * 0.5 + (storm ? 0.18 : 0))})`;
+    g.fillStyle = `rgba(12,18,44,${Math.min(0.66, day.dark * 0.62 + (storm ? 0.18 : 0))})`;
     g.fillRect(0, 0, w, h);
   }
   if (storm) rain(g, w, h, t);

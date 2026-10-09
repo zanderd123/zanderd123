@@ -64,8 +64,15 @@ function think(ap) {
     if (!slot) continue;
     const r2 = S.loadReport(ap, { ...o, terminal: slot });
     const t2 = r2.terminals.find((t) => t.slot === slot);
-    const ok = r2.runway.demand / r2.runway.cap < 0.85 && t2.gateDemand / t2.gates < 0.9 && r2.security.demand / r2.security.cap < 0.9 && (t2.connCap == null || t2.pax < t2.connCap * 0.85);
+    const secOk = r2.security.demand / r2.security.cap < 0.9;
+    const gateOk = t2.gateDemand / t2.gates < 0.78;
+    const ok = r2.runway.demand / r2.runway.cap < 0.8 && gateOk && secOk && (t2.connCap == null || t2.pax < t2.connCap * 0.85);
     if (ok) S.acceptOffer(game, ap, o.id, slot);
+    else {
+      // invest in whatever is in the way
+      if (!secOk) S.addLane(game, ap);
+      if (!gateOk) S.addGate(game, ap, slot);
+    }
   }
 }
 
