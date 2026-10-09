@@ -216,7 +216,7 @@ select {
 textarea { width: 100%; min-height: 80px; background: var(--ink); color: var(--text); border: 1px solid var(--line); font: 12px var(--mono); padding: 8px; }
 
 /* ---------------------------------------------------------------- toasts */
-#toasts { position: absolute; top: calc(70px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; gap: 6px; z-index: 8; pointer-events: none; width: min(460px, calc(100% - 32px)); margin-left: -200px; }
+#toasts { position: absolute; top: calc(var(--top, 58px) + 12px); left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; gap: 6px; z-index: 8; pointer-events: none; width: min(460px, calc(100% - 32px)); margin-left: -200px; }
 .toast { background: var(--ink); color: var(--sign); border: 2px solid var(--sign); padding: 7px 12px; font: 700 14px/1.2 var(--display); letter-spacing: 0.04em; text-transform: uppercase; box-shadow: 0 6px 20px rgba(0,0,0,0.4); animation: tin 0.25s ease-out; }
 .toast.bad { background: var(--red); color: #fff; border-color: var(--red); }
 .toast.good { background: var(--sign); color: var(--ink); }
@@ -267,7 +267,11 @@ textarea { width: 100%; min-height: 80px; background: var(--ink); color: var(--t
   .brand .word, .wide-only, #airportBtn #apName { display: none; }
   .stats { gap: 12px; order: 5; flex-basis: 100%; }
   .stats dd { font-size: 14px; }
-  #mapBtn { padding: 7px 8px; font-size: 13px; }
+  #mapBtn { padding: 7px 8px; font-size: 13px; margin-left: auto; }
+  #mapBtn .long { display: none; }
+  #airportBtn { padding: 6px 8px; }
+  #toasts { top: calc(var(--top, 96px) + 44px); }
+  .toast { font-size: 12px; padding: 5px 9px; border-width: 1.5px; }
   #panel { top: auto; left: 0; width: auto; height: 46%; border-left: 0; border-top: 1px solid #000; }
   #panel.min { height: auto; }
   #panel.min #panelBody { display: none; }

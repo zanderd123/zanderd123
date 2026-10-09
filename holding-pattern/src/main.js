@@ -28,9 +28,8 @@ function start(hotData) {
   ui.game = game;
   attach(activeAirport(game));
   resize();
-  fitCamera(cam, W - panelWidth(), H - topHeight());
-  cam.x += panelWidth() / 2 / cam.zoom;
-  cam.y -= topHeight() / 2 / cam.zoom;
+  const narrow = window.innerWidth <= 860;
+  fitCamera(cam, W, H, { x0: 0, x1: W - panelWidth(), y0: topHeight(), y1: narrow ? H * 0.54 : H });
   setSpeed(game.speed || 1);
 
   if (fromStorage && fromStorage.savedAt) {

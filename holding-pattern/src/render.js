@@ -26,13 +26,14 @@ export function makeCamera() {
   return { x: WORLD.w / 2, y: WORLD.h / 2 + 40, zoom: 0.5, minZoom: 0.25, maxZoom: 3 };
 }
 
-// Open on the working part of the field; zoom out to see the land for sale.
-export function fitCamera(cam, w, h) {
-  const whole = Math.min(w / (WORLD.w * 0.92), h / (WORLD.h * 0.92));
-  cam.minZoom = whole * 0.8;
-  cam.zoom = Math.min(w / 1250, h / 820);
-  cam.x = 1000;
-  cam.y = 500;
+// Open on the working part of the field, centred in the part of the screen
+// the panels leave free; zoom out to see the land for sale.
+export function fitCamera(cam, w, h, free) {
+  const fw = free.x1 - free.x0, fh = free.y1 - free.y0;
+  cam.minZoom = Math.min(fw / (WORLD.w * 1.05), fh / (WORLD.h * 1.05));
+  cam.zoom = Math.min(fw / (fw < 600 ? 820 : 1250), fh / 820);
+  cam.x = 1000 + (w / 2 - (free.x0 + free.x1) / 2) / cam.zoom;
+  cam.y = 500 + (h / 2 - (free.y0 + free.y1) / 2) / cam.zoom;
 }
 
 export function screenToWorld(cam, w, h, sx, sy) {
