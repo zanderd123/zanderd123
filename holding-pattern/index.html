@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Holding Pattern</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" />
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<div id="app">
+  <canvas id="field" aria-label="Top-down view of the airport"></canvas>
+
+  <header id="topbar">
+    <div class="brand"><span class="mark">HP</span><span class="word">Holding Pattern</span></div>
+    <button id="airportBtn" class="sign loc" type="button" title="Open the network map">
+      <span id="apCode">PWR</span><span id="apName">Pinewood Regional</span><span id="apLevel" class="lvl">L1</span>
+    </button>
+    <dl class="stats">
+      <div><dt>Cash</dt><dd id="sCash">$0</dd></div>
+      <div><dt>Net / min</dt><dd id="sNet">$0</dd></div>
+      <div><dt>Reputation</dt><dd id="sRep">—</dd></div>
+      <div class="wide-only"><dt>On time</dt><dd id="sOtp">—</dd></div>
+      <div class="wide-only"><dt>Pax / min</dt><dd id="sPax">0</dd></div>
+    </dl>
+    <div class="speed" role="group" aria-label="Game speed">
+      <button type="button" data-speed="1" class="on">1×</button>
+      <button type="button" data-speed="2">2×</button>
+      <button type="button" data-speed="4">4×</button>
+    </div>
+    <button id="mapBtn" class="sign dir" type="button"><span class="arrow">↖</span> Network map</button>
+  </header>
+
+  <aside id="ops" aria-label="Operations board">
+    <button id="opsToggle" class="ops-head" type="button"><span>Ops board</span><span id="opsClock" class="clock">06:00</span></button>
+    <ul id="opsList"></ul>
+  </aside>
+
+  <section id="panel" aria-label="Airport management">
+    <nav id="tabs" role="tablist">
+      <button type="button" role="tab" data-tab="contracts" class="on">Contracts<span class="badge" id="offerBadge" hidden>0</span></button>
+      <button type="button" role="tab" data-tab="build">Build</button>
+      <button type="button" role="tab" data-tab="ops">Operations</button>
+      <button type="button" role="tab" data-tab="finance">Finance</button>
+    </nav>
+    <div id="panelBody"></div>
+  </section>
+
+  <div id="hint" hidden></div>
+  <div id="toasts" aria-live="polite"></div>
+
+  <div id="mapModal" class="modal" hidden>
+    <div class="map-wrap">
+      <div class="map-head">
+        <h2>Network</h2>
+        <p>Every airport keeps running when you leave it. Each new one grows faster than the last, and every airport you own adds connecting passengers to all the others.</p>
+        <button type="button" class="close" data-close="mapModal" aria-label="Close map">×</button>
+      </div>
+      <div class="map-body">
+        <canvas id="mapCanvas"></canvas>
+        <div id="mapSide"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="dialog" class="modal" hidden>
+    <div class="dialog-card" id="dialogCard"></div>
+  </div>
+</div>
+<script type="module" src="src/main.js"></script>
+</body>
+</html>
