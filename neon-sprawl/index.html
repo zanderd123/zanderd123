@@ -159,6 +159,8 @@ button { font: inherit; color: inherit; }
   padding-left: 100%;
   animation: marquee 40s linear infinite;
 }
+/* left alone for minutes: stop the news crawl too, so the page can go fully still */
+.still .ticker-text { animation-play-state: paused; }
 @keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-100%); } }
 
 .toasts {
@@ -962,7 +964,7 @@ function fmt(n, decimals) {
   if (!isFinite(n)) return '∞';
   if (n < 1000) {
     if (decimals && n < 100) return (Math.floor(n * 10) / 10).toFixed(1);
-    return Math.floor(n).toLocaleString('en-US');
+    return String(Math.floor(n));
   }
   const e = Math.floor(Math.log10(n) / 3);
   if (e >= SUFFIX.length) return n.toExponential(2);
@@ -1461,15 +1463,24 @@ function afterChange() {
    Canvas: camera, backdrop, sprites
    ================================================================ */
 const cvs = $('#city');
-const ctx = cvs.getContext('2d');
+// The backdrop covers every pixel, so the canvas is opaque and the page never blends through it.
+const ctx = cvs.getContext('2d', { alpha: false });
 let W = 1, H = 1, DPR = 1;
 let view = 'city';
 const backdrop = document.createElement('canvas');
 let backdropTheme = -1;
 const spriteCache = new Map();
 const spriteLatest = new Map();
-let spriteBudget = 0;
+let spriteBudget = 0, spriteBytes = 0, drawFrame = 0;
+// The ground, roads and light pools only change when the camera or the city does, so they are
+// painted once into this layer and copied each frame.
+// Other districts' buildings are just as still, so they are baked in too: those behind the district
+// in view go into the ground layer, those in front into a layer drawn over it.
+const groundLayer = document.createElement('canvas');
+const frontLayer = document.createElement('canvas');
+let groundKey = '', groundNext = '', frontUsed = false;
 const cam = { x: 0, y: 1.5, s: 120, ready: false };
+let camSettled = false;
 const HUD_TOP = 104;
 const hudBottom = () => (S.sectors.length > 1 ? 92 : 40);
 
@@ -1483,8 +1494,15 @@ function resize() {
   H = Math.max(1, r.height);
   cvs.width = Math.round(W * DPR);
   cvs.height = Math.round(H * DPR);
+  groundLayer.width = cvs.width;
+  groundLayer.height = cvs.height;
+  frontLayer.width = frontLayer.height = 0;
+  groundKey = groundNext = '';
+  for (const sp of spriteCache.values()) sp.c.width = sp.c.height = 0;
   spriteCache.clear();
   spriteLatest.clear();
+  spriteBytes = 0;
+  fxCache.clear();
   backdropTheme = -1;
   initRain();
 }
@@ -1796,7 +1814,7 @@ function shapeOf(tier, spec) {
 const specOf = (sec, k) => (S.sectors[sec].specs && S.sectors[sec].specs[k]) || '';
 const topOf = (sec, k) => shapeOf(S.sectors[sec].lots[k], specOf(sec, k)).top;
 
-function makeSprite(tier, line, spec, seed, s) {
+function makeSprite(tier, line, spec, seed, s, res) {
   const sh = shapeOf(tier, spec);
   const R = rng(seed * 7919 + tier * 104729 + (spec ? spec.charCodeAt(0) * 31 + (spec.charCodeAt(1) || 0) : 0));
   const crewLine = line && line !== 'hab' && tier >= 2;
@@ -1804,10 +1822,10 @@ function makeSprite(tier, line, spec, seed, s) {
   const w = Math.ceil(s * 2 * Math.max(0.5, sh.reach) + pad * 2);
   const h = Math.ceil((sh.top + 0.3) * s + s * 0.5 + pad * 2);
   const c = document.createElement('canvas');
-  c.width = Math.ceil(w * DPR);
-  c.height = Math.ceil(h * DPR);
+  c.width = Math.ceil(w * res);
+  c.height = Math.ceil(h * res);
   const g = c.getContext('2d');
-  g.scale(DPR, DPR);
+  g.scale(res, res);
   const x = w / 2, y = h - s * 0.25 - pad;
   const dom = lineColor(crewLine ? line : null, seed);
   const alt = crewLine ? PAL[seed % 3] === dom ? PAL[(seed + 1) % 3] : PAL[seed % 3]
@@ -2032,22 +2050,44 @@ function makeSprite(tier, line, spec, seed, s) {
   return { c, ox: x, oy: y, w, h, wins, beacon, main: { x: P0.x - x, y: P0.y - y, hw: hw0, hh: hh0, z0: P0.z0, z1: P0.z1 } };
 }
 
-function sprite(tier, line, spec, seed, s) {
-  const q = Math.pow(2, Math.round(Math.log2(s) * 8) / 8);
-  const base = `${tier}:${line || ''}:${spec || ''}:${seed}`;
-  const key = `${base}:${q.toFixed(2)}:${DPR}`;
+// A tall tower's sprite at Retina resolution is a megabyte or more, so the cache works to a memory
+// budget and lets go of the sprites that have gone longest without being drawn.
+const spriteBudgetBytes = () => (DPR > 1 ? 96 : 48) * 1048576;
+function sprite(tier, line, spec, seed, s, faded) {
+  // Other districts show faint behind the current one, so standard resolution is plenty for them.
+  const res = faded ? Math.min(DPR, 1) : DPR;
+  // With the camera at rest a sprite is made at its exact on-screen size, so it lands 1:1 on the
+  // screen's pixels: several times cheaper to draw than a resampled one. While zooming, sizes
+  // round to eighth-octave steps so a few sprites serve the whole move.
+  const q = camSettled && !faded ? Math.round(s * 1000) / 1000 : Math.pow(2, Math.round(Math.log2(s) * 8) / 8);
+  const base = `${tier}:${line || ''}:${spec || ''}:${seed}:${res}`;
+  const key = `${base}:${q}`;
   let sp = spriteCache.get(key);
-  if (sp) return sp;
+  if (sp) { sp.used = drawFrame; return sp; }
   // Drawing a sprite costs a few hundred rectangles, so only a handful are made per frame.
-  // While zooming, the nearest existing size stands in until its turn comes.
-  if (spriteBudget <= 0 && spriteLatest.has(base)) return spriteLatest.get(base);
+  // Meanwhile the nearest existing size stands in until its turn comes.
+  const prev = spriteLatest.get(base);
+  if (spriteBudget <= 0 && prev) { prev.used = drawFrame; return prev; }
   spriteBudget--;
-  if (spriteCache.size > 600) spriteCache.clear();
-  sp = makeSprite(tier, line, spec, seed, q);
-  sp.q = q;
+  sp = makeSprite(tier, line, spec, seed, q, res);
+  Object.assign(sp, { q, res, base, used: drawFrame, bytes: sp.c.width * sp.c.height * 4 });
   spriteCache.set(key, sp);
+  spriteBytes += sp.bytes;
   spriteLatest.set(base, sp);
+  trimSprites();
   return sp;
+}
+function trimSprites() {
+  const budget = spriteBudgetBytes();
+  // oldest first; anything drawn this frame or last stays, so a big screen can't thrash
+  for (const [key, sp] of spriteCache) {
+    if (spriteBytes <= budget) return;
+    if (sp.used >= drawFrame - 1) continue;
+    spriteCache.delete(key);
+    spriteBytes -= sp.bytes;
+    if (spriteLatest.get(sp.base) === sp) spriteLatest.delete(sp.base);
+    sp.c.width = sp.c.height = 0;   // hand the pixels back now rather than at the next collection
+  }
 }
 
 /* ================================================================
@@ -2075,6 +2115,26 @@ function poolSprite(color) {
     fxCache.set(key, c);
   }
   return c;
+}
+// A dot with its glow baked in, standing in for a shadowBlur draw (one of the slowest canvas operations).
+function glowDot(color, r, blur) {
+  const key = `g${color}${r}${blur}`;
+  let d = fxCache.get(key);
+  if (!d) {
+    const size = Math.ceil(r * 2 + blur * 2.4 + 2);
+    const c = document.createElement('canvas'); c.width = c.height = Math.ceil(size * DPR);
+    const g = c.getContext('2d');
+    g.scale(DPR, DPR);
+    g.fillStyle = color; g.shadowColor = color; g.shadowBlur = blur;
+    g.beginPath(); g.arc(size / 2, size / 2, r, 0, Math.PI * 2); g.fill();
+    d = { c, size };
+    fxCache.set(key, d);
+  }
+  return d;
+}
+function drawGlowDot(color, r, blur, x, y) {
+  const d = glowDot(color, r, blur);
+  ctx.drawImage(d.c, x - d.size / 2, y - d.size / 2, d.size, d.size);
 }
 function trailSprite(color, dir) {
   const key = 't' + color + dir;
@@ -2120,6 +2180,7 @@ function floater(x, y, text, color) {
 function draw(now, dt) {
   const t = now / 1000;
   spriteBudget = 8;
+  drawFrame++;
   if (backdropTheme !== cur().type) buildBackdrop(cur().type);
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   ctx.drawImage(backdrop, 0, 0, W, H);
@@ -2134,12 +2195,34 @@ function draw(now, dt) {
     ctx.fillStyle = '#fff'; ctx.fillRect(x - 1, y - 1, 2, 2);
   }
 
-  for (let sec = 0; sec < S.sectors.length; sec++) drawGround(sec, t);
+  // the still parts of the ground come from the cached layer once the camera has held for a frame
+  const key = groundSig();
+  if (key !== groundKey && key === groundNext) {
+    const g = groundLayer.getContext('2d');
+    g.setTransform(DPR, 0, 0, DPR, 0, 0);
+    g.clearRect(0, 0, W, H);
+    paintGround(g);
+    const budget = spriteBudget;
+    spriteBudget = 200;            // a layer is painted once, so it gets every sprite it needs now
+    paintFaded(g, false);
+    if (frontLayer.width !== cvs.width || frontLayer.height !== cvs.height) { frontLayer.width = cvs.width; frontLayer.height = cvs.height; }
+    const f = frontLayer.getContext('2d');
+    f.setTransform(DPR, 0, 0, DPR, 0, 0);
+    f.clearRect(0, 0, W, H);
+    frontUsed = paintFaded(f, true);
+    if (!frontUsed) frontLayer.width = frontLayer.height = 0;
+    spriteBudget = budget;
+    groundKey = key;
+  }
+  const layered = key === groundKey;
+  if (layered) ctx.drawImage(groundLayer, 0, 0, W, H);
+  else { groundNext = key; paintGround(ctx); }
   if (showGhost()) drawGhostSector(S.sectors.length, t);
-  drawRoads(t);
+  drawRoadTraffic(t);
+  drawGroundLive(t);
   drawSearchlights(t);
   updateLife(dt);
-  drawBuildings(now, t);
+  drawBuildings(now, t, layered);
   if (view === 'map') drawMapLabels();
 
   for (let n = particles.length - 1; n >= 0; n--) {
@@ -2187,77 +2270,123 @@ function sectorCorners(sec) {
 }
 const offscreen = c => c.right[0] < -20 || c.left[0] > W + 20 || c.bottom[1] < -20 || c.top[1] > H + 5 * cam.s;
 
-function drawGround(sec, t) {
+// What the ground layer shows, as a key: the camera, the screen and a fingerprint of the city.
+const LINE_INDEX = Object.fromEntries(Object.keys(LINES).map((id, n) => [id, n + 1]));
+function groundSig() {
+  let h = S.sectors.length * 977 + S.cur * 31 + (view === 'map' ? 1 : 2) + (showGhost() ? 4 : 0);
+  for (let sec = 0; sec < S.sectors.length; sec++) {
+    const sc = S.sectors[sec];
+    h = (Math.imul(h, 31) + DISTRICT_IDS.indexOf(sc.type) * 7 + (S.roads[sec] | 0)) | 0;
+    for (let k = 0; k < N * N; k++) {
+      const sp = sc.specs[k] || '';
+      h = (Math.imul(h, 31) + sc.lots[k] * 64 + (LINE_INDEX[sc.lines[k]] || 0) + (sp.charCodeAt(0) || 0) * 4096 + (sp.charCodeAt(1) || 0) * 524288) | 0;
+    }
+  }
+  return `${cam.x}|${cam.y}|${cam.s}|${W}|${H}|${DPR}|${Perf.lite()}|${h}`;
+}
+function paintGround(g) {
+  for (let sec = 0; sec < S.sectors.length; sec++) drawGround(g, sec);
+  drawRoadBeds(g);
+  drawGlowPools(g);
+}
+function drawGround(g, sec) {
   const c = sectorCorners(sec);
   if (offscreen(c)) return;
-  ctx.save();
-  if (view === 'city' && sec !== S.cur) ctx.globalAlpha = 0.45;
-  drawGroundInner(sec, t, c);
-  ctx.restore();
-}
-function drawGroundInner(sec, t, c) {
+  g.save();
+  if (view === 'city' && sec !== S.cur) g.globalAlpha = 0.45;
   const { top, right, bottom, left, P, I0, J0 } = c;
   const haze = theme(sec).haze;
   const d = 0.22 * cam.s;
-  ctx.fillStyle = '#0a0816';
-  poly(ctx, [left, bottom, [bottom[0], bottom[1] + d], [left[0], left[1] + d]]);
-  ctx.fillStyle = '#110e22';
-  poly(ctx, [bottom, right, [right[0], right[1] + d], [bottom[0], bottom[1] + d]]);
-  ctx.fillStyle = '#0f0c1e';
-  poly(ctx, [top, right, bottom, left]);
-  ctx.strokeStyle = `rgba(${haze}, 0.4)`; ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(left[0], left[1]); ctx.lineTo(bottom[0], bottom[1]); ctx.lineTo(right[0], right[1]); ctx.stroke();
+  g.fillStyle = '#0a0816';
+  poly(g, [left, bottom, [bottom[0], bottom[1] + d], [left[0], left[1] + d]]);
+  g.fillStyle = '#110e22';
+  poly(g, [bottom, right, [right[0], right[1] + d], [bottom[0], bottom[1] + d]]);
+  g.fillStyle = '#0f0c1e';
+  poly(g, [top, right, bottom, left]);
+  g.strokeStyle = `rgba(${haze}, 0.4)`; g.lineWidth = 1;
+  g.beginPath(); g.moveTo(left[0], left[1]); g.lineTo(bottom[0], bottom[1]); g.lineTo(right[0], right[1]); g.stroke();
 
   // streets between lots; the Capital's are trimmed in gold
-  ctx.strokeStyle = sec === 0 ? 'rgba(255, 194, 62, 0.22)' : `rgba(${haze}, 0.09)`;
-  ctx.beginPath();
+  g.strokeStyle = sec === 0 ? 'rgba(255, 194, 62, 0.22)' : `rgba(${haze}, 0.09)`;
+  g.beginPath();
   for (let k = 0; k <= N; k++) {
     let p1 = P(I0 + k - 0.5, J0 - 0.5), p2 = P(I0 + k - 0.5, J0 + N - 0.5);
-    ctx.moveTo(p1[0], p1[1]); ctx.lineTo(p2[0], p2[1]);
+    g.moveTo(p1[0], p1[1]); g.lineTo(p2[0], p2[1]);
     p1 = P(I0 - 0.5, J0 + k - 0.5); p2 = P(I0 + N - 0.5, J0 + k - 0.5);
-    ctx.moveTo(p1[0], p1[1]); ctx.lineTo(p2[0], p2[1]);
+    g.moveTo(p1[0], p1[1]); g.lineTo(p2[0], p2[1]);
   }
-  ctx.stroke();
+  g.stroke();
   if (cam.s > 30) {
-    ctx.fillStyle = 'rgba(255, 194, 62, 0.55)';
+    g.fillStyle = 'rgba(255, 194, 62, 0.55)';
     for (let a = 0; a <= N; a++) for (let b = 0; b <= N; b++) {
       const [x, y] = P(I0 + a - 0.5, J0 + b - 0.5);
-      ctx.fillRect(x - 1, y - 1, 2, 2);
+      g.fillRect(x - 1, y - 1, 2, 2);
     }
   }
 
   const s = S.sectors[sec];
-  const active = view === 'city' && sec === S.cur;
-  const nk = active ? nextLot(sec) : -1;
-  const pulse = 0.5 + 0.5 * Math.sin(t * 3);
+  g.fillStyle = '#171331'; g.strokeStyle = '#2e2756'; g.lineWidth = 1;
   for (let k = 0; k < N * N; k++) {
-    if (!s.lots[k] && k !== nk) continue;
-    const [x, y] = lotScreen(sec, k);
-    const f = 0.84, hw = cam.s * 0.5 * f, hh = cam.s * 0.25 * f;
-    ctx.beginPath(); ctx.moveTo(x, y - hh); ctx.lineTo(x + hw, y); ctx.lineTo(x, y + hh); ctx.lineTo(x - hw, y); ctx.closePath();
-    if (s.lots[k]) {
-      ctx.fillStyle = '#171331'; ctx.fill();
-      ctx.strokeStyle = '#2e2756'; ctx.lineWidth = 1; ctx.stroke();
-      if (active && k === s.sel) {
-        ctx.save();
-        ctx.strokeStyle = '#ff2bd6'; ctx.shadowColor = '#ff2bd6'; ctx.shadowBlur = 12;
-        ctx.globalAlpha = 0.6 + 0.4 * pulse; ctx.lineWidth = 2;
-        ctx.stroke();
-        ctx.restore();
-      }
-    } else {
-      ctx.save();
-      ctx.setLineDash([5, 4]);
-      ctx.lineDashOffset = reduceMotion ? 0 : -t * 12;
-      ctx.strokeStyle = S.credits >= lotCost(sec) ? '#3ef2ff' : 'rgba(62, 242, 255, 0.45)';
-      ctx.globalAlpha = 0.5 + 0.5 * pulse; ctx.lineWidth = 1.5;
-      ctx.stroke();
-      ctx.setLineDash([]);
-      const r = Math.max(4, cam.s * 0.06);
-      ctx.beginPath(); ctx.moveTo(x - r, y); ctx.lineTo(x + r, y); ctx.moveTo(x, y - r / 2); ctx.lineTo(x, y + r / 2); ctx.stroke();
-      ctx.restore();
+    if (!s.lots[k]) continue;
+    lotDiamond(g, sec, k);
+    g.fill(); g.stroke();
+  }
+  g.restore();
+}
+function lotDiamond(g, sec, k) {
+  const [x, y] = lotScreen(sec, k);
+  const f = 0.84, hw = cam.s * 0.5 * f, hh = cam.s * 0.25 * f;
+  g.beginPath(); g.moveTo(x, y - hh); g.lineTo(x + hw, y); g.lineTo(x, y + hh); g.lineTo(x - hw, y); g.closePath();
+  return [x, y];
+}
+// The animated parts of the current district's ground: the selected lot's pulse and the next lot for sale.
+function drawGroundLive(t) {
+  if (view !== 'city') return;
+  const sec = S.cur, s = S.sectors[sec];
+  if (offscreen(sectorCorners(sec))) return;
+  const pulse = 0.5 + 0.5 * Math.sin(t * 3);
+  if (s.lots[s.sel]) {
+    ctx.save();
+    lotDiamond(ctx, sec, s.sel);
+    ctx.strokeStyle = '#ff2bd6'; ctx.shadowColor = '#ff2bd6'; ctx.shadowBlur = 12;
+    ctx.globalAlpha = 0.6 + 0.4 * pulse; ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.restore();
+  }
+  const nk = nextLot(sec);
+  if (nk !== undefined && !s.lots[nk]) {
+    ctx.save();
+    const [x, y] = lotDiamond(ctx, sec, nk);
+    ctx.setLineDash([5, 4]);
+    ctx.lineDashOffset = reduceMotion ? 0 : -t * 12;
+    ctx.strokeStyle = S.credits >= lotCost(sec) ? '#3ef2ff' : 'rgba(62, 242, 255, 0.45)';
+    ctx.globalAlpha = 0.5 + 0.5 * pulse; ctx.lineWidth = 1.5;
+    ctx.stroke();
+    ctx.setLineDash([]);
+    const r = Math.max(4, cam.s * 0.06);
+    ctx.beginPath(); ctx.moveTo(x - r, y); ctx.lineTo(x + r, y); ctx.moveTo(x, y - r / 2); ctx.lineTo(x, y + r / 2); ctx.stroke();
+    ctx.restore();
+  }
+}
+// Light pools on the ground under each building of the district in view. Additive, so order doesn't matter.
+function drawGlowPools(g) {
+  if (!(cam.s > 26) || Perf.lite()) return;
+  g.save();
+  g.globalCompositeOperation = 'lighter';
+  for (let sec = 0; sec < S.sectors.length; sec++) {
+    if (view === 'city' && sec !== S.cur) continue;
+    const s = S.sectors[sec];
+    for (let k = 0; k < N * N; k++) {
+      const tier = s.lots[k];
+      if (!tier) continue;
+      const [x, y] = lotScreen(sec, k);
+      if (x < -cam.s || x > W + cam.s || y < -cam.s || y > H + cam.s) continue;
+      const line = tier >= 2 ? s.lines[k] : null;
+      const dom = lineColor(line && line !== 'hab' ? line : null, seedOf(sec, k));
+      g.drawImage(poolSprite(dom), x - cam.s * 0.6, y - cam.s * 0.35, cam.s * 1.2, cam.s * 0.7);
     }
   }
+  g.restore();
 }
 
 // The next sector, before its road is built: a dashed outline of land waiting.
@@ -2294,39 +2423,51 @@ function roadEnds(k) {
   const dir = Math.sign(b2 - b1);
   return [[c1[0], c1[1] + dir * (CENTER + 0.5)], [c2[0], c2[1] - dir * (CENTER + 0.5)]];
 }
-function drawRoads(t) {
-  const count = S.sectors.length + (showGhost() ? 1 : 0);
-  for (let k = 1; k < count; k++) {
-    const built = k < S.sectors.length;
-    const [[I1, J1], [I2, J2]] = roadEnds(k);
-    // run the road a little into each sector so it meets the streets
-    const dI = Math.sign(I2 - I1), dJ = Math.sign(J2 - J1);
-    const p1 = [sx(worldX(I1 - dI * 0.5, J1 - dJ * 0.5)), sy(worldY(I1 - dI * 0.5, J1 - dJ * 0.5))];
-    const p2 = [sx(worldX(I2 + dI * 0.5, J2 + dJ * 0.5)), sy(worldY(I2 + dI * 0.5, J2 + dJ * 0.5))];
-    if (Math.max(p1[0], p2[0]) < -40 || Math.min(p1[0], p2[0]) > W + 40 || Math.max(p1[1], p2[1]) < -40 || Math.min(p1[1], p2[1]) > H + 40) continue;
-    const lv = built ? S.roads[k] : 0;
-    const color = built ? ROAD_LEVELS[lv].color : 'rgba(148, 140, 192, 0.5)';
-    const width = Math.max(2, cam.s * (0.12 + lv * 0.05));
-    ctx.save();
-    ctx.lineCap = 'round';
-    if (!built) {
-      ctx.setLineDash([6, 6]);
-      ctx.strokeStyle = color; ctx.lineWidth = 1.5;
-      ctx.beginPath(); ctx.moveTo(p1[0], p1[1]); ctx.lineTo(p2[0], p2[1]); ctx.stroke();
-      ctx.restore();
+function roadGeom(k) {
+  const built = k < S.sectors.length;
+  const [[I1, J1], [I2, J2]] = roadEnds(k);
+  // run the road a little into each sector so it meets the streets
+  const dI = Math.sign(I2 - I1), dJ = Math.sign(J2 - J1);
+  const p1 = [sx(worldX(I1 - dI * 0.5, J1 - dJ * 0.5)), sy(worldY(I1 - dI * 0.5, J1 - dJ * 0.5))];
+  const p2 = [sx(worldX(I2 + dI * 0.5, J2 + dJ * 0.5)), sy(worldY(I2 + dI * 0.5, J2 + dJ * 0.5))];
+  if (Math.max(p1[0], p2[0]) < -40 || Math.min(p1[0], p2[0]) > W + 40 || Math.max(p1[1], p2[1]) < -40 || Math.min(p1[1], p2[1]) > H + 40) return null;
+  const lv = built ? S.roads[k] : 0;
+  const width = Math.max(2, cam.s * (0.12 + lv * 0.05));
+  const nx = -(p2[1] - p1[1]), ny = p2[0] - p1[0], nl = Math.hypot(nx, ny) || 1;
+  return { built, lv, p1, p2, width, ox: nx / nl * width / 2, oy: ny / nl * width / 2,
+           color: built ? ROAD_LEVELS[lv].color : 'rgba(148, 140, 192, 0.5)' };
+}
+const roadCount = () => S.sectors.length + (showGhost() ? 1 : 0);
+function drawRoadBeds(g) {
+  for (let k = 1; k < roadCount(); k++) {
+    const r = roadGeom(k);
+    if (!r) continue;
+    const { p1, p2, ox, oy, color } = r;
+    g.save();
+    g.lineCap = 'round';
+    if (!r.built) {
+      g.setLineDash([6, 6]);
+      g.strokeStyle = color; g.lineWidth = 1.5;
+      g.beginPath(); g.moveTo(p1[0], p1[1]); g.lineTo(p2[0], p2[1]); g.stroke();
+      g.restore();
       continue;
     }
-    ctx.strokeStyle = '#120f22'; ctx.lineWidth = width + 4;
-    ctx.beginPath(); ctx.moveTo(p1[0], p1[1]); ctx.lineTo(p2[0], p2[1]); ctx.stroke();
-    ctx.strokeStyle = color; ctx.shadowColor = color; ctx.shadowBlur = 12; ctx.lineWidth = 1.5;
-    const nx = -(p2[1] - p1[1]), ny = p2[0] - p1[0], nl = Math.hypot(nx, ny) || 1;
-    const ox = nx / nl * width / 2, oy = ny / nl * width / 2;
-    ctx.beginPath();
-    ctx.moveTo(p1[0] + ox, p1[1] + oy); ctx.lineTo(p2[0] + ox, p2[1] + oy);
-    ctx.moveTo(p1[0] - ox, p1[1] - oy); ctx.lineTo(p2[0] - ox, p2[1] - oy);
-    ctx.stroke();
-    // traffic pulses: more lanes and faster on better roads
-    ctx.shadowBlur = 8;
+    g.strokeStyle = '#120f22'; g.lineWidth = r.width + 4;
+    g.beginPath(); g.moveTo(p1[0], p1[1]); g.lineTo(p2[0], p2[1]); g.stroke();
+    g.strokeStyle = color; g.shadowColor = color; g.shadowBlur = 12; g.lineWidth = 1.5;
+    g.beginPath();
+    g.moveTo(p1[0] + ox, p1[1] + oy); g.lineTo(p2[0] + ox, p2[1] + oy);
+    g.moveTo(p1[0] - ox, p1[1] - oy); g.lineTo(p2[0] - ox, p2[1] - oy);
+    g.stroke();
+    g.restore();
+  }
+}
+// traffic pulses: more lanes and faster on better roads
+function drawRoadTraffic(t) {
+  for (let k = 1; k < S.sectors.length; k++) {
+    const r = roadGeom(k);
+    if (!r) continue;
+    const { p1, p2, ox, oy, lv } = r;
     const lanes = lv, speed = 0.25 + lv * 0.15;
     for (let ln = 0; ln < lanes; ln++) {
       const off = (ln - (lanes - 1) / 2) / Math.max(1, lanes) * 0.8;
@@ -2334,11 +2475,9 @@ function drawRoads(t) {
         let f = ((reduceMotion ? 0 : t * speed) + n / 4 + ln * 0.13) % 1;
         if (ln % 2) f = 1 - f;
         const px = p1[0] + (p2[0] - p1[0]) * f + ox * 2 * off, py = p1[1] + (p2[1] - p1[1]) * f + oy * 2 * off;
-        ctx.fillStyle = ln % 2 ? '#ff3b4f' : '#ffffff';
-        ctx.fillRect(px - 1.2, py - 1.2, 2.4, 2.4);
+        drawGlowDot(ln % 2 ? '#ff3b4f' : '#ffffff', 1.4, 8, px, py);
       }
     }
-    ctx.restore();
   }
 }
 
@@ -2539,24 +2678,48 @@ function facePanel(sp, sc, dx, dy, side, u0, u1, v0, v1, PW, PH, fn) {
   fn();
   ctx.restore();
 }
+// Each jumbotron's ticker is typeset into a strip when its prices change (every 2.5 s) and slid
+// across the screen face each frame; drawing text under a skewed transform every frame is slow.
+const tickerStrips = new Map();
+function tickerStrip(seed, tick) {
+  let st = tickerStrips.get(seed);
+  if (st && st.tick === tick) return st;
+  if (!st) {
+    st = { c: document.createElement('canvas'), tick: -1 };
+    st.c.width = 1100; st.c.height = 22;   // half the panel's units: the panel is never that large on screen
+    tickerStrips.set(seed, st);
+  }
+  st.tick = tick;
+  const g = st.c.getContext('2d');
+  g.setTransform(0.5, 0, 0, 0.5, 0, 0);
+  g.clearRect(0, 0, 2200, 44);
+  g.font = '700 26px "Share Tech Mono", ui-monospace, monospace';
+  g.textBaseline = 'middle';
+  let x = 0;
+  for (let n = 0; n < 12; n++) {
+    const sym = TICKERS[(seed + n) % TICKERS.length];
+    const up = hash(seed * 13 + n * 7 + tick) % 100 < 55;
+    const pct = ((hash(seed + n * 3 + tick) % 900) / 100).toFixed(2);
+    const txt = `${sym} ${up ? '▲' : '▼'}${pct}  `;
+    g.fillStyle = up ? '#5dffb0' : '#ff3b5c';
+    g.fillText(txt, x, 23);
+    x += g.measureText(txt).width;
+  }
+  return st;
+}
+let scanlines = null;
 function drawJumbotron(sp, sc, dx, dy, seed, t) {
+  const st = tickerStrip(seed, Math.floor(t / 2.5));
+  if (!scanlines) {
+    scanlines = document.createElement('canvas'); scanlines.width = 240; scanlines.height = 44;
+    const g = scanlines.getContext('2d');
+    g.fillStyle = 'rgba(255,255,255,0.06)'; for (let r = 0; r < 44; r += 4) g.fillRect(0, r, 240, 1);
+  }
   facePanel(sp, sc, dx, dy, 'R', 0.08, 0.92, 0.62, 0.8, 240, 44, () => {
     ctx.fillStyle = '#05040a'; ctx.fillRect(0, 0, 240, 44);
-    ctx.font = '700 26px "Share Tech Mono", ui-monospace, monospace';
-    ctx.textBaseline = 'middle';
-    const tick = Math.floor(t / 2.5);
-    let x = 240 - ((reduceMotion ? 0 : t * 38) + seed % 200) % 900;
-    for (let n = 0; n < 12; n++) {
-      const sym = TICKERS[(seed + n) % TICKERS.length];
-      const up = hash(seed * 13 + n * 7 + tick) % 100 < 55;
-      const pct = ((hash(seed + n * 3 + tick) % 900) / 100).toFixed(2);
-      const txt = `${sym} ${up ? '▲' : '▼'}${pct}  `;
-      ctx.fillStyle = up ? '#5dffb0' : '#ff3b5c';
-      ctx.fillText(txt, x, 23);
-      x += ctx.measureText(txt).width;
-      if (x > 260) break;
-    }
-    ctx.fillStyle = 'rgba(255,255,255,0.06)'; for (let r = 0; r < 44; r += 4) ctx.fillRect(0, r, 240, 1);
+    const x = 240 - ((reduceMotion ? 0 : t * 38) + seed % 200) % 900;
+    ctx.drawImage(st.c, x, 0, 2200, 44);
+    ctx.drawImage(scanlines, 0, 0);
   });
 }
 const BILL_WORDS = ['PLAY', 'WIN', 'JACK IN', 'LEVEL UP', 'NEON', 'VR NOW', 'GAME ON'];
@@ -2582,9 +2745,35 @@ function drawElectricBillboard(sp, sc, dx, dy, seed, t) {
   });
 }
 
-function drawBuildings(now, t) {
-  const order = buildingList().concat(lifeEntries()).sort((a, b) => a.d - b.d);
-  const glow = cam.s > 26 && !Perf.lite(), detail = cam.s > 30;
+// Districts are laid out on a grid, and one with a smaller grid sum sits wholly behind another on screen.
+const sectorDepth = sec => SECTOR_POS[sec][0] + SECTOR_POS[sec][1];
+function paintFaded(g, front) {
+  if (view !== 'city') return false;
+  const cd = sectorDepth(S.cur);
+  const list = buildingList().filter(e => e.sec !== S.cur && (sectorDepth(e.sec) > cd) === front).sort((a, b) => a.d - b.d);
+  let any = false;
+  g.save();
+  g.globalAlpha = 0.22;
+  for (const e of list) {
+    const [x, y] = lotScreen(e.sec, e.k);
+    const top = shapeOf(e.tier, e.spec).top * cam.s;
+    if (x < -cam.s || x > W + cam.s || y - top > H + 10 || y < -cam.s) continue;
+    fabs.delete(e.sec + ':' + e.k);   // too faint to show a build animation
+    const sp = sprite(e.tier, e.line, e.spec, seedOf(e.sec, e.k), cam.s, true);
+    const sc = cam.s / sp.q;
+    g.drawImage(sp.c, x - sp.ox * sc, y - sp.oy * sc, sp.w * sc, sp.h * sc);
+    any = true;
+  }
+  g.restore();
+  return any;
+}
+
+function drawBuildings(now, t, layered) {
+  // with the layers in place only the district in view is drawn here; the rest come baked
+  let list = buildingList();
+  if (layered && view === 'city') list = list.filter(e => e.sec === S.cur);
+  const order = list.concat(lifeEntries()).sort((a, b) => a.d - b.d);
+  const detail = cam.s > 30;
   for (const e of order) {
     if (e.kind === 'p') { drawPed(e, t); continue; }
     if (e.kind === 'c') { drawCar(e.o, t); continue; }
@@ -2597,15 +2786,16 @@ function drawBuildings(now, t) {
     const dom = lineColor(line && line !== 'hab' ? line : null, seed);
     const faded = view === 'city' && sec !== S.cur;
     ctx.globalAlpha = faded ? 0.22 : 1;
-    if (glow && !faded) {
-      ctx.globalCompositeOperation = 'lighter';
-      ctx.drawImage(poolSprite(dom), x - cam.s * 0.6, y - cam.s * 0.35, cam.s * 1.2, cam.s * 0.7);
-      ctx.globalCompositeOperation = 'source-over';
-    }
 
-    const sp = sprite(tier, line, spec, seed, cam.s);
-    const sc = cam.s / sp.q;
-    const dx = x - sp.ox * sc, dy = y - sp.oy * sc, dw = sp.w * sc, dh = sp.h * sc;
+    const sp = sprite(tier, line, spec, seed, cam.s, faded);
+    let sc = cam.s / sp.q;
+    let dx = x - sp.ox * sc, dy = y - sp.oy * sc, dw = sp.w * sc, dh = sp.h * sc;
+    if (sp.res === DPR && Math.abs(sc - 1) < 0.001) {
+      // a 1:1 sprite: land it on whole screen pixels so the browser copies it straight across
+      sc = 1;
+      dx = Math.round(dx * DPR) / DPR; dy = Math.round(dy * DPR) / DPR;
+      dw = sp.c.width / DPR; dh = sp.c.height / DPR;
+    }
     const fkey = sec + ':' + k;
     const fab = fabs.get(fkey);
     if (fab !== undefined) {
@@ -2654,14 +2844,10 @@ function drawBuildings(now, t) {
     if (detail && dtype === 'entertainment' && tier >= 3) drawElectricBillboard(sp, sc, dx, dy, seed, t);
 
     // blinking aircraft beacon
-    if (sp.beacon && Math.sin(t * 2.4 + seed) > 0.2) {
-      ctx.save();
-      ctx.fillStyle = '#ff3b4f'; ctx.shadowColor = '#ff3b4f'; ctx.shadowBlur = 10;
-      ctx.beginPath(); ctx.arc(dx + sp.beacon[0] * sc, dy + sp.beacon[1] * sc, 2.2, 0, Math.PI * 2); ctx.fill();
-      ctx.restore();
-    }
+    if (sp.beacon && Math.sin(t * 2.4 + seed) > 0.2) drawGlowDot('#ff3b4f', 2.2, 10, dx + sp.beacon[0] * sc, dy + sp.beacon[1] * sc);
   }
   ctx.globalAlpha = 1;
+  if (layered && frontUsed) ctx.drawImage(frontLayer, 0, 0, W, H);
   // selection chevron above the chosen building
   const s = cur();
   if (view === 'city' && s.lots[s.sel]) {
@@ -3659,6 +3845,11 @@ function frame(now) {
   cam.x += (target.x - cam.x) * k;
   cam.y += (target.y - cam.y) * k;
   cam.s = Math.exp(Math.log(cam.s) + (Math.log(target.s) - Math.log(cam.s)) * k);
+  // close enough: land exactly, so the view (and every sprite size) holds perfectly still
+  if (Math.abs(Math.log(target.s / cam.s)) < 0.0005 && Math.abs(target.x - cam.x) * cam.s < 0.1 && Math.abs(target.y - cam.y) * cam.s < 0.1) {
+    cam.x = target.x; cam.y = target.y; cam.s = target.s;
+  }
+  camSettled = cam.s === target.s;
   cam.ready = true;
   draw(now, dt);
   }
@@ -3675,6 +3866,8 @@ function frame(now) {
 
   uiClock += real; slowClock += real; saveClock += real; cloudClock += real;
   if (!hidden) {
+    const still = Perf.idleFor(now) > DEEP_IDLE_AFTER && Perf.mode !== 'full';
+    if (still !== document.body.classList.contains('still')) document.body.classList.toggle('still', still);
     // Right after a click the panel redraws at once; otherwise at most a few times a second,
     // and the numbers tick less often when nobody is watching.
     const typing = document.activeElement && document.activeElement.tagName === 'TEXTAREA' && panel.contains(document.activeElement);
@@ -3775,7 +3968,8 @@ window.neonSprawl = {
   lotOutput, upgradeGain, crewEach, recalc, lineUnlocked, districtUnlocked, setView, goSector, reboot, pendingChips, canReboot,
   checkAchievements, exportCode, parseCode, loadState, cloudSave, get cloud() { return Cloud; },
   get perf() { return Perf.mode; }, setPerf: m => { Perf.set(m); dirty = true; }, get fps() { return Perf.fps(performance.now()); },
-  idle(ms) { lastInput = performance.now() - ms; }, TECH, CREW, LINES, DISTRICTS,
+  idle(ms) { lastInput = performance.now() - ms; },
+  get spriteStats() { return { count: spriteCache.size, mb: +(spriteBytes / 1048576).toFixed(1) }; }, TECH, CREW, LINES, DISTRICTS,
 };
 
 window.claude?.hot?.snapshot?.(() => serialize());

@@ -66,6 +66,13 @@ Pedestrians walk the streets between buildings, hover cars and drones fly overhe
 
 The game draws at full speed while you play and eases off when you step away: about 20 frames a second after 30 seconds without input (or when the window loses focus), 8 after 3 minutes, and none at all in a hidden tab. Music pauses with the tab. Income, the auto-builder and saves keep running on real time throughout, so a background tab still earns and builds. The Goals tab has a Performance setting, stored per device: **Auto** (the default), **Full** (always 60 fps) or **Battery saver** (standard resolution, no rain or glow pools, 30 fps while playing).
 
+How drawing stays cheap:
+
+- Building sprites are drawn 1:1 on whole screen pixels once the camera settles; resampled sprites cost several times more to draw.
+- The ground, roads, light pools and the faint neighbouring districts are painted once into cached layers and copied each frame. They are repainted only when the camera or the city changes.
+- Glows (beacons, road traffic) and the jumbotron tickers come from small pre-rendered images rather than per-frame blur and text drawing.
+- The sprite cache works to a memory budget (96 MB on high-density screens, 48 MB otherwise) and drops the least recently drawn sprites first.
+
 ## Saving
 
 - The game saves in the browser every 10 seconds and when you close it. While you're away the city keeps earning, for up to 8 hours.
