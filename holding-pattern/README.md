@@ -10,26 +10,36 @@ file and needs no server.
 
 ## How it plays
 
+**Learning it.** A one-minute tutorial runs on first play (replay it from
+Help). The **Advisor** tab names the real bottleneck, explains what it is
+doing to the airport, and puts the cheapest fix one click away; its *Best
+next step* is always a safe purchase. Items it recommends are tagged in the
+Build and Staff tabs too. **Help** explains how a passenger and a plane
+move through the airport and what causes what.
+
 **Running costs, line by line.** Every terminal adds an air traffic
 controller, ground crews for its gates, climate control and cleaning. Every
 security lane has screeners, every shuttle bus has a driver, every parcel
-of land pays property tax. The Finance tab shows each line per minute.
+of land pays property tax. Money runs per second; the Money tab shows each
+line. If you are losing money, a red *why?* button opens the Advisor.
 Growth pays as long as the new capacity is filled with routes.
 
 **Contracts.** Airlines offer routes: aircraft type, flights per minute,
 fee per passenger and a signing bonus. Each offer shows how it would load
 your runway, the chosen terminal's gates, security, the connector to that
-terminal and parking, before and after. Sign too much and the airport
-clogs: arrivals circle in the holding stack, planes wait for gates,
-passengers miss flights. Airlines whose on-time rate stays under 55% for
-two minutes pull their route.
+terminal and parking, before and after; signing one that overloads
+anything asks you to confirm. Offers you can't take yet (widebodies need
+heavy gates) show the button that unlocks them. Sign too much and the airport
+clogs: arrivals circle in the holding stack, passengers miss flights (the
+alert says where they got stuck). Airlines whose on-time rate stays under 45% for
+two and a half minutes pull their route.
 
 **Congestion, for planes and for people.**
 
 | Where | What backs up | What fixes it |
 |---|---|---|
 | Runway | Arrivals hold west of the field; departures queue at the hold line | Approach radar, rapid-exit taxiways, tower automation, a second runway, more terminals (each adds a controller) |
-| Gates | Aircraft park on the taxiway waiting for a stand | More gates, more terminals, faster ground crews |
+| Gates | Aircraft circle until a gate at their terminal is free | More gates, more terminals, faster ground crews |
 | Security | The line spills out of the terminal onto the curb | More lanes, CT scanners, surge staffing |
 | Connectors | Passengers pile up on the platforms | More buses, upgrades, a better connector |
 | Terminals | Crowds above comfortable capacity spend less and hurt reputation | Spread routes across terminals |
@@ -50,12 +60,22 @@ passenger than the last, and every airport you own adds connecting
 passengers to all the others. Network routes between your own airports pay
 a premium.
 
+**Ground traffic.** Taxiways are one-way (the yellow arrows). Every taxiing
+aircraft looks ahead along its route and stops short of any other;
+junctions are locks that nobody enters without room to get out the other
+side; at merges the aircraft nearer the meeting point goes first; ground
+control limits how many aircraft taxi at once; and a plane lands only when
+its gate is free. If two aircraft ever end up nose to nose, the newer one
+is towed back a few metres.
+
 ## Development
 
     node build.mjs              build dist/holding-pattern.html
     node build.mjs --artifact   build the variant without the outer html/head/body
     node tools/bot.mjs 120      a greedy bot plays 120 minutes headless; prints the economy
     node tools/runway.mjs       measures real runway throughput against the model
+    node tools/traffic.mjs 15   stress-tests ground traffic on four layouts; fails on any
+                                overlap or gridlock (SEED=n for other random seeds)
     node tools/smoke.mjs        plays in headless Chromium, takes screenshots, fails on errors
     node tools/showcase.mjs     builds a busy airport in the browser and photographs it
 
