@@ -6,10 +6,10 @@ export const WORLD = { w: 2000, h: 1150 };
 
 // ---------------------------------------------------------------- aircraft
 export const AIRCRAFT = {
-  regional: { name: 'Regional jet', short: 'RJ', pax: 60, turn: 42, landingFee: 220, scale: 0.56, heavy: false, longRunway: false, paxFeeMult: 1.0, exitIndex: 0 },
-  narrow:   { name: 'Narrowbody',   short: 'NB', pax: 150, turn: 60, landingFee: 520, scale: 0.78, heavy: false, longRunway: false, paxFeeMult: 1.1, exitIndex: 1 },
-  wide:     { name: 'Widebody',     short: 'WB', pax: 290, turn: 86, landingFee: 1350, scale: 0.98, heavy: true, longRunway: false, paxFeeMult: 1.45, exitIndex: 2 },
-  jumbo:    { name: 'Superjumbo',   short: 'SJ', pax: 500, turn: 112, landingFee: 2900, scale: 1.12, heavy: true, longRunway: true, paxFeeMult: 1.7, exitIndex: 2 },
+  regional: { name: 'Regional jet', short: 'RJ', pax: 60, turn: 42, landingFee: 330, scale: 0.55, heavy: false, longRunway: false, paxFeeMult: 1.0, exitIndex: 0 },
+  narrow:   { name: 'Narrowbody',   short: 'NB', pax: 150, turn: 60, landingFee: 780, scale: 0.72, heavy: false, longRunway: false, paxFeeMult: 1.1, exitIndex: 1 },
+  wide:     { name: 'Widebody',     short: 'WB', pax: 290, turn: 86, landingFee: 2000, scale: 0.88, heavy: true, longRunway: false, paxFeeMult: 1.45, exitIndex: 2 },
+  jumbo:    { name: 'Superjumbo',   short: 'SJ', pax: 500, turn: 112, landingFee: 4300, scale: 1.0, heavy: true, longRunway: true, paxFeeMult: 1.7, exitIndex: 2 },
 };
 export const AIRCRAFT_ORDER = ['regional', 'narrow', 'wide', 'jumbo'];
 
@@ -35,11 +35,11 @@ export const FLIGHT = {
 export const PAX = {
   arriveEarly: 95,       // departing pax start showing up this long before STD
   arriveWindow: 50,      // ...spread over this many seconds
-  securityPerLane: 1.45, // pax/s per lane at standard staffing
+  securityPerLane: 2.2,  // pax/s per lane at standard staffing
   terminalComfortPerGate: 140, // pax a terminal holds comfortably, per gate
   exitTime: 4,
-  missedRefund: 20,      // paid back per passenger who misses a flight
-  retailPerPaxSec: 0.10, // $ per departing passenger per second in a terminal
+  missedRefund: 10,      // paid back per passenger who misses a flight
+  retailPerPaxSec: 0.14, // $ per departing passenger per second in a terminal
   parkingPerPax: 1.6,    // $ per departing passenger who drives
   driveShare: 0.55,
 };
@@ -69,7 +69,7 @@ export const COSTS = {
 export const TERMINAL = {
   baseCost: 32000,
   costGrowth: 1.72,      // each additional terminal at the same airport
-  buildTime: 35,
+  buildTime: 15,
   startGates: 3,
   gateCost: 7000,        // per added gate, grows with gate count
   gateCostGrowth: 1.35,
@@ -91,7 +91,7 @@ export const CONNECTORS = {
   walkway: {
     name: 'Covered walkway',
     blurb: 'A glazed corridor. Cheap and almost free to run, but slow and narrow. Only reaches terminals right next to the main building.',
-    buildBase: 6000, buildPerPx: 10, upkeep: 15, cap: 2.6, speed: 38, buildTime: 12, land: 0,
+    buildBase: 6000, buildPerPx: 10, upkeep: 15, cap: 2.6, speed: 38, buildTime: 6, land: 0,
     adjacentOnly: true, apron: false, breakdown: 0,
     upgrade: { name: 'Moving walkways', cost: 14000, cap: 1.6, speed: 1.6, upkeep: 20 },
   },
@@ -105,14 +105,14 @@ export const CONNECTORS = {
   monorail: {
     name: 'Elevated monorail',
     blurb: 'Fast and high capacity. The pylons and maintenance yard eat into car parking, and trains occasionally break down unless you fund preventive maintenance.',
-    buildBase: 30000, buildPerPx: 70, upkeep: 85, cap: 7.5, speed: 175, buildTime: 45, land: 60,
+    buildBase: 30000, buildPerPx: 70, upkeep: 85, cap: 7.5, speed: 175, buildTime: 20, land: 60,
     adjacentOnly: false, apron: false, breakdown: 0.09, // chance per minute
     upgrade: { name: 'Preventive maintenance', cost: 30000, cap: 1.25, speed: 1, upkeep: 40, noBreakdown: true },
   },
   tunnel: {
     name: 'Underground tunnel',
     blurb: 'The most expensive to dig and the slowest to build. Once open it needs no land, crosses nothing, and costs little to run.',
-    buildBase: 60000, buildPerPx: 150, upkeep: 22, cap: 11, speed: 105, buildTime: 110, land: 0,
+    buildBase: 60000, buildPerPx: 150, upkeep: 22, cap: 11, speed: 105, buildTime: 45, land: 0,
     adjacentOnly: false, apron: false, breakdown: 0,
     upgrade: { name: 'Underground people mover', cost: 160000, cap: 1.8, speed: 2.1, upkeep: 60 },
   },
@@ -136,12 +136,12 @@ export const UPGRADES = {
 };
 export const UPGRADE_ORDER = ['radar', 'rapidExits', 'hvac', 'ctScanners', 'solar', 'cat3', 'automation', 'garage1', 'longRunway', 'garage2', 'rail', 'runway2'];
 
-export const SECURITY = { laneCost: 4500, laneGrowth: 1.45, maxLanes: 14, startLanes: 2 };
+export const SECURITY = { laneCost: 3000, laneGrowth: 1.18, maxLanes: 14, startLanes: 2 };
 export const PARKING = { base: 140 };
 
 // ---------------------------------------------------------------- levels
 // Passengers served (both directions) to reach each airport level.
-export const LEVELS = [0, 1500, 5000, 12000, 30000, 70000, 150000, 320000, 700000, 1500000];
+export const LEVELS = [0, 800, 2500, 6000, 14000, 32000, 70000, 150000, 320000, 700000, 1500000];
 export const UNLOCKS = {
   narrow: 2,     // contracts for this class appear from this level
   wide: 3,
@@ -153,7 +153,7 @@ export const UNLOCKS = {
 // Each new airport grows faster: revenue scales harder than costs do.
 export const SITES = [
   { id: 'PWR', name: 'Pinewood Regional',   x: 0.22, y: 0.36, rev: 1.0,  cost: 1.0, demand: 1.0,  price: 0 },
-  { id: 'BSI', name: 'Bayside International', x: 0.38, y: 0.62, rev: 1.7,  cost: 1.3, demand: 1.15, price: 90000 },
+  { id: 'BSI', name: 'Bayside International', x: 0.38, y: 0.62, rev: 1.7,  cost: 1.3, demand: 1.15, price: 75000 },
   { id: 'HMA', name: 'High Mesa',           x: 0.13, y: 0.72, rev: 2.9,  cost: 1.7, demand: 1.3,  price: 650000 },
   { id: 'HBC', name: 'Harbor City',         x: 0.58, y: 0.40, rev: 4.9,  cost: 2.25, demand: 1.45, price: 3.2e6 },
   { id: 'NGT', name: 'Northgate',           x: 0.47, y: 0.14, rev: 8.3,  cost: 3.0, demand: 1.6,  price: 1.6e7 },
@@ -167,14 +167,14 @@ export const NETWORK = {
 
 // ---------------------------------------------------------------- contracts
 export const CONTRACTS = {
-  offerEvery: 50,       // seconds between offers at an airport (before demand)
+  offerEvery: 35,       // seconds between offers at an airport (before demand)
   maxOffers: 3,
   offerLife: 100,
   freq: { regional: [0.5, 1.1], narrow: [0.35, 0.85], wide: [0.22, 0.5], jumbo: [0.14, 0.3] },
-  paxFee: [7, 12],
+  paxFee: [10, 17],
   load: [0.72, 0.95],
-  unhappyOtp: 0.55,     // airlines below this on-time rate grow unhappy...
-  leaveAfter: 120,      // ...and leave after this many seconds of it
+  unhappyOtp: 0.45,     // airlines below this on-time rate grow unhappy...
+  leaveAfter: 150,      // ...and leave after this many seconds of it
   cancelPenaltyMins: 3, // breaking a contract costs this many minutes of its revenue
 };
 
@@ -207,5 +207,5 @@ export const WEATHER = {
   stormRunwayCat3: 0.9,
 };
 
-export const START = { cash: 30000 };
+export const START = { cash: 50000 };
 export const OFFLINE = { maxSeconds: 8 * 3600, efficiency: 0.6 };

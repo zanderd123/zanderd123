@@ -64,6 +64,7 @@ export function serialize(game) {
     speed: game.speed,
     started: game.started,
     tutorial: game.tutorial,
+    tutorialDone: !!game.tutorialDone,
     savedAt: Date.now(),
     airports: game.airports.map(serializeAirport),
   };
@@ -76,6 +77,7 @@ export function deserialize(data) {
     speed: data.speed || 1,
     started: data.started || Date.now(),
     tutorial: data.tutorial || 0,
+    tutorialDone: !!data.tutorialDone,
     airports: data.airports.map(restoreAirport),
     savedAt: data.savedAt,
   };

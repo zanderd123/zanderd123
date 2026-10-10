@@ -8,8 +8,8 @@ import {
   AIRLINES, CITIES, WEATHER,
 } from './config.js';
 import {
-  RW, TWY_A, TWY_B, EXITS, HOLD_POINT, IAF, PLOTS, SLOTS, LONG_RUNWAY_X1,
-  gateStand, pathExitToGate, pathFromTo, pathGateToHold, WAIT_SPOTS,
+  RW, RUNWAY_HALF, TWY_A, TWY_B, LANE2, EXITS, HOLD_POINT, IAF, PLOTS, SLOTS, LONG_RUNWAY_X1,
+  gateStand, pathExitToGate, pathGateToHold, lanesFor,
   connectorRoute, apronCrossing, slotCenter, TERMINAL_CODES,
 } from './layout.js';
 import { mulberry32, clamp, dist, pick, pathLength, pointAlong } from './util.js';
@@ -71,6 +71,9 @@ export function hydrate(ap, seed = Date.now()) {
   ap.flights = new Map();
   ap.secQ = [];
   ap.holdQueue = [];
+  ap.holdPhase = 0;
+  ap.zonesKey = '';
+  ap.busBlocks = [];
   ap.depQueue = [];
   ap.runways = RW.map(() => ({ occupant: null, clearEta: 0, reservedArr: null }));
   ap.atcTokens = 2;
@@ -136,6 +139,7 @@ export function restoreAirport(data) {
   const ap = { ...data, id: site.id, name: site.name };
   for (const T of ap.terminals) {
     if (T.connector) T.connector = { ...T.connector };
+    T.gates = Math.min(T.gates, SLOTS[T.slot].maxGates); // older saves allowed 5
   }
   hydrate(ap);
   return ap;
@@ -664,7 +668,7 @@ export function step(game, ap, dt) {
 
   scheduleFlights(game, ap);
   flowPassengers(game, ap, dt);
-  updateBuses(ap);
+  updateBuses(ap, dt);
   updatePlanes(game, ap, dt);
   updateContracts(game, ap, dt);
   updateRep(ap, dt);
@@ -686,8 +690,11 @@ export function step(game, ap, dt) {
   // Missed flights are reported in batches so a bad hour is one message.
   if (t >= (ap.missedReportAt || 0)) {
     ap.missedReportAt = t + 30;
-    if ((ap.missedAcc || 0) >= 5) notify(ap, 'missed', `${Math.round(ap.missedAcc)} passengers missed their flights in the last 30s`);
+    if ((ap.missedAcc || 0) >= 5) notify(ap, 'missed', missedMessage(ap));
+    const w = ap.missedWhy || {}, r = ap.missedRecent || (ap.missedRecent = { security: 0, connector: 0, late: 0 });
+    for (const k of ['security', 'connector', 'late']) r[k] = r[k] * 0.5 + (w[k] || 0);
     ap.missedAcc = 0;
+    ap.missedWhy = { security: 0, connector: 0, late: 0 };
   }
 
   // levels
@@ -695,6 +702,15 @@ export function step(game, ap, dt) {
     ap.level++;
     notify(ap, 'level', `${ap.name} reached level ${ap.level}`);
   }
+}
+
+function missedMessage(ap) {
+  const w = ap.missedWhy || { security: 0, connector: 0, late: 0 };
+  const n = Math.round(ap.missedAcc);
+  const top = Object.entries(w).sort((a, b) => b[1] - a[1])[0];
+  if (top[0] === 'security' && top[1] > 0) return `${n} passengers missed flights stuck in the security line. See the Advisor tab.`;
+  if (top[0] === 'connector' && top[1] > 0) return `${n} passengers missed flights waiting for a connector to their terminal. See the Advisor tab.`;
+  return `${n} passengers missed flights. See the Advisor tab.`;
 }
 
 function notify(ap, kind, text) {
@@ -744,6 +760,30 @@ function inboundEstimate(ap, c) {
 
 function arrRunway(ap) { return ap.upgrades.runway2 ? 1 : 0; }
 
+// ---------------------------------------------------------------- aircraft
+//
+// In the air, ATC keeps aircraft apart: one landing slot at a time, and a
+// holding stack where every aircraft has its own place in the circle.
+//
+// On the ground, every moving aircraft looks ahead along its own route.
+//  1. It never moves into another aircraft's body.
+//  2. Where two routes meet (a crossing or a merge), the aircraft closer
+//     to the meeting point goes first; the other waits short of it. An
+//     aircraft that has waited a long time gets priority.
+//  3. It never stops inside a junction someone else needs to cross
+//     ("don't block the box"), so queues leave crossings open.
+// One-way taxiways (see layout.js) mean nobody meets nose to nose, and
+// only so many departures may leave their gates at once, so the taxiways
+// can never fill up completely.
+
+const R_PLANE = 30;          // half-length of a scale-1 aircraft
+const LOOK = 260;            // how far ahead a taxiing aircraft checks
+const CLAIM = 130;           // how far ahead it claims the route at junctions
+const SAMPLE = 5;
+const MAX_DEP_GROUND = 6;    // departures allowed off their gates at once
+const MAX_ARR_GROUND = 6;    // arrivals allowed to land and taxi in at once
+const PUSH_SPEED = 22;
+
 function spawnPlane(ap, f) {
   const A = AIRCRAFT[f.cls];
   const rw = RW[arrRunway(ap)];
@@ -751,9 +791,9 @@ function spawnPlane(ap, f) {
   const x = IAF.x - 420 * Math.cos(a);
   const y = rw.y + 420 * Math.sin(a);
   const p = {
-    id: ap.nextPlaneId++, f, cls: f.cls, color: f.color, scale: A.scale,
+    id: ap.nextPlaneId++, f, cls: f.cls, color: f.color, scale: A.scale, r: R_PLANE * A.scale,
     state: 'inbound', x, y, ang: Math.atan2(rw.y - y, IAF.x - x), alt: 160, speed: FLIGHT.cruiseSpeed,
-    path: null, d: 0, blockedFor: 0, ghostUntil: 0,
+    path: null, d: 0, blockedFor: 0,
     gate: -1, turnLeft: 0, turnTotal: 0, deplaned: 0,
     rw: arrRunway(ap),
   };
@@ -769,13 +809,33 @@ function setPath(p, pts) {
 
 const DEP_OCCUPANCY = 4.2; // seconds a departure needs the runway
 
+// Landing needs both a runway slot and a free gate: an aircraft with nowhere
+// to park stays in the holding stack rather than clogging the taxiways.
 function canClearArrival(ap, p, eta) {
+  if (findGate(ap, p) < 0) { p.holdReason = 'gate'; return false; }
+  // Nor while the turn-off it will use is still occupied: an aircraft that
+  // cannot leave the runway would block every departure behind it.
+  const ex = EXITS[AIRCRAFT[p.cls].exitIndex];
+  const jy = RW[p.rw].exitY;
+  for (const o of ap.planes) {
+    if (o === p || o.alt > 0.5 || o.state === 'gate') continue;
+    if (Math.abs(o.x - ex) < 55 && o.y > RW[p.rw].y + 5 && o.y < jy + (p.rw === 1 ? 75 : 30)) { p.holdReason = 'taxi'; return false; }
+  }
+  // Ground control meters arrivals too, so the taxiways never fill up.
+  if (ap.planes.filter((o) => o.state === 'rollout' || o.state === 'taxiIn' || o.state === 'final').length >= MAX_ARR_GROUND) { p.holdReason = 'taxi'; return false; }
+  p.holdReason = 'runway';
   const R = ap.runways[p.rw];
   if (ap.atcTokens < 1 || R.reservedArr) return false;
-  const freeAt = R.occupant ? R.clearEta : ap.t;
+  // An occupant that should have cleared by now but has not (it is waiting
+  // to turn off) still blocks the runway.
+  if (R.occupant && R.occupant.blockedFor > 0) return false;
+  const freeAt = R.occupant ? Math.max(R.clearEta, ap.t + 1) : ap.t;
   if (freeAt > ap.t + eta - 0.2) return false;
+  // Mixed-mode runway with departures waiting: strictly alternate, one
+  // landing then one take-off, so neither queue can starve the other.
+  if (p.rw === 0 && ap.depQueue.length && ap.lastMove === 'arr') return false;
   if (p.rw === 0 && ap.depQueue.length) {
-    // Mixed-mode runway: alternate. Once a departure has waited a little,
+    // Once a departure has waited a little,
     // an arrival only gets a slot if a take-off still fits in front of it,
     // and it must leave a controller free for that take-off.
     const head = ap.depQueue[0];
@@ -789,6 +849,12 @@ function canClearArrival(ap, p, eta) {
 }
 
 function clearArrival(ap, p, pts) {
+  if (p.rw === 0) ap.lastMove = 'arr';
+  const g = findGate(ap, p);
+  const T = terminalBySlot(ap, p.f.terminal);
+  p.gate = g; T.gateUse[g] = p;
+  p.stand = gateStand(T.slot, g, T.gates);
+  groundRoute(ap, p);
   const R = ap.runways[p.rw];
   R.reservedArr = p;
   ap.atcTokens -= 1;
@@ -799,9 +865,35 @@ function clearArrival(ap, p, pts) {
   if (i >= 0) ap.holdQueue.splice(i, 1);
 }
 
+function wrapAngle(a) {
+  while (a > Math.PI) a -= 2 * Math.PI;
+  while (a < -Math.PI) a += 2 * Math.PI;
+  return a;
+}
+
+// Where an aircraft sits in the stack: seven to a ring, each ring wider
+// and higher than the last, everyone evenly spaced around it.
+function holdSlot(ap, idx) {
+  const ring = Math.floor(idx / 7), k = idx % 7;
+  return { R: FLIGHT.holdRadius + ring * 44, a: ap.holdPhase - k * (2 * Math.PI / 7), alt: 160 + ring * 40 };
+}
+
+const HOLD_OMEGA = FLIGHT.cruiseSpeed * 0.6 / FLIGHT.holdRadius;
+
 function updatePlanes(game, ap, dt) {
   const t = ap.t;
-  const ground = ap.planes.filter((p) => p.alt <= 0 && p.state !== 'gate');
+  ap.holdPhase += HOLD_OMEGA * dt;
+
+  // Clear whoever in the stack can land now, first come first served.
+  for (const p of ap.holdQueue) {
+    const rw = RW[p.rw];
+    const eta = dist(p.x, p.y, IAF.x, rw.y) / FLIGHT.cruiseSpeed + (rw.x0 - IAF.x) / FLIGHT.approachSpeed;
+    if (canClearArrival(ap, p, eta)) {
+      clearArrival(ap, p, [{ x: p.x, y: p.y }, { x: IAF.x, y: rw.y }, { x: rw.x0, y: rw.y }]);
+      break;
+    }
+  }
+
   for (const p of ap.planes) {
     switch (p.state) {
       case 'inbound': {
@@ -818,8 +910,8 @@ function updatePlanes(game, ap, dt) {
           } else {
             p.state = 'holding';
             p.holdA = -Math.PI / 2;
+            p.holdR = FLIGHT.holdRadius;
             ap.holdQueue.push(p);
-            p.alt = 160 + 25 * (ap.holdQueue.length - 1);
           }
         } else {
           p.x += (tx - p.x) / d * step;
@@ -829,164 +921,38 @@ function updatePlanes(game, ap, dt) {
       }
       case 'holding': {
         const rw = RW[p.rw];
-        const R = FLIGHT.holdRadius;
-        const cx = IAF.x, cy = rw.y + R;
-        p.holdA += (FLIGHT.cruiseSpeed * 0.75 / R) * dt;
-        p.x = cx + R * Math.cos(p.holdA);
-        p.y = cy + R * Math.sin(p.holdA);
+        p.heldFor = (p.heldFor || 0) + dt;
+        const slot = holdSlot(ap, ap.holdQueue.indexOf(p));
+        // Circle with the stack, sliding gently into this aircraft's own slot.
+        p.holdA += HOLD_OMEGA * dt + clamp(wrapAngle(slot.a - p.holdA), -0.7 * dt, 0.7 * dt);
+        p.holdR += (slot.R - p.holdR) * Math.min(1, dt);
+        p.x = IAF.x + p.holdR * Math.cos(p.holdA);
+        p.y = rw.y + FLIGHT.holdRadius + p.holdR * Math.sin(p.holdA);
         p.ang = p.holdA + Math.PI / 2;
-        const idx = ap.holdQueue.indexOf(p);
-        p.alt += ((160 + 25 * idx) - p.alt) * Math.min(1, dt);
-        if (idx === 0) {
-          // Vector the head of the stack straight to the fix when the
-          // runway will be clear by the time it gets there.
-          const toIaf = dist(p.x, p.y, IAF.x, rw.y);
-          const eta = toIaf / FLIGHT.cruiseSpeed + (rw.x0 - IAF.x) / FLIGHT.approachSpeed;
-          const ahead = Math.cos(p.holdA) > -0.2; // on the half that points at the fix
-          if (ahead && canClearArrival(ap, p, eta)) {
-            clearArrival(ap, p, [{ x: p.x, y: p.y }, { x: IAF.x, y: rw.y }, { x: rw.x0, y: rw.y }]);
-          }
-        }
+        p.alt += (slot.alt - p.alt) * Math.min(1, dt);
         break;
       }
       case 'final': {
-        const rw = RW[p.rw];
         p.d += FLIGHT.approachSpeed * dt;
         const q = pointAlong(p.path, p.d);
         p.x = q.x; p.y = q.y; p.ang = q.ang;
         const left = Math.max(0, p.len - p.d);
         p.alt = Math.min(p.altStart, left * 0.55);
-        if (p.d >= p.len) {
-          p.alt = 0;
-          const R = ap.runways[p.rw];
-          R.reservedArr = null;
-          R.occupant = p;
-          const A = AIRCRAFT[p.cls];
-          const ex = EXITS[A.exitIndex];
-          const vx = ap.upgrades.rapidExits ? FLIGHT.exitSpeedRapid : FLIGHT.exitSpeed;
-          const rollD = ex - 60 - rw.x0;
-          p.decel = (FLIGHT.touchdownSpeed ** 2 - vx ** 2) / (2 * rollD);
-          p.speed = FLIGHT.touchdownSpeed;
-          p.exitSpeed = vx;
-          p.exitX = ex;
-          setPath(p, [{ x: rw.x0, y: rw.y }, { x: ex - 60, y: rw.y }, { x: ex - 25, y: rw.y + 12 }, { x: ex, y: rw.exitY }]);
-          R.clearEta = t + 2 * rollD / (FLIGHT.touchdownSpeed + vx) + 48 / vx;
-          p.state = 'rollout';
-          earn(game, ap, 'landing', A.landingFee * site(ap).rev);
-          ap.lifetime.flights++;
-          if (ap.fx) ap.fx('money', { x: p.x + 40, y: p.y - 14, v: A.landingFee * site(ap).rev });
-        }
+        if (p.d >= p.len) touchdown(game, ap, p);
         break;
       }
       case 'rollout': {
+        // On the runway: decelerate to the exit. The turn-off itself is
+        // handled with the rest of the ground traffic.
+        if (p.d >= p.rollEnd - 70) break;
         p.speed = Math.max(p.exitSpeed, p.speed - p.decel * dt);
         p.d += p.speed * dt;
         const q = pointAlong(p.path, p.d);
         p.x = q.x; p.y = q.y; p.ang = q.ang;
-        // The runway is free once the tail is clear of it, before the turn-off ends.
-        if (p.d >= p.len - 22) { const R = ap.runways[p.rw]; if (R.occupant === p) R.occupant = null; }
-        if (p.d >= p.len) {
-          if (p.rw === 1) {
-            // Off the north runway: hold short of the main runway, then cross.
-            p.state = 'crossHold';
-            p.speed = FLIGHT.taxiSpeed;
-            setPath(p, [{ x: p.exitX, y: RW[1].exitY }, { x: p.exitX, y: RW[0].y - 34 }]);
-          } else {
-            p.x = p.exitX; p.y = TWY_A;
-            seekGate(ap, p);
-          }
-        }
-        break;
-      }
-      case 'crossHold': {
-        if (p.d < p.len) { taxi(ap, p, dt, ground); break; }
-        const R0 = ap.runways[0];
-        if (!R0.occupant && (!R0.reservedArr)) {
-          R0.occupant = p;
-          R0.clearEta = t + 2;
-          p.state = 'crossing';
-          setPath(p, [{ x: p.exitX, y: RW[0].y - 34 }, { x: p.exitX, y: TWY_A }]);
-        }
-        break;
-      }
-      case 'crossing': {
-        p.d += FLIGHT.taxiSpeed * 1.2 * dt;
-        const q = pointAlong(p.path, p.d);
-        p.x = q.x; p.y = q.y; p.ang = q.ang;
-        if (p.d >= p.len) {
-          const R0 = ap.runways[0];
-          if (R0.occupant === p) R0.occupant = null;
-          seekGate(ap, p);
-        }
-        break;
-      }
-      case 'taxiIn': {
-        if (taxi(ap, p, dt, ground)) arriveAtGate(game, ap, p);
-        break;
-      }
-      case 'toWait': {
-        if (taxi(ap, p, dt, ground)) { p.state = 'waitGate'; p.retry = t + 1; }
-        break;
-      }
-      case 'waitGate': {
-        if (t >= p.retry) {
-          p.retry = t + 1;
-          const g = findGate(ap, p);
-          if (g >= 0) {
-            releaseSpot(ap, p);
-            const T = terminalBySlot(ap, p.f.terminal);
-            p.gate = g; T.gateUse[g] = p;
-            p.stand = gateStand(T.slot, g, T.gates);
-            setPath(p, pathFromTo({ x: p.x, y: p.y }, p.stand, ap.plots));
-            p.state = 'taxiIn';
-          }
-        }
         break;
       }
       case 'gate': {
-        turnaround(game, ap, p, dt);
-        break;
-      }
-      case 'pushback': {
-        p.d += FLIGHT.pushSpeed * dt;
-        const q = pointAlong(p.path, p.d);
-        p.x = q.x; p.y = q.y; // heading stays: it is being pushed backwards
-        if (p.d >= p.len) {
-          const T = terminalBySlot(ap, p.f.terminal);
-          if (T && T.gateUse && T.gateUse[p.gate] === p) T.gateUse[p.gate] = null;
-          p.gate = -1;
-          p.state = 'taxiOut';
-          setPath(p, pathGateToHold({ x: p.x, y: p.y, laneY: p.y }, ap.plots));
-        }
-        break;
-      }
-      case 'taxiOut': {
-        if (taxi(ap, p, dt, ground)) {
-          p.state = 'holdShort';
-          p.holdSince = t;
-          ap.depQueue.push(p);
-        }
-        break;
-      }
-      case 'holdShort': {
-        if (ap.depQueue[0] !== p) break;
-        const R = ap.runways[0];
-        const arr = R.reservedArr;
-        const arrEta = arr ? (arr.len - arr.d) / FLIGHT.approachSpeed : Infinity;
-        // Line up behind a departure that is already rolling well clear.
-        const occ = R.occupant;
-        const free = !occ || (occ.state === 'takeoff' && occ.x > RW[0].x0 + 140);
-        if (ap.atcTokens >= 1 && free && arrEta > DEP_OCCUPANCY) {
-          ap.atcTokens -= 1;
-          R.occupant = p;
-          R.clearEta = t + DEP_OCCUPANCY;
-          ap.depQueue.shift();
-          p.state = 'takeoff';
-          p.speed = 30;
-          const rw = RW[0];
-          const x1 = ap.upgrades.longRunway ? LONG_RUNWAY_X1 : rw.x1;
-          setPath(p, [{ x: HOLD_POINT.x, y: HOLD_POINT.y }, { x: HOLD_POINT.x + 10, y: rw.y + 30 }, { x: rw.x0 + 10, y: rw.y }, { x: x1 + 600, y: rw.y }]);
-        }
+        if (!p.ready) turnaround(game, ap, p, dt);
         break;
       }
       case 'takeoff': {
@@ -1002,8 +968,35 @@ function updatePlanes(game, ap, dt) {
         if (p.x > 2250) p.state = 'gone';
         break;
       }
+      case 'holdShort': {
+        if (ap.depQueue[0] !== p) break;
+        const R = ap.runways[0];
+        const arr = R.reservedArr;
+        const arrEta = arr ? (arr.len - arr.d) / FLIGHT.approachSpeed : Infinity;
+        // Line up behind a departure that is already rolling well clear.
+        const occ = R.occupant;
+        const free = !occ || (occ.state === 'takeoff' && occ.x > RW[0].x0 + 140);
+        // Aircraft waiting to cross the runway get a gap between departures.
+        const crossWaiting = ap.planes.some((o) => o.crossWait && t - o.crossWait > 2);
+        if (ap.atcTokens >= 1 && free && arrEta > DEP_OCCUPANCY && !crossWaiting) {
+          ap.atcTokens -= 1;
+          R.occupant = p;
+          R.clearEta = t + DEP_OCCUPANCY;
+          ap.depQueue.shift();
+          ap.lastMove = 'dep';
+          p.state = 'takeoff';
+          p.speed = 30;
+          const rw = RW[0];
+          const x1 = ap.upgrades.longRunway ? LONG_RUNWAY_X1 : rw.x1;
+          setPath(p, [{ x: HOLD_POINT.x, y: HOLD_POINT.y }, { x: HOLD_POINT.x + 18, y: rw.y + 26 }, { x: rw.x0 + 10, y: rw.y }, { x: x1 + 600, y: rw.y }]);
+        }
+        break;
+      }
     }
   }
+
+  groundTraffic(game, ap, dt);
+
   if (ap.planes.some((p) => p.state === 'gone')) {
     for (const p of ap.planes) if (p.state === 'gone') ap.flights.delete(p.f.id);
     ap.planes = ap.planes.filter((p) => p.state !== 'gone');
@@ -1016,58 +1009,432 @@ function updatePlanes(game, ap, dt) {
   }
 }
 
-// Follow p.path at taxi speed, stopping for traffic ahead. True on arrival.
-function taxi(ap, p, dt, ground) {
+// The whole ground route, runway to stand, is fixed at landing clearance so
+// taxiing traffic can give way to it before the aircraft even touches down.
+function groundRoute(ap, p) {
+  const rw = RW[p.rw];
+  const A = AIRCRAFT[p.cls];
+  const ex = EXITS[A.exitIndex];
+  const roll = [{ x: rw.x0, y: rw.y }, { x: ex - 60, y: rw.y }, { x: ex - 25, y: rw.y + 12 }, { x: ex, y: rw.exitY }];
+  p.exitX = ex;
+  p.rollEnd = pathLength(roll);
+  if (p.rw === 0) {
+    p.route = roll.concat(pathExitToGate(ex, p.stand, ap.plots).slice(1));
+    p.crossAt = null;
+  } else {
+    // Off the north runway: hold short of the main runway, then cross it.
+    const hs = { x: ex, y: RW[0].y - 34 };
+    p.route = roll.concat([hs], pathExitToGate(ex, p.stand, ap.plots));
+    p.crossAt = p.rollEnd + (hs.y - rw.exitY);
+    p.crossEnd = p.crossAt + (TWY_A - hs.y);
+  }
+  p.routeLen = pathLength(p.route);
+}
+
+// Wheels down.
+function touchdown(game, ap, p) {
+  const rw = RW[p.rw];
+  p.alt = 0;
+  const R = ap.runways[p.rw];
+  R.reservedArr = null;
+  R.occupant = p;
+  const A = AIRCRAFT[p.cls];
+  const ex = p.exitX;
+  const vx = ap.upgrades.rapidExits ? FLIGHT.exitSpeedRapid : FLIGHT.exitSpeed;
+  const rollD = ex - 60 - rw.x0;
+  p.decel = (FLIGHT.touchdownSpeed ** 2 - vx ** 2) / (2 * rollD);
+  p.speed = FLIGHT.touchdownSpeed;
+  p.exitSpeed = vx;
+  setPath(p, p.route);
+  R.clearEta = ap.t + 2 * rollD / (FLIGHT.touchdownSpeed + vx) + 48 / vx;
+  p.state = 'rollout';
+  earn(game, ap, 'landing', A.landingFee * site(ap).rev);
+  ap.lifetime.flights++;
+  if (ap.fx) ap.fx('money', { x: p.x + 40, y: p.y - 14, v: A.landingFee * site(ap).rev });
+}
+
+// ---------------------------------------------------------------- the ground
+
+// Junctions nobody may stop in unless they can get all the way through
+// ("don't block the box"). Rebuilt when the airport's layout changes.
+// Anyone stopped outside a box is far enough from its centre for the
+// largest aircraft to pass through it.
+const BOX = 29; // with R_PLANE: 59, just short of the 62 px between taxiways A and B
+function junctionBoxes(ap) {
+  const key = JSON.stringify([ap.plots, ap.terminals.map((T) => [T.slot, T.gates, T.connector && T.connector.type]), !!ap.upgrades.runway2]);
+  if (ap.zonesKey === key) return ap.zones;
+  // The runway turn-offs, so an aircraft can always get off a runway (one
+  // stuck there would block every take-off, and take-offs are what drain
+  // every queue on the field), and the taxilane and turn-off junctions on
+  // taxiway B and the apron lane. Stands are left out: they sit every 64 px,
+  // so their boxes would merge into one long one nobody could get through,
+  // and a queue in front of a stand only delays the next aircraft into it.
+  const z = [];
+  for (const ex of EXITS) { z.push({ x: ex, y: TWY_A }); z.push({ x: ex, y: TWY_B }); }
+  for (const L of lanesFor(ap.plots)) { z.push({ x: L.x, y: TWY_B }); z.push({ x: L.x, y: LANE2 }); }
+  for (const T of ap.terminals) {
+    const crossing = apronCrossing(T.slot);
+    if (T.connector && T.connector.type === 'shuttle' && crossing) z.push({ x: crossing.x, y: LANE2 });
+  }
+  ap.zones = z;
+  ap.zonesKey = key;
+  return z;
+}
+
+// Distance along m's lookahead, from sample i, to where it is clear of every
+// junction box; Infinity if that is beyond what it can see (or 0 when its
+// route simply ends there).
+function boxExit(zones, m, i) {
+  for (let j = i; j < m.look.length; j++) if (boxAt(zones, m.look[j].x, m.look[j].y) < 0) return m.look[j].s;
+  return m.d + LOOK >= m.len ? 0 : Infinity;
+}
+
+// A junction box is a cross: a stretch of the line through the junction and
+// a stretch of the route that crosses it. Every box is the same size,
+// whatever the aircraft, big enough that one stopped just outside leaves
+// room for the largest to pass through the middle. Being a cross rather
+// than a square, a box on taxiway B never reaches up onto taxiway A.
+const BOX_E = BOX + R_PLANE;
+function inBox(Z, x, y) {
+  return (Math.abs(y - Z.y) < 3 && Math.abs(x - Z.x) < BOX_E) || (Math.abs(x - Z.x) < 3 && Math.abs(y - Z.y) < BOX_E);
+}
+function boxAt(zones, x, y) {
+  for (let i = 0; i < zones.length; i++) if (inBox(zones[i], x, y)) return i;
+  return -1;
+}
+function boxesAt(zones, x, y) {
+  const out = [];
+  for (let i = 0; i < zones.length; i++) if (inBox(zones[i], x, y)) out.push(i);
+  return out;
+}
+
+// Points along an aircraft's route ahead of it, every SAMPLE px.
+function lookahead(p) {
+  const out = [];
+  const end = Math.min(p.len, p.d + LOOK);
+  for (let s = 0; p.d + s <= end + 0.01; s += SAMPLE) {
+    const q = pointAlong(p.path, p.d + s);
+    out.push({ s, x: q.x, y: q.y });
+  }
+  return out;
+}
+
+function isMover(p) {
+  return p.state === 'taxiIn' || p.state === 'taxiOut' || p.state === 'pushback'
+    || (p.state === 'rollout' && p.d >= p.rollEnd - 70);
+}
+
+function groundTraffic(game, ap, dt) {
   const t = ap.t;
-  let blocked = false;
-  if (t >= p.ghostUntil) {
-    const cosA = Math.cos(p.ang), sinA = Math.sin(p.ang);
-    const reach = 30 + 30 * p.scale;
-    for (const o of ground) {
-      if (o === p) continue;
-      const dx = o.x - p.x, dy = o.y - p.y;
-      const d = Math.hypot(dx, dy);
-      if (d > reach + 30 * o.scale || d < 0.01) continue;
-      if ((dx * cosA + dy * sinA) / d > 0.8) { blocked = true; break; }
-    }
-    if (!blocked) {
-      for (const b of ap.buses) {
-        if (!b.airside) continue;
-        const dx = b.x - p.x, dy = b.y - p.y;
-        const d = Math.hypot(dx, dy);
-        if (d < reach + 10 && d > 0.01 && (dx * cosA + dy * sinA) / d > 0.55) { blocked = true; p.busDelay = (p.busDelay || 0) + dt; break; }
+  const zones = junctionBoxes(ap);
+  // Everything physically on the ground and outside a stand is an obstacle.
+  const bodies = [];
+  for (const p of ap.planes) {
+    if (p.alt > 0.5 || p.state === 'gate' || p.state === 'gone') continue;
+    bodies.push({ x: p.x, y: p.y, r: p.r, p });
+  }
+  for (const b of ap.busBlocks || []) bodies.push(b);
+  // An aircraft being pushed back owns the spot on the lane it is backing
+  // into, so nobody drives up to it in the meantime.
+  for (const p of ap.planes) {
+    if (p.state === 'pushback') bodies.push({ x: p.stand.x, y: p.stand.laneY, r: p.r, p });
+  }
+
+  const movers = ap.planes.filter(isMover);
+  // Aircraft at a gate that are ready to push back are candidates.
+  const depOnGround = ap.planes.filter((p) => p.state === 'pushback' || p.state === 'taxiOut' || p.state === 'holdShort').length;
+  const pending = depOnGround < MAX_DEP_GROUND ? ap.planes.filter((p) => p.state === 'gate' && p.ready) : [];
+
+  // 1. how far each can go before touching another aircraft
+  for (const m of movers.concat(pending)) {
+    m.look = lookahead(m);
+    m.blockBy = null;
+    m.why = '';
+    let free = m.look.length ? m.look[m.look.length - 1].s + (m.d + LOOK >= m.len ? 1e6 : 0) : 0;
+    for (const o of bodies) {
+      if (o.p === m) continue;
+      if (Math.abs(o.x - m.x) > LOOK + 70 || Math.abs(o.y - m.y) > LOOK + 70) continue;
+      const rr = m.r + o.r + 1;
+      const now = Math.hypot(m.x - o.x, m.y - o.y);
+      for (const q of m.look) {
+        if (q.s >= free) break;
+        const dq = Math.hypot(q.x - o.x, q.y - o.y);
+        // Too close, and getting closer. Moving away is always allowed, so
+        // two aircraft that end up near each other can always separate.
+        if (dq < rr && dq < now - 0.5) {
+          if (q.s - SAMPLE < free) { m.why = 'body ' + (o.p ? o.p.id : 'bus') + '@' + q.s; m.blockBy = o.p; }
+          free = Math.min(free, Math.max(0, q.s - SAMPLE));
+          break;
+        }
       }
     }
+    m.free = Math.max(0, free);
   }
-  if (blocked) {
-    p.blockedFor += dt;
-    if (p.blockedFor > 4) { p.ghostUntil = t + 1.6; p.blockedFor = 0; }
-    p.speed = 0;
-    return false;
+
+  // 2. junctions: the aircraft nearer the meeting point goes first
+  const claims = movers.map((m) => ({ m, pts: m.look.filter((q) => q.s <= Math.min(m.free, CLAIM)) }));
+  // An aircraft still rolling down the runway already owns its turn-off:
+  // nobody may start across the junctions it is about to use.
+  for (const p of ap.planes) {
+    if (!((p.state === 'rollout' && !isMover(p)) || p.state === 'final') || !p.route) continue;
+    const pts = [];
+    const d0 = p.state === 'final' ? -1e3 : p.d;
+    for (let d = p.rollEnd - 30; d <= Math.min(p.routeLen, p.rollEnd + 100); d += SAMPLE) {
+      const q = pointAlong(p.route, d);
+      pts.push({ s: d - d0, x: q.x, y: q.y });
+    }
+    claims.push({ m: p, pts, pseudo: true });
   }
-  p.blockedFor = Math.max(0, p.blockedFor - dt);
-  p.speed = Math.min(FLIGHT.taxiSpeed, p.speed + 60 * dt);
-  // Slow into corners and onto the stand.
-  const left = p.len - p.d;
-  const v = left < 30 ? Math.max(14, p.speed * (left / 30)) : p.speed;
-  p.d += v * dt;
-  const q = pointAlong(p.path, p.d);
-  p.x = q.x; p.y = q.y;
-  let da = q.ang - p.ang;
-  while (da > Math.PI) da -= 2 * Math.PI;
-  while (da < -Math.PI) da += 2 * Math.PI;
-  p.ang += da * Math.min(1, dt * 7);
-  return p.d >= p.len;
+  for (const c of claims) {
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const q of c.pts) { x0 = Math.min(x0, q.x); y0 = Math.min(y0, q.y); x1 = Math.max(x1, q.x); y1 = Math.max(y1, q.y); }
+    c.box = [x0, y0, x1, y1];
+  }
+  const overlap = (a, b, pad) => a[0] - pad <= b[2] && b[0] - pad <= a[2] && a[1] - pad <= b[3] && b[1] - pad <= a[3];
+  for (let i = 0; i < claims.length; i++) {
+    for (let j = i + 1; j < claims.length; j++) {
+      const A = claims[i], B = claims[j];
+      if (!A.pts.length || !B.pts.length) continue;
+      const rr = A.m.r + B.m.r + 3;
+      if (!overlap(A.box, B.box, rr)) continue;
+      let hit = null;
+      for (const a of A.pts) {
+        for (const b of B.pts) {
+          const dx = a.x - b.x, dy = a.y - b.y;
+          if (dx * dx + dy * dy < rr * rr) { hit = [a.s, b.s]; break; }
+        }
+        if (hit) break;
+      }
+      if (!hit) continue;
+      if (A.pseudo && B.pseudo) continue;
+      // Aircraft leaving a runway go first; then anyone already standing on
+      // the other's route or inside a junction; then the one nearer the
+      // meeting point, with a little extra standing for a long wait. A
+      // winner that is stuck behind the loser hands its turn over.
+      const ka = hit[0] - A.m.blockedFor * 4 - (A.m.state === 'rollout' ? 1000 : 0);
+      const kb = hit[1] - B.m.blockedFor * 4 - (B.m.state === 'rollout' ? 1000 : 0);
+      let aWins = ka < kb - 0.5 || (Math.abs(ka - kb) <= 0.5 && A.m.id < B.m.id);
+      const onRoute = (X, Y) => !X.pseudo && Y.pts.some((q) => (q.x - X.m.x) ** 2 + (q.y - X.m.y) ** 2 < rr * rr);
+      const aOn = onRoute(A, B), bOn = onRoute(B, A);
+      const aIn = !A.pseudo && boxAt(zones, A.m.x, A.m.y) >= 0;
+      const bIn = !B.pseudo && boxAt(zones, B.m.x, B.m.y) >= 0;
+      if (aOn && !bOn) aWins = true;
+      else if (bOn && !aOn) aWins = false;
+      else if (aIn && !bIn) aWins = true;
+      else if (bIn && !aIn) aWins = false;
+      if (aWins && A.m.blockBy === B.m && B.m.blockBy !== A.m) aWins = false;
+      else if (!aWins && B.m.blockBy === A.m && A.m.blockBy !== B.m) aWins = true;
+      // A claim from an aircraft still on the runway can't be made to wait.
+      if ((aWins ? B : A).pseudo) continue;
+      const loser = aWins ? B.m : A.m;
+      // Several aircraft each giving way to the next can wait on each other
+      // in a circle. Someone who has given way a long time and has nothing
+      // physically in front of it goes; its own body check still applies.
+      if (loser.blockedFor > 6 && !loser.blockBy) continue;
+      const ls = aWins ? hit[1] : hit[0];
+      if (ls - SAMPLE < loser.free) loser.why += ' yield ' + (aWins ? A.m.id : B.m.id);
+      // Stop well short, so the winner's whole body clears us.
+      loser.free = Math.min(loser.free, Math.max(0, ls - 3 * SAMPLE));
+    }
+  }
+
+  // 3. pushback: only into a gap nobody is heading for
+  for (const m of pending) {
+    const need = (m.pushLen || 0) + 45;
+    if (m.free < need) continue;
+    let conflict = false;
+    for (const c of claims) {
+      const rr = m.r + c.m.r + 3;
+      for (const a of m.look) {
+        if (a.s > need) break;
+        for (const b of c.pts) {
+          const dx = a.x - b.x, dy = a.y - b.y;
+          if (dx * dx + dy * dy < rr * rr) { conflict = true; break; }
+        }
+        if (conflict) break;
+      }
+      if (conflict) break;
+    }
+    if (conflict) continue;
+    startPushback(ap, m);
+    break; // one at a time, so two neighbours never push into each other
+  }
+
+  // 4. move
+  for (const m of movers) {
+    let allowed = m.free;
+    // Don't stop inside a junction: enter one only with room to get out.
+    // Junction boxes are also locks: one aircraft in a box at a time, and
+    // nobody enters without room to get out the other side. A rollout is
+    // exempt only until it reaches the taxiway it turns onto: it must get
+    // off the runway, but not barge into the junctions beyond.
+    {
+      const mine = new Set(boxesAt(zones, m.x, m.y));
+      for (const k of mine) {
+        const Z = zones[k];
+        if (!Z.owner || Z.owner === m || t - Z.ownerT > 0.2) { Z.owner = m; Z.ownerT = t; }
+      }
+      const skip = m.state === 'rollout' ? m.rollEnd - m.d : -1;
+      for (let i = 0; i < m.look.length; i++) {
+        const q = m.look[i];
+        if (q.s > allowed) break;
+        const fresh = boxesAt(zones, q.x, q.y).filter((k) => !mine.has(k));
+        if (!fresh.length) continue;
+        if (q.s < skip) { for (const k of fresh) mine.add(k); continue; }
+        const taken = fresh.some((k) => zones[k].owner && zones[k].owner !== m && t - zones[k].ownerT <= 0.2);
+        let exitS = m.d + LOOK >= m.len ? 0 : Infinity;
+        for (let j = i + 1; j < m.look.length; j++) {
+          const here = boxesAt(zones, m.look[j].x, m.look[j].y);
+          if (!fresh.some((k) => here.includes(k))) { exitS = m.look[j].s; break; }
+        }
+        if (taken || m.free < exitS + m.r * 0.5) {
+          allowed = Math.max(0, q.s - SAMPLE);
+          m.why = (m.why || '') + (taken ? ' +locked' : ' +box');
+          break;
+        }
+        // Take it at the moment of entering, so nobody else starts into it.
+        // Taking it earlier and then waiting would hold everyone else up.
+        if (q.s <= 2 * SAMPLE) for (const k of fresh) { zones[k].owner = m; zones[k].ownerT = t; }
+        for (const k of fresh) mine.add(k);
+      }
+    }
+    // North-runway arrivals cross the main runway only when it is free and
+    // there is room to get all the way across.
+    if (m.crossAt != null && !m.crossed && !m.crossing) {
+      const toHold = m.crossAt - m.d;
+      if (toHold < allowed + 0.01) {
+        const R0 = ap.runways[0];
+        // Room to get across the runway and out of the junctions beyond it.
+        let across = m.crossEnd - m.d + m.r;
+        for (let i = 0; i < m.look.length; i++) {
+          if (m.look[i].s < m.crossEnd - m.d) continue;
+          across = Math.max(across, boxExit(zones, m, i) + m.r * 0.5);
+          break;
+        }
+        // Ask the tower for a gap in departures only once there is room on
+        // the far side; otherwise the departures it would stop are exactly
+        // what has to move to make that room.
+        if (toHold < 1 && m.free >= across) m.crossWait = m.crossWait || t;
+        else m.crossWait = 0;
+        if (toHold < 1 && !R0.occupant && m.free >= across) {
+          m.crossing = true;
+          m.crossWait = 0;
+          R0.occupant = m;
+          R0.clearEta = t + 2.5;
+        } else {
+          allowed = Math.max(0, toHold);
+        }
+      }
+    }
+
+    let vmax = m.state === 'pushback' ? PUSH_SPEED : FLIGHT.taxiSpeed;
+    if (m.state === 'rollout') vmax = Math.max(FLIGHT.taxiSpeed, m.speed - m.decel * dt);
+    // Slow for corners.
+    const ahead = pointAlong(m.path, Math.min(m.len, m.d + 22));
+    if (m.state !== 'pushback' && Math.abs(wrapAngle(ahead.ang - m.ang)) > 0.5) vmax = Math.min(vmax, 32);
+    const stopV = Math.sqrt(2 * 90 * allowed);
+    const target = Math.min(vmax, stopV);
+    m.speed = target > m.speed ? Math.min(target, m.speed + 70 * dt) : target;
+    const step = Math.min(m.speed * dt, allowed);
+    if (step < 0.05 && m.d < m.len - 0.5) {
+      m.blockedFor += dt;
+      // Standoff: aircraft blocking each other in a circle. The one with the
+      // least claim (the newest) is towed back a little to break it. If even
+      // that is impossible after a full minute, count a gridlock (the stress
+      // test fails on any).
+      if (m.blockedFor > 5 && m.blockBy && m.state !== 'rollout') {
+        const ring = [m];
+        let x = m.blockBy;
+        while (x && !ring.includes(x) && ring.length < 8) { ring.push(x); x = x.blockBy; }
+        if (x === m && Math.max(...ring.map((r) => r.id)) === m.id) towBack(m, bodies, dt);
+      }
+      if (m.blockedFor > 60) ap.gridlocks = (ap.gridlocks || 0) + 1;
+    } else {
+      m.blockedFor = Math.max(0, m.blockedFor - dt * 2);
+      if (step > 1) m.towed = 0;
+    }
+    if (ap.busBlocks && ap.busBlocks.length && step < 0.05) {
+      for (const b of ap.busBlocks) if (Math.hypot(b.x - m.x, b.y - m.y) < m.r + 60) { m.busDelay = (m.busDelay || 0) + dt; break; }
+    }
+    m.d += step;
+    const q = pointAlong(m.path, m.d);
+    m.x = q.x; m.y = q.y;
+    if (m.state === 'pushback') {
+      m.ang = Math.PI / 2; // being pushed backwards, nose to the terminal
+    } else if (m.state === 'rollout' && m.d < m.rollEnd) {
+      m.ang = q.ang;
+    } else {
+      m.ang += wrapAngle(q.ang - m.ang) * Math.min(1, dt * 6);
+    }
+
+    // transitions
+    // The runway is free once the whole aircraft is clear of its edge.
+    if (m.state === 'rollout' && (m.d >= m.rollEnd || m.y >= RW[m.rw].y + RUNWAY_HALF + m.r + 3)) {
+      const R = ap.runways[m.rw];
+      if (R.occupant === m) R.occupant = null;
+      if (m.d >= m.rollEnd) m.state = 'taxiIn';
+    }
+    if (m.crossing && m.d >= m.crossEnd) {
+      const R0 = ap.runways[0];
+      if (R0.occupant === m) R0.occupant = null;
+      m.crossing = false;
+      m.crossed = true;
+    }
+    if (m.state === 'pushback' && m.d >= m.pushLen) {
+      const T = terminalBySlot(ap, m.f.terminal);
+      if (T && T.gateUse && T.gateUse[m.gate] === m) T.gateUse[m.gate] = null;
+      m.gate = -1;
+      m.state = 'taxiOut';
+    }
+    if (m.d >= m.len - 0.01) {
+      if (m.state === 'taxiIn') arriveAtGate(game, ap, m);
+      else if (m.state === 'taxiOut') { m.state = 'holdShort'; m.holdSince = t; m.speed = 0; ap.depQueue.push(m); }
+    }
+  }
+}
+
+// Move an aircraft back along its route, only while that takes it further
+// from everything around it; at most 45 px in all.
+function towBack(m, bodies, dt) {
+  if ((m.towed || 0) > 45 || m.d < 2) return;
+  const back = pointAlong(m.path, Math.max(0, m.d - 3));
+  for (const o of bodies) {
+    if (o.p === m) continue;
+    const now = Math.hypot(m.x - o.x, m.y - o.y), then = Math.hypot(back.x - o.x, back.y - o.y);
+    if (then < now && then < m.r + o.r + 2) return;
+  }
+  const step = Math.min(10 * dt, m.d);
+  m.d -= step;
+  m.towed = (m.towed || 0) + step;
+  m.tow = true;
+}
+
+function startPushback(ap, p) {
+  p.ready = false;
+  p.state = 'pushback';
+  p.speed = 0;
+  p.blockedFor = 0;
+  // On-time is judged when the aircraft actually leaves the gate.
+  const f = p.f;
+  const delay = Math.max(0, ap.t - f.std);
+  const onTime = delay <= FLIGHT.onTimeSlack;
+  const c = ap.contracts.find((x) => x.id === f.contract);
+  if (c) { c.otpHist.push(onTime ? 1 : 0); if (c.otpHist.length > 12) c.otpHist.shift(); c.flown = (c.flown || 0) + 1; c.lastDelay = delay; }
+  ap.rolling.otp += ((onTime ? 1 : 0) - ap.rolling.otp) * 0.06;
+  if (!onTime) {
+    const why = p.lateWhy || 'turn';
+    ap.lateWhy = ap.lateWhy || {};
+    ap.lateWhy[why] = (ap.lateWhy[why] || 0) + 1;
+  }
 }
 
 function findGate(ap, p) {
-  const T = terminalBySlot(ap, p.f.terminal);
+  let T = terminalBySlot(ap, p.f.terminal);
   if (!T || !isOpen(T) || !terminalSupports(ap, T, p.cls)) {
     // Contract moved or terminal closed: fall back to any terminal that fits.
-    const alt = ap.terminals.find((x) => isOpen(x) && terminalSupports(ap, x, p.cls));
-    if (!alt) return -1;
-    p.f.terminal = alt.slot;
-    return findGate(ap, p);
+    T = ap.terminals.find((x) => isOpen(x) && terminalSupports(ap, x, p.cls));
+    if (!T) return -1;
+    p.f.terminal = T.slot;
   }
   if (!T.gateUse || T.gateUse.length !== T.gates) {
     const old = T.gateUse || [];
@@ -1078,29 +1445,6 @@ function findGate(ap, p) {
   for (const g of order) if (!T.gateUse[g]) return g;
   return -1;
 }
-
-function seekGate(ap, p) {
-  const g = findGate(ap, p);
-  p.speed = FLIGHT.taxiSpeed * 0.6;
-  if (g >= 0) {
-    const T = terminalBySlot(ap, p.f.terminal);
-    p.gate = g; T.gateUse[g] = p;
-    p.stand = gateStand(T.slot, g, T.gates);
-    setPath(p, pathExitToGate(p.x, p.stand, ap.plots));
-    p.state = 'taxiIn';
-  } else {
-    // No gate: park on a waiting spot and burn the airline's time.
-    const used = new Set(ap.planes.filter((o) => o.spot != null).map((o) => o.spot));
-    let spot = WAIT_SPOTS.findIndex((_, i) => !used.has(i));
-    if (spot < 0) spot = Math.floor(ap.rand() * WAIT_SPOTS.length);
-    p.spot = spot;
-    const s = WAIT_SPOTS[spot];
-    setPath(p, [{ x: p.x, y: TWY_A }, { x: s.x, y: s.y }]);
-    p.state = 'toWait';
-  }
-}
-
-function releaseSpot(ap, p) { p.spot = null; }
 
 function arriveAtGate(game, ap, p) {
   p.state = 'gate';
@@ -1145,16 +1489,19 @@ function turnaround(game, ap, p, dt) {
     }
   }
   const allAboard = f.boarded >= f.expected - 0.5;
+  if (p.turnLeft <= 0 && !allAboard && !p.paxWait) p.paxWait = ap.t;
   if (p.turnLeft <= 0 && (allAboard || ap.t >= f.std + FLIGHT.boardingGrace)) {
-    // Push back.
-    const delay = Math.max(0, ap.t - f.std);
-    const onTime = delay <= FLIGHT.onTimeSlack;
-    const c = ap.contracts.find((x) => x.id === f.contract);
-    if (c) { c.otpHist.push(onTime ? 1 : 0); if (c.otpHist.length > 12) c.otpHist.shift(); c.flown = (c.flown || 0) + 1; c.lastDelay = delay; }
-    ap.rolling.otp += ((onTime ? 1 : 0) - ap.rolling.otp) * 0.06;
+    // Doors closed. Anyone already in the lounge makes it on board.
+    const w = T.waiting.get(f.id) || 0;
+    if (w > 0) { f.boarded += w; T.waiting.set(f.id, 0); }
+    if (f.gateInLate > 12) p.lateWhy = p.holdReason === 'gate' ? 'gate' : 'runway';
+    else if (p.paxWait && ap.t - p.paxWait > 3) p.lateWhy = 'pax';
+    else p.lateWhy = 'traffic';
     closeFlight(game, ap, f);
-    p.state = 'pushback';
-    setPath(p, [{ x: p.x, y: p.y }, { x: p.x, y: p.stand.laneY }]);
+    p.ready = true;
+    p.readyAt = ap.t;
+    setPath(p, [{ x: p.stand.x, y: p.stand.y }].concat(pathGateToHold(p.stand, ap.plots)));
+    p.pushLen = p.stand.y - p.stand.laneY;
   }
 }
 
@@ -1171,6 +1518,15 @@ function closeFlight(game, ap, f) {
   if (f.missed > 0) {
     earn(game, ap, 'refunds', -f.missed * PAX.missedRefund * site(ap).rev);
     ap.missedAcc = (ap.missedAcc || 0) + f.missed;
+    // Where were they when the doors closed?
+    let sec = 0, conn = 0;
+    for (const x of ap.secQ) if (x.f === f.id) sec += x.n;
+    const C = terminalBySlot(ap, f.terminal) && terminalBySlot(ap, f.terminal).connector;
+    if (C) { for (const x of C.outQ) if (x.f === f.id) conn += x.n; for (const x of C.transit) if (x.f === f.id && x.dir === 'out') conn += x.n; }
+    const w = ap.missedWhy || (ap.missedWhy = { security: 0, connector: 0, late: 0 });
+    w.security += sec; w.connector += conn; w.late += Math.max(0, f.missed - sec - conn);
+    ap.missedWhyTotal = ap.missedWhyTotal || { security: 0, connector: 0, late: 0 };
+    ap.missedWhyTotal.security += sec; ap.missedWhyTotal.connector += conn; ap.missedWhyTotal.late += Math.max(0, f.missed - sec - conn);
   }
   ap.rolling.missed += ((f.missed / Math.max(1, f.expected)) - ap.rolling.missed) * 0.08;
   const T = terminalBySlot(ap, f.terminal);
@@ -1313,26 +1669,50 @@ function flowPassengers(game, ap, dt) {
   ap.rolling.flowPerMin = ap.rolling.landsidePerMin * 2;
 }
 
-// Buses are simulated here, not just drawn, because aircraft must stop
-// for them where their route crosses the apron.
-function updateBuses(ap) {
+// Buses are simulated here, not just drawn, because aircraft and buses take
+// turns where a midfield bus route crosses the apron lane.
+function updateBuses(ap, dt) {
   ap.buses.length = 0;
+  ap.busBlocks = [];
+  const def = CONNECTORS.shuttle;
   for (const T of ap.terminals) {
     const C = T.connector;
     if (!C || C.type !== 'shuttle' || C.buildLeft > 0) continue;
-    const def = CONNECTORS.shuttle;
-    const drive = C.len / def.speed;
-    const round = 2 * drive + 2 * def.bus.dwell;
-    for (let k = 0; k < C.buses; k++) {
-      let ph = ((ap.t / round) + k / C.buses) % 1 * round;
-      let d;
-      if (ph < def.bus.dwell) d = 0;
-      else if (ph < def.bus.dwell + drive) d = (ph - def.bus.dwell) * def.speed;
-      else if (ph < 2 * def.bus.dwell + drive) d = C.len;
-      else d = C.len - (ph - 2 * def.bus.dwell - drive) * def.speed;
-      const q = pointAlong(C.route, d);
-      const out = ph < def.bus.dwell + drive + def.bus.dwell;
-      ap.buses.push({ x: q.x, y: q.y, ang: q.ang + (out ? 0 : Math.PI), slot: T.slot, airside: q.y < 545 && q.y > 300 || Math.abs(q.y - 560) < 30 });
+    const X = apronCrossing(T.slot);
+    let sX = null;
+    if (X) {
+      // distance along the route to the crossing
+      let acc = 0;
+      for (let i = 1; i < C.route.length; i++) {
+        const a = C.route[i - 1], b = C.route[i];
+        const seg = Math.hypot(b.x - a.x, b.y - a.y);
+        if (Math.abs(a.x - X.x) < 1 && Math.abs(b.x - X.x) < 1 && (a.y - X.y) * (b.y - X.y) <= 0) { sX = acc + Math.abs(a.y - X.y); break; }
+        acc += seg;
+      }
+    }
+    if (!C.fleet) C.fleet = [];
+    while (C.fleet.length < C.buses) C.fleet.push({ d: (C.fleet.length / C.buses) * C.len, dir: 1, dwell: 0 });
+    C.fleet.length = C.buses;
+    for (const b of C.fleet) {
+      if (b.dwell > 0) {
+        b.dwell -= dt;
+        if (b.dwell <= 0) b.dir = -b.dir;
+      } else {
+        let nd = b.d + b.dir * def.speed * dt;
+        if (sX != null && Math.abs(b.d - sX) >= 30 && Math.abs(nd - sX) < 30) {
+          // Wait at the line if an aircraft is in the crossing.
+          const busy = ap.planes.some((p) => p.alt <= 0.5 && p.state !== 'gate' && Math.hypot(p.x - X.x, p.y - X.y) < p.r + 40);
+          if (busy) nd = b.d;
+        }
+        b.d = nd;
+        if (b.d >= C.len) { b.d = C.len; b.dwell = def.bus.dwell; b.dir = 1; }
+        if (b.d <= 0) { b.d = 0; b.dwell = def.bus.dwell; b.dir = -1; }
+      }
+      const q = pointAlong(C.route, b.d);
+      ap.buses.push({ x: q.x, y: q.y, ang: q.ang + (b.dir > 0 ? 0 : Math.PI), slot: T.slot });
+      // Only a bus actually in the crossing blocks it; one waiting at the
+      // line does not.
+      if (sX != null && Math.abs(b.d - sX) < 24) ap.busBlocks.push({ x: q.x, y: q.y, r: 10, p: null });
     }
   }
 }
@@ -1374,9 +1754,10 @@ function updateRep(ap, dt) {
 // A quick view of what is going on, for the ops board.
 export function opsSnapshot(ap) {
   const holding = ap.holdQueue.length;
-  const waitingGate = ap.planes.filter((p) => p.state === 'waitGate' || p.state === 'toWait').length;
+  const holdingForGate = ap.holdQueue.filter((p) => p.holdReason === 'gate').length;
+  const waitingPush = ap.planes.filter((p) => p.state === 'gate' && p.ready).length;
   const depQ = ap.depQueue.length;
-  return { holding, waitingGate, depQ, secQueue: ap.secQueue || 0, secWait: (ap.secQueue || 0) / Math.max(0.01, securityRate(ap)) };
+  return { holding, holdingForGate, waitingPush, waitingGate: holdingForGate, depQ, secQueue: ap.secQueue || 0, secWait: (ap.secQueue || 0) / Math.max(0.01, securityRate(ap)) };
 }
 
 export { TERMINAL_CODES, slotCenter };

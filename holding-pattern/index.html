@@ -20,7 +20,8 @@
     </button>
     <dl class="stats">
       <div><dt>Cash</dt><dd id="sCash">$0</dd></div>
-      <div><dt>Net / min</dt><dd id="sNet">$0</dd></div>
+      <div><dt>Net</dt><dd id="sNet">$0/s</dd></div>
+      <div class="why"><button type="button" id="whyBtn" class="sign stop" hidden>Losing money · why?</button></div>
       <div><dt>Reputation</dt><dd id="sRep">—</dd></div>
       <div class="wide-only"><dt>On time</dt><dd id="sOtp">—</dd></div>
       <div class="wide-only"><dt>Pax / min</dt><dd id="sPax">0</dd></div>
@@ -40,15 +41,18 @@
 
   <section id="panel" aria-label="Airport management">
     <nav id="tabs" role="tablist">
-      <button type="button" role="tab" data-tab="contracts" class="on">Contracts<span class="badge" id="offerBadge" hidden>0</span></button>
+      <button type="button" role="tab" data-tab="advisor" class="on">Advisor</button>
+      <button type="button" role="tab" data-tab="contracts">Routes<span class="badge" id="offerBadge" hidden>0</span></button>
       <button type="button" role="tab" data-tab="build">Build</button>
-      <button type="button" role="tab" data-tab="ops">Operations</button>
-      <button type="button" role="tab" data-tab="finance">Finance</button>
+      <button type="button" role="tab" data-tab="ops">Staff</button>
+      <button type="button" role="tab" data-tab="finance">Money</button>
+      <button type="button" role="tab" data-tab="help">Help</button>
     </nav>
     <div id="panelBody"></div>
   </section>
 
-  <div id="hint" hidden></div>
+  <div id="tutRing" hidden></div>
+  <div id="tut" hidden></div>
   <div id="toasts" aria-live="polite"></div>
 
   <div id="mapModal" class="modal" hidden>

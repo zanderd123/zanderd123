@@ -31,6 +31,20 @@ export function money(v, digits = 1) {
   return `${sign}$${Math.round(a)}`;
 }
 
+// A rate given per minute, shown per second: the game's money runs by the second.
+export function rate(perMin, signed = false) {
+  const v = perMin / 60;
+  const a = Math.abs(v);
+  const sign = v < 0 ? '-' : signed ? '+' : '';
+  const body = a >= 1000 ? money(a).slice(1) : a >= 100 ? Math.round(a).toString() : a.toFixed(1);
+  return `${sign}$${body}/s`;
+}
+
+export function every(perMin) {
+  if (perMin <= 0) return '—';
+  return `every ${Math.round(60 / perMin)}s`;
+}
+
 export function num(v) {
   const a = Math.abs(v);
   if (a >= 1e9) return (v / 1e9).toFixed(1) + 'B';

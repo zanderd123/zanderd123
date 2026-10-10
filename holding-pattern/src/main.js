@@ -3,7 +3,8 @@
 import { newGame, activeAirport, stepGame, save, load, wipe, exportCode, importCode, offlineEarnings, buySite, serialize, deserialize } from './game.js';
 import * as S from './sim.js';
 import { makeCamera, fitCamera, screenToWorld, render, attach, pick, dayPhase } from './render.js';
-import { ui, renderTop, renderOps, renderPanel, renderHint, toast, showDialog } from './ui.js';
+import { ui, renderTop, renderOps, renderPanel, toast, showDialog } from './ui.js';
+import { makeTutorial } from './tutorial.js';
 import { renderMapSide, drawMap, siteAt } from './mapview.js';
 import { money, duration, clamp } from './util.js';
 import { SITES } from './config.js';
@@ -14,6 +15,7 @@ const ctx = canvas.getContext('2d');
 const cam = makeCamera();
 const view = { hover: null, selected: null, dt: 0 };
 let game;
+let tut = null;
 let W = 0, H = 0, DPR = 1;
 
 // ------------------------------------------------------------------ boot
@@ -43,16 +45,19 @@ function start(hotData) {
     }
   } else if (!restored) {
     showDialog(`<h2>Holding Pattern</h2>
-      <p>You run Pinewood Regional: one runway, one small terminal, one airline. Grow it by signing airline routes, and keep it moving.</p>
+      <p>You run Pinewood Regional: one runway, one small terminal, one airline. Sign airline routes to grow, and keep planes and passengers moving.</p>
       <ul>
-        <li>Planes and passengers arrive on their own. Every terminal, lane and controller costs wages every minute.</li>
-        <li>Congestion is the enemy: runway queues send planes into holding, slow security makes passengers miss flights, and late airlines walk away.</li>
-        <li>Choose how passengers reach new terminals: walkways, shuttle buses, a monorail or a tunnel.</li>
-        <li>There is no restart. Grow big enough and the network map opens your next airport.</li>
+        <li>Planes and passengers arrive on their own. Every terminal, lane and controller costs money every second.</li>
+        <li>Overbook the airport and planes circle, passengers miss flights, and airlines walk away.</li>
+        <li>There is no restart: grow big enough and the network map opens your next airport.</li>
       </ul>
       <div class="legend"><span><i style="background:#1f6fd1"></i>departing passengers</span><span><i style="background:#e0861c"></i>arriving passengers</span></div>
-      <div class="btns"><button type="button" class="btn go" data-close="dialog">Open the airport</button></div>`);
+      <div class="btns"><button type="button" class="btn go" data-close="dialog" data-start-tut>Show me how (1 minute)</button><button type="button" class="btn" data-close="dialog">I'll figure it out</button></div>`);
   }
+  tut = makeTutorial(game, {
+    openTab(tab) { ui.tab = tab; ui.detail = null; openPanel(); renderPanel(true); },
+    onDone() { toast('Tutorial done. Help has the rest.', 'good'); },
+  });
   renderPanel(true);
   last = performance.now();
   requestAnimationFrame(frame);
@@ -102,7 +107,7 @@ function frame(now) {
     const mins = Math.floor(((ph * 24 + 6) % 24) * 60); // darkest at midnight
     renderOps(game, `${String(Math.floor(mins / 60)).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}`);
     renderPanel();
-    renderHint(game);
+    if (tut && tut.active()) tut.tick();
     if (!$('mapModal').hidden) renderMapSide(game);
     drainEvents();
   }
@@ -268,6 +273,8 @@ body.addEventListener('click', (e) => {
     case 'arm': ui.armed = d.key; ui.armedUntil = performance.now() + 4000; break;
     case 'cancel': S.cancelContract(game, ap, d.id); ui.armed = null; ok = 'Contract ended'; break;
     case 'detail': ui.detail = { kind: d.kind, id: d.id }; body.scrollTop = 0; break;
+    case 'tab': ui.tab = d.tab; ui.detail = null; body.scrollTop = 0; break;
+    case 'tutorial': tut.start(); break;
     case 'back': ui.detail = null; view.selected = null; break;
     case 'plot': err = S.buyPlot(game, ap, d.id); ok = 'Land bought'; break;
     case 'upgrade': err = S.buyUpgrade(game, ap, d.id); ok = 'Built'; break;
@@ -307,6 +314,7 @@ body.addEventListener('click', (e) => {
 
 function replaceGame(g) {
   game = g;
+  if (tut) tut.setGame(g);
   ui.game = g;
   ui.detail = null;
   ui.importOpen = false;
@@ -317,15 +325,16 @@ function replaceGame(g) {
 }
 
 // ops board rows jump to the relevant place
-$('opsList').addEventListener('click', (e) => {
-  const li = e.target.closest('li[data-ops]');
-  if (!li) return;
-  const go = JSON.parse($('opsList').dataset.go || '[]')[Number(li.dataset.ops)];
-  if (!go) return;
-  if (go.tab) { ui.tab = go.tab; ui.detail = null; } else ui.detail = go;
+// the ops board and the "why" button both open the advisor
+function openAdvisor() {
+  ui.tab = 'advisor';
+  ui.detail = null;
+  view.selected = null;
   openPanel();
   renderPanel(true);
-});
+}
+$('opsList').addEventListener('click', (e) => { if (e.target.closest('li[data-ops]')) openAdvisor(); });
+$('whyBtn').addEventListener('click', openAdvisor);
 $('opsToggle').addEventListener('click', () => {
   if (window.innerWidth <= 860) $('ops').classList.toggle('open');
   else $('ops').classList.toggle('collapsed');
@@ -339,10 +348,10 @@ function setSpeed(s) {
 }
 
 // hint & dialogs
-$('hint').addEventListener('click', (e) => { if (e.target.closest('[data-hint-close]')) { ui.hintClosed = game.tutorial; $('hint').hidden = true; } });
 document.addEventListener('click', (e) => {
   const c = e.target.closest('[data-close]');
   if (c) $(c.dataset.close).hidden = true;
+  if (e.target.closest('[data-start-tut]')) tut.start();
 });
 $('dialog').addEventListener('click', (e) => { if (e.target === $('dialog')) $('dialog').hidden = true; });
 

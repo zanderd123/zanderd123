@@ -28,7 +28,10 @@ async function session(name, viewport, script) {
 
 await session('desktop', { width: 1440, height: 900 }, async (page) => {
   await page.screenshot({ path: join(out, '1-welcome.png') });
-  await page.click('[data-close="dialog"]');
+  await page.click('[data-start-tut]');
+  await page.waitForTimeout(300);
+  await page.screenshot({ path: join(out, '1b-tutorial.png') });
+  await page.click('[data-tut="skip"]');
   await page.click('.speed button[data-speed="4"]');
   await page.waitForTimeout(9000);
   await page.screenshot({ path: join(out, '2-running.png') });
@@ -41,6 +44,12 @@ await session('desktop', { width: 1440, height: 900 }, async (page) => {
   await page.click('#tabs [data-tab="build"]');
   await page.waitForTimeout(300);
   await page.screenshot({ path: join(out, '3-build.png') });
+  await page.click('#tabs [data-tab="advisor"]');
+  await page.waitForTimeout(300);
+  await page.screenshot({ path: join(out, '3b-advisor.png') });
+  await page.click('#tabs [data-tab="help"]');
+  await page.waitForTimeout(300);
+  await page.screenshot({ path: join(out, '3c-help.png') });
   await page.evaluate(() => {});
   await page.click('#tabs [data-tab="finance"]');
   await page.waitForTimeout(12000);

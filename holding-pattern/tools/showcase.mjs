@@ -18,7 +18,7 @@ page.on('pageerror', (e) => errors.push(e.message));
 await page.route(/fonts\.(googleapis|gstatic)/, (r) => r.abort());
 await page.goto('file://' + join(root, 'dist/holding-pattern.html'));
 await page.waitForTimeout(300);
-await page.click('[data-close="dialog"]');
+await page.click('[data-close="dialog"]:not([data-start-tut])');
 
 await page.evaluate(() => {
   const { game, sim: S } = window.__hp;

@@ -9,14 +9,16 @@ import {
 } from './config.js';
 import { SLOTS, SLOT_ORDER, PLOTS, PLOT_ORDER, TERMINAL_CODES, connectorRoute } from './layout.js';
 import * as S from './sim.js';
-import { money, num, duration, pathLength, clamp } from './util.js';
+import { money, num, duration, pathLength, clamp, rate, every } from './util.js';
+import { advise, key as fixKey, offerUnlockFixes } from './advisor.js';
+import { helpHtml } from './help.js';
 import { activeAirport } from './game.js';
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 export const ui = {
-  tab: 'contracts',
+  tab: 'advisor',
   detail: null,       // { kind, id }
   buildChoice: {},    // slot -> connector type chosen in the build view
   armed: null,        // two-step confirm key
@@ -62,8 +64,9 @@ export function renderTop(game) {
   let net = 0;
   for (const a of game.airports) net += a.perMin.net || 0;
   const sNet = $('sNet');
-  sNet.textContent = (net >= 0 ? '+' : '') + money(net);
+  sNet.textContent = rate(net, true);
   sNet.className = net >= 0 ? 'pos' : 'neg';
+  $('whyBtn').hidden = !(net < 0 && ap.t > 30);
   $('sRep').textContent = stars(ap.rep);
   $('sOtp').textContent = pct(ap.rolling.otp);
   $('sPax').textContent = num(ap.rolling.landsidePerMin * 2);
@@ -80,39 +83,32 @@ export function renderOps(game, clockText) {
   const snap = S.opsSnapshot(ap);
   const rows = [];
   const rwU = S.utilisation(rep.runway.demand, rep.runway.cap);
-  const limit = rep.runway.atc < rep.runway.physical ? 'ATC-limited' : 'runway-limited';
-  rows.push({ k: 'Runway', s: snap.holding > 2 || rwU >= 1 ? 'bad' : rwU > 0.85 || snap.holding ? 'warn' : '', v: `${rep.runway.demand.toFixed(1)} / ${rep.runway.cap.toFixed(1)} mov/min`, sub: `${snap.holding} holding · ${snap.depQ} queued for take-off · ${limit}`, go: { kind: 'runway' } });
+  const holdRw = ap.holdQueue.filter((p) => p.holdReason === 'runway' || p.holdReason === 'taxi').length;
+  rows.push({ k: 'Runway', s: holdRw > 2 || rwU >= 1 ? 'bad' : rwU > 0.85 || holdRw ? 'warn' : '',
+    v: `${pct(rwU)} of capacity`, sub: `${rep.runway.demand.toFixed(1)} of ${rep.runway.cap.toFixed(1)} landings & take-offs a minute${holdRw ? ` · ${holdRw} circling` : ''}` });
   const open = rep.terminals.filter((t) => t.open);
   const gd = open.reduce((s, t) => s + t.gateDemand, 0), gc = open.reduce((s, t) => s + t.gates, 0);
-  const busy = ap.planes.filter((p) => p.gate >= 0).length;
-  rows.push({ k: 'Gates', s: snap.waitingGate > 1 ? 'bad' : snap.waitingGate || gd / gc > 0.85 ? 'warn' : '', v: `${busy} / ${gc} occupied`, sub: snap.waitingGate ? `${snap.waitingGate} aircraft waiting for a gate` : `planned load ${pct(gd / Math.max(1, gc))}`, go: { tab: 'build' } });
+  const worstGate = open.reduce((w, t) => (!w || t.gateDemand / t.gates > w.gateDemand / w.gates ? t : w), null);
+  const gU = worstGate ? worstGate.gateDemand / worstGate.gates : 0;
+  rows.push({ k: 'Gates', s: snap.holdingForGate > 1 || gU >= 1 ? 'bad' : snap.holdingForGate || gU > 0.85 ? 'warn' : '',
+    v: `${pct(gd / Math.max(1, gc))} booked`, sub: snap.holdingForGate ? `${snap.holdingForGate} planes circling for a gate` : worstGate ? `busiest: ${TERMINAL_CODES[worstGate.slot]} at ${pct(gU)}` : '' });
   const secU = S.utilisation(rep.security.demand, rep.security.cap);
-  rows.push({ k: 'Security', s: snap.secWait > 45 ? 'bad' : snap.secWait > 20 || secU > 0.9 ? 'warn' : '', v: `${num(snap.secQueue)} in line · ${duration(snap.secWait)}`, sub: `${ap.securityLanes} lanes · ${num(rep.security.cap)} pax/min`, go: { tab: 'ops' } });
+  rows.push({ k: 'Security', s: snap.secWait > 45 || secU >= 1 ? 'bad' : snap.secWait > 20 || secU > 0.85 ? 'warn' : '',
+    v: `${pct(secU)} of capacity`, sub: `${num(snap.secQueue)} in line · ${duration(snap.secWait)} wait` });
   let worst = null;
-  for (const T of ap.terminals) {
-    if (!T.connector || T.connector.buildLeft > 0) continue;
-    const cap = S.connectorCap(T.connector, ap);
-    const q = (T.connector.outSize || 0) + (T.connector.inSize || 0);
-    const wait = q / Math.max(0.01, cap);
-    if (!worst || wait > worst.wait) worst = { T, wait, q };
+  for (const tr of open) {
+    if (tr.connCap == null) continue;
+    const u = tr.pax / Math.max(1, tr.connCap);
+    if (!worst || u > worst.u) worst = { tr, u };
   }
-  if (worst) {
-    const name = `${TERMINAL_CODES[worst.T.slot]} ${CONNECTORS[worst.T.connector.type].name.toLowerCase()}`;
-    rows.push({ k: 'Connectors', s: worst.wait > 40 ? 'bad' : worst.wait > 15 ? 'warn' : '', v: `${num(worst.q)} waiting · ${duration(worst.wait)}`, sub: `busiest: ${name}`, go: { kind: 'terminal', id: worst.T.slot } });
-  }
-  let crowdT = null;
-  for (const T of ap.terminals) {
-    if (T.buildLeft > 0 || !T.comfort) continue;
-    const c = T.occupancy / T.comfort;
-    if (!crowdT || c > crowdT.c) crowdT = { T, c };
-  }
-  if (crowdT) rows.push({ k: 'Crowding', s: crowdT.c > 1.15 ? 'bad' : crowdT.c > 0.9 ? 'warn' : '', v: `${SLOTS[crowdT.T.slot].name}`, sub: `${num(crowdT.T.occupancy)} people · ${pct(crowdT.c)} of comfortable`, go: { kind: 'terminal', id: crowdT.T.slot } });
-  rows.push({ k: 'On time', s: ap.rolling.otp < 0.6 ? 'bad' : ap.rolling.otp < 0.8 ? 'warn' : '', v: pct(ap.rolling.otp), sub: `${ap.contracts.filter((c) => c.unhappyFor > 0).length} unhappy airlines`, go: { tab: 'contracts' } });
-  const storm = ap.weather.stormUntil > ap.t;
-  if (storm) rows.push({ k: 'Weather', s: 'bad', v: 'Thunderstorm', sub: `clears in ${duration(ap.weather.stormUntil - ap.t)}`, go: { kind: 'runway' } });
-
-  $('opsList').innerHTML = rows.map((r, i) => `<li data-ops="${i}"><span class="dot ${r.s}"></span><span class="k">${r.k}</span><span class="v">${esc(r.v)}<small>${esc(r.sub)}</small></span></li>`).join('');
-  $('opsList').dataset.go = JSON.stringify(rows.map((r) => r.go));
+  if (worst) rows.push({ k: 'Connectors', s: worst.u >= 1 ? 'bad' : worst.u > 0.85 ? 'warn' : '', v: `${pct(worst.u)} of capacity`, sub: `busiest: to ${SLOTS[worst.tr.slot].name}` });
+  rows.push({ k: 'On time', s: ap.rolling.otp < 0.6 ? 'bad' : ap.rolling.otp < 0.8 ? 'warn' : '', v: pct(ap.rolling.otp), sub: `${ap.contracts.filter((c) => c.unhappyFor > 0).length} unhappy airlines` });
+  const net = ap.perMin.net || 0;
+  rows.push({ k: 'Money', s: net < 0 && ap.t > 30 ? 'bad' : '', v: rate(net, true), sub: net < 0 ? 'tap for why' : 'after all running costs' });
+  if (ap.weather.stormUntil > ap.t) rows.push({ k: 'Weather', s: 'bad', v: 'Thunderstorm', sub: `runway slowed · clears in ${duration(ap.weather.stormUntil - ap.t)}` });
+  const top = ui.advice && ui.advice.issues[0];
+  const tip = top && top.sev >= 2 ? `<li class="tip" data-ops="advisor"><span class="dot ${top.sev >= 3 ? 'bad' : 'warn'}"></span><span class="k">Do next</span><span class="v">${esc(ui.advice.best ? ui.advice.best.label : top.title)}<small>open the Advisor</small></span></li>` : '';
+  $('opsList').innerHTML = tip + rows.map((r) => `<li data-ops="advisor"><span class="dot ${r.s}"></span><span class="k">${r.k}</span><span class="v">${esc(r.v)}<small>${esc(r.sub)}</small></span></li>`).join('');
   $('opsClock').textContent = clockText;
 }
 
@@ -125,7 +121,10 @@ export function renderPanel(force = false) {
   const game = ui.game;
   const ap = activeAirport(game);
   let html;
+  ui.advice = advise(game, ap);
   if (ui.detail) html = renderDetail(game, ap, ui.detail);
+  else if (ui.tab === 'advisor') html = renderAdvisor(game, ap);
+  else if (ui.tab === 'help') html = helpHtml();
   else if (ui.tab === 'contracts') html = renderContracts(game, ap);
   else if (ui.tab === 'build') html = renderBuild(game, ap);
   else if (ui.tab === 'ops') html = renderOperations(game, ap);
@@ -150,7 +149,43 @@ function forecastRows(ap, o, slot) {
   rows.push(['Security', before.security.demand / before.security.cap, after.security.demand / after.security.cap]);
   if (tb && tb.connCap != null) rows.push([`Connector ${TERMINAL_CODES[slot]}`, tb.pax / Math.max(1, tb.connCap), ta.pax / Math.max(1, ta.connCap)]);
   rows.push(['Parking', before.parking.demand / before.parking.cap, after.parking.demand / after.parking.cap]);
+  ui.lastOverload = rows.filter(([k, b, a]) => a >= 1 && k !== 'Parking').map(([k]) => k);
   return `<table class="fc">${rows.map(([k, b, a]) => `<tr><td>${k}</td><td>${barHtml(b, a)}</td><td class="num ${a >= 1 ? 'neg' : ''}">${pct(b)}→${pct(a)}</td></tr>`).join('')}</table>`;
+}
+
+// A button that applies one of the advisor's fixes.
+function fixButton(f, cls = '') {
+  const data = Object.entries(f.data || {}).map(([k, v]) => `data-${k}="${esc(v)}"`).join(' ');
+  const paid = f.cost > 0;
+  const dis = paid && !canAfford(f.cost) ? 'disabled' : '';
+  return `<button type="button" class="btn ${cls}" data-act="${f.act}" ${data} ${dis}>${esc(f.label)}${paid ? `<span class="price">${money(f.cost)}</span>` : ''}</button>`;
+}
+
+function recTag(f) {
+  return ui.advice && ui.advice.recommended.has(fixKey(f)) ? '<span class="tag rec">Recommended</span>' : '';
+}
+
+// ------------------------------------------------------------------ advisor
+
+function renderAdvisor(game, ap) {
+  const adv = ui.advice;
+  const sevTag = ['<span class="tag green">Fine</span>', '<span class="tag">Worth a look</span>', '<span class="tag amber">Fix soon</span>', '<span class="tag red">Fix now</span>'];
+  let h = '';
+  if (adv.best) {
+    h += `<div class="card best"><div class="eyebrow">Best next step</div><div class="title">${esc(adv.best.label)}</div>${adv.best.why ? `<div class="sub">${esc(adv.best.why)}</div>` : ''}<div class="btns">${fixButton(adv.best, 'go')}</div></div>`;
+  }
+  const m = adv.money;
+  h += `<dl class="board"><div><dt>Earning</dt><dd>${rate(m.revenue)}</dd></div><div><dt>Spending</dt><dd>${rate(m.costs)}</dd></div><div><dt>Refunds</dt><dd>${rate(m.refunds)}</dd></div><div><dt>Net</dt><dd class="${(ap.perMin.net || 0) >= 0 ? 'pos' : 'neg'}">${rate(ap.perMin.net || 0, true)}</dd></div></dl>`;
+  for (const i of adv.issues) {
+    h += `<div class="card sev${i.sev}">
+      <div class="row between"><div class="title">${esc(i.title)}</div>${sevTag[i.sev]}</div>
+      <p class="note">${esc(i.detail)}</p>
+      ${i.tip ? `<p class="note"><b>${esc(i.tip)}</b></p>` : ''}
+      ${i.fixes.length ? `<div class="btns">${i.fixes.map((f) => fixButton(f, f === adv.best ? 'go' : '')).join('')}</div>` : ''}
+      ${i.fixes.some((f) => f.why) ? `<p class="note">${i.fixes.filter((f) => f.why).map((f) => `${esc(f.label)}: ${esc(f.why)}`).join(' · ')}</p>` : ''}
+    </div>`;
+  }
+  return h;
 }
 
 function terminalOptions(ap, cls, current) {
@@ -173,18 +208,21 @@ function renderContracts(game, ap) {
     h += `<div class="card">
       <div class="row between"><div class="row"><span class="chip" style="background:${o.color}"></span><div><div class="title">${esc(o.airline)}</div><div class="sub">to ${esc(o.city)}${o.network ? ' · <span class="tag">network route</span>' : ''}</div></div></div><span class="tag">${A.short} · ${A.name}</span></div>
       <dl class="board">
-        <div><dt>Flights</dt><dd>${o.freq.toFixed(2)}/min</dd></div>
+        <div><dt>Flights</dt><dd>${every(o.freq)}</dd></div>
         <div><dt>Seats</dt><dd>${Math.round(A.pax * o.load)}</dd></div>
         <div><dt>Fee / pax</dt><dd>$${o.paxFee.toFixed(1)}</dd></div>
-        <div><dt>Revenue</dt><dd>${money(val)}/m</dd></div>
+        <div><dt>Revenue</dt><dd>${rate(val)}</dd></div>
       </dl>
-      ${slot ? forecastRows(ap, o, slot) : ''}
-      ${blocked ? `<div class="sign stop" style="font-size:13px">${esc(blocked)}</div>` : `
+      ${slot ? forecastRows(ap, o, slot) : (ui.lastOverload = [], '')}
+      ${blocked ? `<div class="sign stop" style="font-size:13px">${esc(blocked)}</div><div class="btns">${offerUnlockFixes(ap, o.cls).map((f) => fixButton(f, 'go')).join('')}<button type="button" class="btn" data-act="decline" data-id="${o.id}">Decline</button></div>` : `
       <div class="row between">
         <label class="sub" for="os-${o.id}">Terminal</label>
         <select id="os-${o.id}" data-offer-slot="${o.id}">${terminalOptions(ap, o.cls, slot)}</select>
       </div>
-      <div class="btns"><button type="button" class="btn go" data-act="accept" data-id="${o.id}" data-slot="${slot}">Sign · bonus <span class="price">${money(o.bonus)}</span></button><button type="button" class="btn" data-act="decline" data-id="${o.id}">Decline</button></div>`}
+      ${ui.lastOverload.length ? `<p class="note neg">Signing puts ${esc(ui.lastOverload.join(', '))} over capacity: flights will run late and passengers will miss them.</p>` : ''}
+      <div class="btns">${ui.lastOverload.length
+        ? armBtn('sign-' + o.id, `Sign anyway · bonus ${money(o.bonus)}`, 'Confirm: overload it', 'accept', `data-id="${o.id}" data-slot="${slot}"`)
+        : `<button type="button" class="btn go" data-act="accept" data-id="${o.id}" data-slot="${slot}">Sign · bonus <span class="price">${money(o.bonus)}</span></button>`}<button type="button" class="btn" data-act="decline" data-id="${o.id}">Decline</button></div>`}
       <div class="timer"><i style="width:${clamp(left / CONTRACTS.offerLife, 0, 1) * 100}%"></i></div>
     </div>`;
   }
@@ -198,12 +236,12 @@ function renderContracts(game, ap) {
       ? `<span class="tag red">Unhappy · leaves in ${duration(CONTRACTS.leaveAfter - c.unhappyFor)}</span>`
       : otp < 0.75 ? `<span class="tag amber">Watching delays</span>` : `<span class="tag green">Happy</span>`;
     h += `<div class="card">
-      <div class="row between"><div class="row"><span class="chip" style="background:${c.color}"></span><div><div class="title">${esc(c.airline)}</div><div class="sub">${esc(c.city)} · ${A.name} · ${c.freq.toFixed(2)}/min</div></div></div>${status}</div>
+      <div class="row between"><div class="row"><span class="chip" style="background:${c.color}"></span><div><div class="title">${esc(c.airline)}</div><div class="sub">${esc(c.city)} · ${A.name} · ${every(c.freq)}</div></div></div>${status}</div>
       <dl class="board">
         <div><dt>On time</dt><dd>${c.otpHist.length ? pct(otp) : '—'}</dd></div>
         <div><dt>Last delay</dt><dd>${c.lastDelay != null ? duration(c.lastDelay) : '—'}</dd></div>
         <div><dt>Flown</dt><dd>${c.flown || 0}</dd></div>
-        <div><dt>Revenue</dt><dd>${money(S.contractValue(ap, c, game))}/m</dd></div>
+        <div><dt>Revenue</dt><dd>${rate(S.contractValue(ap, c, game))}</dd></div>
       </dl>
       <div class="row between">
         <label class="sub" for="cs-${c.id}">Terminal</label>
@@ -250,14 +288,14 @@ function renderBuild(game, ap) {
     const ups = Object.entries(UPGRADES).filter(([, u]) => u.needsPlot === id).map(([, u]) => u.name);
     const what = [...opens, ...ups].join(', ');
     const needs = P.needs && !ap.plots[P.needs] ? `Buy the ${PLOTS[P.needs].name} first` : null;
-    h += `<li><div class="what"><b>${P.name}</b><span>${owned ? 'Owned' : `Opens: ${what}`}${owned ? '' : ` · tax ${money(14 * S.site(ap).cost)}/min`}</span></div>${owned ? '<span class="tag green">Owned</span>' : needs ? `<span class="tag">${needs}</span>` : priceBtn('Buy', `plot" data-id="${id}`, S.plotCost(ap, id))}</li>`;
+    h += `<li><div class="what"><b>${P.name} ${recTag({ act: 'plot', data: { id } })}</b><span>${owned ? 'Owned' : `Opens: ${what}`}${owned ? '' : ` · tax ${rate(14 * S.site(ap).cost)}`}</span></div>${owned ? '<span class="tag green">Owned</span>' : needs ? `<span class="tag">${needs}</span>` : priceBtn('Buy', `plot" data-id="${id}`, S.plotCost(ap, id))}</li>`;
   }
   h += `</ul>`;
   h += `<h3 class="sec">Airfield & landside</h3><ul class="list">`;
   for (const k of UPGRADE_ORDER) {
     const U = UPGRADES[k];
     const why = S.upgradeBlocked(ap, k);
-    h += `<li><div class="what"><b>${U.name}</b><span>${U.desc}</span></div>${ap.upgrades[k] ? '<span class="tag green">Built</span>' : why ? `<span class="tag">${esc(why)}</span>` : priceBtn('Build', `upgrade" data-id="${k}`, S.upgradeCost(ap, k))}</li>`;
+    h += `<li><div class="what"><b>${U.name} ${recTag({ act: 'upgrade', data: { id: k } })}</b><span>${U.desc}</span></div>${ap.upgrades[k] ? '<span class="tag green">Built</span>' : why ? `<span class="tag">${esc(why)}</span>` : priceBtn('Build', `upgrade" data-id="${k}`, S.upgradeCost(ap, k))}</li>`;
   }
   h += `</ul>`;
   return h;
@@ -277,7 +315,7 @@ function connectorCard(ap, type, slot, chosen, current = null) {
     <h4>${def.name}${type === current ? ' · current' : ''}</h4>
     <dl>
       <dt>Build</dt><dd>${money(cost)}</dd>
-      <dt>Running</dt><dd>${money(upkeep)}/min</dd>
+      <dt>Running</dt><dd>${rate(upkeep)}</dd>
       <dt>Capacity</dt><dd>${num(cap)} pax/min${type === 'shuttle' ? '*' : ''}</dd>
       <dt>Trip</dt><dd>${duration(trip)}</dd>
       <dt>Build time</dt><dd>${duration(def.buildTime)}</dd>
@@ -299,7 +337,7 @@ function renderSlotDetail(game, ap, slot) {
     <div><dt>Terminal</dt><dd>${money(tcost)}</dd></div>
     <div><dt>Connector</dt><dd>${money(ccost)}</dd></div>
     <div><dt>Builds in</dt><dd>${duration(Math.max(TERMINAL.buildTime, CONNECTORS[chosen].buildTime))}</dd></div>
-    <div><dt>New staff</dt><dd>~${money(S.site(ap).cost * (95 + 18 * 3 + 40 + 33 + 30))}/m</dd></div>
+    <div><dt>New staff</dt><dd>~${rate(S.site(ap).cost * (95 + 18 * 3 + 40 + 33 + 30))}</dd></div>
   </dl>
   <h3 class="sec">How will passengers get there?</h3>
   <div class="conn-grid">${CONNECTOR_ORDER.map((t) => connectorCard(ap, t, slot, t === chosen)).join('')}</div>
@@ -323,8 +361,8 @@ function renderTerminalDetail(game, ap, slot) {
     <div><dt>Comfort</dt><dd>${num(T.comfort || T.gates * PAX.terminalComfortPerGate)}</dd></div>
   </dl>
   <h3 class="sec">Terminal</h3><ul class="list">
-    <li><div class="what"><b>Add a gate</b><span>${T.gates} of ${S0.maxGates} · each gate adds ground crew and climate costs</span></div>${T.gates < S0.maxGates ? priceBtn('Add', `gate" data-slot="${slot}`, S.gateCost(ap, T)) : '<span class="tag">Full</span>'}</li>
-    <li><div class="what"><b>Heavy gates</b><span>Widebodies and superjumbos need them</span></div>${T.heavy ? '<span class="tag green">Done</span>' : priceBtn('Convert', `heavy" data-slot="${slot}`, S.heavyCost(ap, T))}</li>
+    <li><div class="what"><b>Add a gate ${recTag({ act: 'gate', data: { slot } })}</b><span>${T.gates} of ${S0.maxGates} · each gate adds ground crew and climate costs</span></div>${T.gates < S0.maxGates ? priceBtn('Add', `gate" data-slot="${slot}`, S.gateCost(ap, T)) : '<span class="tag">Full</span>'}</li>
+    <li><div class="what"><b>Heavy gates ${recTag({ act: 'heavy', data: { slot } })}</b><span>Widebodies and superjumbos need them</span></div>${T.heavy ? '<span class="tag green">Done</span>' : priceBtn('Convert', `heavy" data-slot="${slot}`, S.heavyCost(ap, T))}</li>
     <li><div class="what"><b>Shops & dining · L${T.retail + 1}</b><span>Waiting passengers spend ×${TERMINAL.retailLevels[T.retail].mult}. Crowds spend less.</span></div>${S.retailCost(ap, T) != null ? priceBtn('Upgrade', `retail" data-slot="${slot}`, S.retailCost(ap, T)) : '<span class="tag">Max</span>'}</li>
   </ul>`;
   if (C) {
@@ -335,7 +373,7 @@ function renderTerminalDetail(game, ap, slot) {
       <div><dt>Capacity</dt><dd>${num(cap)}/min</dd></div>
       <div><dt>Demand</dt><dd>${rep ? num(rep.pax) : 0}/min</dd></div>
       <div><dt>Trip</dt><dd>${duration(S.connectorTravel(C))}</dd></div>
-      <div><dt>Running</dt><dd>${money(S.connectorUpkeep(C) * S.site(ap).cost)}/m</dd></div>
+      <div><dt>Running</dt><dd>${rate(S.connectorUpkeep(C) * S.site(ap).cost)}</dd></div>
     </dl>
     <p class="note">${num(C.outSize || 0)} waiting to go out · ${num(C.inSize || 0)} waiting to come back${C.brokenUntil > ap.t ? ' · <b class="neg">broken down</b>' : ''}</p>
     <div class="btns">`;
@@ -360,7 +398,7 @@ function renderTerminalDetail(game, ap, slot) {
     h += `<h3 class="sec">Security checkpoint</h3>${securityBlock(ap)}`;
   }
   h += `<h3 class="sec">Routes using this terminal · ${routes.length}</h3>`;
-  h += routes.length ? `<ul class="list">${routes.map((c) => `<li><div class="what"><b>${esc(c.airline)} · ${esc(c.city)}</b><span>${AIRCRAFT[c.cls].name} · ${c.freq.toFixed(2)}/min</span></div><span class="mono">${c.otpHist.length ? pct(c.otpHist.reduce((a, b) => a + b, 0) / c.otpHist.length) : '—'}</span></li>`).join('')}</ul>` : '<p class="empty">None. Assign routes from the Contracts tab.</p>';
+  h += routes.length ? `<ul class="list">${routes.map((c) => `<li><div class="what"><b>${esc(c.airline)} · ${esc(c.city)}</b><span>${AIRCRAFT[c.cls].name} · ${every(c.freq)}</span></div><span class="mono">${c.otpHist.length ? pct(c.otpHist.reduce((a, b) => a + b, 0) / c.otpHist.length) : '—'}</span></li>`).join('')}</ul>` : '<p class="empty">None. Assign routes from the Contracts tab.</p>';
   return h;
 }
 
@@ -368,6 +406,7 @@ function securityBlock(ap) {
   const rep = S.loadReport(ap);
   return `<table class="fc"><tr><td>Load</td><td>${barHtml(rep.security.demand / rep.security.cap)}</td><td class="num">${pct(rep.security.demand / rep.security.cap)}</td></tr></table>
   <p class="note">${ap.securityLanes} lanes screen ${num(rep.security.cap)} passengers a minute against ${num(rep.security.demand)} booked. ${num(ap.secQueue || 0)} in line now.</p>
+  ${recTag({ act: 'lane+', data: {} })}
   <div class="btns">${ap.securityLanes < SECCFG.maxLanes ? priceBtn('Open a lane', 'lane+', S.laneCost(ap)) : ''}<button type="button" class="btn" data-act="lane-" ${ap.securityLanes > 1 ? '' : 'disabled'}>Close a lane</button></div>`;
 }
 
@@ -380,7 +419,7 @@ function renderPlotDetail(game, ap, id) {
   <div class="title" style="font-size:24px">${P.name}</div>
   <p class="note">Farmland for now. Owning it opens:</p>
   <ul class="list">${[...opens.map((o) => `<li><div class="what"><b>${o}</b><span>Terminal site</span></div></li>`), ...ups.map((u) => `<li><div class="what"><b>${u}</b><span>Upgrade</span></div></li>`)].join('')}${id === 'west' || id === 'east' ? `<li><div class="what"><b>Taxilane</b><span>A second route for aircraft between the runway and the main apron</span></div></li>` : ''}</ul>
-  <p class="note">Land carries property tax of ${money(14 * S.site(ap).cost)}/min once bought.</p>
+  <p class="note">Land carries property tax of ${rate(14 * S.site(ap).cost)} once bought.</p>
   <div class="btns">${ap.plots[id] ? '<span class="tag green">Owned</span>' : needs ? `<span class="tag">Buy the ${needs} first</span>` : priceBtn('Buy land', `plot" data-id="${id}`, S.plotCost(ap, id), '', 'go')}</div>`;
 }
 
@@ -441,7 +480,7 @@ function renderDetail(game, ap, d) {
 function staffRow(ap, dept, label) {
   const cur = ap.staffing[dept];
   const effect = { atc: 'movements sequenced', security: 'passengers screened', ground: 'turnaround speed' }[dept];
-  return `<div class="row between" style="margin:6px 0 4px"><b>${label}</b><div class="seg">${Object.entries(STAFFING).map(([k, v]) => `<button type="button" class="${k === cur ? 'on' : ''}" data-act="staff" data-dept="${dept}" data-level="${k}">${v.label}</button>`).join('')}</div></div>
+  return `<div class="row between" style="margin:6px 0 4px"><b>${label} ${recTag({ act: 'staff', data: { dept } })}</b><div class="seg">${Object.entries(STAFFING).map(([k, v]) => `<button type="button" class="${k === cur ? 'on' : ''}" data-act="staff" data-dept="${dept}" data-level="${k}">${v.label}</button>`).join('')}</div></div>
   <p class="note">${STAFFING[cur].label}: pay ×${STAFFING[cur].cost.toFixed(2)}, ${effect} ×${(dept === 'ground' ? 1 / STAFFING[cur].turn : STAFFING[cur].capacity).toFixed(2)}.</p>`;
 }
 
@@ -468,12 +507,12 @@ function renderFinance(game, ap) {
   const pm = ap.perMin;
   const rev = [['landing', 'Landing fees'], ['paxFees', 'Passenger fees'], ['retail', 'Shops & dining'], ['parking', 'Parking'], ['bonus', 'Signing bonuses']];
   const max = Math.max(1, ...rev.map(([k]) => pm[k] || 0), ...ap.costLines.map((l) => l.v));
-  let h = `<h3 class="sec">${ap.name} · per minute</h3><table class="ledger">`;
-  for (const [k, label] of rev) h += `<tr><td>${label}</td><td class="lb"><div class="bar"><i style="width:${((pm[k] || 0) / max * 100).toFixed(1)}%"></i></div></td><td class="num pos">${money(pm[k] || 0)}</td></tr>`;
-  if (pm.refunds) h += `<tr><td>Missed-flight compensation</td><td class="lb"><div class="bar bad"><i style="width:${(-pm.refunds / max * 100).toFixed(1)}%"></i></div></td><td class="num neg">${money(pm.refunds)}</td></tr>`;
-  if (pm.penalties) h += `<tr><td>Contract penalties</td><td class="lb"></td><td class="num neg">${money(pm.penalties)}</td></tr>`;
-  for (const l of ap.costLines) h += `<tr><td>${esc(l.label)}</td><td class="lb"><div class="bar warn"><i style="width:${(l.v / max * 100).toFixed(1)}%"></i></div></td><td class="num neg">−${money(l.v)}</td></tr>`;
-  h += `<tr class="total"><td>Net</td><td></td><td class="num ${pm.net >= 0 ? 'pos' : 'neg'}">${money(pm.net || 0)}</td></tr></table>`;
+  let h = `<h3 class="sec">${ap.name} · per second</h3><table class="ledger">`;
+  for (const [k, label] of rev) h += `<tr><td>${label}</td><td class="lb"><div class="bar"><i style="width:${((pm[k] || 0) / max * 100).toFixed(1)}%"></i></div></td><td class="num pos">${rate(pm[k] || 0)}</td></tr>`;
+  if (pm.refunds) h += `<tr><td>Missed-flight compensation</td><td class="lb"><div class="bar bad"><i style="width:${(-pm.refunds / max * 100).toFixed(1)}%"></i></div></td><td class="num neg">${rate(pm.refunds)}</td></tr>`;
+  if (pm.penalties) h += `<tr><td>Contract penalties</td><td class="lb"></td><td class="num neg">${rate(pm.penalties)}</td></tr>`;
+  for (const l of ap.costLines) h += `<tr><td>${esc(l.label)}</td><td class="lb"><div class="bar warn"><i style="width:${(l.v / max * 100).toFixed(1)}%"></i></div></td><td class="num neg">${rate(-l.v)}</td></tr>`;
+  h += `<tr class="total"><td>Net</td><td></td><td class="num ${pm.net >= 0 ? 'pos' : 'neg'}">${rate(pm.net || 0, true)}</td></tr></table>`;
   h += `<p class="note">Costs run every second whether planes fly or not. Revenue arrives with each landing, each boarded passenger and every minute people spend waiting airside.</p>`;
   h += `<h3 class="sec">Company</h3><dl class="board">
     <div><dt>Airports</dt><dd>${game.airports.length}</dd></div>
@@ -491,7 +530,7 @@ function renderFinance(game, ap) {
   return h;
 }
 
-// ------------------------------------------------------------------ toasts & hints
+// ------------------------------------------------------------------ toasts & dialogs
 
 export function toast(text, kind = '') {
   const el = document.createElement('div');
@@ -500,25 +539,6 @@ export function toast(text, kind = '') {
   $('toasts').appendChild(el);
   while ($('toasts').children.length > 4) $('toasts').firstChild.remove();
   setTimeout(() => el.remove(), 4200);
-}
-
-const HINTS = [
-  { text: '<b>Welcome to Pinewood.</b> One regional airline already flies here. Planes and passengers arrive by themselves. Open <b>Contracts</b> to sign more routes.', done: (g, a) => a.contracts.length >= 2 },
-  { text: 'Each contract shows how it would load your runway, gates, security and connectors. Keep the bars out of the red. <b>Blue dots</b> are departing passengers, <b>orange</b> are arriving.', done: (g, a) => a.contracts.length >= 3 || a.t > 400 },
-  { text: 'Watch the security line in front of the main terminal. When it grows, open another lane under <b>Operations</b>.', done: (g, a) => a.securityLanes >= 3 || a.t > 700 },
-  { text: 'Gates filling up? Click a dashed <b>+ Build terminal</b> site, or buy farmland around the airfield to open more. Pick how passengers get there: each connector trades build cost against running cost, capacity and land.', done: (g, a) => a.terminals.length >= 2 },
-  { text: 'New terminals add controllers, ground crews and climate costs. Check <b>Finance</b> to see every line. Growth pays as long as the routes fill the gates.', done: (g, a) => a.t > 1500 || a.level >= 4 },
-  { text: 'Level 4 unlocks the <b>Network map</b>. Your next airport grows faster, and this one keeps earning while you are away.', done: (g) => g.airports.length >= 2 },
-];
-
-export function renderHint(game) {
-  const ap = game.airports[0];
-  while (game.tutorial < HINTS.length && HINTS[game.tutorial].done(game, ap)) game.tutorial++;
-  const el = $('hint');
-  if (game.tutorial >= HINTS.length || ui.hintClosed === game.tutorial) { el.hidden = true; return; }
-  const html = `${HINTS[game.tutorial].text}<button type="button" data-hint-close aria-label="Hide tip">×</button>`;
-  if (el.dataset.step !== String(game.tutorial)) { el.innerHTML = html; el.dataset.step = game.tutorial; }
-  el.hidden = false;
 }
 
 export function showDialog(html) {

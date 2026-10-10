@@ -6,7 +6,7 @@ import {
   RW, TWY_A, TWY_B, LANE2, RUNWAY_HALF, EXITS, LONG_RUNWAY_X1, HOLD_POINT, IAF,
   TAXILANES, PLOTS, SLOTS, SLOT_ORDER, MAIN_BLDG, MID_BLDG, SERVICE_Y, CURB_Y,
   HIGHWAY_Y, RAMP_IN_X, RAMP_OUT_X, MAIN_STAND_Y, MID_STAND_Y, TERMINAL_CODES,
-  slotBuilding, gateStand, lanesFor, connectorRoute,
+  slotBuilding, gateStand, lanesFor, connectorRoute, twyBSpan,
 } from './layout.js';
 import { mulberry32, pointAlong, pathLength, clamp, money } from './util.js';
 import { FLIGHT } from './config.js';
@@ -128,7 +128,7 @@ function drawStatic(ap, res) {
 
   // aprons
   const owned = (x0, x1) => ownedSpan(ap, x0, x1);
-  for (const [x0, x1] of owned(100, 1900)) {
+  for (const [x0, x1] of owned(60, 1940)) {
     g.fillStyle = C.concrete;
     g.fillRect(x0, LANE2 - 26, x1 - x0, MAIN_BLDG.y0 - (LANE2 - 26));
     g.fillRect(x0, TWY_B - 14, x1 - x0, MID_BLDG.y0 - (TWY_B - 14));
@@ -136,7 +136,7 @@ function drawStatic(ap, res) {
   // taxilanes connecting the two rows
   for (const L of lanesFor(ap.plots)) {
     g.fillStyle = C.concrete;
-    g.fillRect(L - 20, TWY_B, 40, LANE2 - TWY_B);
+    g.fillRect(L.x - 20, TWY_B, 40, LANE2 - TWY_B);
   }
   // concrete joints
   g.strokeStyle = 'rgba(0,0,0,0.06)'; g.lineWidth = 1;
@@ -144,23 +144,32 @@ function drawStatic(ap, res) {
     for (let x = x0; x < x1; x += 24) { g.beginPath(); g.moveTo(x, LANE2 - 26); g.lineTo(x, MAIN_BLDG.y0); g.stroke(); }
   }
 
-  // taxiways A & B and runway exits
+  // taxiways A & B, the links between them, and runway exits
+  const [bx0, bx1] = twyBSpan(ap.plots);
   g.fillStyle = C.asphalt;
-  g.fillRect(200, TWY_A - 12, 1620, 12 + (TWY_B - TWY_A) + 12);
-  g.fillRect(HOLD_POINT.x - 14, RW[0].y, 28, TWY_B - RW[0].y);
+  g.fillRect(200, TWY_A - 14, 1620, 28);
+  g.fillRect(bx0 - 14, TWY_B - 14, bx1 - bx0 + 28, 28);
+  g.fillRect(200, TWY_A, 1620, TWY_B - TWY_A);
+  g.fillStyle = C.asphaltB;
+  g.fillRect(200, TWY_A + 14, 1620, TWY_B - TWY_A - 28);
+  g.fillStyle = C.asphalt;
   for (const ex of EXITS) {
+    g.fillRect(ex - 14, TWY_A, 28, TWY_B - TWY_A);
     g.beginPath();
     g.moveTo(ex - 80, RW[0].y + RUNWAY_HALF); g.lineTo(ex - 30, RW[0].y + RUNWAY_HALF);
-    g.lineTo(ex + 14, TWY_A - 12); g.lineTo(ex - 22, TWY_A - 12); g.closePath(); g.fill();
+    g.lineTo(ex + 14, TWY_A - 14); g.lineTo(ex - 22, TWY_A - 14); g.closePath(); g.fill();
   }
+  for (const L of lanesFor(ap.plots)) if (L.dir === 'N') g.fillRect(L.x - 14, TWY_A, 28, TWY_B - TWY_A);
+  // departure hold point and line-up
+  g.fillRect(HOLD_POINT.x - 14, RW[0].y, 28, TWY_B - RW[0].y);
   // north runway taxiway and crossings
   if (ap.upgrades.runway2) {
-    g.fillRect(200, RW[1].exitY - 12, 1620, 24);
+    g.fillRect(200, RW[1].exitY - 14, 1620, 28);
     for (const ex of EXITS) {
-      g.fillRect(ex - 12, RW[1].exitY, 24, TWY_A - RW[1].exitY);
+      g.fillRect(ex - 14, RW[1].exitY, 28, TWY_A - RW[1].exitY);
       g.beginPath();
       g.moveTo(ex - 80, RW[1].y + RUNWAY_HALF); g.lineTo(ex - 30, RW[1].y + RUNWAY_HALF);
-      g.lineTo(ex + 14, RW[1].exitY - 12); g.lineTo(ex - 22, RW[1].exitY - 12); g.closePath(); g.fill();
+      g.lineTo(ex + 14, RW[1].exitY - 14); g.lineTo(ex - 22, RW[1].exitY - 14); g.closePath(); g.fill();
     }
   }
 
@@ -168,21 +177,26 @@ function drawStatic(ap, res) {
   runway(g, RW[0], ap.upgrades.longRunway ? LONG_RUNWAY_X1 : RW[0].x1, ap.upgrades.runway2 ? ['09R', '27L'] : ['09', '27']);
   if (ap.upgrades.runway2) runway(g, RW[1], RW[1].x1, ['09L', '27R']);
 
-  // yellow centrelines
+  // yellow centrelines, with arrows showing which way each one runs
   g.strokeStyle = C.yellow; g.lineWidth = 1.6;
   line(g, [[200, TWY_A], [1820, TWY_A]]);
-  line(g, [[HOLD_POINT.x, TWY_B], [1820, TWY_B]]);
-  line(g, [[HOLD_POINT.x, TWY_B], [HOLD_POINT.x, RW[0].y + 30], [RW[0].x0 + 10, RW[0].y]]);
-  for (const ex of EXITS) curveLine(g, ex - 60, RW[0].y, ex, TWY_A);
+  line(g, [[bx0, TWY_B], [bx1, TWY_B]]);
+  line(g, [[HOLD_POINT.x, TWY_B], [HOLD_POINT.x, HOLD_POINT.y], [HOLD_POINT.x + 18, RW[0].y + 26], [RW[0].x0 + 10, RW[0].y]]);
+  for (const ex of EXITS) { curveLine(g, ex - 60, RW[0].y, ex, TWY_A); line(g, [[ex, TWY_A], [ex, TWY_B]]); }
   if (ap.upgrades.runway2) {
     line(g, [[200, RW[1].exitY], [1820, RW[1].exitY]]);
     for (const ex of EXITS) { curveLine(g, ex - 60, RW[1].y, ex, RW[1].exitY); line(g, [[ex, RW[1].exitY], [ex, RW[0].y - RUNWAY_HALF - 6]]); line(g, [[ex, RW[0].y + RUNWAY_HALF + 6], [ex, TWY_A]]); }
   }
-  for (const L of lanesFor(ap.plots)) line(g, [[L, TWY_B], [L, LANE2]]);
-  for (const [x0, x1] of owned(100, 1900)) line(g, [[x0, LANE2], [x1, LANE2]]);
-  // hold-short bars
+  for (const L of lanesFor(ap.plots)) line(g, [[L.x, L.dir === 'N' ? TWY_A : TWY_B], [L.x, LANE2]]);
+  for (const [x0, x1] of owned(60, 1940)) line(g, [[x0, LANE2], [x1, LANE2]]);
+  g.fillStyle = C.yellow;
+  for (let x = 640; x < 1800; x += 220) arrow(g, x, TWY_A, 0);
+  for (let x = bx1 - 120; x > bx0 + 60; x -= 220) arrow(g, x, TWY_B, Math.PI);
+  for (const [x0, x1] of owned(60, 1940)) for (let x = x0 + 60; x < x1 - 30; x += 200) arrow(g, x, LANE2, 0);
+  for (const L of lanesFor(ap.plots)) arrow(g, L.x, (TWY_B + LANE2) / 2, L.dir === 'S' ? Math.PI / 2 : -Math.PI / 2);
+  // hold-short bars at the departure hold point
   g.strokeStyle = C.yellow; g.lineWidth = 2;
-  for (const dy of [0, 4]) line(g, [[HOLD_POINT.x - 14, RW[0].y + RUNWAY_HALF + 10 + dy], [HOLD_POINT.x + 14, RW[0].y + RUNWAY_HALF + 10 + dy]]);
+  for (const dy of [0, 4]) line(g, [[HOLD_POINT.x - 14, RW[0].y + RUNWAY_HALF + 16 + dy], [HOLD_POINT.x + 14, RW[0].y + RUNWAY_HALF + 16 + dy]]);
 
   // terminals and connectors
   for (const T of ap.terminals) {
@@ -209,14 +223,20 @@ function ownedSpan(ap, x0, x1) {
   const pieces = [core];
   if (ap.plots.west) pieces.push([430, 800]);
   if (ap.plots.east) pieces.push([1200, 1570]);
-  if (ap.plots.farwest) pieces.push([80, 430]);
-  if (ap.plots.fareast) pieces.push([1570, 1920]);
+  if (ap.plots.farwest) pieces.push([60, 430]);
+  if (ap.plots.fareast) pieces.push([1570, 1940]);
   pieces.sort((a, b) => a[0] - b[0]);
   for (const p of pieces) {
     const last = spans[spans.length - 1];
     if (last && Math.abs(last[1] - p[0]) < 1) last[1] = p[1]; else spans.push([p[0], p[1]]);
   }
   return spans.map(([a, b]) => [Math.max(a, x0) + 8, Math.min(b, x1) - 8]);
+}
+
+function arrow(g, x, y, ang) {
+  g.save(); g.translate(x, y); g.rotate(ang);
+  g.beginPath(); g.moveTo(7, 0); g.lineTo(-4, -5); g.lineTo(-1, 0); g.lineTo(-4, 5); g.closePath(); g.fill();
+  g.restore();
 }
 
 function line(g, pts) {
@@ -765,7 +785,8 @@ export function render(g, w, h, dpr, cam, ap, view) {
   const arrRw = RW[ap.upgrades.runway2 ? 1 : 0];
   if (holders) {
     g.strokeStyle = 'rgba(255,255,255,0.55)'; g.lineWidth = 1.5; g.setLineDash([5, 6]);
-    g.beginPath(); g.arc(IAF.x, arrRw.y + FLIGHT.holdRadius, FLIGHT.holdRadius, 0, Math.PI * 2); g.stroke(); g.setLineDash([]);
+    for (let ring = 0; ring * 7 < holders; ring++) { g.beginPath(); g.arc(IAF.x, arrRw.y + FLIGHT.holdRadius, FLIGHT.holdRadius + ring * 44, 0, Math.PI * 2); g.stroke(); }
+    g.setLineDash([]);
     signLabel(g, IAF.x, arrRw.y + FLIGHT.holdRadius, `HOLDING ${holders}`, holders > 2 ? 'red' : 'yellow', cam.zoom);
   }
 
@@ -833,7 +854,7 @@ function lights(g, ap, dark) {
   edge(RW[0], ap.upgrades.longRunway ? LONG_RUNWAY_X1 : RW[0].x1);
   if (ap.upgrades.runway2) edge(RW[1], RW[1].x1);
   g.fillStyle = '#5aa0ff';
-  for (let x = 200; x < 1820; x += 30) { g.fillRect(x, TWY_A - 13, 2, 2); g.fillRect(x, TWY_B + 12, 2, 2); }
+  for (let x = 200; x < 1820; x += 30) { g.fillRect(x, TWY_A - 15, 2, 2); g.fillRect(x, TWY_B + 14, 2, 2); }
   g.fillStyle = '#4cff7a';
   for (let x = 210; x < 1820; x += 15) { g.fillRect(x, TWY_A - 0.5, 1.5, 1.5); }
   // terminal glow
