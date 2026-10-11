@@ -27,8 +27,9 @@ export const FLIGHT = {
   holdRadius: 95,
   gateHeadway: 3,        // seconds between flight arrival and the next
   onTimeSlack: 15,       // seconds past STD that still count as on time (the airline "15 minutes")
-  boardingGrace: 22,     // seconds past STD a plane waits for late passengers
-  scheduleBuffer: 5,     // airlines pad the inbound leg by this much
+  boardingGrace: 10,     // seconds past STD a plane waits for late passengers (inside the on-time slack)
+  scheduleBuffer: 12,    // airlines pad the inbound leg by this much...
+  taxiPad: 0.25,         // ...plus this share of the expected taxi-in
 };
 
 // ---------------------------------------------------------------- people
@@ -177,7 +178,7 @@ export const CONTRACTS = {
   maxOffers: 3,
   offerLife: 100,
   freq: { regional: [0.5, 1.1], narrow: [0.35, 0.85], wide: [0.22, 0.5], jumbo: [0.14, 0.3] },
-  paxFee: [10, 17],
+  paxFee: [11, 19],
   load: [0.72, 0.95],
   unhappyOtp: 0.45,     // airlines below this on-time rate grow unhappy...
   leaveAfter: 150,      // ...and leave after this many seconds of it

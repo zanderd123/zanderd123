@@ -198,6 +198,7 @@ function terminalOptions(ap, cls, current) {
 }
 
 function renderContracts(game, ap) {
+  const late = ui.advice && ui.advice.delayed;
   let h = `<h3 class="sec">Offers on the table</h3>`;
   if (!ap.offers.length) h += `<p class="empty">No airline is asking right now. New offers arrive every minute or so; a better reputation brings better ones.</p>`;
   for (const o of ap.offers) {
@@ -221,9 +222,9 @@ function renderContracts(game, ap) {
         <label class="sub" for="os-${o.id}">Terminal</label>
         <select id="os-${o.id}" data-offer-slot="${o.id}">${terminalOptions(ap, o.cls, slot)}</select>
       </div>
-      ${ui.lastOverload.length ? `<p class="note neg">Signing puts ${esc(ui.lastOverload.join(', '))} over capacity: flights will run late and passengers will miss them.</p>` : ''}
-      <div class="btns">${ui.lastOverload.length
-        ? armBtn('sign-' + o.id, `Sign anyway · bonus ${money(o.bonus)}`, 'Confirm: overload it', 'accept', `data-id="${o.id}" data-slot="${slot}"`)
+      ${ui.lastOverload.length ? `<p class="note neg">Signing puts ${esc(ui.lastOverload.join(', '))} over capacity: flights will run late and passengers will miss them.</p>` : late ? `<p class="note neg">Flights are already running late (${pct(ap.rolling.otp)} on time). Another route makes every flight later; the Advisor says what is causing it.</p>` : ''}
+      <div class="btns">${ui.lastOverload.length || late
+        ? armBtn('sign-' + o.id, `Sign anyway · bonus ${money(o.bonus)}`, ui.lastOverload.length ? 'Confirm: overload it' : 'Confirm: sign it anyway', 'accept', `data-id="${o.id}" data-slot="${slot}"`)
         : `<button type="button" class="btn go" data-act="accept" data-id="${o.id}" data-slot="${slot}">Sign · bonus <span class="price">${money(o.bonus)}</span></button>`}<button type="button" class="btn" data-act="decline" data-id="${o.id}">Decline</button></div>`}
       <div class="timer"><i style="width:${clamp(left / CONTRACTS.offerLife, 0, 1) * 100}%"></i></div>
     </div>`;

@@ -43,7 +43,7 @@ export function advise(game, ap) {
       if (ap.staffing.atc !== 'surge') fixes.push(fix('Surge tower staffing', 'staff', { dept: 'atc', level: 'surge' }, 0));
     } else {
       fixes.push(upgradeFix(ap, 'rapidExits', 'planes leave the runway sooner'));
-      fixes.push(upgradeFix(ap, 'runway2', 'nearly doubles runway capacity'));
+      fixes.push(upgradeFix(ap, 'runway2', 'about 30% more movements'));
     }
     add(rwU >= 1 ? 3 : 2, 'runway', rwU >= 1 ? 'The runway is overbooked' : 'The runway is nearly full',
       `Your routes need ${rep.runway.demand.toFixed(1)} landings and take-offs a minute; you can handle ${rep.runway.cap.toFixed(1)}. ` +
@@ -119,6 +119,58 @@ export function advise(game, ap) {
       [], top === 'security' ? 'See "Security can\'t keep up" above.' : top === 'connector' ? 'See the connector advice above.' : '');
   }
 
+  // ------------------------------------------------------------ delays
+  // Measured, not modelled: what actually made recent flights late. The
+  // capacity bars are averages; bunched-up arrivals can run late below them.
+  const recentLate = (ap.lateLog || []).filter((e) => ap.t - e.t < 240);
+  const unhappy = ap.contracts.filter((c) => c.unhappyFor > 0);
+  const delayed = unhappy.length > 0 || (ap.rolling.otp < 0.85 && recentLate.length >= 3);
+  if (delayed && recentLate.length) {
+    const count = {};
+    for (const e of recentLate) count[e.why] = (count[e.why] || 0) + 1;
+    const top = Object.entries(count).sort((a, b) => b[1] - a[1])[0][0];
+    const fixes = [];
+    let cause;
+    if (top === 'gate') {
+      const per = {};
+      for (const e of recentLate) if (e.why === 'gate') per[e.slot] = (per[e.slot] || 0) + 1;
+      const slot = Object.entries(per).sort((a, b) => b[1] - a[1])[0][0];
+      const T = S.terminalBySlot(ap, slot);
+      cause = `circled because no gate was free at ${name(slot)}`;
+      if (T && T.gates < SLOTS[slot].maxGates) fixes.push(fix(`Add a gate to ${TERMINAL_CODES[slot]}`, 'gate', { slot }, S.gateCost(ap, T)));
+      fixes.push(fix('Move some of its routes (Contracts tab)', 'tab', { tab: 'contracts' }, 0));
+      fixes.push(fix('Plan another terminal (Build tab)', 'tab', { tab: 'build' }, 0));
+    } else if (top === 'runway') {
+      cause = 'circled in the holding stack waiting for a landing slot';
+      if (rep.runway.atc < rep.runway.physical) {
+        fixes.push(upgradeFix(ap, 'radar', '+25% movements per controller'));
+        if (ap.upgrades.radar) fixes.push(upgradeFix(ap, 'automation', '+30% movements per controller'));
+        if (ap.staffing.atc !== 'surge') fixes.push(fix('Surge tower staffing', 'staff', { dept: 'atc', level: 'surge' }, 0));
+      }
+      fixes.push(upgradeFix(ap, 'rapidExits', 'planes leave the runway sooner'));
+      fixes.push(upgradeFix(ap, 'runway2', 'about 30% more movements'));
+    } else if (top === 'taxi') {
+      cause = 'circled because the taxiways were already full of aircraft';
+      fixes.push(upgradeFix(ap, 'rapidExits', 'planes leave the runway sooner'));
+      fixes.push(upgradeFix(ap, 'runway2', 'more room for departures to drain'));
+      if (ap.staffing.ground !== 'surge') fixes.push(fix('Surge ground crews', 'staff', { dept: 'ground', level: 'surge' }, 0));
+    } else if (top === 'pax') {
+      cause = 'waited at the gate for passengers still stuck in security or on a connector';
+      if (ap.securityLanes < SECCFG.maxLanes) fixes.push(fix('Open a security lane', 'lane+', {}, S.laneCost(ap)));
+      fixes.push(upgradeFix(ap, 'ctScanners', '+40% per lane'));
+    } else {
+      cause = 'were slowed by traffic on the taxiways (far terminals take longest)';
+      fixes.push(upgradeFix(ap, 'rapidExits', 'planes leave the runway sooner'));
+      fixes.push(upgradeFix(ap, 'runway2', 'more room for departures to drain'));
+    }
+    const title = unhappy.length ? `${unhappy.length} airline${unhappy.length > 1 ? 's are' : ' is'} unhappy with delays` : 'Flights are running late';
+    add(unhappy.length || ap.rolling.otp < 0.6 ? 3 : 2, 'delays', title,
+      `${Math.round(ap.rolling.otp * 100)}% of flights are leaving on time. Of the last ${recentLate.length} late ones, most ${cause}. ` +
+      (unhappy.length ? `An airline whose route stays under ${Math.round(CONTRACTS.unhappyOtp * 100)}% on time for ${CONTRACTS.leaveAfter}s pulls it. ` : '') +
+      'The capacity bars are averages: arrivals bunch up, so the airport can run late before any bar is red.',
+      fixes, 'Until this clears, decline new routes: every extra flight makes all of them later.');
+  }
+
   // ------------------------------------------------------------ parking
   if (rep.parking.demand > rep.parking.cap * 1.05) {
     add(1, 'parking', 'The car park is full',
@@ -141,7 +193,7 @@ export function advise(game, ap) {
   for (const c of ap.contracts) {
     if (c.unhappyFor > 0) {
       add(3, 'airline', `${c.airline} may leave`,
-        `Its ${c.city} flights are on time ${Math.round((c.otp || 0) * 100)}% of the time. Below ${Math.round(CONTRACTS.unhappyOtp * 100)}% for ${CONTRACTS.leaveAfter}s and it pulls the route. Fix the bottleneck above, or move the route to a quieter terminal.`,
+        `Its ${c.city} flights are on time ${Math.round((c.otp || 0) * 100)}% of the time. Below ${Math.round(CONTRACTS.unhappyOtp * 100)}% for ${CONTRACTS.leaveAfter}s and it pulls the route. The delays card above says what is making flights late; moving this route to a quieter terminal can also help.`,
         [fix('Open Contracts', 'tab', { tab: 'contracts' }, 0)]);
     }
   }
@@ -150,7 +202,7 @@ export function advise(game, ap) {
   for (const o of ap.offers) {
     const blocked = S.classAllowed(ap, o.cls);
     if (!blocked) continue;
-    add(1, 'offer', `${o.airline} wants to fly ${AIRCRAFT[o.cls].name.toLowerCase()}s here`, `${blocked}.`, offerUnlockFixes(ap, o.cls));
+    add(1, 'offer', `${o.airline} wants to fly ${AIRCRAFT[o.cls].name.toLowerCase().replace(/y$/, 'ie')}s here`, `${blocked}.`, offerUnlockFixes(ap, o.cls));
   }
 
   // ------------------------------------------------------------ idle terminals
@@ -160,7 +212,7 @@ export function advise(game, ap) {
       const T = S.terminalBySlot(ap, tr.slot);
       const cost = (COSTS.controller + T.gates * (COSTS.groundCrewPerGate + COSTS.hvacPerGate) + COSTS.hvacBase + COSTS.cleaningBase + (T.connector ? S.connectorUpkeep(T.connector) : 0)) * S.site(ap).cost;
       add(1, 'idle', `${name(tr.slot)} is nearly empty`,
-        `It costs about ${(cost / 60).toFixed(1)} $/s in staff and upkeep but has almost no routes. Sign routes for it, or move busy routes over from a crowded terminal.`,
+        `It costs about ${(cost / 60).toFixed(1)} $/s in staff and upkeep but has almost no routes. ${delayed ? 'Move busy routes over from a crowded terminal (flights are late, so not new ones yet).' : 'Sign routes for it, or move busy routes over from a crowded terminal.'}`,
         [fix('Open Contracts', 'tab', { tab: 'contracts' }, 0)]);
     }
   }
@@ -175,18 +227,18 @@ export function advise(game, ap) {
     if (secU < 0.6 && ap.staffing.security !== 'lean') fixes.push(fix('Lean security staffing', 'staff', { dept: 'security', level: 'lean' }, 0));
     if (rwU < 0.5 && ap.staffing.atc !== 'lean') fixes.push(fix('Lean tower staffing', 'staff', { dept: 'atc', level: 'lean' }, 0));
     const spareRunway = rwU < 0.75, spareGates = rep.terminals.some((t) => t.open && t.gateDemand / t.gates < 0.6);
-    if (spareRunway && spareGates) fixes.push(fix('Sign more routes (Contracts tab)', 'tab', { tab: 'contracts' }, 0));
+    if (spareRunway && spareGates && !delayed) fixes.push(fix('Sign more routes (Contracts tab)', 'tab', { tab: 'contracts' }, 0));
     let reason;
     if ((ap.perMin.refunds || 0) < -0.3 * money.revenue) reason = `Refunds to passengers who missed flights are eating ${Math.round(-(ap.perMin.refunds || 0) / Math.max(1, money.revenue) * 100)}% of your revenue. Fix whatever is making them miss flights first.`;
     else if (money.revenue < 1) reason = 'No flights have paid yet. Sign a route in the Contracts tab.';
-    else reason = `You earn ${(money.revenue / 60).toFixed(1)} $/s but spend ${(money.costs / 60).toFixed(1)} $/s. The biggest bill is ${lines[0].label.toLowerCase()} at ${(lines[0].v / 60).toFixed(1)} $/s. ${spareRunway && spareGates ? 'You have spare runway and gate capacity: more routes would pay for it.' : 'Your capacity is full, so trim staff you are not using.'}`;
+    else reason = `You earn ${(money.revenue / 60).toFixed(1)} $/s but spend ${(money.costs / 60).toFixed(1)} $/s. The biggest bill is ${lines[0].label.toLowerCase()} at ${(lines[0].v / 60).toFixed(1)} $/s. ${delayed ? 'Flights are already running late, so fix the delays before adding routes.' : spareRunway && spareGates ? 'You have spare runway and gate capacity: more routes would pay for it.' : 'Your capacity is full, so trim staff you are not using.'}`;
     add(3, 'money', `Losing ${(-net / 60).toFixed(1)} $/s`, reason, fixes);
   }
 
   // ------------------------------------------------------------ good next steps
   if (!issues.some((i) => i.sev >= 2)) {
     const ideas = [];
-    if (rwU < 0.7 && rep.terminals.some((t) => t.open && t.gateDemand / t.gates < 0.6)) ideas.push(fix('Sign more routes: you have spare capacity', 'tab', { tab: 'contracts' }, 0));
+    if (!delayed && rwU < 0.7 && rep.terminals.some((t) => t.open && t.gateDemand / t.gates < 0.6)) ideas.push(fix('Sign more routes: you have spare capacity', 'tab', { tab: 'contracts' }, 0));
     const main = S.terminalBySlot(ap, 'main');
     if (main.retail < 2 && S.retailCost(ap, main) != null) ideas.push({ ...fix(`Better shops in ${TERMINAL_CODES.main}`, 'retail', { slot: 'main' }, S.retailCost(ap, main)), why: `waiting passengers spend ×${TERMINAL.retailLevels[main.retail + 1].mult}` });
     if (ap.terminals.length >= 2) ideas.push(upgradeFix(ap, 'hvac', 'cuts climate bills 35%'));
@@ -203,7 +255,7 @@ export function advise(game, ap) {
   let best = null;
   for (const i of issues) { best = i.fixes.find((f) => f.cost <= game.cash) || null; if (best) break; }
   const recommended = new Set(issues.filter((i) => i.sev >= 1).flatMap((i) => i.fixes).map((f) => key(f)));
-  return { issues, best, recommended, money };
+  return { issues, best, recommended, money, delayed };
 }
 
 export function key(f) { return `${f.act}:${f.data.id || f.data.slot || f.data.dept || ''}`; }

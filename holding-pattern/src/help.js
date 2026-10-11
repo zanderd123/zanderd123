@@ -36,6 +36,7 @@ export function helpHtml() {
     <tr><td>Flights often late</td><td>An airline under ${Math.round(CONTRACTS.unhappyOtp * 100)}% on time for ${CONTRACTS.leaveAfter}s pulls its route, and its income goes with it.</td></tr>
     <tr><td>Low reputation</td><td>Passenger fees shrink and new offers pay less.</td></tr>
   </table>
+  <p class="note"><b>The capacity bars are averages.</b> Flights don't arrive evenly, so an airport can start running late before a bar turns red, most of all above 80% (amber). If flights are late, the Advisor names the measured cause, and new offers warn you before you sign.</p>
   <p class="note"><b>Fix the cause, not the symptom.</b> A long security line is often caused by planes that are late because the runway or gates are full. When that happens, passengers bunch up. The Advisor tab tells you which it is.</p>
 
   ${sec('Money')}

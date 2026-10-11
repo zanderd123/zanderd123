@@ -76,7 +76,7 @@ export function hydrate(ap, seed = Date.now()) {
   ap.zonesKey = '';
   ap.busBlocks = [];
   ap.depQueue = [];
-  ap.runways = RW.map(() => ({ occupant: null, clearEta: 0, reservedArr: null }));
+  ap.runways = RW.map(() => ({ occupant: null, clearEta: 0, reservedArr: null, crossers: new Set() }));
   ap.atcTokens = 2;
   ap.ledger = [];
   ap.bucket = {};
@@ -192,11 +192,12 @@ export function atcCapacity(ap) {
 }
 
 export function runwayPhysical(ap) {
-  // Measured with tools/runway.mjs: a saturated mixed-mode runway handles
-  // about 15 movements a minute, 16.5 with rapid exits, and a second runway
-  // (arrivals north, departures south) brings that to about 27.
-  const single = ap.upgrades.rapidExits ? 16 : 14;
-  return (ap.upgrades.runway2 ? single * 1.65 : single) * stormFactor(ap);
+  // Measured with tools/runway.mjs and a realistic airport: a mixed-mode
+  // runway handles about 14 movements a minute, 15-16 with rapid exits. A
+  // second runway (arrivals north, departures south) adds about 30%: its
+  // arrivals have to cross the main runway between take-offs.
+  const single = ap.upgrades.rapidExits ? 14.5 : 13;
+  return (ap.upgrades.runway2 ? single * 1.3 : single) * stormFactor(ap);
 }
 
 export function securityRate(ap) {
@@ -349,6 +350,15 @@ export function classAllowed(ap, cls) {
 
 // Load against capacity across every bottleneck, optionally with an extra
 // contract added on a given terminal. Rates are per minute.
+// How long one flight keeps a gate, in minutes. The gate is reserved from
+// landing clearance (so nobody lands without one) until the aircraft has
+// pushed back: approach, landing roll and taxi in, the turnaround, then
+// waiting to push. Measured with a moderately busy airport; the north
+// runway's crossing makes everything a little longer.
+function gateMinutes(ap, cls) {
+  return (turnTime(ap, cls) + 30 + (ap.upgrades.runway2 ? 10 : 0)) / 60;
+}
+
 export function loadReport(ap, extra = null) {
   const contracts = extra ? ap.contracts.concat([extra]) : ap.contracts;
   const r = {};
@@ -362,7 +372,7 @@ export function loadReport(ap, extra = null) {
     depPax += pax;
     const pt = perT.get(c.terminal);
     if (pt) {
-      pt.gateDemand += c.freq * (turnTime(ap, c.cls) + 14) / 60;
+      pt.gateDemand += c.freq * gateMinutes(ap, c.cls);
       pt.pax += pax;
     }
   }
@@ -782,9 +792,10 @@ function notify(ap, kind, text) {
 function scheduleFlights(game, ap) {
   const t = ap.t;
   for (const c of ap.contracts) {
-    // Pax start arriving PAX.arriveEarly before departure, so the flight
-    // record exists that long before the aircraft does.
-    while (c.nextStd - PAX.arriveEarly <= t) {
+    // The flight record has to exist before its passengers start arriving
+    // and before its inbound aircraft has to set off, whichever is earlier.
+    const lead = turnTime(ap, c.cls) + inboundEstimate(ap, c) + FLIGHT.scheduleBuffer;
+    while (c.nextStd - Math.max(PAX.arriveEarly, lead + 1) <= t) {
       const std = c.nextStd;
       const interval = 60 / c.freq;
       c.nextStd += interval * (0.85 + ap.rand() * 0.3);
@@ -798,7 +809,7 @@ function scheduleFlights(game, ap) {
         expected: Math.round(A.pax * c.load),
         arriving: Math.round(A.pax * c.load * (0.85 + ap.rand() * 0.2)),
         generated: 0, boarded: 0, closed: false, missed: 0,
-        spawnAt: std - turnTime(ap, c.cls) - inboundEstimate(ap, c) - FLIGHT.scheduleBuffer,
+        spawnAt: std - lead,
         plane: null,
       };
       ap.flights.set(f.id, f);
@@ -810,11 +821,8 @@ function scheduleFlights(game, ap) {
 }
 
 function inboundEstimate(ap, c) {
-  const A = AIRCRAFT[c.cls];
-  const ex = EXITS[A.exitIndex];
-  const stand = gateStand(c.terminal, 0);
-  const taxi = pathLength(pathExitToGate(ex, stand, ap.plots));
-  return 8 + taxi / FLIGHT.taxiSpeed;
+  const r = arrivalRoute(ap, arrRunway(ap), c.cls, gateStand(c.terminal, 0));
+  return 8 + (pathLength(r.route) - r.rollEnd) / FLIGHT.taxiSpeed * (1 + FLIGHT.taxiPad);
 }
 
 function arrRunway(ap) { return ap.upgrades.runway2 ? 1 : 0; }
@@ -874,21 +882,28 @@ function canClearArrival(ap, p, eta) {
   if (findGate(ap, p) < 0) { p.holdReason = 'gate'; return false; }
   // Nor while the turn-off it will use is still occupied: an aircraft that
   // cannot leave the runway would block every departure behind it.
-  const ex = EXITS[AIRCRAFT[p.cls].exitIndex];
+  // Off the north runway it takes the first turn-off it can make that is
+  // clear: its own, or a later one if that is busy (a later one is always
+  // long enough). Those lead straight to the crossing; the main runway's
+  // later turn-offs would meet taxiway A traffic from the earlier ones.
   const jy = RW[p.rw].exitY;
-  for (const o of ap.planes) {
-    if (o === p || o.alt > 0.5 || o.state === 'gate') continue;
-    if (Math.abs(o.x - ex) < 55 && o.y > RW[p.rw].y + 5 && o.y < jy + (p.rw === 1 ? 75 : 30)) { p.holdReason = 'taxi'; return false; }
+  const own = AIRCRAFT[p.cls].exitIndex;
+  p.exitIdx = -1;
+  for (let i = own; i < (p.rw === 1 ? EXITS.length : own + 1) && p.exitIdx < 0; i++) {
+    const ex = EXITS[i];
+    if (!ap.planes.some((o) => o !== p && o.alt <= 0.5 && o.state !== 'gate' && Math.abs(o.x - ex) < 55 && o.y > RW[p.rw].y + 5 && o.y < jy + (p.rw === 1 ? 75 : 30))) p.exitIdx = i;
   }
+  if (p.exitIdx < 0) { p.holdReason = 'taxi'; return false; }
   // Ground control meters arrivals too, so the taxiways never fill up.
-  if (ap.arrGround >= MAX_ARR_GROUND) { p.holdReason = 'taxi'; return false; }
+  if (ap.arrGround >= MAX_ARR_GROUND * runwayCount(ap)) { p.holdReason = 'taxi'; return false; }
   p.holdReason = 'runway';
   const R = ap.runways[p.rw];
   if (ap.atcTokens < 1 || R.reservedArr) return false;
   // An occupant that should have cleared by now but has not (it is waiting
   // to turn off) still blocks the runway.
   if (R.occupant && R.occupant.blockedFor > 0) return false;
-  const freeAt = R.occupant ? Math.max(R.clearEta, ap.t + 1) : ap.t;
+  let freeAt = R.occupant ? Math.max(R.clearEta, ap.t + 1) : ap.t;
+  if (R.crossers.size) freeAt = Math.max(freeAt, ap.t + 3);
   if (freeAt > ap.t + eta - 0.2) return false;
   // Mixed-mode runway with departures waiting: strictly alternate, one
   // landing then one take-off, so neither queue can starve the other.
@@ -904,6 +919,14 @@ function canClearArrival(ap, p, eta) {
       if (ap.atcTokens < 2) return false;
     }
   }
+  return true;
+}
+
+function tryClearArrival(ap, p) {
+  const rw = RW[p.rw];
+  const eta = dist(p.x, p.y, IAF.x, rw.y) / FLIGHT.cruiseSpeed + (rw.x0 - IAF.x) / FLIGHT.approachSpeed;
+  if (!canClearArrival(ap, p, eta)) return false;
+  clearArrival(ap, p, [{ x: p.x, y: p.y }, { x: IAF.x, y: rw.y }, { x: rw.x0, y: rw.y }]);
   return true;
 }
 
@@ -948,14 +971,7 @@ function updatePlanes(game, ap, dt) {
   // Clear whoever in the stack can land now, first come first served.
   ap.arrGround = 0;
   for (const o of ap.planes) if (o.state === 'rollout' || o.state === 'taxiIn' || o.state === 'final') ap.arrGround++;
-  for (const p of ap.holdQueue) {
-    const rw = RW[p.rw];
-    const eta = dist(p.x, p.y, IAF.x, rw.y) / FLIGHT.cruiseSpeed + (rw.x0 - IAF.x) / FLIGHT.approachSpeed;
-    if (canClearArrival(ap, p, eta)) {
-      clearArrival(ap, p, [{ x: p.x, y: p.y }, { x: IAF.x, y: rw.y }, { x: rw.x0, y: rw.y }]);
-      break;
-    }
-  }
+  for (const p of ap.holdQueue) if (tryClearArrival(ap, p)) break;
 
   for (const p of ap.planes) {
     switch (p.state) {
@@ -967,9 +983,8 @@ function updatePlanes(game, ap, dt) {
         p.ang = Math.atan2(ty - p.y, tx - p.x);
         if (d <= step + 1) {
           p.x = tx; p.y = ty;
-          const pts = [{ x: tx, y: ty }, { x: rw.x0, y: rw.y }];
-          if (!ap.holdQueue.length && canClearArrival(ap, p, (rw.x0 - tx) / FLIGHT.approachSpeed)) {
-            clearArrival(ap, p, pts);
+          if (!ap.holdQueue.length && tryClearArrival(ap, p)) {
+            // cleared straight in
           } else {
             p.state = 'holding';
             p.holdA = -Math.PI / 2;
@@ -1038,7 +1053,7 @@ function updatePlanes(game, ap, dt) {
         const arrEta = arr ? (arr.len - arr.d) / FLIGHT.approachSpeed : Infinity;
         // Line up behind a departure that is already rolling well clear.
         const occ = R.occupant;
-        const free = !occ || (occ.state === 'takeoff' && occ.x > RW[0].x0 + 140);
+        const free = (!occ || (occ.state === 'takeoff' && occ.x > RW[0].x0 + 140)) && !R.crossers.size;
         // Aircraft waiting to cross the runway get a gap between departures.
         const crossWaiting = ap.planes.some((o) => o.crossWait && t - o.crossWait > 2);
         if (ap.atcTokens >= 1 && free && arrEta > DEP_OCCUPANCY && !crossWaiting) {
@@ -1074,23 +1089,31 @@ function updatePlanes(game, ap, dt) {
 
 // The whole ground route, runway to stand, is fixed at landing clearance so
 // taxiing traffic can give way to it before the aircraft even touches down.
-function groundRoute(ap, p) {
-  const rw = RW[p.rw];
-  const A = AIRCRAFT[p.cls];
-  const ex = EXITS[A.exitIndex];
+// Landing roll to the turn-off, then the taxi route to the stand.
+function arrivalRoute(ap, rwIdx, cls, stand, exitIdx = AIRCRAFT[cls].exitIndex) {
+  const rw = RW[rwIdx];
+  const ex = EXITS[exitIdx];
   const roll = [{ x: rw.x0, y: rw.y }, { x: ex - 60, y: rw.y }, { x: ex - 25, y: rw.y + 12 }, { x: ex, y: rw.exitY }];
-  p.exitX = ex;
-  p.rollEnd = pathLength(roll);
-  if (p.rw === 0) {
-    p.route = roll.concat(pathExitToGate(ex, p.stand, ap.plots).slice(1));
-    p.crossAt = null;
+  const r = { ex, rollEnd: pathLength(roll), crossAt: null };
+  if (rwIdx === 0) {
+    r.route = roll.concat(pathExitToGate(ex, stand, ap.plots).slice(1));
   } else {
     // Off the north runway: hold short of the main runway, then cross it.
     const hs = { x: ex, y: RW[0].y - 34 };
-    p.route = roll.concat([hs], pathExitToGate(ex, p.stand, ap.plots));
-    p.crossAt = p.rollEnd + (hs.y - rw.exitY);
-    p.crossEnd = p.crossAt + (TWY_A - hs.y);
+    r.route = roll.concat([hs], pathExitToGate(ex, stand, ap.plots));
+    r.crossAt = r.rollEnd + (hs.y - rw.exitY);
+    r.crossEnd = r.crossAt + (TWY_A - hs.y);
   }
+  return r;
+}
+
+function groundRoute(ap, p) {
+  const r = arrivalRoute(ap, p.rw, p.cls, p.stand, p.exitIdx >= 0 ? p.exitIdx : undefined);
+  p.exitX = r.ex;
+  p.rollEnd = r.rollEnd;
+  p.route = r.route;
+  p.crossAt = r.crossAt;
+  p.crossEnd = r.crossEnd;
   p.routeLen = pathLength(p.route);
 }
 
@@ -1206,7 +1229,10 @@ function groundTraffic(game, ap, dt) {
   const movers = ap.planes.filter(isMover);
   // Aircraft at a gate that are ready to push back are candidates.
   const depOnGround = ap.planes.filter((p) => p.state === 'pushback' || p.state === 'taxiOut' || p.state === 'holdShort').length;
-  const pending = depOnGround < MAX_DEP_GROUND ? ap.planes.filter((p) => p.state === 'gate' && p.ready) : [];
+  // With a second runway the main one only takes departures and drains the
+  // queue faster, so more may taxi at once.
+  const depCap = MAX_DEP_GROUND + (ap.upgrades.runway2 ? 4 : 0);
+  const pending = depOnGround < depCap ? ap.planes.filter((p) => p.state === 'gate' && p.ready) : [];
 
   // 1. how far each can go before touching another aircraft
   for (const m of movers.concat(pending)) {
@@ -1270,18 +1296,21 @@ function groundTraffic(game, ap, dt) {
       }
       if (!hit) continue;
       if (A.pseudo && B.pseudo) continue;
-      // Aircraft leaving a runway go first; then anyone already standing on
-      // the other's route or inside a junction; then the one nearer the
-      // meeting point, with a little extra standing for a long wait. A
-      // winner that is stuck behind the loser hands its turn over.
-      const ka = hit[0] - A.m.blockedFor * 4 - (A.m.state === 'rollout' ? 1000 : 0);
-      const kb = hit[1] - B.m.blockedFor * 4 - (B.m.state === 'rollout' ? 1000 : 0);
+      // Aircraft leaving a runway (landing, or crossing the main one) go
+      // first; then anyone already standing on the other's route or inside a
+      // junction; then the one nearer the meeting point, with a little extra
+      // standing for a long wait. A winner that is stuck behind the loser
+      // hands its turn over.
+      const offRunway = (x) => x.state === 'rollout' || ap.runways[0].crossers.has(x);
+      const ka = hit[0] - A.m.blockedFor * 4 - (offRunway(A.m) ? 1000 : 0);
+      const kb = hit[1] - B.m.blockedFor * 4 - (offRunway(B.m) ? 1000 : 0);
       let aWins = ka < kb - 0.5 || (Math.abs(ka - kb) <= 0.5 && A.m.id < B.m.id);
       const onRoute = (X, Y) => !X.pseudo && Y.pts.some((q) => (q.x - X.m.x) ** 2 + (q.y - X.m.y) ** 2 < rr * rr);
       const aOn = onRoute(A, B), bOn = onRoute(B, A);
       const aIn = !A.pseudo && boxAt(zones, A.m.x, A.m.y) >= 0;
       const bIn = !B.pseudo && boxAt(zones, B.m.x, B.m.y) >= 0;
-      if (aOn && !bOn) aWins = true;
+      if (offRunway(A.m) !== offRunway(B.m)) aWins = offRunway(A.m);
+      else if (aOn && !bOn) aWins = true;
       else if (bOn && !aOn) aWins = false;
       else if (aIn && !bIn) aWins = true;
       else if (bIn && !aIn) aWins = false;
@@ -1379,11 +1408,14 @@ function groundTraffic(game, ap, dt) {
         // what has to move to make that room.
         if (toHold < 1 && m.free >= across) m.crossWait = m.crossWait || t;
         else m.crossWait = 0;
-        if (toHold < 1 && !R0.occupant && m.free >= across) {
+        // Several aircraft may cross together (at different turn-offs), but
+        // not ahead of a landing about to touch down on the main runway.
+        const arr0 = R0.reservedArr;
+        const landing = arr0 && (arr0.len - arr0.d) / FLIGHT.approachSpeed < 8;
+        if (toHold < 1 && !R0.occupant && !landing && m.free >= across) {
           m.crossing = true;
           m.crossWait = 0;
-          R0.occupant = m;
-          R0.clearEta = t + 2.5;
+          R0.crossers.add(m);
         } else {
           allowed = Math.max(0, toHold);
         }
@@ -1442,9 +1474,9 @@ function groundTraffic(game, ap, dt) {
       // the aircraft then has to stop short of the taxiway: holding the
       // runway there would stop the departures it may be waiting for.
       const R0 = ap.runways[0];
-      if (R0.occupant === m && m.y >= RW[0].y + RUNWAY_HALF + m.r + 3) R0.occupant = null;
+      if (m.y >= RW[0].y + RUNWAY_HALF + m.r + 3) R0.crossers.delete(m);
       if (m.d >= m.crossEnd) {
-        if (R0.occupant === m) R0.occupant = null;
+        R0.crossers.delete(m);
         m.crossing = false;
         m.crossed = true;
       }
@@ -1491,9 +1523,12 @@ function startPushback(ap, p) {
   if (c) { c.otpHist.push(onTime ? 1 : 0); if (c.otpHist.length > 12) c.otpHist.shift(); c.flown = (c.flown || 0) + 1; c.lastDelay = delay; }
   ap.rolling.otp += ((onTime ? 1 : 0) - ap.rolling.otp) * 0.06;
   if (!onTime) {
-    const why = p.lateWhy || 'turn';
+    const why = p.lateWhy || 'traffic';
     ap.lateWhy = ap.lateWhy || {};
     ap.lateWhy[why] = (ap.lateWhy[why] || 0) + 1;
+    // The last few minutes of late departures, for the advisor.
+    ap.lateLog = (ap.lateLog || []).filter((e) => ap.t - e.t < 240);
+    ap.lateLog.push({ t: ap.t, why, slot: f.terminal, delay });
   }
 }
 
@@ -1562,7 +1597,9 @@ function turnaround(game, ap, p, dt) {
     // Doors closed. Anyone already in the lounge makes it on board.
     const w = T.waiting.get(f.id) || 0;
     if (w > 0) { f.boarded += w; T.waiting.set(f.id, 0); }
-    if (f.gateInLate > 12) p.lateWhy = p.holdReason === 'gate' ? 'gate' : 'runway';
+    // Late in: if it circled, why it was held (no gate, no landing slot, or
+    // full taxiways); otherwise it was slowed on the ground.
+    if (f.gateInLate > 12) p.lateWhy = (p.heldFor || 0) > 5 ? (p.holdReason || 'runway') : 'traffic';
     else if (p.paxWait && ap.t - p.paxWait > 3) p.lateWhy = 'pax';
     else p.lateWhy = 'traffic';
     closeFlight(game, ap, f);

@@ -32,7 +32,10 @@ anything asks you to confirm. Offers you can't take yet (widebodies need
 heavy gates) show the button that unlocks them. Sign too much and the airport
 clogs: arrivals circle in the holding stack, passengers miss flights (the
 alert says where they got stuck). Airlines whose on-time rate stays under 45% for
-two and a half minutes pull their route.
+two and a half minutes pull their route. The bars are calibrated against the
+simulation (tools/runway.mjs); they are averages, so flights can bunch up and
+run late above about 80%. When they do, the Advisor names the measured cause
+and offers warn before you sign another route.
 
 **Congestion, for planes and for people.**
 
