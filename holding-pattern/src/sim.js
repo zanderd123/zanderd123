@@ -1309,8 +1309,7 @@ function groundTraffic(game, ap, dt) {
       const aOn = onRoute(A, B), bOn = onRoute(B, A);
       const aIn = !A.pseudo && boxAt(zones, A.m.x, A.m.y) >= 0;
       const bIn = !B.pseudo && boxAt(zones, B.m.x, B.m.y) >= 0;
-      if (offRunway(A.m) !== offRunway(B.m)) aWins = offRunway(A.m);
-      else if (aOn && !bOn) aWins = true;
+      if (aOn && !bOn) aWins = true;
       else if (bOn && !aOn) aWins = false;
       else if (aIn && !bIn) aWins = true;
       else if (bIn && !aIn) aWins = false;
@@ -1379,7 +1378,11 @@ function groundTraffic(game, ap, dt) {
           const here = boxesAt(zones, m.look[j].x, m.look[j].y);
           if (!fresh.some((k) => here.includes(k))) { exitS = m.look[j].s; break; }
         }
-        if (taken || m.free < exitS + m.r * 0.5) {
+        // An aircraft halfway across the main runway may always pull into
+        // the junction on taxiway A beyond it: stopping on the runway instead
+        // would hold up the departures that have to move to make it room.
+        const offRunwayFirst = ap.runways[0].crossers.has(m) && fresh.every((k) => zones[k].y === TWY_A);
+        if (taken || (!offRunwayFirst && m.free < exitS + m.r * 0.5)) {
           allowed = Math.max(0, q.s - SAMPLE);
           m.why = (m.why || '') + (taken ? ' +locked' : ' +box');
           break;
