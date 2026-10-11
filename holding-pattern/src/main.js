@@ -127,7 +127,12 @@ document.addEventListener('visibilitychange', () => {
   hidden = false;
   const away = (Date.now() - hiddenAt) / 1000 * game.speed;
   const sim = Math.min(CATCH_UP, away);
+  // No animations for the skipped time: they would play out for aircraft
+  // that have already left.
+  const ap = activeAirport(game), fx = ap.fx;
+  ap.fx = null;
   for (let t = 0; t < sim; t += 0.05) stepGame(game, 0.05);
+  ap.fx = fx;
   if (away > CATCH_UP + 30) {
     const off = offlineEarnings(game, away - sim);
     if (off.total > 0) { game.cash += off.total; toast(`While you were away: +${money(off.total)}`, 'good'); }

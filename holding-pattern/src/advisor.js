@@ -7,7 +7,8 @@ import { AIRCRAFT, CONNECTORS, UPGRADES, STAFFING, TERMINAL, PAX, COSTS, CONTRAC
 import { SLOTS, PLOTS, TERMINAL_CODES, PARKING_SITES, PARKING_ORDER } from './layout.js';
 import * as S from './sim.js';
 
-const name = (slot) => `${TERMINAL_CODES[slot]} · ${SLOTS[slot].name}`;
+let AP = null; // the airport being advised, for place names
+const name = (slot) => `${TERMINAL_CODES[slot]} · ${S.nm(AP, SLOTS[slot].name)}`;
 
 // A fix the player can apply with one click.
 function fix(label, act, data, cost) {
@@ -19,13 +20,14 @@ function upgradeFix(ap, key, why) {
   if (blocked === 'Owned') return null;
   const U = UPGRADES[key];
   if (blocked && U.needsPlot && !ap.plots[U.needsPlot]) {
-    return fix(`Buy the ${PLOTS[U.needsPlot].name} (needed for ${U.name.toLowerCase()})`, 'plot', { id: U.needsPlot }, S.plotCost(ap, U.needsPlot));
+    return fix(`Buy the ${S.nm(ap, PLOTS[U.needsPlot].name)} (needed for ${U.name.toLowerCase()})`, 'plot', { id: U.needsPlot }, S.plotCost(ap, U.needsPlot));
   }
   if (blocked) return null;
   return { ...fix(U.name, 'upgrade', { id: key }, S.upgradeCost(ap, key)), why };
 }
 
 export function advise(game, ap) {
+  AP = ap;
   const issues = [];
   const rep = S.loadReport(ap);
   const snap = S.opsSnapshot(ap);
@@ -60,7 +62,7 @@ export function advise(game, ap) {
     const waiting = ap.holdQueue.filter((p) => p.holdReason === 'gate' && p.f.terminal === tr.slot).length;
     if (u > 0.85 || waiting) {
       const fixes = [];
-      if (T.gates < SLOTS[tr.slot].maxGates) fixes.push(fix(`Add a gate to ${TERMINAL_CODES[tr.slot]}`, 'gate', { slot: tr.slot }, S.gateCost(ap, T)));
+      if (T.gates < S.maxGates(ap, tr.slot)) fixes.push(fix(`Add a gate to ${TERMINAL_CODES[tr.slot]}`, 'gate', { slot: tr.slot }, S.gateCost(ap, T)));
       const spare = rep.terminals.find((o) => o.open && o.slot !== tr.slot && o.gateDemand / o.gates < 0.5);
       if (spare) fixes.push(fix(`Move routes to ${name(spare.slot)} (Contracts tab)`, 'tab', { tab: 'contracts' }, 0));
       else fixes.push(fix('Plan a new terminal (Build tab)', 'tab', { tab: 'build' }, 0));
@@ -102,7 +104,7 @@ export function advise(game, ap) {
       if (C.type === 'shuttle' && C.buses < def.bus.max) fixes.push(fix(`Add a bus to ${TERMINAL_CODES[tr.slot]}`, 'bus+', { slot: tr.slot }, Math.round(def.bus.cost * S.site(ap).cost)));
       if (def.upgrade && !C.level) fixes.push(fix(def.upgrade.name, 'connup', { slot: tr.slot }, Math.round(def.upgrade.cost * S.site(ap).cost)));
       fixes.push(fix(`Look at faster connectors for ${TERMINAL_CODES[tr.slot]}`, 'detail', { kind: 'terminal', id: tr.slot }, 0));
-      add(u >= 1 ? 3 : 2, 'connector', `The ${def.name.toLowerCase()} to ${SLOTS[tr.slot].name} is overloaded`,
+      add(u >= 1 ? 3 : 2, 'connector', `The ${def.name.toLowerCase()} to ${S.nm(ap, SLOTS[tr.slot].name)} is overloaded`,
         `About ${Math.round(tr.pax)} passengers a minute each way need it; it carries ${Math.round(tr.connCap)}. ${Math.round(q)} are waiting on the platforms. ` +
         'Passengers who don\'t reach the gate in time miss their flight.', fixes);
     }
@@ -137,7 +139,7 @@ export function advise(game, ap) {
       const slot = Object.entries(per).sort((a, b) => b[1] - a[1])[0][0];
       const T = S.terminalBySlot(ap, slot);
       cause = `circled because no gate was free at ${name(slot)}`;
-      if (T && T.gates < SLOTS[slot].maxGates) fixes.push(fix(`Add a gate to ${TERMINAL_CODES[slot]}`, 'gate', { slot }, S.gateCost(ap, T)));
+      if (T && T.gates < S.maxGates(ap, slot)) fixes.push(fix(`Add a gate to ${TERMINAL_CODES[slot]}`, 'gate', { slot }, S.gateCost(ap, T)));
       fixes.push(fix('Move some of its routes (Contracts tab)', 'tab', { tab: 'contracts' }, 0));
       fixes.push(fix('Plan another terminal (Build tab)', 'tab', { tab: 'build' }, 0));
     } else if (top === 'runway') {
@@ -185,7 +187,7 @@ export function advise(game, ap) {
     if (c > 1.1) {
       add(2, 'crowding', `${name(T.slot)} is packed`,
         `${Math.round(T.occupancy)} people in a terminal comfortable for ${Math.round(T.comfort)}. Crowds spend less in shops and hurt your reputation. ${T.slot === 'main' ? 'Here it is usually the security line: shorten it and the crowd goes.' : 'Usually passengers are waiting for a late plane.'}`,
-        T.gates < SLOTS[T.slot].maxGates ? [fix(`Add a gate to ${TERMINAL_CODES[T.slot]} (more room too)`, 'gate', { slot: T.slot }, S.gateCost(ap, T))] : []);
+        T.gates < S.maxGates(ap, T.slot) ? [fix(`Add a gate to ${TERMINAL_CODES[T.slot]} (more room too)`, 'gate', { slot: T.slot }, S.gateCost(ap, T))] : []);
     }
   }
 
@@ -283,10 +285,10 @@ export function parkingFixes(ap, short = 1) {
     const add = S.parkingSiteCap(id, next) - S.parkingSiteCap(id, ap.parking[id]);
     if (ap.plots[P.plot]) {
       const cost = S.parkingCost(ap, id);
-      opts.push({ per: cost / add, add, f: { ...fix(next === 'lot' ? `Build the ${P.name.toLowerCase()}` : `Garage on the ${P.name.toLowerCase()}`, 'parking', { id }, cost), why: `+${add} drivers a minute` } });
+      opts.push({ per: cost / add, add, f: { ...fix(next === 'lot' ? `Build the ${S.nm(ap, P.name).toLowerCase()}` : `Garage on the ${S.nm(ap, P.name).toLowerCase()}`, 'parking', { id }, cost), why: `+${add} drivers a minute` } });
     } else if (next === 'lot' && (!PLOTS[P.plot].needs || ap.plots[PLOTS[P.plot].needs])) {
       const cost = S.plotCost(ap, P.plot) + S.parkingCost(ap, id);
-      opts.push({ per: cost / add * 1.5, add, f: fix(`Buy the ${PLOTS[P.plot].name} (room for a car park)`, 'plot', { id: P.plot }, S.plotCost(ap, P.plot)) });
+      opts.push({ per: cost / add * 1.5, add, f: fix(`Buy the ${S.nm(ap, PLOTS[P.plot].name)} (room for a car park)`, 'plot', { id: P.plot }, S.plotCost(ap, P.plot)) });
     }
   }
   opts.sort((a, b) => a.per - b.per);

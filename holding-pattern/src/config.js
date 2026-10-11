@@ -158,14 +158,19 @@ export const UNLOCKS = {
 
 // ---------------------------------------------------------------- the world
 // Each new airport grows faster: revenue scales harder than costs do.
+// Every airport is its own place. theme picks the scenery; mirror flips the
+// field so the runways run the other way; longRunway comes with the site;
+// maxGates caps each terminal (rural sites build small).
 export const SITES = [
-  { id: 'PWR', name: 'Pinewood Regional',   x: 0.22, y: 0.36, rev: 1.0,  cost: 1.0, demand: 1.0,  price: 0 },
-  { id: 'BSI', name: 'Bayside International', x: 0.38, y: 0.62, rev: 1.7,  cost: 1.3, demand: 1.15, price: 75000 },
-  { id: 'HMA', name: 'High Mesa',           x: 0.13, y: 0.72, rev: 2.9,  cost: 1.7, demand: 1.3,  price: 650000 },
-  { id: 'HBC', name: 'Harbor City',         x: 0.58, y: 0.40, rev: 4.9,  cost: 2.25, demand: 1.45, price: 3.2e6 },
-  { id: 'NGT', name: 'Northgate',           x: 0.47, y: 0.14, rev: 8.3,  cost: 3.0, demand: 1.6,  price: 1.6e7 },
-  { id: 'CRL', name: 'Coral Coast',         x: 0.78, y: 0.70, rev: 14,   cost: 4.0, demand: 1.75, price: 8e7 },
-  { id: 'MRD', name: 'Meridian Hub',        x: 0.84, y: 0.26, rev: 24,   cost: 5.3, demand: 1.9,  price: 4e8 },
+  { id: 'PWR', name: 'Pinewood Regional',   x: 0.22, y: 0.36, rev: 1.0,  cost: 1.0, demand: 1.0,  price: 0,      theme: 'forest' },
+  { id: 'BSI', name: 'Bayside International', x: 0.38, y: 0.62, rev: 1.7,  cost: 1.3, demand: 1.15, price: 75000, theme: 'bay', mirror: true },
+  { id: 'HMA', name: 'High Mesa',           x: 0.13, y: 0.72, rev: 2.9,  cost: 1.5, demand: 1.3,  price: 650000, theme: 'desert', longRunway: true, maxGates: 3,
+    blurb: 'Hot and high: thin air needs a long runway, and it comes built. A rural field: terminals hold 3 gates.' },
+  { id: 'HBC', name: 'Harbor City',         x: 0.58, y: 0.40, rev: 4.9,  cost: 2.25, demand: 1.45, price: 3.2e6, theme: 'harbor' },
+  { id: 'NGT', name: 'Northgate',           x: 0.47, y: 0.14, rev: 8.3,  cost: 3.0, demand: 1.6,  price: 1.6e7, theme: 'snow', mirror: true },
+  { id: 'CRL', name: 'Coral Coast',         x: 0.78, y: 0.70, rev: 14,   cost: 4.0, demand: 1.75, price: 8e7,   theme: 'tropical', longRunway: true,
+    blurb: 'Long-haul resort traffic: the long runway comes built.' },
+  { id: 'MRD', name: 'Meridian Hub',        x: 0.84, y: 0.26, rev: 24,   cost: 5.3, demand: 1.9,  price: 4e8,   theme: 'city', mirror: true },
 ];
 export const NETWORK = {
   paxFeePerAirport: 0.06, // passive fee bonus at every airport per other owned airport

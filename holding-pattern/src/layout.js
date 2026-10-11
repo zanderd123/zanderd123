@@ -75,6 +75,12 @@ export const PARKING_SITES = {
   fareast:   { name: 'Far east car park',   code: 'P7', plot: 'fareast', x: 1600, y: 778, w: 300, h: 146 },
 };
 export const PARKING_ORDER = ['front', 'west', 'east', 'southwest', 'southeast', 'farwest', 'fareast'];
+// On sites drawn mirrored (runways the other way) west and east swap in
+// every name the player reads.
+export function placeName(mirror, name) {
+  if (!mirror) return name;
+  return name.replace(/\b(West|west|East|east)\b/g, (w) => ({ West: 'East', west: 'east', East: 'West', east: 'west' }[w]));
+}
 export const PLOT_ORDER = ['west', 'east', 'south', 'farwest', 'fareast', 'north'];
 
 // Terminal sites. 'main' is the original terminal: security and the curb are

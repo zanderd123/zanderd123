@@ -10,7 +10,7 @@ import {
 import {
   RW, RUNWAY_HALF, TWY_A, TWY_B, LANE2, EXITS, HOLD_POINT, IAF, PLOTS, SLOTS, LONG_RUNWAY_X1,
   gateStand, pathExitToGate, pathGateToHold, lanesFor,
-  connectorRoute, apronCrossing, slotCenter, TERMINAL_CODES, PARKING_SITES,
+  connectorRoute, apronCrossing, slotCenter, TERMINAL_CODES, PARKING_SITES, placeName,
 } from './layout.js';
 import { mulberry32, clamp, dist, pick, pathLength, pointAlong } from './util.js';
 
@@ -29,7 +29,7 @@ export function createAirport(siteIndex, seed = Date.now()) {
     plots: { core: true },
     terminals: [newTerminal('main', true)],
     securityLanes: SEC.startLanes,
-    upgrades: {},
+    upgrades: site.longRunway ? { longRunway: true } : {},
     parking: { front: 'lot' },
     staffing: { atc: 'standard', security: 'standard', ground: 'standard' },
     contracts: [],
@@ -144,11 +144,12 @@ export function restoreAirport(data) {
     if (T.connector) T.connector = { ...T.connector };
     if (T.pendingConnector) T.pendingConnector = { ...T.pendingConnector };
     else delete T.pendingConnector;
-    T.gates = Math.min(T.gates, SLOTS[T.slot].maxGates); // older saves allowed 5
   }
+  ap.upgrades = { ...ap.upgrades };
+  if (site.longRunway) ap.upgrades.longRunway = true;
+  for (const T of ap.terminals) T.gates = Math.min(T.gates, maxGates(ap, T.slot)); // older saves allowed 5
   if (!ap.perMin || !Object.values(ap.perMin).every(Number.isFinite)) ap.perMin = { net: 0, operating: 0 };
   // Older saves had two garage upgrades instead of car park sites.
-  ap.upgrades = { ...ap.upgrades };
   ap.parking = { front: 'lot', ...(ap.parking || {}) };
   if (ap.upgrades.garage1) ap.parking.southwest = 'garage';
   if (ap.upgrades.garage2) ap.parking.southeast = 'garage';
@@ -162,6 +163,10 @@ export function restoreAirport(data) {
 // ======================================================================
 
 export const site = (ap) => SITES[ap.siteIndex];
+// A place name as the player sees it at this airport.
+export const nm = (ap, name) => placeName(!!SITES[ap.siteIndex].mirror, name);
+// Gates a terminal can grow to here (rural sites build small).
+export function maxGates(ap, slot) { return Math.min(SLOTS[slot].maxGates, site(ap).maxGates || Infinity); }
 export const builtTerminals = (ap) => ap.terminals.filter((T) => isOpen(T));
 export const terminalBySlot = (ap, slot) => ap.terminals.find((T) => T.slot === slot);
 
@@ -283,7 +288,7 @@ export function parkingCost(ap, id) {
 }
 export function parkingBlocked(ap, id) {
   const P = PARKING_SITES[id];
-  if (!ap.plots[P.plot]) return `Buy the ${PLOTS[P.plot].name} first`;
+  if (!ap.plots[P.plot]) return `Buy the ${nm(ap, PLOTS[P.plot].name)} first`;
   if (!parkingNext(ap, id)) return 'Full size';
   return null;
 }
@@ -512,7 +517,7 @@ function spend(game, amount) {
 export function buyPlot(game, ap, plot) {
   const P = PLOTS[plot];
   if (ap.plots[plot]) return 'Already owned';
-  if (P.needs && !ap.plots[P.needs]) return `Buy the ${PLOTS[P.needs].name} first`;
+  if (P.needs && !ap.plots[P.needs]) return `Buy the ${nm(ap, PLOTS[P.needs].name)} first`;
   if (!spend(game, plotCost(ap, plot))) return 'Not enough cash';
   ap.plots[plot] = true;
   ap.costLines = computeCosts(ap);
@@ -578,7 +583,7 @@ export function setBuses(game, ap, slot, delta) {
 
 export function addGate(game, ap, slot) {
   const T = terminalBySlot(ap, slot);
-  if (!T || T.gates >= SLOTS[slot].maxGates) return 'No room for more gates';
+  if (!T || T.gates >= maxGates(ap, slot)) return 'No room for more gates';
   if (!spend(game, gateCost(ap, T))) return 'Not enough cash';
   T.gates++;
   ap.costLines = computeCosts(ap);
@@ -621,7 +626,7 @@ export function upgradeBlocked(ap, key) {
   const U = UPGRADES[key];
   if (ap.upgrades[key]) return 'Owned';
   if (U.needs && !ap.upgrades[U.needs]) return `Needs ${UPGRADES[U.needs].name}`;
-  if (U.needsPlot && !ap.plots[U.needsPlot]) return `Needs the ${PLOTS[U.needsPlot].name}`;
+  if (U.needsPlot && !ap.plots[U.needsPlot]) return `Needs the ${nm(ap, PLOTS[U.needsPlot].name)}`;
   return null;
 }
 
@@ -691,7 +696,7 @@ export function step(game, ap, dt) {
   for (const T of ap.terminals) {
     if (T.buildLeft > 0) {
       T.buildLeft -= dt;
-      if (T.buildLeft <= 0) { ap.costLines = computeCosts(ap); notify(ap, 'built', `${SLOTS[T.slot].name} is open`); }
+      if (T.buildLeft <= 0) { ap.costLines = computeCosts(ap); notify(ap, 'built', `${nm(ap, SLOTS[T.slot].name)} is open`); }
     }
     if (T.connector && T.connector.buildLeft > 0) {
       T.connector.buildLeft -= dt;
@@ -708,8 +713,9 @@ export function step(game, ap, dt) {
         for (const x of old.outQ) T.connector.outQ.push(x.f, x.n);
         for (const x of old.inQ) T.connector.inQ.push(x.f, x.n);
         for (const x of old.transit) (x.dir === 'out' ? T.connector.outQ : T.connector.inQ).push(x.f, x.n);
+        for (const b of old.fleet || []) for (const x of b.load) (x.dir === 'out' ? T.connector.outQ : T.connector.inQ).push(x.f, x.n);
         ap.costLines = computeCosts(ap);
-        notify(ap, 'built', `New ${CONNECTORS[T.connector.type].name.toLowerCase()} to ${SLOTS[T.slot].name} is running`);
+        notify(ap, 'built', `New ${CONNECTORS[T.connector.type].name.toLowerCase()} to ${nm(ap, SLOTS[T.slot].name)} is running`);
       }
     }
   }
@@ -1628,7 +1634,14 @@ function closeFlight(game, ap, f) {
   const sec = ap.secQ.drop(f.id);
   let conn = 0;
   const C = terminalBySlot(ap, f.terminal) && terminalBySlot(ap, f.terminal).connector;
-  if (C) { conn += C.outQ.drop(f.id); for (const x of C.transit) if (x.f === f.id && x.dir === 'out') conn += x.n; }
+  if (C) {
+    conn += C.outQ.drop(f.id);
+    for (const x of C.transit) if (x.f === f.id && x.dir === 'out') conn += x.n;
+    for (const b of C.fleet || []) {
+      for (const x of b.load) if (x.f === f.id && x.dir === 'out') conn += x.n;
+      b.load = b.load.filter((x) => !(x.f === f.id && x.dir === 'out'));
+    }
+  }
   if (f.missed > 0) {
     earn(game, ap, 'refunds', -f.missed * PAX.missedRefund * site(ap).rev);
     ap.missedAcc = (ap.missedAcc || 0) + f.missed;
@@ -1726,7 +1739,7 @@ function flowPassengers(game, ap, dt) {
     if (!T || T.slot === 'main' || !T.connector) {
       const M = terminalBySlot(ap, 'main');
       M.waiting.set(fid, (M.waiting.get(fid) || 0) + n);
-      if (ap.fx) ap.fx('secOut', { n, slot: 'main' });
+      if (ap.fx) ap.fx('secOut', { n, slot: 'main', fid });
     } else {
       T.connector.outQ.push(fid, n, Math.floor(t));
       if (ap.fx) ap.fx('secOut', { n, slot: T.slot });
@@ -1745,14 +1758,18 @@ function flowPassengers(game, ap, dt) {
     if (def.breakdown && !(C.level && def.upgrade.noBreakdown) && C.buildLeft <= 0 && C.brokenUntil <= t) {
       if (ap.rand() < def.breakdown * dt / 60) {
         C.brokenUntil = t + 18;
-        notify(ap, 'breakdown', `Monorail to ${SLOTS[T.slot].name} broke down`);
+        notify(ap, 'breakdown', `Monorail to ${nm(ap, SLOTS[T.slot].name)} broke down`);
       }
     }
-    const cap = connectorCap(C, ap) * dt;
-    const travel = connectorTravel(C);
-    for (const x of C.outQ.take(cap)) { board(C.transit, x, 'out', t + travel); if (ap.fx) ap.fx('conn', { slot: T.slot, dir: 'out', n: x.n, travel }); }
-    // Arriving passengers never have a flight to miss; take them straight.
-    for (const x of C.inQ.take(cap)) { board(C.transit, x, 'in', t + travel); if (ap.fx) ap.fx('conn', { slot: T.slot, dir: 'in', n: x.n, travel }); }
+    // Shuttle buses carry their passengers themselves (see updateBuses);
+    // walkways, monorails and tunnels move a steady stream.
+    if (C.type !== 'shuttle') {
+      const cap = connectorCap(C, ap) * dt;
+      const travel = connectorTravel(C);
+      for (const x of C.outQ.take(cap)) { board(C.transit, x, 'out', t + travel); if (ap.fx) ap.fx('conn', { slot: T.slot, dir: 'out', n: x.n, travel }); }
+      // Arriving passengers never have a flight to miss; take them straight.
+      for (const x of C.inQ.take(cap)) { board(C.transit, x, 'in', t + travel); if (ap.fx) ap.fx('conn', { slot: T.slot, dir: 'in', n: x.n, travel }); }
+    }
     if (C.transit.length) {
       const keep = [];
       for (const x of C.transit) {
@@ -1802,6 +1819,30 @@ function flowPassengers(game, ap, dt) {
 
 // Buses are simulated here, not just drawn, because aircraft and buses take
 // turns where a midfield bus route crosses the apron lane.
+// A bus at a stop: everyone riding gets off, then whoever is waiting gets
+// on as it leaves, up to its seats. At the main terminal it takes departing
+// passengers out; at the satellite it brings arrivals back.
+function busAlight(ap, T, C, b, end) {
+  let n = 0;
+  for (const x of b.load) {
+    if (end === 'far' && x.dir === 'out') {
+      const f = ap.flights.get(x.f);
+      if (f && !f.closed) T.waiting.set(x.f, (T.waiting.get(x.f) || 0) + x.n);
+    } else if (end === 'main' && x.dir === 'in') {
+      ap.paxServed += x.n;
+    } else continue;
+    n += x.n;
+  }
+  b.load = b.load.filter((x) => (end === 'far' ? x.dir !== 'out' : x.dir !== 'in'));
+  if (n > 0 && ap.fx) { const q = pointAlong(C.route, b.d); ap.fx('bus', { slot: T.slot, end, off: n, x: q.x, y: q.y }); }
+}
+function busBoard(ap, T, C, b, end) {
+  const out = end === 'main';
+  let n = 0;
+  for (const x of (out ? C.outQ : C.inQ).take(CONNECTORS.shuttle.bus.seats)) { b.load.push({ f: x.f, n: x.n, dir: out ? 'out' : 'in' }); n += x.n; }
+  if (n > 0 && ap.fx) { const q = pointAlong(C.route, b.d); ap.fx('bus', { slot: T.slot, end, on: n, x: q.x, y: q.y }); }
+}
+
 function updateBuses(ap, dt) {
   ap.buses.length = 0;
   ap.busBlocks = [];
@@ -1822,12 +1863,19 @@ function updateBuses(ap, dt) {
       }
     }
     if (!C.fleet) C.fleet = [];
-    while (C.fleet.length < C.buses) C.fleet.push({ d: (C.fleet.length / C.buses) * C.len, dir: 1, dwell: 0 });
-    C.fleet.length = C.buses;
+    while (C.fleet.length < C.buses) C.fleet.push({ d: (C.fleet.length / C.buses) * C.len, dir: 1, dwell: 0, load: [] });
+    if (C.fleet.length > C.buses) {
+      // a sold bus drops its passengers back at the stops
+      for (const b of C.fleet.slice(C.buses)) for (const x of b.load) (x.dir === 'out' ? C.outQ : C.inQ).push(x.f, x.n);
+      C.fleet.length = C.buses;
+    }
     for (const b of C.fleet) {
       if (b.dwell > 0) {
         b.dwell -= dt;
-        if (b.dwell <= 0) b.dir = -b.dir;
+        if (b.dwell <= 0) {
+          busBoard(ap, T, C, b, b.d <= 0 ? 'main' : 'far');
+          b.dir = -b.dir;
+        }
       } else {
         let nd = b.d + b.dir * def.speed * dt;
         if (sX != null && Math.abs(b.d - sX) >= 30 && Math.abs(nd - sX) < 30) {
@@ -1836,8 +1884,8 @@ function updateBuses(ap, dt) {
           if (busy) nd = b.d;
         }
         b.d = nd;
-        if (b.d >= C.len) { b.d = C.len; b.dwell = def.bus.dwell; b.dir = 1; }
-        if (b.d <= 0) { b.d = 0; b.dwell = def.bus.dwell; b.dir = -1; }
+        if (b.d >= C.len) { b.d = C.len; b.dwell = def.bus.dwell; b.dir = 1; busAlight(ap, T, C, b, 'far'); }
+        if (b.d <= 0) { b.d = 0; b.dwell = def.bus.dwell; b.dir = -1; busAlight(ap, T, C, b, 'main'); }
       }
       const q = pointAlong(C.route, b.d);
       ap.buses.push({ x: q.x, y: q.y, ang: q.ang + (b.dir > 0 ? 0 : Math.PI), slot: T.slot });

@@ -64,6 +64,18 @@ passenger than the last, and every airport you own adds connecting
 passengers to all the others. Network routes between your own airports pay
 a premium.
 
+**Every airport is its own place.** Pinewood sits in forest, Bayside on a
+bay, High Mesa in the desert (hot and high: the long runway comes built, and
+as a rural field its terminals hold 3 gates), Harbor City by the docks,
+Northgate in the snow, Coral Coast on a tropical shore (long runway built)
+and Meridian Hub in the city. Bayside, Northgate and Meridian face the other
+way: their runways run east to west.
+
+**Everyone is accounted for.** Cars drop departing passengers at the curb and
+pick arrivals up; shuttle buses load at one stop and unload at the other;
+passengers wait in the hall until their aircraft has a gate, then gather at
+that gate, board through the jet bridge and leave with it.
+
 **Ground traffic.** Taxiways are one-way (the yellow arrows). Every taxiing
 aircraft looks ahead along its route and stops short of any other;
 junctions are locks that nobody enters without room to get out the other

@@ -101,7 +101,7 @@ export function renderOps(game, clockText) {
     const u = tr.pax / Math.max(1, tr.connCap);
     if (!worst || u > worst.u) worst = { tr, u };
   }
-  if (worst) rows.push({ k: 'Connectors', s: worst.u >= 1 ? 'bad' : worst.u > 0.85 ? 'warn' : '', v: `${pct(worst.u)} of capacity`, sub: `busiest: to ${SLOTS[worst.tr.slot].name}` });
+  if (worst) rows.push({ k: 'Connectors', s: worst.u >= 1 ? 'bad' : worst.u > 0.85 ? 'warn' : '', v: `${pct(worst.u)} of capacity`, sub: `busiest: to ${S.nm(ap, SLOTS[worst.tr.slot].name)}` });
   rows.push({ k: 'On time', s: ap.rolling.otp < 0.6 ? 'bad' : ap.rolling.otp < 0.8 ? 'warn' : '', v: pct(ap.rolling.otp), sub: `${ap.contracts.filter((c) => c.unhappyFor > 0).length} unhappy airlines` });
   const net = ap.perMin.operating || 0;
   rows.push({ k: 'Money', s: net < 0 && ap.t > 30 ? 'bad' : '', v: rate(net, true), sub: net < 0 ? 'tap for why' : 'after all running costs' });
@@ -193,7 +193,7 @@ function renderAdvisor(game, ap) {
 function terminalOptions(ap, cls, current) {
   return ap.terminals.filter((T) => S.isOpen(T)).map((T) => {
     const ok = S.terminalSupports(ap, T, cls);
-    return `<option value="${T.slot}" ${T.slot === current ? 'selected' : ''} ${ok ? '' : 'disabled'}>${TERMINAL_CODES[T.slot]} · ${SLOTS[T.slot].name}${ok ? '' : ' (no heavy gates)'}</option>`;
+    return `<option value="${T.slot}" ${T.slot === current ? 'selected' : ''} ${ok ? '' : 'disabled'}>${TERMINAL_CODES[T.slot]} · ${S.nm(ap, SLOTS[T.slot].name)}${ok ? '' : ' (no heavy gates)'}</option>`;
   }).join('');
 }
 
@@ -266,7 +266,7 @@ function terminalSummary(ap, T) {
   else if (C && C.buildLeft > 0) state = `<span class="tag amber">${CONNECTORS[C.type].name} · ${duration(C.buildLeft)}</span>`;
   else state = `<span class="tag green">Open</span>`;
   return `<div class="card click" data-act="detail" data-kind="terminal" data-id="${T.slot}">
-    <div class="row between"><div><div class="title">${TERMINAL_CODES[T.slot]} · ${SLOTS[T.slot].name}</div>
+    <div class="row between"><div><div class="title">${TERMINAL_CODES[T.slot]} · ${S.nm(ap, SLOTS[T.slot].name)}</div>
     <div class="sub">${T.gates} gates${T.heavy ? ' · heavy' : ''} · retail L${T.retail + 1}${C ? ` · ${CONNECTORS[C.type].name.toLowerCase()}` : ' · security & curb'}</div></div>${state}</div>
     ${rep && rep.open ? `<table class="fc"><tr><td>Gate load</td><td>${barHtml(rep.gateDemand / rep.gates)}</td><td class="num">${pct(rep.gateDemand / rep.gates)}</td></tr>${rep.connCap != null ? `<tr><td>Connector</td><td>${barHtml(rep.pax / Math.max(1, rep.connCap))}</td><td class="num">${pct(rep.pax / Math.max(1, rep.connCap))}</td></tr>` : ''}</table>` : ''}
   </div>`;
@@ -278,7 +278,7 @@ function renderBuild(game, ap) {
   const free = SLOT_ORDER.filter((s) => !S.terminalBySlot(ap, s) && ap.plots[SLOTS[s].plot]);
   if (free.length) {
     h += `<h3 class="sec">Open sites</h3><ul class="list">`;
-    for (const s of free) h += `<li><div class="what"><b>${SLOTS[s].name}</b><span>${SLOTS[s].row === 'mid' ? 'Midfield: across the apron from the main terminal' : SLOTS[s].adjacent ? 'Next to the main terminal: a walkway can reach it' : 'Main row, further out'}</span></div><button type="button" class="btn go" data-act="detail" data-kind="slot" data-id="${s}">Plan · ${money(S.terminalCost(ap))}+</button></li>`;
+    for (const s of free) h += `<li><div class="what"><b>${S.nm(ap, SLOTS[s].name)}</b><span>${SLOTS[s].row === 'mid' ? 'Midfield: across the apron from the main terminal' : SLOTS[s].adjacent ? 'Next to the main terminal: a walkway can reach it' : 'Main row, further out'}</span></div><button type="button" class="btn go" data-act="detail" data-kind="slot" data-id="${s}">Plan · ${money(S.terminalCost(ap))}+</button></li>`;
     h += `</ul>`;
   } else {
     h += `<p class="note">Buy more land to open new terminal sites.</p>`;
@@ -288,12 +288,12 @@ function renderBuild(game, ap) {
   for (const id of PLOT_ORDER) {
     const P = PLOTS[id];
     const owned = ap.plots[id];
-    const opens = SLOT_ORDER.filter((s) => SLOTS[s].plot === id).map((s) => SLOTS[s].name);
+    const opens = SLOT_ORDER.filter((s) => SLOTS[s].plot === id).map((s) => S.nm(ap, SLOTS[s].name));
     const ups = Object.entries(UPGRADES).filter(([, u]) => u.needsPlot === id).map(([, u]) => u.name);
-    const lots = PARKING_ORDER.filter((p) => PARKING_SITES[p].plot === id).map((p) => PARKING_SITES[p].name);
+    const lots = PARKING_ORDER.filter((p) => PARKING_SITES[p].plot === id).map((p) => S.nm(ap, PARKING_SITES[p].name));
     const what = [...opens, ...ups, ...lots].join(', ');
-    const needs = P.needs && !ap.plots[P.needs] ? `Buy the ${PLOTS[P.needs].name} first` : null;
-    h += `<li><div class="what"><b>${P.name} ${recTag({ act: 'plot', data: { id } })}</b><span>${owned ? 'Owned' : `Opens: ${what}`}${owned ? '' : ` · tax ${rate(14 * S.site(ap).cost)}`}</span></div>${owned ? '<span class="tag green">Owned</span>' : needs ? `<span class="tag">${needs}</span>` : priceBtn('Buy', `plot" data-id="${id}`, S.plotCost(ap, id))}</li>`;
+    const needs = P.needs && !ap.plots[P.needs] ? `Buy the ${S.nm(ap, PLOTS[P.needs].name)} first` : null;
+    h += `<li><div class="what"><b>${S.nm(ap, P.name)} ${recTag({ act: 'plot', data: { id } })}</b><span>${owned ? 'Owned' : `Opens: ${what}`}${owned ? '' : ` · tax ${rate(14 * S.site(ap).cost)}`}</span></div>${owned ? '<span class="tag green">Owned</span>' : needs ? `<span class="tag">${needs}</span>` : priceBtn('Buy', `plot" data-id="${id}`, S.plotCost(ap, id))}</li>`;
   }
   h += `</ul>`;
   h += `<h3 class="sec">Airfield & landside</h3><ul class="list">`;
@@ -336,8 +336,8 @@ function renderSlotDetail(game, ap, slot) {
   const tcost = S.terminalCost(ap);
   const ccost = S.connectorBuildCost(chosen, slot, ap);
   let h = `<button type="button" class="back" data-act="back">◂ Back</button>
-  <div class="title" style="font-size:24px">${S0.name}</div>
-  <p class="note">A new terminal opens with ${TERMINAL.startGates} gates (room for ${S0.maxGates}). Passengers clear security in the main terminal, so they need a way to get here. Each terminal also adds an air traffic controller, ground crews, climate control and cleaning to your running costs.</p>
+  <div class="title" style="font-size:24px">${S.nm(ap, S0.name)}</div>
+  <p class="note">A new terminal opens with ${TERMINAL.startGates} gates (room for ${S.maxGates(ap, slot)}). Passengers clear security in the main terminal, so they need a way to get here. Each terminal also adds an air traffic controller, ground crews, climate control and cleaning to your running costs.</p>
   <dl class="board">
     <div><dt>Terminal</dt><dd>${money(tcost)}</dd></div>
     <div><dt>Connector</dt><dd>${money(ccost)}</dd></div>
@@ -358,7 +358,7 @@ function renderTerminalDetail(game, ap, slot) {
   const C = T.connector;
   const routes = ap.contracts.filter((c) => c.terminal === slot);
   let h = `<button type="button" class="back" data-act="back">◂ Back</button>
-  <div class="row between"><div class="title" style="font-size:24px">${TERMINAL_CODES[slot]} · ${S0.name}</div>${T.buildLeft > 0 ? `<span class="tag amber">Building · ${duration(T.buildLeft)}</span>` : ''}</div>
+  <div class="row between"><div class="title" style="font-size:24px">${TERMINAL_CODES[slot]} · ${S.nm(ap, S0.name)}</div>${T.buildLeft > 0 ? `<span class="tag amber">Building · ${duration(T.buildLeft)}</span>` : ''}</div>
   <dl class="board">
     <div><dt>Gates</dt><dd>${T.gates}${T.heavy ? ' heavy' : ''}</dd></div>
     <div><dt>Gate load</dt><dd>${rep ? pct(rep.gateDemand / rep.gates) : '—'}</dd></div>
@@ -366,7 +366,7 @@ function renderTerminalDetail(game, ap, slot) {
     <div><dt>Comfort</dt><dd>${num(T.comfort || T.gates * PAX.terminalComfortPerGate)}</dd></div>
   </dl>
   <h3 class="sec">Terminal</h3><ul class="list">
-    <li><div class="what"><b>Add a gate ${recTag({ act: 'gate', data: { slot } })}</b><span>${T.gates} of ${S0.maxGates} · each gate adds ground crew and climate costs</span></div>${T.gates < S0.maxGates ? priceBtn('Add', `gate" data-slot="${slot}`, S.gateCost(ap, T)) : '<span class="tag">Full</span>'}</li>
+    <li><div class="what"><b>Add a gate ${recTag({ act: 'gate', data: { slot } })}</b><span>${T.gates} of ${S.maxGates(ap, slot)} · each gate adds ground crew and climate costs</span></div>${T.gates < S.maxGates(ap, slot) ? priceBtn('Add', `gate" data-slot="${slot}`, S.gateCost(ap, T)) : '<span class="tag">Full</span>'}</li>
     <li><div class="what"><b>Heavy gates ${recTag({ act: 'heavy', data: { slot } })}</b><span>Widebodies and superjumbos need them</span></div>${T.heavy ? '<span class="tag green">Done</span>' : priceBtn('Convert', `heavy" data-slot="${slot}`, S.heavyCost(ap, T))}</li>
     <li><div class="what"><b>Shops & dining · L${T.retail + 1}</b><span>Waiting passengers spend ×${TERMINAL.retailLevels[T.retail].mult}. Crowds spend less.</span></div>${S.retailCost(ap, T) != null ? priceBtn('Upgrade', `retail" data-slot="${slot}`, S.retailCost(ap, T)) : '<span class="tag">Max</span>'}</li>
   </ul>`;
@@ -421,12 +421,12 @@ function parkingRow(ap, id) {
   const lv = ap.parking[id];
   const next = S.parkingNext(ap, id);
   const why = S.parkingBlocked(ap, id);
-  const now = lv ? `${lv === 'garage' ? 'Garage' : 'Surface lot'} · ${num(S.parkingSiteCap(id, lv))} drivers/min` : ap.plots[P.plot] ? 'Empty land' : `On the ${PLOTS[P.plot].name}`;
+  const now = lv ? `${lv === 'garage' ? 'Garage' : 'Surface lot'} · ${num(S.parkingSiteCap(id, lv))} drivers/min` : ap.plots[P.plot] ? 'Empty land' : `On the ${S.nm(ap, PLOTS[P.plot].name)}`;
   const add = next ? S.parkingSiteCap(id, next) - S.parkingSiteCap(id, lv) : 0;
   const btn = next && !why
     ? priceBtn(next === 'lot' ? `Build lot +${add}` : `Garage +${add}`, `parking" data-id="${id}`, S.parkingCost(ap, id))
     : `<span class="tag ${lv === 'garage' ? 'green' : ''}">${esc(why || 'Full size')}</span>`;
-  return `<li><div class="what"><b>${P.code} · ${P.name} ${recTag({ act: 'parking', data: { id } })}</b><span>${now}</span></div>${btn}</li>`;
+  return `<li><div class="what"><b>${P.code} · ${S.nm(ap, P.name)} ${recTag({ act: 'parking', data: { id } })}</b><span>${now}</span></div>${btn}</li>`;
 }
 
 function parkingBlock(ap) {
@@ -439,7 +439,7 @@ function parkingBlock(ap) {
 function renderParkingDetail(game, ap, id) {
   const P = PARKING_SITES[id];
   return `<button type="button" class="back" data-act="back">◂ Back</button>
-  <div class="title" style="font-size:24px">${P.code} · ${P.name}</div>
+  <div class="title" style="font-size:24px">${P.code} · ${S.nm(ap, P.name)}</div>
   <p class="note">Departing passengers who drive pay to park, but only if there is a space. Surface lots are quick and cheap; a garage on top holds far more cars for a bit more upkeep.</p>
   <ul class="list">${parkingRow(ap, id)}</ul>
   <h3 class="sec">All car parks</h3>${parkingBlock(ap)}`;
@@ -447,12 +447,12 @@ function renderParkingDetail(game, ap, id) {
 
 function renderPlotDetail(game, ap, id) {
   const P = PLOTS[id];
-  const opens = SLOT_ORDER.filter((s) => SLOTS[s].plot === id).map((s) => SLOTS[s].name);
+  const opens = SLOT_ORDER.filter((s) => SLOTS[s].plot === id).map((s) => S.nm(ap, SLOTS[s].name));
   const ups = Object.entries(UPGRADES).filter(([, u]) => u.needsPlot === id).map(([, u]) => u.name);
-  const lots = PARKING_ORDER.filter((p) => PARKING_SITES[p].plot === id).map((p) => PARKING_SITES[p].name);
-  const needs = P.needs && !ap.plots[P.needs] ? PLOTS[P.needs].name : null;
+  const lots = PARKING_ORDER.filter((p) => PARKING_SITES[p].plot === id).map((p) => S.nm(ap, PARKING_SITES[p].name));
+  const needs = P.needs && !ap.plots[P.needs] ? S.nm(ap, PLOTS[P.needs].name) : null;
   return `<button type="button" class="back" data-act="back">◂ Back</button>
-  <div class="title" style="font-size:24px">${P.name}</div>
+  <div class="title" style="font-size:24px">${S.nm(ap, P.name)}</div>
   <p class="note">Farmland for now. Owning it opens:</p>
   <ul class="list">${[...opens.map((o) => `<li><div class="what"><b>${o}</b><span>Terminal site</span></div></li>`), ...ups.map((u) => `<li><div class="what"><b>${u}</b><span>Upgrade</span></div></li>`), ...lots.map((u) => `<li><div class="what"><b>${u}</b><span>Room for a surface lot, later a garage</span></div></li>`)].join('')}${id === 'west' || id === 'east' ? `<li><div class="what"><b>Taxilane</b><span>A second route for aircraft between the runway and the main apron</span></div></li>` : ''}</ul>
   <p class="note">Land carries property tax of ${rate(14 * S.site(ap).cost)} once bought.</p>
@@ -470,7 +470,7 @@ function renderRunwayDetail(game, ap) {
     <div><dt>Tower</dt><dd>${rep.runway.atc.toFixed(1)}/m</dd></div>
     <div><dt>Holding</dt><dd>${snap.holding}</dd></div>
   </dl>
-  <p class="note">Every flight is two movements: a landing and a take-off. Throughput is the lower of what the runway can physically take and what your controllers can sequence. When arrivals cannot be slotted in they circle in the holding stack west of the field, burning the airline's time.</p>
+  <p class="note">Every flight is two movements: a landing and a take-off. Throughput is the lower of what the runway can physically take and what your controllers can sequence. When arrivals cannot be slotted in they circle in the holding stack ${S.nm(ap, "west")} of the field, burning the airline's time.</p>
   <h3 class="sec">Tower staffing</h3>
   <p class="note">${S.controllers(ap)} controllers on shift: one per runway and one per terminal. Each sequences about ${(rep.runway.atc / Math.max(1, S.controllers(ap))).toFixed(1)} movements a minute.</p>
   ${staffRow(ap, 'atc', 'Controllers')}

@@ -1,12 +1,12 @@
 // Top-down drawing of the active airport. The airfield is drawn as a floor
 // plan: terminal roofs are left off so you can see the crowds inside.
 
-import { WORLD, AIRCRAFT, CONNECTORS, TERMINAL } from './config.js';
+import { WORLD, AIRCRAFT, CONNECTORS, TERMINAL, SITES } from './config.js';
 import {
   RW, TWY_A, TWY_B, LANE2, RUNWAY_HALF, EXITS, LONG_RUNWAY_X1, HOLD_POINT, IAF,
   TAXILANES, PLOTS, SLOTS, SLOT_ORDER, MAIN_BLDG, MID_BLDG, SERVICE_Y, CURB_Y,
   HIGHWAY_Y, RAMP_IN_X, RAMP_OUT_X, MAIN_STAND_Y, MID_STAND_Y, TERMINAL_CODES,
-  slotBuilding, gateStand, lanesFor, connectorRoute, twyBSpan, PARKING_SITES, PARKING_ORDER,
+  slotBuilding, gateStand, lanesFor, connectorRoute, twyBSpan, PARKING_SITES, PARKING_ORDER, placeName,
 } from './layout.js';
 import { mulberry32, pointAlong, pathLength, clamp, money } from './util.js';
 import { FLIGHT } from './config.js';
@@ -19,6 +19,21 @@ const C = {
   seat: '#c3bdb0', road: '#4b4f56', curb: '#d8d4ca', parkLine: '#e8e6df',
   depart: '#1f6fd1', arrive: '#e0861c', shadow: 'rgba(15,25,10,0.28)',
 };
+
+// Scenery per site. ground/stripe are the grass (or sand, or snow), farm*
+// the land you have not bought, outside what lies beyond the field, coast
+// the side that meets the water (in world coordinates), decor what grows or
+// stands along the edges.
+const THEMES = {
+  forest:   { ground: '#7f9f63', stripe: '#86a76a', farmA: '#b5a46b', farmB: '#a7ad6c', farmEdge: '#8a8455', outside: '#5f7a4a', decor: 'tree' },
+  bay:      { ground: '#88a568', stripe: '#8fad6f', farmA: '#b9ab76', farmB: '#a9b072', farmEdge: '#8c875a', outside: '#3f7fa8', coast: 'west', water: '#3f7fa8', shallow: '#62a7c6', sand: '#e6d6a8', decor: 'mixed' },
+  desert:   { ground: '#d6bd88', stripe: '#dcc493', farmA: '#c9a36a', farmB: '#c09a62', farmEdge: '#9f7848', outside: '#c7a774', decor: 'cactus', mesas: true },
+  harbor:   { ground: '#7c9466', stripe: '#83996c', farmA: '#a9a173', farmB: '#9da56f', farmEdge: '#7f7c56', outside: '#2f5f7f', coast: 'east', water: '#2f5f7f', shallow: '#4a7d9b', sand: '#b9b2a2', decor: 'building' },
+  snow:     { ground: '#e6ecef', stripe: '#eef2f4', farmA: '#dce3e7', farmB: '#d3dbe0', farmEdge: '#aeb9c0', outside: '#cfd8dd', decor: 'snowpine', farmLine: 'rgba(90,110,125,0.16)' },
+  tropical: { ground: '#78ad59', stripe: '#80b460', farmA: '#a8b46a', farmB: '#9cae63', farmEdge: '#7f8c4e', outside: '#2aa8b8', coast: 'west', water: '#2aa8b8', shallow: '#6fd3d3', sand: '#f1e1b2', decor: 'palm' },
+  city:     { ground: '#7a8c66', stripe: '#80926b', farmA: '#a49f78', farmB: '#989d70', farmEdge: '#76735a', outside: '#6d7378', decor: 'building' },
+};
+const themeOf = (ap) => THEMES[SITES[ap.siteIndex].theme] || THEMES.forest;
 
 // ------------------------------------------------------------------ camera
 
@@ -44,6 +59,15 @@ export function screenToWorld(cam, w, h, sx, sy) {
 
 let staticCanvas = null, staticKey = '';
 
+// Some sites face the other way: the whole field is drawn mirrored (the
+// simulation does not change). Text is flipped back so it stays readable.
+let MIRROR = false;
+const mirrored = (ap) => !!SITES[ap.siteIndex].mirror;
+function textAt(g, s, x, y) {
+  if (!MIRROR) { g.fillText(s, x, y); return; }
+  g.save(); g.translate(x, y); g.scale(-1, 1); g.fillText(s, 0, 0); g.restore();
+}
+
 function layoutKey(ap, res) {
   return JSON.stringify([ap.siteIndex, ap.plots, ap.parking, ap.terminals.map((T) => [T.slot, T.gates, T.heavy, T.retail, T.buildLeft > 0, T.connector && [T.connector.type, T.connector.level, T.connector.buildLeft > 0]]), ap.securityLanes, ap.upgrades, res]);
 }
@@ -55,12 +79,15 @@ function drawStatic(ap, res) {
   cv.height = Math.round(WORLD.h * res);
   const g = cv.getContext('2d');
   g.setTransform(res, 0, 0, res, 0, 0);
+  MIRROR = mirrored(ap);
+  if (MIRROR) g.transform(-1, 0, 0, 1, WORLD.w, 0);
   const R = mulberry32(7 + ap.siteIndex * 101);
 
-  // grass with mowing stripes
-  g.fillStyle = C.grass;
+  // grass with mowing stripes (or sand ripples, or snow drifts)
+  const TH = themeOf(ap);
+  g.fillStyle = TH.ground;
   g.fillRect(0, 0, WORLD.w, WORLD.h);
-  g.fillStyle = C.grassB;
+  g.fillStyle = TH.stripe;
   for (let x = -WORLD.h; x < WORLD.w; x += 56) {
     g.beginPath();
     g.moveTo(x, 0); g.lineTo(x + 28, 0); g.lineTo(x + 28 + WORLD.h * 0.5, WORLD.h); g.lineTo(x + WORLD.h * 0.5, WORLD.h);
@@ -74,9 +101,9 @@ function drawStatic(ap, res) {
       g.save();
       g.beginPath(); g.rect(r.x, r.y, r.w, r.h); g.clip();
       const horizontal = (r.w > r.h);
-      g.fillStyle = id.length % 2 ? C.farmA : C.farmB;
+      g.fillStyle = id.length % 2 ? TH.farmA : TH.farmB;
       g.fillRect(r.x, r.y, r.w, r.h);
-      g.strokeStyle = 'rgba(80,70,30,0.22)';
+      g.strokeStyle = TH.farmLine || 'rgba(80,70,30,0.22)';
       g.lineWidth = 3;
       for (let k = 0; k < (horizontal ? r.h : r.w); k += 9) {
         g.beginPath();
@@ -84,21 +111,54 @@ function drawStatic(ap, res) {
         g.stroke();
       }
       g.restore();
-      g.strokeStyle = C.farmEdge; g.lineWidth = 2; g.setLineDash([6, 5]);
+      g.strokeStyle = TH.farmEdge; g.lineWidth = 2; g.setLineDash([6, 5]);
       g.strokeRect(r.x + 1, r.y + 1, r.w - 2, r.h - 2);
       g.setLineDash([]);
     }
   }
 
-  // a few trees on the edges of the map
+  // the shore, on coastal sites
+  if (TH.coast) {
+    const west = TH.coast === 'west';
+    const x0 = west ? 0 : WORLD.w - 46, xs = west ? 30 : WORLD.w - 46;
+    g.fillStyle = TH.sand; g.fillRect(west ? 0 : WORLD.w - 58, 0, 58, WORLD.h);
+    g.fillStyle = TH.shallow; g.fillRect(x0, 0, 46 - 16, WORLD.h);
+    g.fillStyle = TH.water; g.fillRect(west ? 0 : WORLD.w - 18, 0, 18, WORLD.h);
+    // breaking waves
+    g.strokeStyle = 'rgba(255,255,255,0.55)'; g.lineWidth = 1.2;
+    for (let y = 8; y < WORLD.h; y += 26) {
+      const wx = west ? xs + Math.sin(y * 0.07) * 2 : xs + 16 + Math.sin(y * 0.07) * 2;
+      g.beginPath(); g.moveTo(wx, y); g.quadraticCurveTo(wx + (west ? 3 : -3), y + 7, wx, y + 14); g.stroke();
+    }
+    if (TH.decor === 'building') {
+      // piers and moored ships in the harbor
+      for (let y = 90; y < WORLD.h - 60; y += 170) {
+        g.fillStyle = '#8d8a82'; g.fillRect(WORLD.w - 46, y, 46, 8);
+        g.fillStyle = '#e8e4da'; g.fillRect(WORLD.w - 40, y + 14, 34, 11);
+        g.fillStyle = '#b8443a'; g.fillRect(WORLD.w - 40, y + 14, 8, 11);
+      }
+    }
+  }
+  // mesas on the horizon
+  if (TH.mesas) {
+    for (const [mx, my, mw, mh] of [[0, 330, 46, 140], [WORLD.w - 40, 520, 40, 170], [0, 760, 40, 110]]) {
+      g.fillStyle = '#b07a4f'; g.fillRect(mx, my, mw, mh);
+      g.fillStyle = '#c48b5c'; g.fillRect(mx + 4, my + 4, mw - 8, mh * 0.35);
+    }
+  }
+
+  // things growing (or standing) along the edges of the map
+  const coastX = TH.coast === 'west' ? 64 : TH.coast === 'east' ? WORLD.w - 64 : null;
+  const edgeOk = (x) => coastX == null || (TH.coast === 'west' ? x > coastX : x < coastX);
   for (let i = 0; i < 90; i++) {
     const x = R() * WORLD.w, y = R() < 0.5 ? R() * 22 : 935 + R() * 30;
     if (y > 935 && x > 420 && x < 1580) continue;
-    tree(g, x, y, 6 + R() * 6);
+    if (edgeOk(x)) decor(g, TH, x, y, 6 + R() * 6, R);
   }
   for (let i = 0; i < 40; i++) {
     const x = R() < 0.5 ? R() * 70 : WORLD.w - R() * 70, y = 320 + R() * 600;
-    tree(g, x, y, 6 + R() * 6);
+    if (edgeOk(x)) decor(g, TH, x, y, 6 + R() * 6, R);
+    else if (TH.decor === 'palm' || TH.decor === 'mixed') decor(g, { decor: 'palm' }, TH.coast === 'west' ? 46 + R() * 14 : WORLD.w - 46 - R() * 14, y, 6 + R() * 4, R);
   }
 
   // highway, ramps, curb, service road
@@ -185,8 +245,10 @@ function drawStatic(ap, res) {
   }
 
   // runways
-  runway(g, RW[0], ap.upgrades.longRunway ? LONG_RUNWAY_X1 : RW[0].x1, ap.upgrades.runway2 ? ['09R', '27L'] : ['09', '27']);
-  if (ap.upgrades.runway2) runway(g, RW[1], RW[1].x1, ['09L', '27R']);
+  // Facing the other way the numbers swap ends: planes land on runway 27.
+  const ends = (a) => (MIRROR ? [a[1], a[0]] : a);
+  runway(g, RW[0], ap.upgrades.longRunway ? LONG_RUNWAY_X1 : RW[0].x1, ends(ap.upgrades.runway2 ? ['09R', '27L'] : ['09', '27']));
+  if (ap.upgrades.runway2) runway(g, RW[1], RW[1].x1, ends(['09L', '27R']));
 
   // yellow centrelines, with arrows showing which way each one runs
   g.strokeStyle = C.yellow; g.lineWidth = 1.6;
@@ -264,6 +326,42 @@ function curveLine(g, x0, y0, x1, y1) {
   g.stroke();
 }
 
+function decor(g, TH, x, y, r, R) {
+  const kind = TH.decor === 'mixed' ? (R() < 0.35 ? 'palm' : 'tree') : TH.decor;
+  if (kind === 'palm') {
+    g.fillStyle = 'rgba(20,40,15,0.22)'; g.beginPath(); g.arc(x + r * 0.4, y + r * 0.4, r * 0.8, 0, Math.PI * 2); g.fill();
+    g.strokeStyle = '#3f8a3a'; g.lineWidth = r * 0.32; g.lineCap = 'round';
+    for (let k = 0; k < 6; k++) {
+      const a = k * Math.PI / 3 + R() * 0.4;
+      g.beginPath(); g.moveTo(x, y); g.quadraticCurveTo(x + Math.cos(a) * r * 0.7, y + Math.sin(a) * r * 0.7 - 2, x + Math.cos(a) * r * 1.2, y + Math.sin(a) * r * 1.2); g.stroke();
+    }
+    g.lineCap = 'butt';
+    g.fillStyle = '#7a5a34'; g.beginPath(); g.arc(x, y, r * 0.22, 0, Math.PI * 2); g.fill();
+  } else if (kind === 'cactus') {
+    g.fillStyle = 'rgba(80,50,20,0.25)'; g.beginPath(); g.ellipse(x + 3, y + 3, r * 0.5, r * 0.25, 0, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#5e8a4a';
+    g.fillRect(x - 1.6, y - r, 3.2, r * 1.6);
+    g.fillRect(x - r * 0.55, y - r * 0.45, r * 0.55, 2.4); g.fillRect(x - r * 0.55, y - r * 0.85, 2.4, r * 0.42);
+    g.fillRect(x, y - r * 0.2, r * 0.5, 2.4); g.fillRect(x + r * 0.5 - 2.4, y - r * 0.6, 2.4, r * 0.42);
+    if (R() < 0.5) { g.fillStyle = '#a68a63'; g.beginPath(); g.arc(x + r, y + r * 0.6, r * 0.35, 0, Math.PI * 2); g.fill(); }
+  } else if (kind === 'snowpine') {
+    g.fillStyle = 'rgba(60,80,100,0.22)'; g.beginPath(); g.arc(x + r * 0.4, y + r * 0.4, r, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#2f5a42';
+    g.beginPath(); g.moveTo(x, y - r * 1.1); g.lineTo(x + r, y + r * 0.8); g.lineTo(x - r, y + r * 0.8); g.closePath(); g.fill();
+    g.fillStyle = '#f4f7f8';
+    g.beginPath(); g.moveTo(x, y - r * 1.1); g.lineTo(x + r * 0.45, y - r * 0.2); g.lineTo(x - r * 0.45, y - r * 0.2); g.closePath(); g.fill();
+  } else if (kind === 'building') {
+    const w = r * 2.2 + R() * r * 1.6, h = r * 2 + R() * r * 1.4;
+    g.fillStyle = 'rgba(0,0,0,0.25)'; g.fillRect(x - w / 2 + 4, y - h / 2 + 4, w, h);
+    const tones = ['#9aa0a6', '#b4b0a6', '#8b8f96', '#a39b8e', '#c4c0b6'];
+    g.fillStyle = tones[Math.floor(R() * tones.length)]; g.fillRect(x - w / 2, y - h / 2, w, h);
+    g.fillStyle = 'rgba(255,255,255,0.18)'; g.fillRect(x - w / 2, y - h / 2, w, 3);
+    g.fillStyle = '#5d636a'; g.fillRect(x - w * 0.15, y - h * 0.15, w * 0.3, h * 0.3);
+  } else {
+    tree(g, x, y, r);
+  }
+}
+
 function tree(g, x, y, r) {
   g.fillStyle = 'rgba(20,40,15,0.25)';
   g.beginPath(); g.arc(x + r * 0.35, y + r * 0.35, r, 0, Math.PI * 2); g.fill();
@@ -296,11 +394,11 @@ function runway(g, rw, x1, labels) {
   g.save();
   g.font = '700 13px "Barlow Condensed", "Arial Narrow", sans-serif';
   g.textAlign = 'center'; g.textBaseline = 'middle';
-  g.translate(rw.x0 + 48, y); g.rotate(Math.PI / 2); g.fillText(labels[0], 0, 0); g.restore();
+  g.translate(rw.x0 + 48, y); g.rotate(Math.PI / 2); if (MIRROR) g.scale(-1, 1); g.fillText(labels[0], 0, 0); g.restore();
   g.save();
   g.font = '700 13px "Barlow Condensed", "Arial Narrow", sans-serif';
   g.textAlign = 'center'; g.textBaseline = 'middle';
-  g.translate(x1 - 48, y); g.rotate(-Math.PI / 2); g.fillText(labels[1], 0, 0); g.restore();
+  g.translate(x1 - 48, y); g.rotate(-Math.PI / 2); if (MIRROR) g.scale(-1, 1); g.fillText(labels[1], 0, 0); g.restore();
 }
 
 function parkingLot(g, x, y, w, h, R) {
@@ -327,7 +425,7 @@ function garage(g, x, y, w, h, label) {
   for (let k = 8; k < h; k += 12) { g.beginPath(); g.moveTo(x + 6, y + k); g.lineTo(x + w - 6, y + k); g.stroke(); }
   g.fillStyle = '#1f4aa8'; g.fillRect(x + w / 2 - 14, y + h / 2 - 14, 28, 28);
   g.fillStyle = '#fff'; g.font = '700 18px "Barlow Condensed", sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
-  g.fillText(label, x + w / 2, y + h / 2 + 1);
+  textAt(g, label, x + w / 2, y + h / 2 + 1);
 }
 
 function railStation(g) {
@@ -374,7 +472,7 @@ function terminal(g, ap, T) {
     // gate number
     g.fillStyle = '#1b1d21'; g.fillRect(s.x - 9, b.y + 2, 18, 9);
     g.fillStyle = '#ffc20e'; g.font = '700 8px "Barlow Condensed", sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
-    g.fillText(`${TERMINAL_CODES[T.slot]}${i + 1}`, s.x, b.y + 6.8);
+    textAt(g, `${TERMINAL_CODES[T.slot]}${i + 1}`, s.x, b.y + 6.8);
     // stand markings
     g.strokeStyle = C.yellow; g.lineWidth = 1;
     const sy = S.row === 'main' ? MAIN_STAND_Y : MID_STAND_Y;
@@ -414,7 +512,7 @@ function terminal(g, ap, T) {
   // name painted on the floor
   g.fillStyle = 'rgba(40,44,52,0.16)';
   g.font = '700 30px "Barlow Condensed", "Arial Narrow", sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
-  g.fillText(TERMINAL_CODES[T.slot], b.x + b.w / 2, b.y + b.h * 0.72);
+  textAt(g, TERMINAL_CODES[T.slot], b.x + b.w / 2, b.y + b.h * 0.72);
 }
 
 function staticConnector(g, T) {
@@ -554,6 +652,8 @@ function drawPlane(g, p, t, night, selected) {
 // ------------------------------------------------------------------ people
 
 const particles = [];
+const pickupQ = []; // arriving passengers waiting at the curb
+let dropAcc = 0;    // departing passengers due to arrive by car
 const floaters = [];
 let dotAcc = {}, dotKeys = 0;
 let ppd = 3; // passengers per dot
@@ -565,6 +665,15 @@ function spawnDots(key, n, make) {
     dotAcc[key] -= 1;
     if (particles.length < 900) particles.push(make());
   }
+}
+
+// An arriving passenger walking out through the main terminal to the curb,
+// where they wait to be picked up.
+function toCurb(from, before = []) {
+  const exit = { x: jitter(1000, 120), y: MAIN_BLDG.y1 - 4 };
+  const w = walker([...before, from, exit, { x: exit.x, y: CURB_Y - 10 }], 30, C.arrive);
+  w.pickup = true;
+  return w;
 }
 
 function walker(pts, speed, color, delay = 0) {
@@ -585,13 +694,30 @@ function loungePoint(slot, gateIndex = null) {
 export function attach(ap) {
   particles.length = 0;
   floaters.length = 0;
+  clusters.clear();
+  pickupQ.length = 0; dropAcc = 0; cars.length = 0;
   dotAcc = {}; dotKeys = 0;
   ap.fx = (type, e) => {
     if (type === 'money') { floaters.push({ x: e.x, y: e.y, text: '+' + money(e.v), life: 1.6 }); return; }
     if (type === 'curb') {
-      spawnDots('curb', e.n, () => {
-        const x = jitter(1000, 220);
-        return walker([{ x, y: CURB_Y - 12 }, { x: jitter(1000, 160), y: MAIN_BLDG.y1 - 2 }], 22, C.depart);
+      // departing passengers arrive by car: one car per few of them
+      dropAcc += e.n / ppd;
+      return;
+    }
+    if (type === 'bus') {
+      const T = terminalBySlot(ap, e.slot);
+      const Cn = T && T.connector;
+      if (!Cn) return;
+      const st = e.end === 'main' ? Cn.route[0] : Cn.route[Cn.route.length - 1];
+      const color = e.end === 'main' ? C.depart : C.arrive;
+      if (e.on) spawnDots('busOn' + e.slot + e.end, e.on, () => walker([{ x: jitter(st.x, 16), y: jitter(st.y, 6) }, { x: jitter(e.x, 4), y: jitter(e.y, 4) }], 34, color));
+      if (e.off) spawnDots('busOff' + e.slot + e.end, e.off, () => {
+        const from = { x: jitter(e.x, 4), y: jitter(e.y, 4) };
+        if (e.end === 'far') {
+          const b = slotBuilding(e.slot);
+          return walker([from, { x: jitter(st.x, 10), y: st.y }, { x: jitter(b.x + b.w / 2, b.w * 0.6), y: b.y + b.h * 0.45 }], 30, C.depart);
+        }
+        return toCurb(from);
       });
       return;
     }
@@ -599,7 +725,9 @@ export function attach(ap) {
       const T = terminalBySlot(ap, e.slot);
       spawnDots('sec', e.n, () => {
         const from = { x: jitter(1000, 80), y: MAIN_BLDG.y1 - 38 };
-        const to = e.slot === 'main' ? loungePoint('main') : { x: jitter(T.connector.route[0].x, 10), y: jitter(T.connector.route[0].y, 10) };
+        // to their flight's group (main terminal) or onto the connector
+        const cl = e.slot === 'main' && e.fid != null ? clusterAt(ap, terminalBySlot(ap, 'main'), e.fid) : null;
+        const to = e.slot === 'main' ? (cl ? { x: jitter(cl.x, 16), y: cl.y + 4 + Math.random() * 6 } : loungePoint('main')) : { x: jitter(T.connector.route[0].x, 10), y: jitter(T.connector.route[0].y, 10) };
         return walker([from, { x: from.x, y: MAIN_BLDG.y0 + 34 }, to], 26, C.depart);
       });
       return;
@@ -613,6 +741,8 @@ export function attach(ap) {
         const len = pathLength(pts);
         const w = walker(pts.map((p) => ({ x: jitter(p.x, 6), y: jitter(p.y, 6) })), len / Math.max(1, e.travel), e.dir === 'out' ? C.depart : C.arrive);
         w.under = Cn.type === 'tunnel';
+        // arrivals carry on through the main terminal to be picked up
+        if (e.dir === 'in') { w.then = toCurb(pts[pts.length - 1]); w.then.under = false; }
         return w;
       });
       return;
@@ -624,10 +754,7 @@ export function attach(ap) {
         const b = slotBuilding(e.slot);
         const door = { x: p.x + 14, y: b.y - 10 };
         const inside = { x: jitter(p.x, 20), y: b.y + 10 };
-        if (e.slot === 'main') {
-          const exit = { x: jitter(1000, 120), y: MAIN_BLDG.y1 - 4 };
-          return walker([door, inside, { x: inside.x, y: MAIN_BLDG.y0 + 30 }, exit, { x: exit.x, y: CURB_Y - 10 }], 30, C.arrive);
-        }
+        if (e.slot === 'main') return toCurb({ x: inside.x, y: MAIN_BLDG.y0 + 30 }, [door, inside]);
         const st = T.connector.route[T.connector.route.length - 1];
         return walker([door, inside, { x: jitter(st.x, 10), y: jitter(st.y, 10) }], 30, C.arrive);
       });
@@ -636,11 +763,29 @@ export function attach(ap) {
     if (type === 'board') {
       const p = e.p;
       spawnDots('brd' + p.id, e.n, () => {
+        // from their group at the gate, through the jet bridge to the door
         const b = slotBuilding(e.slot);
-        return walker([{ x: jitter(p.x, 30), y: b.y + 14 }, { x: p.x + 14, y: b.y + 2 }, { x: p.x + 14, y: b.y - 12 }], 30, C.depart);
+        const cl = clusters.get(p.f.id) || { x: p.x, y: b.y + 10 };
+        return walker([{ x: jitter(cl.x, 18), y: cl.y + 4 }, { x: p.x + 14, y: b.y + 2 }, { x: p.x + 14, y: b.y - 12 }], 30, C.depart);
       });
     }
   };
+}
+
+// Waiting departures gather per flight: in the hall until their aircraft has
+// a gate, then at that gate's lounge. Each group walks between the two, so
+// people are where their plane is.
+const clusters = new Map(); // fid -> { x, y }
+function clusterTarget(ap, T, fid) {
+  const b = slotBuilding(T.slot);
+  const f = ap.flights.get(fid);
+  const p = f && f.plane;
+  if (p && p.gate >= 0 && p.stand && f.terminal === T.slot) return { x: p.stand.x, y: b.y + 10 };
+  const k = ((fid * 2654435761) >>> 0) % 997 / 997;
+  return { x: b.x + 34 + k * (b.w - 68), y: b.y + (T.slot === 'main' ? 34 : b.h * 0.5) };
+}
+function clusterAt(ap, T, fid) {
+  return clusters.get(fid) || clusterTarget(ap, T, fid);
 }
 
 function crowd(g, n, x0, y0, w, h, color, seed, t) {
@@ -680,14 +825,17 @@ export function render(g, w, h, dpr, cam, ap, view) {
   const vx0 = cam.x - w / 2 / cam.zoom, vx1 = cam.x + w / 2 / cam.zoom;
   const vy0 = cam.y - h / 2 / cam.zoom, vy1 = cam.y + h / 2 / cam.zoom;
   g.setTransform(dpr, 0, 0, dpr, 0, 0);
-  if (vx0 < 0 || vy0 < 0 || vx1 > WORLD.w || vy1 > WORLD.h) { g.fillStyle = '#5f7a4a'; g.fillRect(0, 0, w, h); }
+  if (vx0 < 0 || vy0 < 0 || vx1 > WORLD.w || vy1 > WORLD.h) { g.fillStyle = themeOf(ap).outside; g.fillRect(0, 0, w, h); }
   g.setTransform(cam.zoom * dpr, 0, 0, cam.zoom * dpr, (w / 2 - cam.x * cam.zoom) * dpr, (h / 2 - cam.y * cam.zoom) * dpr);
   g.imageSmoothingEnabled = true;
-  const vis = (p, m) => p.x > vx0 - m && p.x < vx1 + m && p.y > vy0 - m && p.y < vy1 + m;
+  const vis = (p, m) => { const x = MIRROR ? WORLD.w - p.x : p.x; return x > vx0 - m && x < vx1 + m && p.y > vy0 - m && p.y < vy1 + m; };
   // copy only the visible part of the static layer
   const sx0 = clamp(Math.floor(vx0), 0, WORLD.w), sx1 = clamp(Math.ceil(vx1), 0, WORLD.w);
   const sy0 = clamp(Math.floor(vy0), 0, WORLD.h), sy1 = clamp(Math.ceil(vy1), 0, WORLD.h);
   if (sx1 > sx0 && sy1 > sy0) g.drawImage(staticCanvas, sx0 * res, sy0 * res, (sx1 - sx0) * res, (sy1 - sy0) * res, sx0, sy0, sx1 - sx0, sy1 - sy0);
+  // the static layer is already mirrored; everything drawn after this is not
+  MIRROR = mirrored(ap);
+  if (MIRROR) g.transform(-1, 0, 0, 1, WORLD.w, 0);
 
   const day = dayPhase(t);
   const night = day.dark > 0.25;
@@ -740,12 +888,20 @@ export function render(g, w, h, dpr, cam, ap, view) {
   for (const T of ap.terminals) {
     if (T.buildLeft > 0) continue;
     const b = slotBuilding(T.slot);
-    let wait = 0;
-    for (const n of T.waiting.values()) wait += n;
-    const nd = Math.min(400, Math.round(wait / ppd));
-    const comfortDots = T.gates * 140 / ppd;
-    const fill = Math.min(1, nd / Math.max(1, comfortDots));
-    crowd(g, nd, b.x + 6, b.y + 6, b.w - 12, Math.max(16, (b.h - 12) * (0.35 + 0.6 * fill)), C.depart, T.slot.length * 31, t);
+    for (const [fid, n] of T.waiting) {
+      if (n < 0.5) continue;
+      const tg = clusterTarget(ap, T, fid);
+      let c = clusters.get(fid);
+      if (!c) { c = { x: tg.x, y: tg.y }; clusters.set(fid, c); }
+      // walk over at a stroll
+      const dx = tg.x - c.x, dy = tg.y - c.y, d = Math.hypot(dx, dy), stepD = 32 * view.dt;
+      if (d > stepD) { c.x += dx / d * stepD; c.y += dy / d * stepD; } else { c.x = tg.x; c.y = tg.y; }
+      c.seen = t;
+      const nd = Math.min(140, Math.round(n / ppd));
+      const cw = clamp(14 + nd * 1.1, 18, 74);
+      crowd(g, nd, clamp(c.x - cw / 2, b.x + 4, b.x + b.w - 4 - cw), c.y, cw, 10 + Math.min(14, nd / 6), C.depart, fid, t);
+    }
+    if (clusters.size > 150) for (const [k, c] of clusters) if (t - c.seen > 10) clusters.delete(k);
     const Cn = T.connector;
     if (Cn) {
       const s0 = Cn.route[0], s1 = Cn.route[Cn.route.length - 1];
@@ -762,7 +918,12 @@ export function render(g, w, h, dpr, cam, ap, view) {
   for (let i = particles.length - 1; i >= 0; i--) {
     const q = particles[i];
     q.d += q.speed * dt;
-    if (q.d >= q.len) { particles[i] = particles[particles.length - 1]; particles.pop(); continue; }
+    if (q.d >= q.len) {
+      particles[i] = particles[particles.length - 1]; particles.pop();
+      if (q.then) particles.push(q.then);
+      else if (q.pickup && pickupQ.length < 60) pickupQ.push({ x: q.pts[q.pts.length - 1].x + jitter(0, 6), y: CURB_Y - 10 + jitter(0, 4) });
+      continue;
+    }
     if (q.d < 0) continue;
     const pt = pointAlong(q.pts, q.d);
     if (!vis(pt, 4)) continue;
@@ -830,8 +991,8 @@ export function render(g, w, h, dpr, cam, ap, view) {
     if (f.life <= 0) { floaters.splice(i, 1); continue; }
     g.globalAlpha = Math.min(1, f.life);
     g.font = '700 12px "IBM Plex Mono", monospace'; g.textAlign = 'center';
-    g.fillStyle = 'rgba(0,0,0,0.5)'; g.fillText(f.text, f.x + 1, f.y + 1);
-    g.fillStyle = '#ffe58a'; g.fillText(f.text, f.x, f.y);
+    g.fillStyle = 'rgba(0,0,0,0.5)'; textAt(g, f.text, f.x + (MIRROR ? -1 : 1), f.y + 1);
+    g.fillStyle = '#ffe58a'; textAt(g, f.text, f.x, f.y);
   }
   g.globalAlpha = 1;
 
@@ -840,7 +1001,7 @@ export function render(g, w, h, dpr, cam, ap, view) {
     if (ap.plots[id]) continue;
     const r = P.rects[0];
     const hot = view.hover && view.hover.kind === 'plot' && view.hover.id === id;
-    signLabel(g, r.x + r.w / 2, r.y + r.h / 2, `${hot ? '▸ ' : ''}FOR SALE · ${P.name.toUpperCase()}`, hot ? 'yellow' : 'black', cam.zoom);
+    signLabel(g, r.x + r.w / 2, r.y + r.h / 2, `${hot ? '▸ ' : ''}FOR SALE · ${placeName(MIRROR, P.name).toUpperCase()}`, hot ? 'yellow' : 'black', cam.zoom);
   }
 
   // night and weather
@@ -853,6 +1014,7 @@ export function render(g, w, h, dpr, cam, ap, view) {
   if (storm) rain(g, w, h, t);
   if (day.dark > 0.15) {
     g.setTransform(cam.zoom * dpr, 0, 0, cam.zoom * dpr, (w / 2 - cam.x * cam.zoom) * dpr, (h / 2 - cam.y * cam.zoom) * dpr);
+    if (MIRROR) g.transform(-1, 0, 0, 1, WORLD.w, 0);
     lights(g, ap, day.dark);
     for (const p of ap.planes) if (Math.floor(t * 1.4 + p.id * 0.37) % 2 === 0) {
       g.fillStyle = 'rgba(255,70,60,0.9)'; g.beginPath(); g.arc(p.x, p.y, 2, 0, Math.PI * 2); g.fill();
@@ -923,7 +1085,7 @@ function progressTag(g, x, y, prog, label) {
   g.fillStyle = '#16181b'; g.fillRect(x - w / 2, y - 12, w, 22);
   g.fillStyle = '#ffc20e'; g.fillRect(x - w / 2 + 3, y + 5, (w - 6) * clamp(prog, 0, 1), 3);
   g.font = '700 9px "Barlow Condensed", sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
-  g.fillText(label.toUpperCase(), x, y - 3);
+  textAt(g, label.toUpperCase(), x, y - 3);
   g.restore();
 }
 
@@ -940,32 +1102,59 @@ function signLabel(g, x, y, text, style, zoom) {
   g.fillStyle = bg; g.fillRect(-w / 2, -9, w, 18);
   if (style === 'black') { g.strokeStyle = '#ffc20e'; g.lineWidth = 1.2; g.strokeRect(-w / 2 + 2, -7, w - 4, 14); }
   g.fillStyle = fg; g.textAlign = 'center'; g.textBaseline = 'middle';
+  if (MIRROR) g.scale(-1, 1);
   g.fillText(text, 0, 0.5);
   g.restore();
 }
 
 // Cars: one per few departing passengers, cycling the curb loop.
 const cars = [];
-let carAcc = 0;
 function drawCars(g, ap, dt) {
-  const rate = ap.rolling.landsidePerMin / 60 * 0.12; // cars per second
-  carAcc += rate * dt;
-  if (carAcc > 1 && cars.length < 40) {
-    carAcc = 0;
+  // A car drops off a few departing passengers, or picks up a few arrivals
+  // waiting at the curb. Each car stops where its people are.
+  const CAR = 3;
+  let job = null;
+  if (cars.length < 40) {
+    if (dropAcc >= CAR) { dropAcc -= CAR; job = { drop: CAR, x: jitter(1000, 180) }; }
+    else {
+      // enough cars on their way for everyone waiting, each for its own few
+      const coming = cars.filter((c) => c.pick && !c.arrived).length;
+      if (pickupQ.length >= CAR * (coming + 1)) job = { pick: CAR, x: pickupQ[Math.min(pickupQ.length - 1, coming * CAR)].x };
+    }
+  }
+  if (dropAcc > 60) dropAcc = 60;
+  if (job) {
     const colors = ['#c9473a', '#e8e8e8', '#2b5f9e', '#262626', '#9aa0a6', '#d9b44a'];
     const fromWest = Math.random() < 0.5;
-    const stopX = jitter(1000, 180);
+    const stopX = clamp(job.x, RAMP_IN_X + 20, RAMP_OUT_X - 20);
     const pts = [
       { x: fromWest ? -20 : WORLD.w + 20, y: HIGHWAY_Y + (fromWest ? 6 : -6) },
       { x: RAMP_IN_X, y: HIGHWAY_Y + (fromWest ? 6 : -6) },
       { x: RAMP_IN_X, y: CURB_Y }, { x: stopX, y: CURB_Y - 4 }, { x: RAMP_OUT_X, y: CURB_Y },
       { x: RAMP_OUT_X, y: HIGHWAY_Y - 6 }, { x: fromWest ? WORLD.w + 20 : -20, y: HIGHWAY_Y - 6 },
     ];
-    cars.push({ pts, d: 0, len: pathLength(pts), color: colors[Math.floor(Math.random() * colors.length)], stopAt: pathLength(pts.slice(0, 4)), stopped: 0 });
+    cars.push({ pts, d: 0, len: pathLength(pts), color: colors[Math.floor(Math.random() * colors.length)], stopAt: pathLength(pts.slice(0, 4)), stopped: 0, ...job });
   }
+  // arrivals waiting to be picked up
+  g.fillStyle = C.arrive;
+  for (const w of pickupQ) g.fillRect(w.x - 1.1, w.y - 1.1, 2.2, 2.2);
   for (let i = cars.length - 1; i >= 0; i--) {
     const c = cars[i];
-    if (c.d >= c.stopAt && c.stopped < 1.5) c.stopped += dt; else c.d += 120 * dt;
+    if (c.d >= c.stopAt && c.stopped < 1.5) {
+      if (!c.arrived) {
+        c.arrived = true;
+        const q = pointAlong(c.pts, c.d);
+        // out get the passengers it brought...
+        for (let k = 0; k < (c.drop || 0) && particles.length < 900; k++) particles.push(walker([{ x: q.x + jitter(0, 6), y: q.y - 6 }, { x: jitter(1000, 160), y: MAIN_BLDG.y1 - 2 }], 22, C.depart, k * 0.25));
+        // ...or in get the ones waiting nearest
+        for (let k = 0; k < (c.pick || 0) && pickupQ.length; k++) {
+          let best = 0;
+          for (let j = 1; j < pickupQ.length; j++) if (Math.abs(pickupQ[j].x - q.x) < Math.abs(pickupQ[best].x - q.x)) best = j;
+          pickupQ.splice(best, 1);
+        }
+      }
+      c.stopped += dt;
+    } else c.d += 120 * dt;
     if (c.d >= c.len) { cars.splice(i, 1); continue; }
     const q = pointAlong(c.pts, c.d);
     g.save(); g.translate(q.x, q.y); g.rotate(q.ang);
@@ -979,6 +1168,7 @@ function drawCars(g, ap, dt) {
 // ------------------------------------------------------------------ picking
 
 export function pick(ap, wx, wy) {
+  if (mirrored(ap)) wx = WORLD.w - wx;
   let best = null, bd = Infinity;
   for (const p of ap.planes) {
     const d = Math.hypot(p.x - wx, p.y - wy);
