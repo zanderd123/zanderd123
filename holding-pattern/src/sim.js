@@ -40,7 +40,7 @@ export function createAirport(siteIndex, seed = Date.now()) {
     flightCounter: 0,
     t: 0,
     weather: { stormUntil: 0, nextStorm: 300 },
-    perMin: { net: 0 },
+    perMin: { net: 0, operating: 0 },
     lifetime: { revenue: 0, flights: 0 },
   };
   hydrate(ap, seed);
@@ -69,7 +69,7 @@ export function hydrate(ap, seed = Date.now()) {
   ap.rand = mulberry32(seed);
   ap.planes = [];
   ap.flights = new Map();
-  ap.secQ = [];
+  ap.secQ = new PaxQueue();
   ap.holdQueue = [];
   ap.holdPhase = 0;
   ap.zonesKey = '';
@@ -103,7 +103,7 @@ export function hydrate(ap, seed = Date.now()) {
 
 function hydrateConnector(T) {
   const C = T.connector;
-  C.outQ = []; C.inQ = []; C.transit = [];
+  C.outQ = new PaxQueue(); C.inQ = new PaxQueue(); C.transit = [];
   C.brokenUntil = 0;
   C.route = connectorRoute(C.type, T.slot);
   C.len = pathLength(C.route);
@@ -116,6 +116,7 @@ export function serializeAirport(ap) {
     terminals: ap.terminals.map((T) => ({
       slot: T.slot, gates: T.gates, heavy: T.heavy, retail: T.retail, buildLeft: T.buildLeft,
       connector: T.connector ? { type: T.connector.type, level: T.connector.level, buses: T.connector.buses, buildLeft: T.connector.buildLeft } : null,
+      pendingConnector: T.pendingConnector ? { ...T.pendingConnector } : undefined,
     })),
     securityLanes: ap.securityLanes,
     upgrades: ap.upgrades,
@@ -139,6 +140,8 @@ export function restoreAirport(data) {
   const ap = { ...data, id: site.id, name: site.name };
   for (const T of ap.terminals) {
     if (T.connector) T.connector = { ...T.connector };
+    if (T.pendingConnector) T.pendingConnector = { ...T.pendingConnector };
+    else delete T.pendingConnector;
     T.gates = Math.min(T.gates, SLOTS[T.slot].maxGates); // older saves allowed 5
   }
   hydrate(ap);
@@ -608,6 +611,9 @@ function rollLedger(ap) {
   let net = 0;
   for (const key in sum) net += sum[key];
   sum.net = net;
+  // What the airport makes from running, without one-off signing bonuses
+  // and penalties: the number to judge it by.
+  sum.operating = net - (sum.bonus || 0) - (sum.penalties || 0);
   ap.perMin = sum;
 }
 
@@ -637,8 +643,9 @@ export function step(game, ap, dt) {
         delete T.pendingConnector;
         hydrateConnector(T);
         // Carry passengers across so nobody vanishes in the switch.
-        T.connector.outQ = old.outQ.concat(old.transit.filter((x) => x.dir === 'out').map((x) => ({ f: x.f, n: x.n })));
-        T.connector.inQ = old.inQ.concat(old.transit.filter((x) => x.dir === 'in').map((x) => ({ f: x.f, n: x.n })));
+        for (const x of old.outQ) T.connector.outQ.push(x.f, x.n);
+        for (const x of old.inQ) T.connector.inQ.push(x.f, x.n);
+        for (const x of old.transit) (x.dir === 'out' ? T.connector.outQ : T.connector.inQ).push(x.f, x.n);
         ap.costLines = computeCosts(ap);
         notify(ap, 'built', `New ${CONNECTORS[T.connector.type].name.toLowerCase()} to ${SLOTS[T.slot].name} is running`);
       }
@@ -753,7 +760,7 @@ function scheduleFlights(game, ap) {
 function inboundEstimate(ap, c) {
   const A = AIRCRAFT[c.cls];
   const ex = EXITS[A.exitIndex];
-  const stand = gateStand(c.terminal, 0, 1);
+  const stand = gateStand(c.terminal, 0);
   const taxi = pathLength(pathExitToGate(ex, stand, ap.plots));
   return 8 + taxi / FLIGHT.taxiSpeed;
 }
@@ -822,7 +829,7 @@ function canClearArrival(ap, p, eta) {
     if (Math.abs(o.x - ex) < 55 && o.y > RW[p.rw].y + 5 && o.y < jy + (p.rw === 1 ? 75 : 30)) { p.holdReason = 'taxi'; return false; }
   }
   // Ground control meters arrivals too, so the taxiways never fill up.
-  if (ap.planes.filter((o) => o.state === 'rollout' || o.state === 'taxiIn' || o.state === 'final').length >= MAX_ARR_GROUND) { p.holdReason = 'taxi'; return false; }
+  if (ap.arrGround >= MAX_ARR_GROUND) { p.holdReason = 'taxi'; return false; }
   p.holdReason = 'runway';
   const R = ap.runways[p.rw];
   if (ap.atcTokens < 1 || R.reservedArr) return false;
@@ -851,9 +858,11 @@ function canClearArrival(ap, p, eta) {
 function clearArrival(ap, p, pts) {
   if (p.rw === 0) ap.lastMove = 'arr';
   const g = findGate(ap, p);
+  if (g < 0) return false;
   const T = terminalBySlot(ap, p.f.terminal);
   p.gate = g; T.gateUse[g] = p;
-  p.stand = gateStand(T.slot, g, T.gates);
+  ap.arrGround++;
+  p.stand = gateStand(T.slot, g);
   groundRoute(ap, p);
   const R = ap.runways[p.rw];
   R.reservedArr = p;
@@ -885,6 +894,8 @@ function updatePlanes(game, ap, dt) {
   ap.holdPhase += HOLD_OMEGA * dt;
 
   // Clear whoever in the stack can land now, first come first served.
+  ap.arrGround = 0;
+  for (const o of ap.planes) if (o.state === 'rollout' || o.state === 'taxiIn' || o.state === 'final') ap.arrGround++;
   for (const p of ap.holdQueue) {
     const rw = RW[p.rw];
     const eta = dist(p.x, p.y, IAF.x, rw.y) / FLIGHT.cruiseSpeed + (rw.x0 - IAF.x) / FLIGHT.approachSpeed;
@@ -1374,11 +1385,17 @@ function groundTraffic(game, ap, dt) {
       if (R.occupant === m) R.occupant = null;
       if (m.d >= m.rollEnd) m.state = 'taxiIn';
     }
-    if (m.crossing && m.d >= m.crossEnd) {
+    if (m.crossing) {
+      // The runway is free as soon as the tail is clear of its edge, even if
+      // the aircraft then has to stop short of the taxiway: holding the
+      // runway there would stop the departures it may be waiting for.
       const R0 = ap.runways[0];
-      if (R0.occupant === m) R0.occupant = null;
-      m.crossing = false;
-      m.crossed = true;
+      if (R0.occupant === m && m.y >= RW[0].y + RUNWAY_HALF + m.r + 3) R0.occupant = null;
+      if (m.d >= m.crossEnd) {
+        if (R0.occupant === m) R0.occupant = null;
+        m.crossing = false;
+        m.crossed = true;
+      }
     }
     if (m.state === 'pushback' && m.d >= m.pushLen) {
       const T = terminalBySlot(ap, m.f.terminal);
@@ -1440,9 +1457,8 @@ function findGate(ap, p) {
     const old = T.gateUse || [];
     T.gateUse = Array.from({ length: T.gates }, (_, i) => old[i] || null);
   }
-  // Prefer the gate nearest the middle: shortest walk.
-  const order = [...Array(T.gates).keys()].sort((a, b) => Math.abs(a - (T.gates - 1) / 2) - Math.abs(b - (T.gates - 1) / 2));
-  for (const g of order) if (!T.gateUse[g]) return g;
+  // Lower-numbered gates are nearer the middle: shortest walk.
+  for (let g = 0; g < T.gates; g++) if (!T.gateUse[g]) return g;
   return -1;
 }
 
@@ -1473,7 +1489,7 @@ function turnaround(game, ap, p, dt) {
       ap.rolling.flowPerMin += 0; // counted in served
       if (ap.fx) ap.fx('deplane', { p, n, slot: T.slot });
     } else {
-      T.connector.inQ.push({ f: f.id, n });
+      T.connector.inQ.push(f.id, n, Math.floor(ap.t));
       if (ap.fx) ap.fx('deplane', { p, n, slot: T.slot });
     }
   }
@@ -1515,14 +1531,15 @@ function closeFlight(game, ap, f) {
   earn(game, ap, 'paxFees', boarded * fee);
   ap.paxServed += boarded;
   f.missed = Math.max(0, f.expected - boarded);
+  // Where were the ones left behind when the doors closed? They leave the
+  // lines either way.
+  const sec = ap.secQ.drop(f.id);
+  let conn = 0;
+  const C = terminalBySlot(ap, f.terminal) && terminalBySlot(ap, f.terminal).connector;
+  if (C) { conn += C.outQ.drop(f.id); for (const x of C.transit) if (x.f === f.id && x.dir === 'out') conn += x.n; }
   if (f.missed > 0) {
     earn(game, ap, 'refunds', -f.missed * PAX.missedRefund * site(ap).rev);
     ap.missedAcc = (ap.missedAcc || 0) + f.missed;
-    // Where were they when the doors closed?
-    let sec = 0, conn = 0;
-    for (const x of ap.secQ) if (x.f === f.id) sec += x.n;
-    const C = terminalBySlot(ap, f.terminal) && terminalBySlot(ap, f.terminal).connector;
-    if (C) { for (const x of C.outQ) if (x.f === f.id) conn += x.n; for (const x of C.transit) if (x.f === f.id && x.dir === 'out') conn += x.n; }
     const w = ap.missedWhy || (ap.missedWhy = { security: 0, connector: 0, late: 0 });
     w.security += sec; w.connector += conn; w.late += Math.max(0, f.missed - sec - conn);
     ap.missedWhyTotal = ap.missedWhyTotal || { security: 0, connector: 0, late: 0 };
@@ -1535,26 +1552,56 @@ function closeFlight(game, ap, f) {
 
 // ---------------------------------------------------------------- people
 
-function takeFromQueue(q, amount, ap) {
-  // Pull up to `amount` passengers off a FIFO queue, dropping any whose
-  // flight already left. Returns [{f, n}].
-  const out = [];
-  while (amount > 1e-6 && q.length) {
-    const head = q[0];
-    const f = ap.flights.get(head.f);
-    if (!f || f.closed) { q.shift(); continue; }
-    const n = Math.min(head.n, amount);
-    head.n -= n; amount -= n;
-    out.push({ f: head.f, n });
-    if (head.n <= 1e-6) q.shift();
+// A FIFO line of passenger groups {f, n}. Groups for the same flight that
+// join within the same second share one entry, and a flight's groups are
+// removed when it closes, so the line stays short and its total exact.
+class PaxQueue {
+  constructor() { this.a = []; this.h = 0; this.total = 0; }
+  get length() { return this.a.length - this.h; }
+  *[Symbol.iterator]() { for (let i = this.h; i < this.a.length; i++) yield this.a[i]; }
+  push(f, n, b = -1) {
+    if (n <= 0) return;
+    this.total += n;
+    for (let i = this.a.length - 1; i >= this.h && this.a[i].b === b && b >= 0; i--) {
+      if (this.a[i].f === f) { this.a[i].n += n; return; }
+    }
+    this.a.push({ f, n, b });
   }
-  return out;
+  // Pull up to `amount` passengers off the front. Returns [{f, n}].
+  take(amount) {
+    const out = [];
+    while (amount > 1e-6 && this.h < this.a.length) {
+      const head = this.a[this.h];
+      const n = Math.min(head.n, amount);
+      head.n -= n; amount -= n; this.total -= n;
+      if (n > 0) out.push({ f: head.f, n });
+      if (head.n <= 1e-6) { this.total -= head.n; this.h++; }
+    }
+    this.compact();
+    if (this.length === 0) this.total = 0;
+    return out;
+  }
+  // Remove everyone booked on flight f; returns how many there were.
+  drop(f) {
+    let n = 0;
+    const keep = [];
+    for (let i = this.h; i < this.a.length; i++) { const x = this.a[i]; if (x.f === f) n += x.n; else keep.push(x); }
+    if (n > 0) { this.a = keep; this.h = 0; this.total = Math.max(0, this.total - n); }
+    return n;
+  }
+  compact() {
+    if (this.h > 256 && this.h * 2 > this.a.length) { this.a = this.a.slice(this.h); this.h = 0; }
+  }
 }
 
-function qSize(q, ap) {
-  let s = 0;
-  for (const x of q) { const f = ap.flights.get(x.f); if (f && !f.closed) s += x.n; }
-  return s;
+// Put a group on a connector car. Groups for the same flight that leave
+// within half a second ride together.
+function board(transit, x, dir, at) {
+  for (let i = transit.length - 1; i >= 0 && transit[i].at > at - 0.5; i--) {
+    const y = transit[i];
+    if (y.f === x.f && y.dir === dir) { y.n += x.n; return; }
+  }
+  transit.push({ f: x.f, n: x.n, dir, at });
 }
 
 function flowPassengers(game, ap, dt) {
@@ -1570,7 +1617,7 @@ function flowPassengers(game, ap, dt) {
     const n = Math.min(f.expected - f.generated, f.expected * dt / PAX.arriveWindow);
     f.generated += n;
     landside += n;
-    ap.secQ.push({ f: f.id, n });
+    ap.secQ.push(f.id, n, Math.floor(t));
   }
   if (landside > 0) {
     const drive = PAX.driveShare * (ap.upgrades.rail ? 0.7 : 1);
@@ -1580,7 +1627,7 @@ function flowPassengers(game, ap, dt) {
   ap.rolling.landsidePerMin += (landside / dt * 60 - ap.rolling.landsidePerMin) * Math.min(1, dt / 20);
 
   // 2. security
-  const cleared = takeFromQueue(ap.secQ, securityRate(ap) * dt, ap);
+  const cleared = ap.secQ.take(securityRate(ap) * dt);
   for (const { f: fid, n } of cleared) {
     const f = ap.flights.get(fid);
     const T = terminalBySlot(ap, f.terminal);
@@ -1589,11 +1636,11 @@ function flowPassengers(game, ap, dt) {
       M.waiting.set(fid, (M.waiting.get(fid) || 0) + n);
       if (ap.fx) ap.fx('secOut', { n, slot: 'main' });
     } else {
-      T.connector.outQ.push({ f: fid, n });
+      T.connector.outQ.push(fid, n, Math.floor(t));
       if (ap.fx) ap.fx('secOut', { n, slot: T.slot });
     }
   }
-  const secQ = qSize(ap.secQ, ap);
+  const secQ = ap.secQ.total;
   ap.secQueue = secQ;
   const secWait = secQ / Math.max(0.01, securityRate(ap));
   ap.rolling.secWait += (secWait - ap.rolling.secWait) * Math.min(1, dt / 10);
@@ -1611,17 +1658,9 @@ function flowPassengers(game, ap, dt) {
     }
     const cap = connectorCap(C, ap) * dt;
     const travel = connectorTravel(C);
-    for (const x of takeFromQueue(C.outQ, cap, ap)) { C.transit.push({ ...x, dir: 'out', at: t + travel }); if (ap.fx) ap.fx('conn', { slot: T.slot, dir: 'out', n: x.n, travel }); }
+    for (const x of C.outQ.take(cap)) { board(C.transit, x, 'out', t + travel); if (ap.fx) ap.fx('conn', { slot: T.slot, dir: 'out', n: x.n, travel }); }
     // Arriving passengers never have a flight to miss; take them straight.
-    let inCap = cap;
-    while (inCap > 1e-6 && C.inQ.length) {
-      const h = C.inQ[0];
-      const n = Math.min(h.n, inCap);
-      h.n -= n; inCap -= n;
-      C.transit.push({ f: h.f, n, dir: 'in', at: t + travel });
-      if (ap.fx) ap.fx('conn', { slot: T.slot, dir: 'in', n, travel });
-      if (h.n <= 1e-6) C.inQ.shift();
-    }
+    for (const x of C.inQ.take(cap)) { board(C.transit, x, 'in', t + travel); if (ap.fx) ap.fx('conn', { slot: T.slot, dir: 'in', n: x.n, travel }); }
     if (C.transit.length) {
       const keep = [];
       for (const x of C.transit) {
@@ -1635,8 +1674,8 @@ function flowPassengers(game, ap, dt) {
       }
       C.transit = keep;
     }
-    C.outSize = qSize(C.outQ, ap);
-    C.inSize = C.inQ.reduce((a, x) => a + x.n, 0);
+    C.outSize = C.outQ.total;
+    C.inSize = C.inQ.total;
   }
 
   // 4. dwell and retail

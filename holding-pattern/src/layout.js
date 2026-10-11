@@ -94,11 +94,15 @@ export function slotBuilding(slotId) {
   return { x: s.x0, y: b.y0, w: s.x1 - s.x0, h: b.y1 - b.y0 };
 }
 
-export function gateStand(slotId, i, n) {
+// Stands sit at fixed places along the pier so adding a gate never moves an
+// aircraft already parked. Gates fill from the middle outwards.
+const STAND_ORDER = [1, 2, 0, 3];
+export function gateStand(slotId, i) {
   const s = SLOTS[slotId];
   const cx = (s.x0 + s.x1) / 2;
+  const k = STAND_ORDER[i] ?? i;
   return {
-    x: cx + (i - (n - 1) / 2) * GATE_SPACING,
+    x: cx + (k - 1.5) * GATE_SPACING,
     y: s.row === 'main' ? MAIN_STAND_Y : MID_STAND_Y,
     laneY: s.row === 'main' ? LANE2 : TWY_B,
   };

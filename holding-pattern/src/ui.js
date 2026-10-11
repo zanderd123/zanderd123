@@ -62,7 +62,7 @@ export function renderTop(game) {
   $('apLevel').textContent = `L${ap.level}`;
   $('sCash').textContent = money(game.cash);
   let net = 0;
-  for (const a of game.airports) net += a.perMin.net || 0;
+  for (const a of game.airports) net += a.perMin.operating || 0;
   const sNet = $('sNet');
   sNet.textContent = rate(net, true);
   sNet.className = net >= 0 ? 'pos' : 'neg';
@@ -103,7 +103,7 @@ export function renderOps(game, clockText) {
   }
   if (worst) rows.push({ k: 'Connectors', s: worst.u >= 1 ? 'bad' : worst.u > 0.85 ? 'warn' : '', v: `${pct(worst.u)} of capacity`, sub: `busiest: to ${SLOTS[worst.tr.slot].name}` });
   rows.push({ k: 'On time', s: ap.rolling.otp < 0.6 ? 'bad' : ap.rolling.otp < 0.8 ? 'warn' : '', v: pct(ap.rolling.otp), sub: `${ap.contracts.filter((c) => c.unhappyFor > 0).length} unhappy airlines` });
-  const net = ap.perMin.net || 0;
+  const net = ap.perMin.operating || 0;
   rows.push({ k: 'Money', s: net < 0 && ap.t > 30 ? 'bad' : '', v: rate(net, true), sub: net < 0 ? 'tap for why' : 'after all running costs' });
   if (ap.weather.stormUntil > ap.t) rows.push({ k: 'Weather', s: 'bad', v: 'Thunderstorm', sub: `runway slowed · clears in ${duration(ap.weather.stormUntil - ap.t)}` });
   const top = ui.advice && ui.advice.issues[0];
@@ -122,6 +122,8 @@ export function renderPanel(force = false) {
   const ap = activeAirport(game);
   let html;
   ui.advice = advise(game, ap);
+  // A selected aircraft that has left: back to the tab underneath.
+  if (ui.detail && ui.detail.kind === 'plane' && !ap.planes.includes(ui.detail.plane)) ui.detail = null;
   if (ui.detail) html = renderDetail(game, ap, ui.detail);
   else if (ui.tab === 'advisor') html = renderAdvisor(game, ap);
   else if (ui.tab === 'help') html = helpHtml();
@@ -175,7 +177,7 @@ function renderAdvisor(game, ap) {
     h += `<div class="card best"><div class="eyebrow">Best next step</div><div class="title">${esc(adv.best.label)}</div>${adv.best.why ? `<div class="sub">${esc(adv.best.why)}</div>` : ''}<div class="btns">${fixButton(adv.best, 'go')}</div></div>`;
   }
   const m = adv.money;
-  h += `<dl class="board"><div><dt>Earning</dt><dd>${rate(m.revenue)}</dd></div><div><dt>Spending</dt><dd>${rate(m.costs)}</dd></div><div><dt>Refunds</dt><dd>${rate(m.refunds)}</dd></div><div><dt>Net</dt><dd class="${(ap.perMin.net || 0) >= 0 ? 'pos' : 'neg'}">${rate(ap.perMin.net || 0, true)}</dd></div></dl>`;
+  h += `<dl class="board"><div><dt>Earning</dt><dd>${rate(m.revenue)}</dd></div><div><dt>Spending</dt><dd>${rate(m.costs)}</dd></div><div><dt>Refunds</dt><dd>${rate(m.refunds)}</dd></div><div><dt>Net</dt><dd class="${(ap.perMin.operating || 0) >= 0 ? 'pos' : 'neg'}">${rate(ap.perMin.operating || 0, true)}</dd></div></dl>`;
   for (const i of adv.issues) {
     h += `<div class="card sev${i.sev}">
       <div class="row between"><div class="title">${esc(i.title)}</div>${sevTag[i.sev]}</div>
@@ -443,7 +445,6 @@ function renderRunwayDetail(game, ap) {
 }
 
 function renderPlaneDetail(game, ap, p) {
-  if (!ap.planes.includes(p)) { ui.detail = null; return renderContracts(game, ap); }
   const f = p.f;
   const A = AIRCRAFT[p.cls];
   const states = {

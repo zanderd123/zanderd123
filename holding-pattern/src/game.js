@@ -20,8 +20,15 @@ export function newGame() {
 
 export function activeAirport(game) { return game.airports[game.active]; }
 
-export function stepGame(game, dt) {
-  for (const ap of game.airports) step(game, ap, dt);
+// The airport on screen steps every frame so it animates smoothly; the
+// others step in fixed 0.05s chunks, which is all their numbers need.
+const BG_STEP = 0.05;
+export function stepGame(game, dt, onScreen = null) {
+  for (const ap of game.airports) {
+    if (!onScreen || ap === onScreen) { step(game, ap, dt); continue; }
+    ap.lag = (ap.lag || 0) + dt;
+    while (ap.lag >= BG_STEP) { step(game, ap, BG_STEP); ap.lag -= BG_STEP; }
+  }
 }
 
 // ---------------------------------------------------------------- the map
@@ -116,7 +123,8 @@ export function offlineEarnings(game, seconds) {
   const s = Math.min(seconds, OFFLINE.maxSeconds);
   let total = 0;
   for (const ap of game.airports) {
-    const net = (ap.perMin && ap.perMin.net) || 0;
+    // Bonuses are one-off, so they don't keep paying while you're away.
+    const net = (ap.perMin && (ap.perMin.operating ?? ap.perMin.net)) || 0;
     total += Math.max(0, net) / 60 * s * OFFLINE.efficiency;
   }
   return { seconds: s, total };

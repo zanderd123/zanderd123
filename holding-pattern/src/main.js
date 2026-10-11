@@ -91,9 +91,9 @@ function frame(now) {
   const simDt = dt * game.speed;
   // fixed-ish substeps keep fast speeds stable
   const n = Math.max(1, Math.ceil(simDt / 0.05));
-  for (let i = 0; i < n; i++) stepGame(game, simDt / n);
-
   const ap = activeAirport(game);
+  for (let i = 0; i < n; i++) stepGame(game, simDt / n, ap);
+
   view.dt = simDt;
   render(ctx, W, H, DPR, cam, ap, view);
 
@@ -114,12 +114,20 @@ function frame(now) {
   requestAnimationFrame(frame);
 }
 
-// Catch up when the tab comes back: simulate the gap quickly, up to a limit.
+// Catch up when the tab comes back: simulate the first half minute so the
+// field picks up where it was, and pay the rest at the offline rate.
+// Simulating the whole gap froze the page for seconds on big networks.
+const CATCH_UP = 30;
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) { hidden = true; hiddenAt = Date.now(); return; }
   hidden = false;
-  const away = Math.min(600, (Date.now() - hiddenAt) / 1000) * game.speed;
-  for (let t = 0; t < away; t += 0.25) stepGame(game, 0.25);
+  const away = (Date.now() - hiddenAt) / 1000 * game.speed;
+  const sim = Math.min(CATCH_UP, away);
+  for (let t = 0; t < sim; t += 0.05) stepGame(game, 0.05);
+  if (away > CATCH_UP + 30) {
+    const off = offlineEarnings(game, away - sim);
+    if (off.total > 0) { game.cash += off.total; toast(`While you were away: +${money(off.total)}`, 'good'); }
+  }
   last = performance.now();
 });
 let hiddenAt = Date.now();
@@ -321,6 +329,7 @@ function replaceGame(g) {
   ui.exported = null;
   view.selected = null;
   attach(activeAirport(game));
+  setSpeed(g.speed || 1);
   save(game);
 }
 

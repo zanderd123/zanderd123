@@ -1,7 +1,7 @@
 // Top-down drawing of the active airport. The airfield is drawn as a floor
 // plan: terminal roofs are left off so you can see the crowds inside.
 
-import { WORLD, AIRCRAFT, CONNECTORS } from './config.js';
+import { WORLD, AIRCRAFT, CONNECTORS, TERMINAL } from './config.js';
 import {
   RW, TWY_A, TWY_B, LANE2, RUNWAY_HALF, EXITS, LONG_RUNWAY_X1, HOLD_POINT, IAF,
   TAXILANES, PLOTS, SLOTS, SLOT_ORDER, MAIN_BLDG, MID_BLDG, SERVICE_Y, CURB_Y,
@@ -353,7 +353,7 @@ function terminal(g, ap, T) {
   for (let x = b.x + 10; x < b.x + b.w; x += 10) { g.beginPath(); g.moveTo(x, b.y); g.lineTo(x, b.y + b.h); g.stroke(); }
   // gate lounges with seat rows along the airside face
   for (let i = 0; i < T.gates; i++) {
-    const s = gateStand(T.slot, i, T.gates);
+    const s = gateStand(T.slot, i);
     g.fillStyle = C.seat;
     for (let r = 0; r < 3; r++) g.fillRect(s.x - 20, b.y + 8 + r * 6, 40, 2.4);
     // jet bridge
@@ -544,10 +544,11 @@ function drawPlane(g, p, t, night, selected) {
 
 const particles = [];
 const floaters = [];
-let dotAcc = {};
+let dotAcc = {}, dotKeys = 0;
 let ppd = 3; // passengers per dot
 
 function spawnDots(key, n, make) {
+  if (!(key in dotAcc) && ++dotKeys > 400) { dotAcc = {}; dotKeys = 0; } // per-plane keys pile up otherwise
   dotAcc[key] = (dotAcc[key] || 0) + n / ppd;
   while (dotAcc[key] >= 1) {
     dotAcc[key] -= 1;
@@ -561,10 +562,10 @@ function walker(pts, speed, color, delay = 0) {
 
 function jitter(v, a) { return v + (Math.random() - 0.5) * a; }
 
-function loungePoint(slot, gateIndex = null, gates = 3) {
+function loungePoint(slot, gateIndex = null) {
   const b = slotBuilding(slot);
   if (gateIndex != null) {
-    const s = gateStand(slot, gateIndex, gates);
+    const s = gateStand(slot, gateIndex);
     return { x: jitter(s.x, 34), y: b.y + 8 + Math.random() * 14 };
   }
   return { x: b.x + 10 + Math.random() * (b.w - 20), y: b.y + 8 + Math.random() * (b.h * 0.3) };
@@ -573,7 +574,7 @@ function loungePoint(slot, gateIndex = null, gates = 3) {
 export function attach(ap) {
   particles.length = 0;
   floaters.length = 0;
-  dotAcc = {};
+  dotAcc = {}; dotKeys = 0;
   ap.fx = (type, e) => {
     if (type === 'money') { floaters.push({ x: e.x, y: e.y, text: '+' + money(e.v), life: 1.6 }); return; }
     if (type === 'curb') {
@@ -657,19 +658,25 @@ function queueSnake(g, n, x0, x1, y0, rows, color, t) {
 
 export function render(g, w, h, dpr, cam, ap, view) {
   const t = ap.t;
-  const res = clamp(Math.round(cam.zoom * dpr * 2) / 2, 0.5, 2.5);
+  const res = clamp(Math.round(cam.zoom * dpr * 2) / 2, 0.5, 2);
   const key = layoutKey(ap, res);
   if (key !== staticKey) { drawStatic(ap, res); staticKey = key; }
 
   // passengers per dot: keep the crowd readable at any size
   ppd = Math.max(3, Math.round(ap.rolling.landsidePerMin / 110));
 
+  // what the camera can see, in world units: skip drawing anything outside
+  const vx0 = cam.x - w / 2 / cam.zoom, vx1 = cam.x + w / 2 / cam.zoom;
+  const vy0 = cam.y - h / 2 / cam.zoom, vy1 = cam.y + h / 2 / cam.zoom;
   g.setTransform(dpr, 0, 0, dpr, 0, 0);
-  g.fillStyle = '#5f7a4a';
-  g.fillRect(0, 0, w, h);
+  if (vx0 < 0 || vy0 < 0 || vx1 > WORLD.w || vy1 > WORLD.h) { g.fillStyle = '#5f7a4a'; g.fillRect(0, 0, w, h); }
   g.setTransform(cam.zoom * dpr, 0, 0, cam.zoom * dpr, (w / 2 - cam.x * cam.zoom) * dpr, (h / 2 - cam.y * cam.zoom) * dpr);
   g.imageSmoothingEnabled = true;
-  g.drawImage(staticCanvas, 0, 0, WORLD.w, WORLD.h);
+  const vis = (p, m) => p.x > vx0 - m && p.x < vx1 + m && p.y > vy0 - m && p.y < vy1 + m;
+  // copy only the visible part of the static layer
+  const sx0 = clamp(Math.floor(vx0), 0, WORLD.w), sx1 = clamp(Math.ceil(vx1), 0, WORLD.w);
+  const sy0 = clamp(Math.floor(vy0), 0, WORLD.h), sy1 = clamp(Math.ceil(vy1), 0, WORLD.h);
+  if (sx1 > sx0 && sy1 > sy0) g.drawImage(staticCanvas, sx0 * res, sy0 * res, (sx1 - sx0) * res, (sy1 - sy0) * res, sx0, sy0, sx1 - sx0, sy1 - sy0);
 
   const day = dayPhase(t);
   const night = day.dark > 0.25;
@@ -677,7 +684,7 @@ export function render(g, w, h, dpr, cam, ap, view) {
   // construction
   for (const T of ap.terminals) {
     const b = slotBuilding(T.slot);
-    if (T.buildLeft > 0) crane(g, b, t, 1 - T.buildLeft / 35);
+    if (T.buildLeft > 0) crane(g, b, t, 1 - T.buildLeft / TERMINAL.buildTime);
     const Cn = T.pendingConnector || (T.connector && T.connector.buildLeft > 0 ? T.connector : null);
     if (Cn) {
       const r = connectorRoute(Cn.type, T.slot);
@@ -732,9 +739,10 @@ export function render(g, w, h, dpr, cam, ap, view) {
   for (let i = particles.length - 1; i >= 0; i--) {
     const q = particles[i];
     q.d += q.speed * dt;
-    if (q.d >= q.len) { particles.splice(i, 1); continue; }
+    if (q.d >= q.len) { particles[i] = particles[particles.length - 1]; particles.pop(); continue; }
     if (q.d < 0) continue;
     const pt = pointAlong(q.pts, q.d);
+    if (!vis(pt, 4)) continue;
     g.fillStyle = q.color;
     g.globalAlpha = q.under ? 0.45 : 1;
     g.fillRect(pt.x - 1.1, pt.y - 1.1, 2.2, 2.2);
@@ -744,7 +752,7 @@ export function render(g, w, h, dpr, cam, ap, view) {
   // ground aircraft first, then vehicles, then anything airborne
   const ground = ap.planes.filter((p) => (p.alt || 0) <= 0.5);
   const air = ap.planes.filter((p) => (p.alt || 0) > 0.5).sort((a, b) => a.alt - b.alt);
-  for (const p of ground) drawPlane(g, p, t, night, view.selected === p);
+  for (const p of ground) if (vis(p, 60)) drawPlane(g, p, t, night, view.selected === p);
 
   // cars on the landside loop
   drawCars(g, ap, dt);
@@ -790,7 +798,7 @@ export function render(g, w, h, dpr, cam, ap, view) {
     signLabel(g, IAF.x, arrRw.y + FLIGHT.holdRadius, `HOLDING ${holders}`, holders > 2 ? 'red' : 'yellow', cam.zoom);
   }
 
-  for (const p of air) drawPlane(g, p, t, night, view.selected === p);
+  for (const p of air) if (vis(p, 90)) drawPlane(g, p, t, night, view.selected === p);
 
   // money floaters
   for (let i = floaters.length - 1; i >= 0; i--) {

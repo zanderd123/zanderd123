@@ -166,7 +166,7 @@ export function advise(game, ap) {
   }
 
   // ------------------------------------------------------------ money
-  const net = ap.perMin.net || 0;
+  const net = ap.perMin.operating || 0;
   const money = moneyBreakdown(ap);
   if (net < 0 && ap.t > 30) {
     const fixes = [];
@@ -221,7 +221,7 @@ export function offerUnlockFixes(ap, cls) {
 
 export function moneyBreakdown(ap) {
   const pm = ap.perMin;
-  const revenue = ['landing', 'paxFees', 'retail', 'parking', 'bonus'].reduce((s, k) => s + Math.max(0, pm[k] || 0), 0);
+  const revenue = ['landing', 'paxFees', 'retail', 'parking'].reduce((s, k) => s + Math.max(0, pm[k] || 0), 0);
   const costs = ap.costLines.reduce((s, l) => s + l.v, 0);
   return { revenue, costs, refunds: -(pm.refunds || 0) };
 }

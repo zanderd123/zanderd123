@@ -76,6 +76,7 @@ is towed back a few metres.
     node tools/runway.mjs       measures real runway throughput against the model
     node tools/traffic.mjs 15   stress-tests ground traffic on four layouts; fails on any
                                 overlap or gridlock (SEED=n for other random seeds)
+    node tools/perf.mjs         times one simulation step on a comfortable and an overbooked airport
     node tools/smoke.mjs        plays in headless Chromium, takes screenshots, fails on errors
     node tools/showcase.mjs     builds a busy airport in the browser and photographs it
 

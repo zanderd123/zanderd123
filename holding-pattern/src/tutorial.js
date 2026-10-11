@@ -17,7 +17,8 @@ const STEPS = [
     target: '#tabs [data-tab="contracts"]',
     tab: 'contracts',
     text: 'Airlines offer <b>routes</b> here. Signing one brings more flights, and more money. <b>Sign one now.</b>',
-    waitFor: (g) => activeAirport(g).contracts.length >= 2,
+    count: (g) => activeAirport(g).contracts.length,
+    waitFor: (g, base) => activeAirport(g).contracts.length > base,
     waitLabel: 'Waiting for you to sign a route…',
   },
   {
@@ -55,6 +56,7 @@ export function makeTutorial(game, hooks) {
     const s = STEPS[i];
     if (!s) { stop(true); return; }
     if (s.tab) hooks.openTab(s.tab);
+    state.base = s.count ? s.count(game) : 0;
     box.innerHTML = `<div class="tut-count">${i + 1} / ${STEPS.length}</div><p>${s.text}</p>
       <div class="btns">${s.waitFor ? `<span class="tut-wait">${s.waitLabel}</span>` : `<button type="button" class="btn go" data-tut="next">${s.last ? 'Start playing' : 'Next'}</button>`}
       <button type="button" class="btn" data-tut="skip">${s.last ? 'Close' : 'Skip tutorial'}</button></div>`;
@@ -107,7 +109,7 @@ export function makeTutorial(game, hooks) {
     tick() {
       const s = STEPS[state.step];
       if (!s) return;
-      if (s.waitFor && s.waitFor(game)) { show(state.step + 1); return; }
+      if (s.waitFor && s.waitFor(game, state.base)) { show(state.step + 1); return; }
       place();
     },
     setGame(g) { game = g; },

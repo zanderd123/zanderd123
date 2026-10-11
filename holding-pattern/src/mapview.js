@@ -3,7 +3,7 @@
 
 import { SITES, UNLOCKS } from './config.js';
 import { siteStatus } from './game.js';
-import { money, num, mulberry32 } from './util.js';
+import { money, num, rate, mulberry32 } from './util.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -15,7 +15,7 @@ export function renderMapSide(game) {
     const cur = ap && st.index === game.active;
     let body = '';
     if (ap) {
-      body = `<div class="stats-line">L${ap.level} · ${ap.terminals.length} terminals · ${ap.contracts.length} routes · ${money(ap.perMin.net || 0)}/min</div>
+      body = `<div class="stats-line">L${ap.level} · ${ap.terminals.length} terminals · ${ap.contracts.length} routes · ${rate(ap.perMin.operating || 0, true)}</div>
       <div class="btns">${cur ? '<span class="tag">You are here</span>' : `<button type="button" class="btn go" data-map-go="${st.index}">Fly there</button>`}${ap.offers.length ? `<span class="tag red">${ap.offers.length} offers</span>` : ''}</div>`;
     } else if (st.state === 'available') {
       body = `<div class="stats-line">Grows ×${s.rev.toFixed(1)} revenue · costs ×${s.cost.toFixed(1)}</div><div class="btns"><button type="button" class="btn go" data-map-buy="${i}" ${game.cash >= st.price ? '' : 'disabled'}>Buy airport <span class="price">${money(st.price)}</span></button></div>`;
