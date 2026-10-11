@@ -4,7 +4,7 @@
 // matching button elsewhere in the panel would send.
 
 import { AIRCRAFT, CONNECTORS, UPGRADES, STAFFING, TERMINAL, PAX, COSTS, CONTRACTS, SECURITY as SECCFG } from './config.js';
-import { SLOTS, PLOTS, TERMINAL_CODES } from './layout.js';
+import { SLOTS, PLOTS, TERMINAL_CODES, PARKING_SITES, PARKING_ORDER } from './layout.js';
 import * as S from './sim.js';
 
 const name = (slot) => `${TERMINAL_CODES[slot]} · ${SLOTS[slot].name}`;
@@ -122,8 +122,8 @@ export function advise(game, ap) {
   // ------------------------------------------------------------ parking
   if (rep.parking.demand > rep.parking.cap * 1.05) {
     add(1, 'parking', 'The car park is full',
-      `${Math.round(rep.parking.demand)} drivers a minute want to park; ${Math.round(rep.parking.cap)} fit. The rest pay you nothing. It only costs revenue, so fix it when cash allows.`,
-      [upgradeFix(ap, 'garage1', `+${UPGRADES.garage1.parking} spaces a minute`), ap.upgrades.garage1 ? upgradeFix(ap, 'garage2', `+${UPGRADES.garage2.parking}`) : null]);
+      `${Math.round(rep.parking.demand)} drivers a minute want to park; ${Math.round(rep.parking.cap)} fit. The rest pay you nothing. It only costs revenue, so fix it when cash allows. Every parcel of land has room for a car park.`,
+      parkingFixes(ap, rep.parking.demand - rep.parking.cap));
   }
 
   // ------------------------------------------------------------ crowding
@@ -217,6 +217,35 @@ export function offerUnlockFixes(ap, cls) {
   }
   if (A.longRunway && !ap.upgrades.longRunway) out.push(upgradeFix(ap, 'longRunway', 'superjumbos need it'));
   return out.filter(Boolean);
+}
+
+// The cheapest ways to add parking: a lot or garage on land you own, or the
+// land with room for one. Enough of them to cover the shortfall, cheapest
+// per space first.
+export function parkingFixes(ap, short = 1) {
+  const opts = [];
+  for (const id of PARKING_ORDER) {
+    const P = PARKING_SITES[id];
+    const next = S.parkingNext(ap, id);
+    if (!next) continue;
+    const add = S.parkingSiteCap(id, next) - S.parkingSiteCap(id, ap.parking[id]);
+    if (ap.plots[P.plot]) {
+      const cost = S.parkingCost(ap, id);
+      opts.push({ per: cost / add, add, f: { ...fix(next === 'lot' ? `Build the ${P.name.toLowerCase()}` : `Garage on the ${P.name.toLowerCase()}`, 'parking', { id }, cost), why: `+${add} drivers a minute` } });
+    } else if (next === 'lot' && (!PLOTS[P.plot].needs || ap.plots[PLOTS[P.plot].needs])) {
+      const cost = S.plotCost(ap, P.plot) + S.parkingCost(ap, id);
+      opts.push({ per: cost / add * 1.5, add, f: fix(`Buy the ${PLOTS[P.plot].name} (room for a car park)`, 'plot', { id: P.plot }, S.plotCost(ap, P.plot)) });
+    }
+  }
+  opts.sort((a, b) => a.per - b.per);
+  const out = [];
+  let got = 0;
+  for (const o of opts) {
+    if (out.some((f) => f.act === o.f.act && f.data.id === o.f.data.id)) continue;
+    out.push(o.f); got += o.add;
+    if (got >= short || out.length >= 3) break;
+  }
+  return out;
 }
 
 export function moneyBreakdown(ap) {

@@ -6,7 +6,7 @@ import {
   RW, TWY_A, TWY_B, LANE2, RUNWAY_HALF, EXITS, LONG_RUNWAY_X1, HOLD_POINT, IAF,
   TAXILANES, PLOTS, SLOTS, SLOT_ORDER, MAIN_BLDG, MID_BLDG, SERVICE_Y, CURB_Y,
   HIGHWAY_Y, RAMP_IN_X, RAMP_OUT_X, MAIN_STAND_Y, MID_STAND_Y, TERMINAL_CODES,
-  slotBuilding, gateStand, lanesFor, connectorRoute, twyBSpan,
+  slotBuilding, gateStand, lanesFor, connectorRoute, twyBSpan, PARKING_SITES, PARKING_ORDER,
 } from './layout.js';
 import { mulberry32, pointAlong, pathLength, clamp, money } from './util.js';
 import { FLIGHT } from './config.js';
@@ -45,7 +45,7 @@ export function screenToWorld(cam, w, h, sx, sy) {
 let staticCanvas = null, staticKey = '';
 
 function layoutKey(ap, res) {
-  return JSON.stringify([ap.siteIndex, ap.plots, ap.terminals.map((T) => [T.slot, T.gates, T.heavy, T.retail, T.buildLeft > 0, T.connector && [T.connector.type, T.connector.level, T.connector.buildLeft > 0]]), ap.securityLanes, ap.upgrades, res]);
+  return JSON.stringify([ap.siteIndex, ap.plots, ap.parking, ap.terminals.map((T) => [T.slot, T.gates, T.heavy, T.retail, T.buildLeft > 0, T.connector && [T.connector.type, T.connector.level, T.connector.buildLeft > 0]]), ap.securityLanes, ap.upgrades, res]);
 }
 
 function drawStatic(ap, res) {
@@ -119,10 +119,21 @@ function drawStatic(ap, res) {
   g.fillStyle = C.curb;
   g.fillRect(RAMP_IN_X + 8, CURB_Y - 13, RAMP_OUT_X - RAMP_IN_X - 16, 3);
 
-  // car park
-  parkingLot(g, 878, 778, 244, 150, R);
-  if (ap.upgrades.garage1) garage(g, 600, 960, 220, 105, 'P2');
-  if (ap.upgrades.garage2) garage(g, 1180, 960, 220, 105, 'P3');
+  // car parks, each with a road to the curb loop or the highway
+  for (const id of PARKING_ORDER) {
+    const P = PARKING_SITES[id], lv = ap.parking[id];
+    if (!lv) continue;
+    g.fillStyle = C.road;
+    if (P.y > CURB_Y + 150) g.fillRect(P.x + P.w / 2 - 7, P.y + P.h, 14, HIGHWAY_Y - P.y - P.h); // south: straight onto the highway
+    else if (id !== 'front') {
+      const left = P.x + P.w < RAMP_IN_X;
+      const x0 = left ? P.x + 24 : RAMP_OUT_X, x1 = left ? RAMP_IN_X : P.x + P.w - 24;
+      g.fillRect(x0, CURB_Y - 7, x1 - x0, 14);
+      g.fillRect(left ? P.x + 24 : P.x + P.w - 38, CURB_Y, 14, P.y - CURB_Y);
+    }
+    if (lv === 'garage') garage(g, P.x, P.y, P.w, P.h, P.code);
+    else parkingLot(g, P.x, P.y, P.w, P.h, R);
+  }
   if (ap.upgrades.rail) railStation(g);
   tower(g, 1166, 905);
 
@@ -297,7 +308,7 @@ function parkingLot(g, x, y, w, h, R) {
   g.fillRect(x, y, w, h);
   g.strokeStyle = C.parkLine; g.lineWidth = 0.8;
   const colors = ['#c9473a', '#e8e8e8', '#2b5f9e', '#262626', '#9aa0a6', '#d9b44a', '#3d7a4f'];
-  for (let row = 0; row < 4; row++) {
+  for (let row = 0; row < Math.floor((h - 8) / 36) + 1 && y + 8 + row * 36 + 14 <= y + h; row++) {
     const ry = y + 8 + row * 36;
     for (let cx = x + 6; cx < x + w - 10; cx += 11) {
       g.beginPath(); g.moveTo(cx, ry); g.lineTo(cx, ry + 14); g.stroke();
@@ -709,6 +720,18 @@ export function render(g, w, h, dpr, cam, ap, view) {
     signLabel(g, b.x + b.w / 2, b.y + b.h / 2, '+ BUILD TERMINAL', 'yellow', cam.zoom);
   }
 
+  // empty car park sites on land you own
+  for (const id of PARKING_ORDER) {
+    const P = PARKING_SITES[id];
+    if (ap.parking[id] || !ap.plots[P.plot]) continue;
+    const hot = view.hover && view.hover.kind === 'parking' && view.hover.id === id;
+    g.fillStyle = hot ? 'rgba(255,194,14,0.22)' : 'rgba(255,255,255,0.08)';
+    g.fillRect(P.x, P.y, P.w, P.h);
+    g.strokeStyle = 'rgba(255,194,14,0.8)'; g.lineWidth = 1.5; g.setLineDash([6, 6]);
+    g.strokeRect(P.x, P.y, P.w, P.h); g.setLineDash([]);
+    signLabel(g, P.x + P.w / 2, P.y + P.h / 2, '+ CAR PARK', hot ? 'yellow' : 'black', cam.zoom);
+  }
+
   // crowds: security line, lounges, connector platforms
   const secN = Math.min(420, Math.round((ap.secQueue || 0) / ppd));
   const inside = Math.min(secN, 160);
@@ -972,6 +995,10 @@ export function pick(ap, wx, wy) {
     if (wx >= b.x && wx <= b.x + b.w && wy >= b.y && wy <= b.y + b.h) {
       return ap.plots[SLOTS[id].plot] ? { kind: 'slot', id } : { kind: 'plot', id: SLOTS[id].plot };
     }
+  }
+  for (const id of PARKING_ORDER) {
+    const P = PARKING_SITES[id];
+    if (ap.plots[P.plot] && wx >= P.x && wx <= P.x + P.w && wy >= P.y && wy <= P.y + P.h) return { kind: 'parking', id };
   }
   for (const [id, P] of Object.entries(PLOTS)) {
     if (ap.plots[id]) continue;

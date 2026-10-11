@@ -5,9 +5,9 @@
 
 import {
   AIRCRAFT, CONNECTORS, CONNECTOR_ORDER, UPGRADES, UPGRADE_ORDER, STAFFING,
-  TERMINAL, LEVELS, SITES, PAX, CONTRACTS, SECURITY as SECCFG,
+  TERMINAL, LEVELS, SITES, PAX, CONTRACTS, SECURITY as SECCFG, PARKING,
 } from './config.js';
-import { SLOTS, SLOT_ORDER, PLOTS, PLOT_ORDER, TERMINAL_CODES, connectorRoute } from './layout.js';
+import { SLOTS, SLOT_ORDER, PLOTS, PLOT_ORDER, TERMINAL_CODES, PARKING_SITES, PARKING_ORDER, connectorRoute } from './layout.js';
 import * as S from './sim.js';
 import { money, num, duration, pathLength, clamp, rate, every } from './util.js';
 import { advise, key as fixKey, offerUnlockFixes } from './advisor.js';
@@ -282,13 +282,15 @@ function renderBuild(game, ap) {
   } else {
     h += `<p class="note">Buy more land to open new terminal sites.</p>`;
   }
+  h += `<h3 class="sec">Parking</h3>${parkingBlock(ap)}`;
   h += `<h3 class="sec">Land</h3><ul class="list">`;
   for (const id of PLOT_ORDER) {
     const P = PLOTS[id];
     const owned = ap.plots[id];
     const opens = SLOT_ORDER.filter((s) => SLOTS[s].plot === id).map((s) => SLOTS[s].name);
     const ups = Object.entries(UPGRADES).filter(([, u]) => u.needsPlot === id).map(([, u]) => u.name);
-    const what = [...opens, ...ups].join(', ');
+    const lots = PARKING_ORDER.filter((p) => PARKING_SITES[p].plot === id).map((p) => PARKING_SITES[p].name);
+    const what = [...opens, ...ups, ...lots].join(', ');
     const needs = P.needs && !ap.plots[P.needs] ? `Buy the ${PLOTS[P.needs].name} first` : null;
     h += `<li><div class="what"><b>${P.name} ${recTag({ act: 'plot', data: { id } })}</b><span>${owned ? 'Owned' : `Opens: ${what}`}${owned ? '' : ` · tax ${rate(14 * S.site(ap).cost)}`}</span></div>${owned ? '<span class="tag green">Owned</span>' : needs ? `<span class="tag">${needs}</span>` : priceBtn('Buy', `plot" data-id="${id}`, S.plotCost(ap, id))}</li>`;
   }
@@ -412,15 +414,46 @@ function securityBlock(ap) {
   <div class="btns">${ap.securityLanes < SECCFG.maxLanes ? priceBtn('Open a lane', 'lane+', S.laneCost(ap)) : ''}<button type="button" class="btn" data-act="lane-" ${ap.securityLanes > 1 ? '' : 'disabled'}>Close a lane</button></div>`;
 }
 
+// One row per car park site: what's there, and the button for the next step.
+function parkingRow(ap, id) {
+  const P = PARKING_SITES[id];
+  const lv = ap.parking[id];
+  const next = S.parkingNext(ap, id);
+  const why = S.parkingBlocked(ap, id);
+  const now = lv ? `${lv === 'garage' ? 'Garage' : 'Surface lot'} · ${num(S.parkingSiteCap(id, lv))} drivers/min` : ap.plots[P.plot] ? 'Empty land' : `On the ${PLOTS[P.plot].name}`;
+  const add = next ? S.parkingSiteCap(id, next) - S.parkingSiteCap(id, lv) : 0;
+  const btn = next && !why
+    ? priceBtn(next === 'lot' ? `Build lot +${add}` : `Garage +${add}`, `parking" data-id="${id}`, S.parkingCost(ap, id))
+    : `<span class="tag ${lv === 'garage' ? 'green' : ''}">${esc(why || 'Full size')}</span>`;
+  return `<li><div class="what"><b>${P.code} · ${P.name} ${recTag({ act: 'parking', data: { id } })}</b><span>${now}</span></div>${btn}</li>`;
+}
+
+function parkingBlock(ap) {
+  const rep = S.loadReport(ap);
+  return `<table class="fc"><tr><td>Car parks</td><td>${barHtml(rep.parking.demand / rep.parking.cap)}</td><td class="num">${pct(rep.parking.demand / rep.parking.cap)}</td></tr></table>
+  <p class="note">${num(rep.parking.demand)} drivers a minute want to park; ${num(rep.parking.cap)} fit. Every parcel of land has room for a car park: a surface lot is cheap (${rate(PARKING.lot.upkeep * S.site(ap).cost)} to run), and a garage stacks more levels on it later.</p>
+  <ul class="list">${PARKING_ORDER.map((id) => parkingRow(ap, id)).join('')}</ul>`;
+}
+
+function renderParkingDetail(game, ap, id) {
+  const P = PARKING_SITES[id];
+  return `<button type="button" class="back" data-act="back">◂ Back</button>
+  <div class="title" style="font-size:24px">${P.code} · ${P.name}</div>
+  <p class="note">Departing passengers who drive pay to park, but only if there is a space. Surface lots are quick and cheap; a garage on top holds far more cars for a bit more upkeep.</p>
+  <ul class="list">${parkingRow(ap, id)}</ul>
+  <h3 class="sec">All car parks</h3>${parkingBlock(ap)}`;
+}
+
 function renderPlotDetail(game, ap, id) {
   const P = PLOTS[id];
   const opens = SLOT_ORDER.filter((s) => SLOTS[s].plot === id).map((s) => SLOTS[s].name);
   const ups = Object.entries(UPGRADES).filter(([, u]) => u.needsPlot === id).map(([, u]) => u.name);
+  const lots = PARKING_ORDER.filter((p) => PARKING_SITES[p].plot === id).map((p) => PARKING_SITES[p].name);
   const needs = P.needs && !ap.plots[P.needs] ? PLOTS[P.needs].name : null;
   return `<button type="button" class="back" data-act="back">◂ Back</button>
   <div class="title" style="font-size:24px">${P.name}</div>
   <p class="note">Farmland for now. Owning it opens:</p>
-  <ul class="list">${[...opens.map((o) => `<li><div class="what"><b>${o}</b><span>Terminal site</span></div></li>`), ...ups.map((u) => `<li><div class="what"><b>${u}</b><span>Upgrade</span></div></li>`)].join('')}${id === 'west' || id === 'east' ? `<li><div class="what"><b>Taxilane</b><span>A second route for aircraft between the runway and the main apron</span></div></li>` : ''}</ul>
+  <ul class="list">${[...opens.map((o) => `<li><div class="what"><b>${o}</b><span>Terminal site</span></div></li>`), ...ups.map((u) => `<li><div class="what"><b>${u}</b><span>Upgrade</span></div></li>`), ...lots.map((u) => `<li><div class="what"><b>${u}</b><span>Room for a surface lot, later a garage</span></div></li>`)].join('')}${id === 'west' || id === 'east' ? `<li><div class="what"><b>Taxilane</b><span>A second route for aircraft between the runway and the main apron</span></div></li>` : ''}</ul>
   <p class="note">Land carries property tax of ${rate(14 * S.site(ap).cost)} once bought.</p>
   <div class="btns">${ap.plots[id] ? '<span class="tag green">Owned</span>' : needs ? `<span class="tag">Buy the ${needs} first</span>` : priceBtn('Buy land', `plot" data-id="${id}`, S.plotCost(ap, id), '', 'go')}</div>`;
 }
@@ -471,6 +504,7 @@ function renderDetail(game, ap, d) {
   if (d.kind === 'slot') return S.terminalBySlot(ap, d.id) ? renderTerminalDetail(game, ap, d.id) : renderSlotDetail(game, ap, d.id);
   if (d.kind === 'terminal') return renderTerminalDetail(game, ap, d.id);
   if (d.kind === 'plot') return renderPlotDetail(game, ap, d.id);
+  if (d.kind === 'parking') return renderParkingDetail(game, ap, d.id);
   if (d.kind === 'runway') return renderRunwayDetail(game, ap);
   if (d.kind === 'plane') return renderPlaneDetail(game, ap, d.plane);
   return '';
@@ -498,7 +532,8 @@ function renderOperations(game, ap) {
   <div class="btns"><button type="button" class="btn" data-act="detail" data-kind="runway">Runway & tower details</button></div>
   <h3 class="sec">Parking</h3>
   <table class="fc"><tr><td>Car park</td><td>${barHtml(rep.parking.demand / rep.parking.cap)}</td><td class="num">${pct(rep.parking.demand / rep.parking.cap)}</td></tr></table>
-  <p class="note">${num(rep.parking.cap)} drivers a minute fit; ${num(rep.parking.demand)} want to park. Drivers who find it full pay nothing. Monorail yards and bus depots take parking space.</p>`;
+  <p class="note">${num(rep.parking.cap)} drivers a minute fit; ${num(rep.parking.demand)} want to park. Drivers who find it full pay nothing. Monorail yards and bus depots take parking space.</p>
+  <div class="btns"><button type="button" class="btn" data-act="tab" data-tab="build">Build car parks (Build tab)</button></div>`;
   return h;
 }
 
@@ -512,7 +547,7 @@ function renderFinance(game, ap) {
   for (const [k, label] of rev) h += `<tr><td>${label}</td><td class="lb"><div class="bar"><i style="width:${((pm[k] || 0) / max * 100).toFixed(1)}%"></i></div></td><td class="num pos">${rate(pm[k] || 0)}</td></tr>`;
   if (pm.refunds) h += `<tr><td>Missed-flight compensation</td><td class="lb"><div class="bar bad"><i style="width:${(-pm.refunds / max * 100).toFixed(1)}%"></i></div></td><td class="num neg">${rate(pm.refunds)}</td></tr>`;
   if (pm.penalties) h += `<tr><td>Contract penalties</td><td class="lb"></td><td class="num neg">${rate(pm.penalties)}</td></tr>`;
-  for (const l of ap.costLines) h += `<tr><td>${esc(l.label)}</td><td class="lb"><div class="bar warn"><i style="width:${(l.v / max * 100).toFixed(1)}%"></i></div></td><td class="num neg">${rate(-l.v)}</td></tr>`;
+  for (const l of ap.costLines) if (l.v > 0) h += `<tr><td>${esc(l.label)}</td><td class="lb"><div class="bar warn"><i style="width:${(l.v / max * 100).toFixed(1)}%"></i></div></td><td class="num neg">${rate(-l.v)}</td></tr>`;
   h += `<tr class="total"><td>Net</td><td></td><td class="num ${pm.net >= 0 ? 'pos' : 'neg'}">${rate(pm.net || 0, true)}</td></tr></table>`;
   h += `<p class="note">Costs run every second whether planes fly or not. Revenue arrives with each landing, each boarded passenger and every minute people spend waiting airside.</p>`;
   h += `<h3 class="sec">Company</h3><dl class="board">

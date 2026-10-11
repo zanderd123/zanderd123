@@ -11,7 +11,7 @@ export function helpHtml() {
 
   ${sec('A passenger\'s trip')}
   <ol class="flow">
-    <li><b>Curb & car park</b><span>Departing passengers arrive about ${PAX.arriveEarly}s before their flight. Drivers pay for parking if there is space.</span></li>
+    <li><b>Curb & car park</b><span>Departing passengers arrive about ${PAX.arriveEarly}s before their flight. Drivers pay for parking if there is space; every parcel of land has room for another car park (Build tab).</span></li>
     <li><b>Security</b><span>Every departing passenger goes through the checkpoint in the main terminal (A). Each lane screens a fixed number per minute.</span></li>
     <li><b>Connector</b><span>For a gate in any other terminal they then ride the walkway, bus, monorail or tunnel to it.</span></li>
     <li><b>Gate lounge</b><span>They wait and shop. Waiting passengers are your shop income; crowds spend less.</span></li>

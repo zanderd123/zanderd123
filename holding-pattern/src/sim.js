@@ -10,7 +10,7 @@ import {
 import {
   RW, RUNWAY_HALF, TWY_A, TWY_B, LANE2, EXITS, HOLD_POINT, IAF, PLOTS, SLOTS, LONG_RUNWAY_X1,
   gateStand, pathExitToGate, pathGateToHold, lanesFor,
-  connectorRoute, apronCrossing, slotCenter, TERMINAL_CODES,
+  connectorRoute, apronCrossing, slotCenter, TERMINAL_CODES, PARKING_SITES,
 } from './layout.js';
 import { mulberry32, clamp, dist, pick, pathLength, pointAlong } from './util.js';
 
@@ -30,6 +30,7 @@ export function createAirport(siteIndex, seed = Date.now()) {
     terminals: [newTerminal('main', true)],
     securityLanes: SEC.startLanes,
     upgrades: {},
+    parking: { front: 'lot' },
     staffing: { atc: 'standard', security: 'standard', ground: 'standard' },
     contracts: [],
     offers: [],
@@ -120,6 +121,7 @@ export function serializeAirport(ap) {
     })),
     securityLanes: ap.securityLanes,
     upgrades: ap.upgrades,
+    parking: ap.parking,
     staffing: ap.staffing,
     contracts: ap.contracts.map((c) => ({ ...c, otpHist: c.otpHist.slice(-12) })),
     offers: [],
@@ -144,6 +146,12 @@ export function restoreAirport(data) {
     else delete T.pendingConnector;
     T.gates = Math.min(T.gates, SLOTS[T.slot].maxGates); // older saves allowed 5
   }
+  // Older saves had two garage upgrades instead of car park sites.
+  ap.upgrades = { ...ap.upgrades };
+  ap.parking = { front: 'lot', ...(ap.parking || {}) };
+  if (ap.upgrades.garage1) ap.parking.southwest = 'garage';
+  if (ap.upgrades.garage2) ap.parking.southeast = 'garage';
+  delete ap.upgrades.garage1; delete ap.upgrades.garage2;
   hydrate(ap);
   return ap;
 }
@@ -195,10 +203,15 @@ export function securityRate(ap) {
   return ap.securityLanes * PAX.securityPerLane * staffing(ap, 'security').capacity * (ap.upgrades.ctScanners ? UPGRADES.ctScanners.security : 1);
 }
 
+// Drivers a minute a car park site holds at a given level.
+export function parkingSiteCap(id, level) {
+  if (!level) return 0;
+  return (id === 'front' ? PARKING.base : PARKING.lot.cap) + (level === 'garage' ? PARKING.garage.cap : 0);
+}
+
 export function parkingCapacity(ap) {
-  let cap = PARKING.base;
-  if (ap.upgrades.garage1) cap += UPGRADES.garage1.parking;
-  if (ap.upgrades.garage2) cap += UPGRADES.garage2.parking;
+  let cap = 0;
+  for (const id in ap.parking) cap += parkingSiteCap(id, ap.parking[id]);
   for (const T of ap.terminals) if (T.connector) cap -= CONNECTORS[T.connector.type].land;
   return Math.max(20, cap);
 }
@@ -257,6 +270,21 @@ export function retailCost(ap, T) {
 }
 export function laneCost(ap) { return Math.round(SEC.laneCost * Math.pow(SEC.laneGrowth, ap.securityLanes - 1) * site(ap).cost); }
 export function plotCost(ap, plot) { return Math.round(PLOTS[plot].price * site(ap).cost); }
+// What a car park site can become next: 'lot', 'garage' or null (done).
+export function parkingNext(ap, id) {
+  const lv = ap.parking[id];
+  return !lv ? 'lot' : lv === 'lot' ? 'garage' : null;
+}
+export function parkingCost(ap, id) {
+  const next = parkingNext(ap, id);
+  return next ? Math.round(PARKING[next].cost * site(ap).cost) : 0;
+}
+export function parkingBlocked(ap, id) {
+  const P = PARKING_SITES[id];
+  if (!ap.plots[P.plot]) return `Buy the ${PLOTS[P.plot].name} first`;
+  if (!parkingNext(ap, id)) return 'Full size';
+  return null;
+}
 export function upgradeCost(ap, key) { return Math.round(UPGRADES[key].cost * site(ap).cost); }
 
 export function totalGates(ap) { return ap.terminals.reduce((s, T) => s + T.gates, 0); }
@@ -265,6 +293,16 @@ export function repMult(ap) { return 0.72 + 0.56 * (ap.rep / 100); }
 
 export function networkMult(game) {
   return 1 + NETWORK.paxFeePerAirport * Math.max(0, game.airports.length - 1);
+}
+
+function parkingUpkeep(ap) {
+  let v = 0;
+  for (const id in ap.parking) {
+    const lv = ap.parking[id];
+    if (id !== 'front') v += PARKING.lot.upkeep; // the front lot comes with the airport
+    if (lv === 'garage') v += PARKING.garage.upkeep;
+  }
+  return v;
 }
 
 export function computeCosts(ap) {
@@ -280,6 +318,7 @@ export function computeCosts(ap) {
     { key: 'cleaning', label: 'Cleaning & upkeep', v: built.length * COSTS.cleaningBase + (ap.rolling ? ap.rolling.flowPerMin : 0) * COSTS.cleaningPerPaxMin },
     { key: 'runway', label: `Runway maintenance (${runwayCount(ap)})`, v: runwayCount(ap) * COSTS.runwayMaint },
     { key: 'connectors', label: 'Connector operations', v: ap.terminals.reduce((s, T) => s + (T.connector && T.connector.buildLeft <= 0 ? connectorUpkeep(T.connector) : 0), 0) },
+    { key: 'parking', label: 'Car park staff & lighting', v: parkingUpkeep(ap) },
     { key: 'land', label: 'Property tax', v: (Object.keys(ap.plots).length - 1) * COSTS.plotTax },
   ];
   for (const l of lines) l.v *= m;
@@ -580,6 +619,15 @@ export function buyUpgrade(game, ap, key) {
   if (why) return why;
   if (!spend(game, upgradeCost(ap, key))) return 'Not enough cash';
   ap.upgrades[key] = true;
+  ap.costLines = computeCosts(ap);
+  return null;
+}
+
+export function buildParking(game, ap, id) {
+  const why = parkingBlocked(ap, id);
+  if (why) return why;
+  if (!spend(game, parkingCost(ap, id))) return 'Not enough cash';
+  ap.parking[id] = parkingNext(ap, id);
   ap.costLines = computeCosts(ap);
   return null;
 }

@@ -130,14 +130,20 @@ export const UPGRADES = {
   ctScanners: { name: 'CT security scanners',  cost: 40000,  desc: 'Each security lane screens 40% more passengers.', security: 1.4 },
   longRunway: { name: 'Runway extension',      cost: 110000, desc: 'Lets superjumbos land and take off.', needsPlot: 'east' },
   runway2:    { name: 'Second runway',         cost: 260000, desc: 'A north runway for arrivals; departures keep the main one. Arrivals must cross the main runway.', needsPlot: 'north' },
-  garage1:    { name: 'Parking garage',        cost: 45000,  desc: '+180 parking pax/min.', parking: 180, needsPlot: 'south' },
-  garage2:    { name: 'Second parking garage', cost: 150000, desc: '+260 parking pax/min.', parking: 260, needs: 'garage1' },
   rail:       { name: 'Rail link',             cost: 220000, desc: 'A train station: +12% passenger fees and less driving.', paxFee: 1.12, needsPlot: 'south' },
 };
-export const UPGRADE_ORDER = ['radar', 'rapidExits', 'hvac', 'ctScanners', 'solar', 'cat3', 'automation', 'garage1', 'longRunway', 'garage2', 'rail', 'runway2'];
+export const UPGRADE_ORDER = ['radar', 'rapidExits', 'hvac', 'ctScanners', 'solar', 'cat3', 'automation', 'longRunway', 'rail', 'runway2'];
 
 export const SECURITY = { laneCost: 3000, laneGrowth: 1.18, maxLanes: 14, startLanes: 2 };
-export const PARKING = { base: 140 };
+// Car parks. Every parcel of land has room for one, next to or in front of
+// the terminals (see PARKING_SITES in layout.js). A surface lot is cheap; a
+// garage stacks levels on top of it. The front lot comes with the airport.
+// cap is drivers a minute, upkeep $/min.
+export const PARKING = {
+  base: 140, // the front lot you start with
+  lot:    { name: 'Surface car park', cost: 14000, cap: 90,  upkeep: 6 },
+  garage: { name: 'Parking garage',   cost: 55000, cap: 220, upkeep: 20 },
+};
 
 // ---------------------------------------------------------------- levels
 // Passengers served (both directions) to reach each airport level.

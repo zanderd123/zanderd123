@@ -31,7 +31,8 @@ await page.evaluate(() => {
   S.buildTerminal(g, ap, 'westwing', 'walkway');
   S.buildTerminal(g, ap, 'eastwing', 'monorail');
   S.buildTerminal(g, ap, 'mideast', 'tunnel');
-  for (const k of ['radar', 'rapidExits', 'garage1', 'hvac']) S.buyUpgrade(g, ap, k);
+  for (const k of ['radar', 'rapidExits', 'hvac']) S.buyUpgrade(g, ap, k);
+  for (const id of ['front', 'west', 'southwest', 'southwest', 'east', 'fareast']) S.buildParking(g, ap, id);
   for (const T of ap.terminals) { T.buildLeft = 0; if (T.connector) T.connector.buildLeft = 0; T.heavy = true; T.retail = 2; }
   for (let i = 0; i < 4; i++) S.addLane(g, ap);
   // sign a big book of routes spread across terminals

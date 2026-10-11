@@ -34,7 +34,12 @@ function think(ap) {
   if (rwU > 0.75) {
     for (const k of ['radar', 'rapidExits', 'automation', 'runway2']) if (!ap.upgrades[k]) { S.buyUpgrade(game, ap, k); break; }
   }
-  for (const k of ['hvac', 'ctScanners', 'garage1']) if (game.cash > S.upgradeCost(ap, k) * 4) S.buyUpgrade(game, ap, k);
+  for (const k of ['hvac', 'ctScanners']) if (game.cash > S.upgradeCost(ap, k) * 4) S.buyUpgrade(game, ap, k);
+  const rep0 = S.loadReport(ap);
+  if (rep0.parking.demand > rep0.parking.cap) {
+    const id = ['front', 'west', 'east', 'southwest', 'southeast', 'farwest', 'fareast'].find((p) => !S.parkingBlocked(ap, p));
+    if (id && game.cash > S.parkingCost(ap, id) * 4) S.buildParking(game, ap, id);
+  }
 
   // Need a new terminal?
   const open = rep.terminals.filter((t) => t.open);

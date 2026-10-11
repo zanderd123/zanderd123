@@ -43,6 +43,7 @@ two and a half minutes pull their route.
 | Security | The line spills out of the terminal onto the curb | More lanes, CT scanners, surge staffing |
 | Connectors | Passengers pile up on the platforms | More buses, upgrades, a better connector |
 | Terminals | Crowds above comfortable capacity spend less and hurt reputation | Spread routes across terminals |
+| Car parks | Drivers who find no space pay nothing | A surface lot on any parcel of land you own, then a garage on top |
 
 **Connectors.** A new terminal needs a way for passengers to reach it from
 security in the main terminal:

@@ -189,7 +189,7 @@ canvas.addEventListener('pointermove', (e) => {
   }
   const w = screenToWorld(cam, W, H, e.clientX - rect.left, e.clientY - rect.top);
   const hit = pick(activeAirport(game), w.x, w.y);
-  view.hover = hit && (hit.kind === 'slot' || hit.kind === 'plot') ? hit : null;
+  view.hover = hit && (hit.kind === 'slot' || hit.kind === 'plot' || hit.kind === 'parking') ? hit : null;
   canvas.classList.toggle('pointing', !!hit);
 });
 
@@ -286,6 +286,7 @@ body.addEventListener('click', (e) => {
     case 'back': ui.detail = null; view.selected = null; break;
     case 'plot': err = S.buyPlot(game, ap, d.id); ok = 'Land bought'; break;
     case 'upgrade': err = S.buyUpgrade(game, ap, d.id); ok = 'Built'; break;
+    case 'parking': err = S.buildParking(game, ap, d.id); ok = 'Car park open'; break;
     case 'pick-conn': ui.buildChoice[d.slot] = d.type; break;
     case 'pick-reconn': ui.buildChoice['re-' + d.slot] = d.type; break;
     case 'build': err = S.buildTerminal(game, ap, d.slot, d.type); ok = 'Construction started'; if (!err) ui.detail = { kind: 'terminal', id: d.slot }; break;
