@@ -59,6 +59,10 @@ function start(hotData) {
     onDone() { toast('Tutorial done. Help has the rest.', 'good'); },
   });
   renderPanel(true);
+  if (game.cashRecovered) {
+    delete game.cashRecovered;
+    toast(`A bug wiped your balance. It has been restored to ${money(game.cash)}.`, 'good');
+  }
   last = performance.now();
   requestAnimationFrame(frame);
   setInterval(() => save(game), 5000);
@@ -90,7 +94,7 @@ function frame(now) {
   if (hidden) dt = 0;
   const simDt = dt * game.speed;
   // fixed-ish substeps keep fast speeds stable
-  const n = Math.max(1, Math.ceil(simDt / 0.05));
+  const n = Math.ceil(simDt / 0.05);
   const ap = activeAirport(game);
   for (let i = 0; i < n; i++) stepGame(game, simDt / n, ap);
 

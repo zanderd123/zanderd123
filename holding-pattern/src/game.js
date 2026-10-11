@@ -29,6 +29,23 @@ export function stepGame(game, dt, onScreen = null) {
     ap.lag = (ap.lag || 0) + dt;
     while (ap.lag >= BG_STEP) { step(game, ap, BG_STEP); ap.lag -= BG_STEP; }
   }
+  // Safety net: if a bug ever turns the balance into NaN, nothing could be
+  // bought again and the broken number would be saved. Put back the last
+  // good balance instead.
+  if (Number.isFinite(game.cash)) game.goodCash = game.cash;
+  else {
+    console.warn('cash became', game.cash, '- restoring', game.goodCash);
+    game.cash = Number.isFinite(game.goodCash) ? game.goodCash : START.cash;
+  }
+}
+
+// Saves written while the balance was NaN stored it as null. Give back a
+// fair estimate: a tenth of everything the airports have earned, and never
+// less than a new game starts with.
+function recoverCash(data) {
+  if (Number.isFinite(data.cash)) return data.cash;
+  const earned = data.airports.reduce((s, a) => s + ((a.lifetime && a.lifetime.revenue) || 0), 0);
+  return Math.max(START.cash, Math.round(earned * 0.1));
 }
 
 // ---------------------------------------------------------------- the map
@@ -79,7 +96,8 @@ export function serialize(game) {
 
 export function deserialize(data) {
   return {
-    cash: data.cash,
+    cash: recoverCash(data),
+    cashRecovered: !Number.isFinite(data.cash),
     active: Math.min(data.active || 0, data.airports.length - 1),
     speed: data.speed || 1,
     started: data.started || Date.now(),

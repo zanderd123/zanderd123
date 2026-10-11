@@ -146,6 +146,7 @@ export function restoreAirport(data) {
     else delete T.pendingConnector;
     T.gates = Math.min(T.gates, SLOTS[T.slot].maxGates); // older saves allowed 5
   }
+  if (!ap.perMin || !Object.values(ap.perMin).every(Number.isFinite)) ap.perMin = { net: 0, operating: 0 };
   // Older saves had two garage upgrades instead of car park sites.
   ap.upgrades = { ...ap.upgrades };
   ap.parking = { front: 'lot', ...(ap.parking || {}) };
@@ -670,6 +671,9 @@ function rollLedger(ap) {
 // ======================================================================
 
 export function step(game, ap, dt) {
+  // A zero-length step (a hidden tab, two frames on one timestamp) has
+  // nothing to do, and rates computed over it would divide by zero.
+  if (!(dt > 0)) return;
   ap.t += dt;
   const t = ap.t;
 
