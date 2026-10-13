@@ -281,10 +281,15 @@ body.addEventListener('change', (e) => {
 body.addEventListener('click', (e) => {
   const b = e.target.closest('[data-act]');
   if (!b || b.disabled) return;
-  const ap = activeAirport(game);
   const d = b.dataset;
+  // buttons on the network tab act on their own airport
+  const ap = d.ap != null && game.airports[Number(d.ap)] ? game.airports[Number(d.ap)] : activeAirport(game);
   let err = null, ok = null;
+  // a fix that opens a tab or a detail view is about that airport: go there
+  if (d.ap != null && ap !== activeAirport(game) && (d.act === 'tab' || d.act === 'detail')) switchTo(Number(d.ap));
   switch (d.act) {
+    case 'goto': ui.tab = 'advisor'; switchTo(Number(d.ap)); return;
+    case 'manager': S.setManager(ap, d.on === '1'); ok = d.on === '1' ? `Station manager hired at ${ap.id}` : `Station manager let go at ${ap.id}`; break;
     case 'accept': err = S.acceptOffer(game, ap, d.id, d.slot); ok = 'Contract signed'; break;
     case 'decline': S.declineOffer(ap, d.id); break;
     case 'arm': ui.armed = d.key; ui.armedUntil = performance.now() + 4000; break;
@@ -296,6 +301,11 @@ body.addEventListener('click', (e) => {
     case 'plot': err = S.buyPlot(game, ap, d.id); ok = 'Land bought'; break;
     case 'upgrade': err = S.buyUpgrade(game, ap, d.id); ok = 'Built'; break;
     case 'parking': err = S.buildParking(game, ap, d.id); ok = 'Car park open'; break;
+    case 'landside': err = S.buildLandside(game, ap, d.id, d.use); ok = 'Built'; break;
+    case 'demolish-site': err = S.demolishLandside(game, ap, d.id); ui.armed = null; ok = 'Torn down'; break;
+    case 'hangar': err = S.buildHangar(game, ap, d.slot); ok = 'Hangar built'; if (!err) ui.detail = { kind: 'slot', id: d.slot }; break;
+    case 'demolish-hangar': err = S.demolishHangar(game, ap, d.slot); ui.armed = null; ok = 'Hangar torn down'; break;
+    case 'demolish': err = S.demolishTerminal(game, ap, d.slot); ui.armed = null; ok = 'Closing: routes moved to your other terminals'; break;
     case 'pick-conn': ui.buildChoice[d.slot] = d.type; break;
     case 'pick-reconn': ui.buildChoice['re-' + d.slot] = d.type; break;
     case 'build': err = S.buildTerminal(game, ap, d.slot, d.type); ok = 'Construction started'; if (!err) ui.detail = { kind: 'terminal', id: d.slot }; break;

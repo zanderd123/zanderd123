@@ -147,6 +147,32 @@ export const PARKING = {
   garage: { name: 'Parking garage',   cost: 55000, cap: 220, upkeep: 20 },
 };
 
+// Other things a landside site can hold instead of a car park. share is the
+// part of departing (hotel) or arriving (rental) passengers who use one,
+// cap the guests a minute one serves, perPax what each pays.
+export const LANDSIDE = {
+  hotel:  { name: 'Airport hotel',     cost: 60000, upkeep: 22, share: 0.18, cap: 90, perPax: 2.4, flow: 'dep',
+    desc: 'Some departing passengers stay the night before. Earns per guest.' },
+  rental: { name: 'Rental car centre', cost: 35000, upkeep: 12, share: 0.14, cap: 80, perPax: 2.0, flow: 'arr',
+    desc: 'Some arriving passengers rent a car. Earns per rental.' },
+  solar:  { name: 'Solar farm',        cost: 30000, upkeep: 2, hvac: 0.85,
+    desc: 'Cuts every terminal\'s heating, cooling and power bill by 15%.' },
+};
+export const LANDSIDE_ORDER = ['hotel', 'rental', 'solar'];
+
+// What a terminal site can hold instead of a terminal.
+export const HANGAR = {
+  name: 'Maintenance hangar', cost: 90000, upkeep: 30, turn: 0.92, income: 45,
+  desc: 'Turnarounds 8% faster at every terminal (up to two hangars), plus outside maintenance work.',
+};
+
+// A station manager runs an airport's contract desk: signs offers that keep
+// every bar under fits, declines the rest. salary is $/min.
+export const MANAGER = { salary: 40, fits: { runway: 0.8, gates: 0.8, security: 0.9, connector: 0.85, parking: 99 } };
+
+// Tearing something down returns this share of what it cost.
+export const DEMOLISH_REFUND = 0.25;
+
 // ---------------------------------------------------------------- levels
 // Passengers served (both directions) to reach each airport level.
 export const LEVELS = [0, 800, 2500, 6000, 14000, 32000, 70000, 150000, 320000, 700000, 1500000];

@@ -60,6 +60,12 @@ export function helpHtml() {
   <ul class="plain">
     <li>Levels come from passengers served (${LEVELS.slice(1, 5).map((v) => v.toLocaleString('en-US')).join(', ')}…). Narrowbody routes appear at level ${UNLOCKS.narrow}, widebodies at ${UNLOCKS.wide}, superjumbos at ${UNLOCKS.jumbo}.</li>
     <li>At level ${UNLOCKS.nextAirport} the <b>Network map</b> sells you a second airport. Your first keeps earning; the new one earns more per passenger. Every airport you own adds passengers to all the others.</li>
+    <li>With two or more airports, the <b>All</b> tab shows every airport at once: money, on-time, the one thing each needs (one click to buy it) and every open offer, which you can sign or decline from there. Hire a <b>station manager</b> at an airport and it signs offers that fit comfortably and declines the rest.</li>
+  </ul>
+  ${sec('Changing your mind')}
+  <ul class="plain">
+    <li>Every site can hold more than one thing. A terminal site takes a terminal or a <b>maintenance hangar</b> (faster turnarounds everywhere, plus outside work). A landside site takes a car park, an <b>airport hotel</b>, a <b>rental car centre</b> or a <b>solar farm</b>.</li>
+    <li>Anything can be torn down for a quarter of its cost back, except the main terminal. A terminal's routes move to your other terminals at once; it closes when the aircraft at its gates have left.</li>
   </ul>
 
   <div class="btns"><button type="button" class="btn" data-act="tutorial">Replay the tutorial</button></div>`;

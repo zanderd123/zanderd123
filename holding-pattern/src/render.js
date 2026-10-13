@@ -73,7 +73,7 @@ function textAt(g, s, x, y) {
 }
 
 function layoutKey(ap, res) {
-  return JSON.stringify([ap.siteIndex, ap.plots, ap.parking, ap.terminals.map((T) => [T.slot, T.gates, T.heavy, T.retail, T.buildLeft > 0, T.connector && [T.connector.type, T.connector.level, T.connector.buildLeft > 0]]), ap.securityLanes, ap.upgrades, res]);
+  return JSON.stringify([ap.siteIndex, ap.plots, ap.parking, ap.hangars, ap.terminals.map((T) => [T.slot, T.gates, T.heavy, T.retail, T.buildLeft > 0, !!T.demolishing, T.connector && [T.connector.type, T.connector.level, T.connector.buildLeft > 0]]), ap.securityLanes, ap.upgrades, res]);
 }
 
 function drawStatic(ap, res) {
@@ -196,8 +196,13 @@ function drawStatic(ap, res) {
       g.fillRect(left ? P.x + 24 : P.x + P.w - 38, CURB_Y, 14, P.y - CURB_Y);
     }
     if (lv === 'garage') garage(g, P.x, P.y, P.w, P.h, P.code);
+    else if (lv === 'hotel') hotel(g, P.x, P.y, P.w, P.h);
+    else if (lv === 'rental') rentalCentre(g, P.x, P.y, P.w, P.h, R);
+    else if (lv === 'solar') solarFarm(g, P.x, P.y, P.w, P.h);
     else parkingLot(g, P.x, P.y, P.w, P.h, R);
   }
+  // maintenance hangars on terminal sites
+  for (const slot of SLOT_ORDER) if (ap.hangars && ap.hangars[slot]) hangarBuilding(g, slotBuilding(slot), SLOTS[slot].row);
   if (ap.upgrades.rail) railStation(g);
   tower(g, 1166, 905);
 
@@ -452,6 +457,63 @@ function parkingLot(g, x, y, w, h, R) {
       }
     }
   }
+}
+
+function hotel(g, x, y, w, h) {
+  // a tower with a pool and gardens
+  g.fillStyle = '#7da35f'; g.fillRect(x, y, w, h);
+  const bw = Math.min(w * 0.45, 130), bh = h * 0.7, bx = x + 14, by = y + (h - bh) / 2;
+  g.fillStyle = 'rgba(0,0,0,0.28)'; g.fillRect(bx + 8, by + 8, bw, bh);
+  g.fillStyle = '#e8e1d2'; g.fillRect(bx, by, bw, bh);
+  g.fillStyle = '#c9bfab'; g.fillRect(bx + 6, by + 6, bw - 12, bh - 12);
+  g.fillStyle = '#8b2f3c'; g.beginPath(); g.arc(bx + bw / 2, by + bh / 2, 13, 0, Math.PI * 2); g.fill();
+  g.fillStyle = '#fff'; g.font = '700 16px "Barlow Condensed", sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  textAt(g, 'H', bx + bw / 2, by + bh / 2 + 1);
+  const px = bx + bw + 20, pw = Math.min(70, x + w - px - 16);
+  g.fillStyle = '#e6dcc4'; g.fillRect(px - 6, y + h / 2 - 22, pw + 12, 44);
+  g.fillStyle = '#4fb7d8'; g.fillRect(px, y + h / 2 - 16, pw, 32);
+  g.fillStyle = 'rgba(255,255,255,0.35)'; g.fillRect(px + 4, y + h / 2 - 12, pw - 8, 3);
+  for (let k = 0; k < 4; k++) { g.fillStyle = '#4f7a3c'; g.beginPath(); g.arc(x + w - 18, y + 18 + k * (h - 36) / 3, 7, 0, Math.PI * 2); g.fill(); }
+}
+
+function rentalCentre(g, x, y, w, h, R) {
+  // a ready lot of identical cars by a small office
+  g.fillStyle = '#585c63'; g.fillRect(x, y, w, h);
+  g.fillStyle = '#d7d2c6'; g.fillRect(x + 8, y + 8, 60, h - 16);
+  g.fillStyle = '#2b5f9e'; g.fillRect(x + 8, y + 8, 60, 14);
+  g.fillStyle = '#fff'; g.font = '700 10px "Barlow Condensed", sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  textAt(g, 'RENT', x + 38, y + 15.5);
+  g.strokeStyle = C.parkLine; g.lineWidth = 0.8;
+  const fleet = ['#e8e8e8', '#e8e8e8', '#9aa0a6', '#2b5f9e'];
+  for (let ry = y + 10; ry + 14 <= y + h - 4; ry += 30) {
+    for (let cx = x + 80; cx < x + w - 10; cx += 11) {
+      g.beginPath(); g.moveTo(cx, ry); g.lineTo(cx, ry + 14); g.stroke();
+      if (R() < 0.8) { g.fillStyle = fleet[Math.floor(R() * fleet.length)]; g.fillRect(cx + 2, ry + 2, 7, 11); }
+    }
+  }
+}
+
+function solarFarm(g, x, y, w, h) {
+  g.fillStyle = '#8fa67a'; g.fillRect(x, y, w, h);
+  for (let ry = y + 8; ry + 16 <= y + h - 4; ry += 24) {
+    g.fillStyle = 'rgba(0,0,0,0.2)'; g.fillRect(x + 10, ry + 3, w - 20, 16);
+    g.fillStyle = '#24395c'; g.fillRect(x + 8, ry, w - 20, 16);
+    g.strokeStyle = 'rgba(160,190,230,0.35)'; g.lineWidth = 0.6;
+    for (let cx = x + 18; cx < x + w - 12; cx += 10) { g.beginPath(); g.moveTo(cx, ry); g.lineTo(cx, ry + 16); g.stroke(); }
+    g.beginPath(); g.moveTo(x + 8, ry + 8); g.lineTo(x + w - 12, ry + 8); g.stroke();
+  }
+}
+
+function hangarBuilding(g, b, row) {
+  // one wide hall with a ribbed roof, doors facing the apron
+  const doorY = row === 'main' ? b.y : b.y + b.h;
+  g.fillStyle = 'rgba(0,0,0,0.25)'; g.fillRect(b.x + 6, b.y + 6, b.w, b.h);
+  g.fillStyle = '#9aa3ab'; g.fillRect(b.x, b.y, b.w, b.h);
+  g.strokeStyle = '#7f8890'; g.lineWidth = 1.2;
+  for (let x = b.x + 12; x < b.x + b.w; x += 12) { g.beginPath(); g.moveTo(x, b.y + 4); g.lineTo(x, b.y + b.h - 4); g.stroke(); }
+  g.fillStyle = '#5c646c'; g.fillRect(b.x + b.w * 0.15, doorY - 3, b.w * 0.7, 6);
+  g.fillStyle = '#ffc20e'; g.font = '700 14px "Barlow Condensed", sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  textAt(g, 'MRO', b.x + b.w / 2, b.y + b.h / 2);
 }
 
 function garage(g, x, y, w, h, label) {
@@ -893,7 +955,16 @@ export function render(g, w, h, dpr, cam, ap, view) {
 
   // empty sites on land you own
   for (const id of SLOT_ORDER) {
-    if (terminalBySlot(ap, id)) continue;
+    const Tx = terminalBySlot(ap, id);
+    if (Tx && Tx.demolishing) {
+      // being torn down
+      const b = slotBuilding(id);
+      g.strokeStyle = '#c8102e'; g.lineWidth = 2.5; g.setLineDash([8, 6]);
+      g.strokeRect(b.x - 3, b.y - 3, b.w + 6, b.h + 6); g.setLineDash([]);
+      signLabel(g, b.x + b.w / 2, b.y + b.h / 2, 'CLOSING', 'red', cam.zoom);
+      continue;
+    }
+    if (Tx || (ap.hangars && ap.hangars[id])) continue;
     if (!ap.plots[SLOTS[id].plot] || !slotAvailable(ap, id)) continue;
     const b = slotBuilding(id);
     const hot = view.hover && view.hover.kind === 'slot' && view.hover.id === id;
@@ -901,7 +972,7 @@ export function render(g, w, h, dpr, cam, ap, view) {
     g.fillRect(b.x, b.y, b.w, b.h);
     g.strokeStyle = '#ffc20e'; g.lineWidth = 2; g.setLineDash([7, 5]);
     g.strokeRect(b.x, b.y, b.w, b.h); g.setLineDash([]);
-    signLabel(g, b.x + b.w / 2, b.y + b.h / 2, '+ BUILD TERMINAL', 'yellow', cam.zoom);
+    signLabel(g, b.x + b.w / 2, b.y + b.h / 2, '+ BUILD TERMINAL OR HANGAR', 'yellow', cam.zoom);
   }
 
   // empty car park sites on land you own
@@ -913,7 +984,7 @@ export function render(g, w, h, dpr, cam, ap, view) {
     g.fillRect(P.x, P.y, P.w, P.h);
     g.strokeStyle = 'rgba(255,194,14,0.8)'; g.lineWidth = 1.5; g.setLineDash([6, 6]);
     g.strokeRect(P.x, P.y, P.w, P.h); g.setLineDash([]);
-    signLabel(g, P.x + P.w / 2, P.y + P.h / 2, '+ CAR PARK', hot ? 'yellow' : 'black', cam.zoom);
+    signLabel(g, P.x + P.w / 2, P.y + P.h / 2, '+ BUILD', hot ? 'yellow' : 'black', cam.zoom);
   }
 
   // room for the crosswind runway

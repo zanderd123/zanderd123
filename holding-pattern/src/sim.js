@@ -5,6 +5,7 @@
 import {
   AIRCRAFT, AIRCRAFT_ORDER, FLIGHT, PAX, STAFFING, COSTS, TERMINAL, CONNECTORS,
   UPGRADES, SECURITY as SEC, PARKING, LEVELS, UNLOCKS, SITES, NETWORK, CONTRACTS,
+  LANDSIDE, LANDSIDE_ORDER, HANGAR, DEMOLISH_REFUND, MANAGER,
   AIRLINES, CITIES, WEATHER,
 } from './config.js';
 import {
@@ -31,6 +32,7 @@ export function createAirport(siteIndex, seed = Date.now()) {
     securityLanes: SEC.startLanes,
     upgrades: site.longRunway ? { longRunway: true } : {},
     parking: { front: 'lot' },
+    hangars: {},
     staffing: { atc: 'standard', security: 'standard', ground: 'standard' },
     contracts: [],
     offers: [],
@@ -120,10 +122,12 @@ export function serializeAirport(ap) {
       slot: T.slot, gates: T.gates, heavy: T.heavy, retail: T.retail, buildLeft: T.buildLeft,
       connector: T.connector ? { type: T.connector.type, level: T.connector.level, buses: T.connector.buses, buildLeft: T.connector.buildLeft } : null,
       pendingConnector: T.pendingConnector ? { ...T.pendingConnector } : undefined,
-    })),
+    })).filter((T) => !T.demolishing),
     securityLanes: ap.securityLanes,
     upgrades: ap.upgrades,
     parking: ap.parking,
+    hangars: ap.hangars,
+    manager: !!ap.manager,
     staffing: ap.staffing,
     contracts: ap.contracts.map((c) => ({ ...c, otpHist: c.otpHist.slice(-12) })),
     offers: [],
@@ -153,6 +157,7 @@ export function restoreAirport(data) {
   if (!ap.perMin || !Object.values(ap.perMin).every(Number.isFinite)) ap.perMin = { net: 0, operating: 0 };
   // Older saves had two garage upgrades instead of car park sites.
   ap.parking = { front: 'lot', ...(ap.parking || {}) };
+  ap.hangars = { ...(ap.hangars || {}) };
   if (ap.upgrades.garage1) ap.parking.southwest = 'garage';
   if (ap.upgrades.garage2) ap.parking.southeast = 'garage';
   delete ap.upgrades.garage1; delete ap.upgrades.garage2;
@@ -176,7 +181,7 @@ export const builtTerminals = (ap) => ap.terminals.filter((T) => isOpen(T));
 export const terminalBySlot = (ap, slot) => ap.terminals.find((T) => T.slot === slot);
 
 export function isOpen(T) {
-  return T.buildLeft <= 0 && (T.slot === 'main' || (T.connector && T.connector.buildLeft <= 0));
+  return !T.demolishing && T.buildLeft <= 0 && (T.slot === 'main' || (T.connector && T.connector.buildLeft <= 0));
 }
 
 export function runwayCount(ap) { return ap.upgrades.runway2 ? 2 : 1; }
@@ -221,7 +226,7 @@ export function securityRate(ap) {
 
 // Drivers a minute a car park site holds at a given level.
 export function parkingSiteCap(id, level) {
-  if (!level) return 0;
+  if (level !== 'lot' && level !== 'garage') return 0;
   return (id === 'front' ? PARKING.base : PARKING.lot.cap) + (level === 'garage' ? PARKING.garage.cap : 0);
 }
 
@@ -276,7 +281,10 @@ export function terminalCost(ap) {
 }
 
 export function gateCost(ap, T) {
-  return Math.round(TERMINAL.gateCost * Math.pow(TERMINAL.gateCostGrowth, T.gates - 3 + totalGates(ap) / 6) * site(ap).cost);
+  // A gate added to a heavy terminal is built heavy: it pays its share of
+  // the conversion, so the order you buy them in costs the same.
+  const heavyShare = T.heavy ? TERMINAL.heavyCost / 4 : 0;
+  return Math.round((TERMINAL.gateCost * Math.pow(TERMINAL.gateCostGrowth, T.gates - 3 + totalGates(ap) / 6) + heavyShare) * site(ap).cost);
 }
 
 export function heavyCost(ap, T) { return Math.round(TERMINAL.heavyCost * (T.gates / 4) * site(ap).cost); }
@@ -291,6 +299,73 @@ export function parkingNext(ap, id) {
   const lv = ap.parking[id];
   return !lv ? 'lot' : lv === 'lot' ? 'garage' : null;
 }
+
+// Landside sites hold a car park, a hotel, a rental car centre or a solar
+// farm. What a site can be turned into from what it is now:
+export function landsideOptions(ap, id) {
+  const u = ap.parking[id];
+  if (!u) return ['lot', ...LANDSIDE_ORDER];
+  return u === 'lot' ? ['garage'] : [];
+}
+export function landsideDef(use) { return use === 'lot' || use === 'garage' ? PARKING[use] : LANDSIDE[use]; }
+export function landsideCost(ap, id, use) { return Math.round(landsideDef(use).cost * site(ap).cost); }
+export function landsideBlocked(ap, id, use) {
+  const P = PARKING_SITES[id];
+  if (!parkingAvailable(ap, id)) return 'Kept for the crosswind runway';
+  if (!ap.plots[P.plot]) return `Buy the ${nm(ap, PLOTS[P.plot].name)} first`;
+  if (!landsideOptions(ap, id).includes(use)) return ap.parking[id] ? 'Already built' : 'Not here';
+  return null;
+}
+export function buildLandside(game, ap, id, use) {
+  const why = landsideBlocked(ap, id, use);
+  if (why) return why;
+  if (!spend(game, landsideCost(ap, id, use))) return 'Not enough cash';
+  ap.parking[id] = use;
+  ap.costLines = computeCosts(ap);
+  return null;
+}
+// What tearing it down gives back (the front lot came free).
+export function landsideRefund(ap, id) {
+  const u = ap.parking[id];
+  if (!u) return 0;
+  let v = 0;
+  if (u === 'lot' || u === 'garage') { if (id !== 'front') v += PARKING.lot.cost; if (u === 'garage') v += PARKING.garage.cost; } else v = LANDSIDE[u].cost;
+  return Math.round(v * site(ap).cost * DEMOLISH_REFUND);
+}
+export function demolishLandside(game, ap, id) {
+  if (!ap.parking[id]) return 'Nothing to tear down';
+  game.cash += landsideRefund(ap, id);
+  delete ap.parking[id];
+  ap.costLines = computeCosts(ap);
+  return null;
+}
+const countUse = (ap, use) => Object.values(ap.parking).filter((u) => u === use).length;
+
+// Terminal sites can hold a maintenance hangar instead.
+export const hangarCount = (ap) => Object.keys(ap.hangars || {}).length;
+export function hangarBlocked(ap, slot) {
+  if (slot === 'main') return 'The main terminal stays';
+  if (!slotAvailable(ap, slot)) return 'Kept for the crosswind runway';
+  if (!ap.plots[SLOTS[slot].plot]) return 'Buy the land first';
+  if (terminalBySlot(ap, slot) || ap.hangars[slot]) return 'Already built';
+  return null;
+}
+export function hangarCost(ap) { return Math.round(HANGAR.cost * site(ap).cost); }
+export function buildHangar(game, ap, slot) {
+  const why = hangarBlocked(ap, slot);
+  if (why) return why;
+  if (!spend(game, hangarCost(ap))) return 'Not enough cash';
+  ap.hangars[slot] = true;
+  ap.costLines = computeCosts(ap);
+  return null;
+}
+export function demolishHangar(game, ap, slot) {
+  if (!ap.hangars[slot]) return 'Nothing to tear down';
+  game.cash += Math.round(HANGAR.cost * site(ap).cost * DEMOLISH_REFUND);
+  delete ap.hangars[slot];
+  ap.costLines = computeCosts(ap);
+  return null;
+}
 export function parkingCost(ap, id) {
   const next = parkingNext(ap, id);
   return next ? Math.round(PARKING[next].cost * site(ap).cost) : 0;
@@ -298,6 +373,7 @@ export function parkingCost(ap, id) {
 export function parkingBlocked(ap, id) {
   const P = PARKING_SITES[id];
   if (!parkingAvailable(ap, id)) return 'Kept for the crosswind runway';
+  if (ap.parking[id] && ap.parking[id] !== 'lot' && ap.parking[id] !== 'garage') return `It is a ${landsideDef(ap.parking[id]).name.toLowerCase()}`;
   if (!ap.plots[P.plot]) return `Buy the ${nm(ap, PLOTS[P.plot].name)} first`;
   if (!parkingNext(ap, id)) return 'Full size';
   return null;
@@ -316,8 +392,10 @@ function parkingUpkeep(ap) {
   let v = 0;
   for (const id in ap.parking) {
     const lv = ap.parking[id];
-    if (id !== 'front') v += PARKING.lot.upkeep; // the front lot comes with the airport
-    if (lv === 'garage') v += PARKING.garage.upkeep;
+    if (lv === 'lot' || lv === 'garage') {
+      if (id !== 'front') v += PARKING.lot.upkeep; // the front lot comes with the airport
+      if (lv === 'garage') v += PARKING.garage.upkeep;
+    } else v += LANDSIDE[lv].upkeep;
   }
   return v;
 }
@@ -325,7 +403,7 @@ function parkingUpkeep(ap) {
 export function computeCosts(ap) {
   const m = site(ap).cost;
   const built = ap.terminals.filter((T) => T.buildLeft <= 0);
-  const hvacMult = (ap.upgrades.hvac ? UPGRADES.hvac.hvac : 1) * (ap.upgrades.solar ? UPGRADES.solar.hvac : 1);
+  const hvacMult = (ap.upgrades.hvac ? UPGRADES.hvac.hvac : 1) * (ap.upgrades.solar ? UPGRADES.solar.hvac : 1) * Math.pow(LANDSIDE.solar.hvac, countUse(ap, 'solar'));
   const gates = built.reduce((s, T) => s + T.gates, 0);
   const lines = [
     { key: 'atc', label: `Air traffic control (${controllers(ap)} controllers)`, v: controllers(ap) * COSTS.controller * staffing(ap, 'atc').cost },
@@ -335,7 +413,9 @@ export function computeCosts(ap) {
     { key: 'cleaning', label: 'Cleaning & upkeep', v: built.length * COSTS.cleaningBase + (ap.rolling ? ap.rolling.flowPerMin : 0) * COSTS.cleaningPerPaxMin },
     { key: 'runway', label: `Runway maintenance (${runwayCount(ap)})`, v: runwayCount(ap) * COSTS.runwayMaint },
     { key: 'connectors', label: 'Connector operations', v: ap.terminals.reduce((s, T) => s + (T.connector && T.connector.buildLeft <= 0 ? connectorUpkeep(T.connector) : 0), 0) },
-    { key: 'parking', label: 'Car park staff & lighting', v: parkingUpkeep(ap) },
+    { key: 'parking', label: 'Car parks, hotels & landside', v: parkingUpkeep(ap) },
+    { key: 'hangars', label: `Maintenance hangars (${hangarCount(ap)})`, v: hangarCount(ap) * HANGAR.upkeep },
+    { key: 'manager', label: 'Station manager', v: ap.manager ? MANAGER.salary : 0 },
     { key: 'land', label: 'Property tax', v: (Object.keys(ap.plots).length - 1) * COSTS.plotTax },
   ];
   for (const l of lines) l.v *= m;
@@ -347,7 +427,7 @@ export function computeCosts(ap) {
 // ======================================================================
 
 function turnTime(ap, cls) {
-  return AIRCRAFT[cls].turn * staffing(ap, 'ground').turn;
+  return AIRCRAFT[cls].turn * staffing(ap, 'ground').turn * Math.pow(HANGAR.turn, Math.min(2, hangarCount(ap)));
 }
 
 export function terminalSupports(ap, T, cls) {
@@ -526,6 +606,72 @@ export function reassignContract(ap, contractId, slot) {
 // building
 // ======================================================================
 
+// Move a flight's passengers from one terminal (its lounge and the line for
+// its connector) to another.
+function moveFlightPax(ap, fid, from, to) {
+  let n = from.waiting.get(fid) || 0;
+  from.waiting.delete(fid);
+  if (from.connector) n += from.connector.outQ.drop(fid);
+  if (n <= 0 || !to) return;
+  if (to.slot === 'main' || !to.connector) to.waiting.set(fid, (to.waiting.get(fid) || 0) + n);
+  else to.connector.outQ.push(fid, n);
+}
+
+export function demolishBlocked(ap, slot) {
+  const T = terminalBySlot(ap, slot);
+  if (!T) return 'Nothing to tear down';
+  if (slot === 'main') return 'The main terminal stays: security and the curb are there';
+  if (T.demolishing) return 'Already closing';
+  for (const c of ap.contracts) {
+    if (c.terminal === slot && !ap.terminals.some((o) => o !== T && isOpen(o) && terminalSupports(ap, o, c.cls))) {
+      return `No other terminal can take ${c.airline}'s ${AIRCRAFT[c.cls].name.toLowerCase()}s`;
+    }
+  }
+  return null;
+}
+export function terminalRefund(ap, T) {
+  const conn = T.connector ? connectorBuildCost(T.connector.type, T.slot, ap) : 0;
+  return Math.round((TERMINAL.baseCost * site(ap).cost + conn) * DEMOLISH_REFUND);
+}
+// Its routes move to the other terminals at once; it closes for good when
+// the aircraft at its gates have left.
+export function demolishTerminal(game, ap, slot) {
+  const why = demolishBlocked(ap, slot);
+  if (why) return why;
+  const T = terminalBySlot(ap, slot);
+  game.cash += terminalRefund(ap, T);
+  T.demolishing = true;
+  delete T.pendingConnector;
+  for (const c of ap.contracts) if (c.terminal === slot) c.terminal = suggestTerminal(ap, c.cls);
+  for (const f of ap.flights.values()) {
+    if (f.closed || f.terminal !== slot) continue;
+    if (f.plane && f.plane.gate >= 0 && f.plane.state !== 'holding' && f.plane.state !== 'inbound') continue; // already coming in here
+    const c = ap.contracts.find((x) => x.id === f.contract);
+    const to = (c && c.terminal) || suggestTerminal(ap, f.cls);
+    moveFlightPax(ap, f.id, T, terminalBySlot(ap, to));
+    f.terminal = to;
+  }
+  ap.costLines = computeCosts(ap);
+  return null;
+}
+
+function finishDemolition(ap, T) {
+  for (const [fid] of [...T.waiting]) {
+    const f = ap.flights.get(fid);
+    moveFlightPax(ap, fid, T, f && f.terminal !== T.slot ? terminalBySlot(ap, f.terminal) : null);
+  }
+  const C = T.connector;
+  if (C) {
+    for (const x of C.outQ) { const f = ap.flights.get(x.f); const to = f && terminalBySlot(ap, f.terminal); if (to && to !== T) moveFlightPax(ap, x.f, T, to); }
+    ap.paxServed += C.inQ.total;
+    for (const x of C.transit) if (x.dir === 'in') ap.paxServed += x.n;
+    for (const b of C.fleet || []) for (const x of b.load) if (x.dir === 'in') ap.paxServed += x.n;
+  }
+  ap.terminals = ap.terminals.filter((x) => x !== T);
+  ap.costLines = computeCosts(ap);
+  notify(ap, 'built', `${nm(ap, SLOTS[T.slot].name)} has been torn down`);
+}
+
 function spend(game, amount) {
   if (game.cash < amount) return false;
   game.cash -= amount;
@@ -545,6 +691,7 @@ export function buyPlot(game, ap, plot) {
 export function buildTerminal(game, ap, slot, connectorType, buses = 2) {
   if (terminalBySlot(ap, slot)) return 'Already built';
   if (!slotAvailable(ap, slot)) return 'Kept for the crosswind runway';
+  if (ap.hangars[slot]) return 'A hangar stands there';
   if (!ap.plots[SLOTS[slot].plot]) return 'Buy the land first';
   if (!connectorAllowed(connectorType, slot)) return 'That connector cannot reach this site';
   const cost = terminalCost(ap) + connectorBuildCost(connectorType, slot, ap);
@@ -645,8 +792,9 @@ export function upgradeBlocked(ap, key) {
   const U = UPGRADES[key];
   if (U.onlyAt && !site(ap)[U.onlyAt]) return 'Not at this airport';
   if (ap.upgrades[key]) return 'Owned';
-  if (key === 'crosswind' && terminalBySlot(ap, 'fareast')) return `The ${nm(ap, SLOTS.fareast.name)} terminal is in the way`;
-  if (key === 'crosswind' && ap.parking.fareast) return `The ${nm(ap, PARKING_SITES.fareast.name).toLowerCase()} is in the way`;
+  if (key === 'crosswind' && ap.hangars.fareast) return 'The hangar on the far east field is in the way: tear it down first';
+  if (key === 'crosswind' && terminalBySlot(ap, 'fareast')) return `The ${nm(ap, SLOTS.fareast.name)} terminal is in the way: tear it down first`;
+  if (key === 'crosswind' && ap.parking.fareast) return `The ${nm(ap, PARKING_SITES.fareast.name).toLowerCase()} is in the way: tear it down first`;
   if (U.needs && !ap.upgrades[U.needs]) return `Needs ${UPGRADES[U.needs].name}`;
   if (U.needsPlot && !ap.plots[U.needsPlot]) return `Needs the ${nm(ap, PLOTS[U.needsPlot].name)}`;
   return null;
@@ -669,6 +817,37 @@ export function buildParking(game, ap, id) {
   ap.costLines = computeCosts(ap);
   return null;
 }
+
+// How an offer would load this airport if signed at the terminal it would
+// go to: the highest load of each kind, and whether it fits comfortably.
+export function offerFit(ap, o, slot = suggestTerminal(ap, o.cls)) {
+  if (classAllowed(ap, o.cls) || !slot) return { slot: null, fits: false, why: classAllowed(ap, o.cls) || 'No terminal can take it' };
+  const r = loadReport(ap, { ...o, terminal: slot });
+  const tr = r.terminals.find((t) => t.slot === slot);
+  const loads = {
+    runway: r.runway.demand / r.runway.cap,
+    gates: tr ? tr.gateDemand / tr.gates : 0,
+    security: r.security.demand / r.security.cap,
+    connector: tr && tr.connCap != null ? tr.pax / Math.max(1, tr.connCap) : 0,
+  };
+  // running late: an unhappy airline, or several recent late departures
+  const recentLate = (ap.lateLog || []).filter((e) => ap.t - e.t < 240).length;
+  const late = ap.contracts.some((c) => c.unhappyFor > 0) || (ap.rolling.otp < 0.85 && recentLate >= 3);
+  const over = Object.entries(loads).filter(([k, v]) => v > MANAGER.fits[k]).map(([k]) => k);
+  return { slot, loads, late, fits: !late && !over.length, why: late ? 'flights are already running late' : over.length ? `${over.join(', ')} would be too busy` : '' };
+}
+
+// The station manager, if hired, works the contract desk: signs what fits,
+// declines what does not, a little after each offer comes in.
+function runManager(game, ap) {
+  for (const o of [...ap.offers]) {
+    if (ap.t - (o.seen || (o.seen = ap.t)) < 4) continue;
+    const fit = offerFit(ap, o);
+    if (fit.fits) { acceptOffer(game, ap, o.id, fit.slot); notify(ap, 'offer', `Station manager signed ${o.airline} to ${o.city}`); }
+    else { declineOffer(ap, o.id); notify(ap, 'offer', `Station manager declined ${o.airline}: ${fit.why}`); }
+  }
+}
+export function setManager(ap, on) { ap.manager = !!on; ap.costLines = computeCosts(ap); }
 
 export function setStaffing(ap, dept, level) {
   ap.staffing[dept] = level;
@@ -714,8 +893,12 @@ export function step(game, ap, dt) {
   ap.t += dt;
   const t = ap.t;
 
-  // construction
-  for (const T of ap.terminals) {
+  // construction and demolition
+  for (const T of [...ap.terminals]) {
+    if (T.demolishing) {
+      if (!(T.gateUse || []).some(Boolean)) finishDemolition(ap, T);
+      continue;
+    }
     if (T.buildLeft > 0) {
       T.buildLeft -= dt;
       if (T.buildLeft <= 0) { ap.costLines = computeCosts(ap); notify(ap, 'built', `${nm(ap, SLOTS[T.slot].name)} is open`); }
@@ -758,9 +941,10 @@ export function step(game, ap, dt) {
     ap.nextOfferAt = t + CONTRACTS.offerEvery / SITES[ap.siteIndex].demand * (0.7 + ap.rand() * 0.6);
     if (ap.offers.length < CONTRACTS.maxOffers) {
       ap.offers.push(rollOffer(ap, game));
-      notify(ap, 'offer', 'New contract offer');
+      if (!ap.manager) notify(ap, 'offer', 'New contract offer');
     }
   }
+  if (ap.manager && ap.offers.length) runManager(game, ap);
   ap.offers = ap.offers.filter((o) => o.expires > t);
 
   scheduleFlights(game, ap);
@@ -776,6 +960,7 @@ export function step(game, ap, dt) {
   const costPerSec = cost / 60 * dt;
   game.cash -= costPerSec;
   ap.bucket.costs = (ap.bucket.costs || 0) - costPerSec;
+  if (hangarCount(ap)) earn(game, ap, 'maintenance', hangarCount(ap) * HANGAR.income * site(ap).rev / 60 * dt);
 
   ap.bucketT += dt;
   if (ap.bucketT >= 1) {
@@ -1593,8 +1778,10 @@ function findGate(ap, p) {
   let T = terminalBySlot(ap, p.f.terminal);
   if (!T || !isOpen(T) || !terminalSupports(ap, T, p.cls)) {
     // Contract moved or terminal closed: fall back to any terminal that fits.
+    const was = T;
     T = ap.terminals.find((x) => isOpen(x) && terminalSupports(ap, x, p.cls));
     if (!T) return -1;
+    if (was) moveFlightPax(ap, p.f.id, was, T);
     p.f.terminal = T.slot;
   }
   if (!T.gateUse || T.gateUse.length !== T.gates) {
@@ -1628,6 +1815,7 @@ function turnaround(game, ap, p, dt) {
   const n = target - p.deplaned;
   if (n > 0) {
     p.deplaned = target;
+    ap.rentalWant = (ap.rentalWant || 0) + n * LANDSIDE.rental.share;
     if (T.slot === 'main') {
       ap.paxServed += n;
       ap.rolling.flowPerMin += 0; // counted in served
@@ -1778,6 +1966,21 @@ function flowPassengers(game, ap, dt) {
     const drive = PAX.driveShare * (ap.upgrades.rail ? 0.7 : 1);
     earn(game, ap, 'parking', landside * drive * parkingShare * PAX.parkingPerPax * s.rev);
     if (ap.fx) ap.fx('curb', { n: landside });
+    // some stayed at an airport hotel the night before
+    const hotels = countUse(ap, 'hotel');
+    if (hotels) {
+      const H = LANDSIDE.hotel;
+      const guests = Math.min(landside * H.share, hotels * H.cap / 60 * dt);
+      earn(game, ap, 'hotel', guests * H.perPax * s.rev);
+    }
+  }
+  // arrivals who rent a car (counted as they get off their aircraft)
+  const rentals = countUse(ap, 'rental');
+  if (rentals && ap.rentalWant) {
+    const RC = LANDSIDE.rental;
+    const n = Math.min(ap.rentalWant, rentals * RC.cap / 60 * dt);
+    earn(game, ap, 'rental', n * RC.perPax * s.rev);
+    ap.rentalWant = Math.min(ap.rentalWant - n, rentals * RC.cap / 6); // the rest give up and take a taxi
   }
   ap.rolling.landsidePerMin += (landside / dt * 60 - ap.rolling.landsidePerMin) * Math.min(1, dt / 20);
 

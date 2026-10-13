@@ -73,6 +73,13 @@ way: their runways run east to west. The remote fields, High Mesa and
 Northgate, keep their far east field for a crosswind runway: north to south,
 departures only, used by every flight from a main-terminal-row gate.
 
+**Change your mind.** A terminal site takes a terminal or a maintenance
+hangar; a landside site a car park, hotel, rental car centre or solar farm.
+Anything but the main terminal can be torn down for a quarter of its cost.
+With several airports, the All tab runs them together: each airport's money,
+on-time and top recommendation, every open offer to sign or decline, and a
+station manager to hire who signs offers that fit and declines the rest.
+
 **Everyone is accounted for.** Cars drop departing passengers at the curb and
 pick arrivals up; shuttle buses load at one stop and unload at the other;
 passengers wait in the hall until their aircraft has a gate, then gather at

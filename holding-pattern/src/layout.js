@@ -76,15 +76,16 @@ export const PLOTS = {
   south:   { name: 'South landside', rects: [{ x: 430, y: 940, w: 1140, h: 190 }], price: 38000 },
   north:   { name: 'North field',    rects: [{ x: 180, y: 25, w: 1640, h: 125 }], price: 140000 },
 };
-// Room for a car park on each parcel, landside of the terminals.
+// A landside site on each parcel: a car park, hotel, rental car centre or
+// solar farm (see LANDSIDE in config.js).
 export const PARKING_SITES = {
-  front:     { name: 'Front car park',      code: 'P1', plot: 'core',    x: 878,  y: 778, w: 244, h: 150 },
-  west:      { name: 'West car park',       code: 'P2', plot: 'west',    x: 480,  y: 778, w: 310, h: 146 },
-  east:      { name: 'East car park',       code: 'P3', plot: 'east',    x: 1210, y: 778, w: 310, h: 146 },
-  southwest: { name: 'South-west car park', code: 'P4', plot: 'south',   x: 470,  y: 958, w: 360, h: 108 },
-  southeast: { name: 'South-east car park', code: 'P5', plot: 'south',   x: 1170, y: 958, w: 360, h: 108 },
-  farwest:   { name: 'Far west car park',   code: 'P6', plot: 'farwest', x: 100,  y: 778, w: 300, h: 146 },
-  fareast:   { name: 'Far east car park',   code: 'P7', plot: 'fareast', x: 1600, y: 778, w: 300, h: 146 },
+  front:     { name: 'Front site',      code: 'L1', plot: 'core',    x: 878,  y: 778, w: 244, h: 150 },
+  west:      { name: 'West site',       code: 'L2', plot: 'west',    x: 480,  y: 778, w: 310, h: 146 },
+  east:      { name: 'East site',       code: 'L3', plot: 'east',    x: 1210, y: 778, w: 310, h: 146 },
+  southwest: { name: 'South-west site', code: 'L4', plot: 'south',   x: 470,  y: 958, w: 360, h: 108 },
+  southeast: { name: 'South-east site', code: 'L5', plot: 'south',   x: 1170, y: 958, w: 360, h: 108 },
+  farwest:   { name: 'Far west site',   code: 'L6', plot: 'farwest', x: 100,  y: 778, w: 300, h: 146 },
+  fareast:   { name: 'Far east site',   code: 'L7', plot: 'fareast', x: 1600, y: 778, w: 300, h: 146 },
 };
 export const PARKING_ORDER = ['front', 'west', 'east', 'southwest', 'southeast', 'farwest', 'fareast'];
 // On sites drawn mirrored (runways the other way) west and east swap in

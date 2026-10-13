@@ -287,7 +287,7 @@ export function parkingFixes(ap, short = 1) {
     const add = S.parkingSiteCap(id, next) - S.parkingSiteCap(id, ap.parking[id]);
     if (ap.plots[P.plot]) {
       const cost = S.parkingCost(ap, id);
-      opts.push({ per: cost / add, add, f: { ...fix(next === 'lot' ? `Build the ${S.nm(ap, P.name).toLowerCase()}` : `Garage on the ${S.nm(ap, P.name).toLowerCase()}`, 'parking', { id }, cost), why: `+${add} drivers a minute` } });
+      opts.push({ per: cost / add, add, f: { ...fix(next === 'lot' ? `Car park on the ${S.nm(ap, P.name).toLowerCase()}` : `Garage on the ${S.nm(ap, P.name).toLowerCase()}`, 'parking', { id }, cost), why: `+${add} drivers a minute` } });
     } else if (next === 'lot' && (!PLOTS[P.plot].needs || ap.plots[PLOTS[P.plot].needs])) {
       const cost = S.plotCost(ap, P.plot) + S.parkingCost(ap, id);
       opts.push({ per: cost / add * 1.5, add, f: fix(`Buy the ${S.nm(ap, PLOTS[P.plot].name)} (room for a car park)`, 'plot', { id: P.plot }, S.plotCost(ap, P.plot)) });
@@ -306,7 +306,7 @@ export function parkingFixes(ap, short = 1) {
 
 export function moneyBreakdown(ap) {
   const pm = ap.perMin;
-  const revenue = ['landing', 'paxFees', 'retail', 'parking'].reduce((s, k) => s + Math.max(0, pm[k] || 0), 0);
+  const revenue = ['landing', 'paxFees', 'retail', 'parking', 'hotel', 'rental', 'maintenance'].reduce((s, k) => s + Math.max(0, pm[k] || 0), 0);
   const costs = ap.costLines.reduce((s, l) => s + l.v, 0);
   return { revenue, costs, refunds: -(pm.refunds || 0) };
 }
