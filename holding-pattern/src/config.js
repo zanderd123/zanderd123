@@ -131,9 +131,10 @@ export const UPGRADES = {
   ctScanners: { name: 'CT security scanners',  cost: 40000,  desc: 'Each security lane screens 40% more passengers.', security: 1.4 },
   longRunway: { name: 'Runway extension',      cost: 110000, desc: 'Lets superjumbos land and take off.', needsPlot: 'east' },
   runway2:    { name: 'Second runway',         cost: 260000, desc: 'A north runway for arrivals; departures keep the main one. Arrivals must cross the main runway.', needsPlot: 'north' },
+  crosswind:  { name: 'Crosswind runway',      cost: 220000, desc: 'A short north–south runway on the far east field, for departures only. Flights from the main-terminal row take off from it, leaving the main runway freer for everyone else.', needsPlot: 'fareast', onlyAt: 'crosswind' },
   rail:       { name: 'Rail link',             cost: 220000, desc: 'A train station: +12% passenger fees and less driving.', paxFee: 1.12, needsPlot: 'south' },
 };
-export const UPGRADE_ORDER = ['radar', 'rapidExits', 'hvac', 'ctScanners', 'solar', 'cat3', 'automation', 'longRunway', 'rail', 'runway2'];
+export const UPGRADE_ORDER = ['radar', 'rapidExits', 'hvac', 'ctScanners', 'solar', 'cat3', 'automation', 'longRunway', 'rail', 'runway2', 'crosswind'];
 
 export const SECURITY = { laneCost: 3000, laneGrowth: 1.18, maxLanes: 14, startLanes: 2 };
 // Car parks. Every parcel of land has room for one, next to or in front of
@@ -164,10 +165,11 @@ export const UNLOCKS = {
 export const SITES = [
   { id: 'PWR', name: 'Pinewood Regional',   x: 0.22, y: 0.36, rev: 1.0,  cost: 1.0, demand: 1.0,  price: 0,      theme: 'forest' },
   { id: 'BSI', name: 'Bayside International', x: 0.38, y: 0.62, rev: 1.7,  cost: 1.3, demand: 1.15, price: 75000, theme: 'bay', mirror: true },
-  { id: 'HMA', name: 'High Mesa',           x: 0.13, y: 0.72, rev: 2.9,  cost: 1.5, demand: 1.3,  price: 650000, theme: 'desert', longRunway: true, maxGates: 3,
-    blurb: 'Hot and high: thin air needs a long runway, and it comes built. A rural field: terminals hold 3 gates.' },
+  { id: 'HMA', name: 'High Mesa',           x: 0.13, y: 0.72, rev: 2.9,  cost: 1.5, demand: 1.3,  price: 650000, theme: 'desert', longRunway: true, maxGates: 3, crosswind: true,
+    blurb: 'Hot and high: thin air needs a long runway, and it comes built. A rural field: terminals hold 3 gates, and the far east field has room for a crosswind departure runway.' },
   { id: 'HBC', name: 'Harbor City',         x: 0.58, y: 0.40, rev: 4.9,  cost: 2.25, demand: 1.45, price: 3.2e6, theme: 'harbor' },
-  { id: 'NGT', name: 'Northgate',           x: 0.47, y: 0.14, rev: 8.3,  cost: 3.0, demand: 1.6,  price: 1.6e7, theme: 'snow', mirror: true },
+  { id: 'NGT', name: 'Northgate',           x: 0.47, y: 0.14, rev: 8.3,  cost: 3.0, demand: 1.6,  price: 1.6e7, theme: 'snow', mirror: true, crosswind: true,
+    blurb: 'A remote northern field. Its runways face the other way, and the far field has room for a crosswind departure runway.' },
   { id: 'CRL', name: 'Coral Coast',         x: 0.78, y: 0.70, rev: 14,   cost: 4.0, demand: 1.75, price: 8e7,   theme: 'tropical', longRunway: true,
     blurb: 'Long-haul resort traffic: the long runway comes built.' },
   { id: 'MRD', name: 'Meridian Hub',        x: 0.84, y: 0.26, rev: 24,   cost: 5.3, demand: 1.9,  price: 4e8,   theme: 'city', mirror: true },

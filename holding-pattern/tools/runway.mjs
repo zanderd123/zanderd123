@@ -3,9 +3,9 @@
 import { createAirport, step, acceptOffer } from '../src/sim.js';
 import * as S from '../src/sim.js';
 
-function measure(label, setup) {
+function measure(label, setup, siteIndex = 0) {
   const game = { cash: 1e9, airports: [] };
-  const ap = createAirport(0, 1);
+  const ap = createAirport(siteIndex, 1);
   game.airports.push(ap);
   for (const p of ['west', 'east', 'farwest', 'fareast', 'north']) S.buyPlot(game, ap, p);
   for (const s of ['midcenter', 'westwing', 'eastwing', 'midwest', 'mideast']) S.buildTerminal(game, ap, s, 'tunnel');
@@ -26,8 +26,10 @@ function measure(label, setup) {
       if ((p.state === 'rollout' || p.state === 'takeoff') && !seen.has(p.id + p.state)) { seen.add(p.id + p.state); moves++; }
     }
   }
-  console.log(`${label}: ${(moves / 10).toFixed(1)} movements/min measured · model says ${S.runwayPhysical(ap).toFixed(1)} · holding ${ap.holdQueue.length} · dep queue ${ap.depQueue.length}`);
+  console.log(`${label}: ${(moves / 10).toFixed(1)} movements/min measured · model says ${S.loadReport(ap).runway.cap.toFixed(1)} · holding ${ap.holdQueue.length} · dep queue ${ap.depQueue.length}`);
 }
 measure('one runway', () => {});
 measure('rapid exits', (ap) => { ap.upgrades.rapidExits = true; });
 measure('two runways', (ap) => { ap.upgrades.rapidExits = true; ap.upgrades.runway2 = true; });
+measure('crosswind (High Mesa)', (ap) => { ap.upgrades.rapidExits = true; ap.upgrades.crosswind = true; }, 2);
+measure('two runways and crosswind (High Mesa)', (ap) => { ap.upgrades.rapidExits = true; ap.upgrades.runway2 = true; ap.upgrades.crosswind = true; }, 2);

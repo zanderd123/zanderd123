@@ -17,7 +17,7 @@ function fix(label, act, data, cost) {
 
 function upgradeFix(ap, key, why) {
   const blocked = S.upgradeBlocked(ap, key);
-  if (blocked === 'Owned') return null;
+  if (blocked === 'Owned' || blocked === 'Not at this airport') return null;
   const U = UPGRADES[key];
   if (blocked && U.needsPlot && !ap.plots[U.needsPlot]) {
     return fix(`Buy the ${S.nm(ap, PLOTS[U.needsPlot].name)} (needed for ${U.name.toLowerCase()})`, 'plot', { id: U.needsPlot }, S.plotCost(ap, U.needsPlot));
@@ -46,6 +46,7 @@ export function advise(game, ap) {
     } else {
       fixes.push(upgradeFix(ap, 'rapidExits', 'planes leave the runway sooner'));
       fixes.push(upgradeFix(ap, 'runway2', 'about 30% more movements'));
+      fixes.push(upgradeFix(ap, 'crosswind', 'main-terminal departures take off from it'));
     }
     add(rwU >= 1 ? 3 : 2, 'runway', rwU >= 1 ? 'The runway is overbooked' : 'The runway is nearly full',
       `Your routes need ${rep.runway.demand.toFixed(1)} landings and take-offs a minute; you can handle ${rep.runway.cap.toFixed(1)}. ` +
@@ -151,6 +152,7 @@ export function advise(game, ap) {
       }
       fixes.push(upgradeFix(ap, 'rapidExits', 'planes leave the runway sooner'));
       fixes.push(upgradeFix(ap, 'runway2', 'about 30% more movements'));
+      fixes.push(upgradeFix(ap, 'crosswind', 'main-terminal departures take off from it'));
     } else if (top === 'taxi') {
       cause = 'circled because the taxiways were already full of aircraft';
       fixes.push(upgradeFix(ap, 'rapidExits', 'planes leave the runway sooner'));

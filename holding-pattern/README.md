@@ -41,7 +41,7 @@ and offers warn before you sign another route.
 
 | Where | What backs up | What fixes it |
 |---|---|---|
-| Runway | Arrivals hold west of the field; departures queue at the hold line | Approach radar, rapid-exit taxiways, tower automation, a second runway, more terminals (each adds a controller) |
+| Runway | Arrivals hold west of the field; departures queue at the hold line | Approach radar, rapid-exit taxiways, tower automation, a second runway, a crosswind departure runway (remote sites), more terminals (each adds a controller) |
 | Gates | Aircraft circle until a gate at their terminal is free | More gates, more terminals, faster ground crews |
 | Security | The line spills out of the terminal onto the curb | More lanes, CT scanners, surge staffing |
 | Connectors | Passengers pile up on the platforms | More buses, upgrades, a better connector |
@@ -69,7 +69,9 @@ bay, High Mesa in the desert (hot and high: the long runway comes built, and
 as a rural field its terminals hold 3 gates), Harbor City by the docks,
 Northgate in the snow, Coral Coast on a tropical shore (long runway built)
 and Meridian Hub in the city. Bayside, Northgate and Meridian face the other
-way: their runways run east to west.
+way: their runways run east to west. The remote fields, High Mesa and
+Northgate, keep their far east field for a crosswind runway: north to south,
+departures only, used by every flight from a main-terminal-row gate.
 
 **Everyone is accounted for.** Cars drop departing passengers at the curb and
 pick arrivals up; shuttle buses load at one stop and unload at the other;

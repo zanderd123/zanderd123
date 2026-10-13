@@ -31,6 +31,18 @@ export const HOLD_POINT = { x: 240, y: 268 };
 export const B_TURN_X = 240; // where departures leave taxiway B for the hold point
 export const IAF = { x: 60 };
 
+// The crosswind runway some sites can build: north to south across the far
+// east field, departures only, taking off southbound. Main-row departures
+// reach it along the apron lane, which turns north to its hold point.
+export const XW = { x: 1775, y0: 400, y1: 1050 };
+export const XW_HOLD = { x: 1705, y: 445 };
+export function pathGateToCrosswind(stand) {
+  return [{ x: stand.x, y: LANE2 }, { x: XW_HOLD.x, y: LANE2 }, { x: XW_HOLD.x, y: XW_HOLD.y }];
+}
+export function crosswindTakeoff() {
+  return [{ x: XW_HOLD.x, y: XW_HOLD.y }, { x: XW_HOLD.x + 8, y: XW.y0 + 14 }, { x: XW.x - 26, y: XW.y0 + 4 }, { x: XW.x, y: XW.y0 + 30 }, { x: XW.x, y: XW.y1 + 700 }];
+}
+
 // Taxilanes between taxiway B and the apron lane, and which way they run.
 export const TAXILANES = [
   { x: 90, dir: 'S', plot: 'farwest' },

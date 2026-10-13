@@ -6,11 +6,11 @@ import {
   RW, TWY_A, TWY_B, LANE2, RUNWAY_HALF, EXITS, LONG_RUNWAY_X1, HOLD_POINT, IAF,
   TAXILANES, PLOTS, SLOTS, SLOT_ORDER, MAIN_BLDG, MID_BLDG, SERVICE_Y, CURB_Y,
   HIGHWAY_Y, RAMP_IN_X, RAMP_OUT_X, MAIN_STAND_Y, MID_STAND_Y, TERMINAL_CODES,
-  slotBuilding, gateStand, lanesFor, connectorRoute, twyBSpan, PARKING_SITES, PARKING_ORDER, placeName,
+  slotBuilding, gateStand, lanesFor, connectorRoute, twyBSpan, PARKING_SITES, PARKING_ORDER, placeName, XW, XW_HOLD,
 } from './layout.js';
 import { mulberry32, pointAlong, pathLength, clamp, money } from './util.js';
 import { FLIGHT } from './config.js';
-import { isOpen, terminalBySlot } from './sim.js';
+import { isOpen, terminalBySlot, slotAvailable, parkingAvailable } from './sim.js';
 
 const C = {
   grass: '#7f9f63', grassB: '#86a76a', farmA: '#b5a46b', farmB: '#a7ad6c', farmEdge: '#8a8455',
@@ -34,6 +34,10 @@ const THEMES = {
   city:     { ground: '#7a8c66', stripe: '#80926b', farmA: '#a49f78', farmB: '#989d70', farmEdge: '#76735a', outside: '#6d7378', decor: 'building' },
 };
 const themeOf = (ap) => THEMES[SITES[ap.siteIndex].theme] || THEMES.forest;
+// Where a site keeps the far east field for a crosswind runway, nothing
+// else is drawn there: no taxilane, and the apron and roads stop short.
+const hasXW = (ap) => !!SITES[ap.siteIndex].crosswind;
+const lanesOf = (ap) => lanesFor(ap.plots).filter((L) => !(hasXW(ap) && L.plot === 'fareast'));
 
 // ------------------------------------------------------------------ camera
 
@@ -205,7 +209,7 @@ function drawStatic(ap, res) {
     g.fillRect(x0, TWY_B - 14, x1 - x0, MID_BLDG.y0 - (TWY_B - 14));
   }
   // taxilanes connecting the two rows
-  for (const L of lanesFor(ap.plots)) {
+  for (const L of lanesOf(ap)) {
     g.fillStyle = C.concrete;
     g.fillRect(L.x - 20, TWY_B, 40, LANE2 - TWY_B);
   }
@@ -230,7 +234,7 @@ function drawStatic(ap, res) {
     g.moveTo(ex - 80, RW[0].y + RUNWAY_HALF); g.lineTo(ex - 30, RW[0].y + RUNWAY_HALF);
     g.lineTo(ex + 14, TWY_A - 14); g.lineTo(ex - 22, TWY_A - 14); g.closePath(); g.fill();
   }
-  for (const L of lanesFor(ap.plots)) if (L.dir === 'N') g.fillRect(L.x - 14, TWY_A, 28, TWY_B - TWY_A);
+  for (const L of lanesOf(ap)) if (L.dir === 'N') g.fillRect(L.x - 14, TWY_A, 28, TWY_B - TWY_A);
   // departure hold point and line-up
   g.fillRect(HOLD_POINT.x - 14, RW[0].y, 28, TWY_B - RW[0].y);
   // north runway taxiway and crossings
@@ -249,6 +253,7 @@ function drawStatic(ap, res) {
   const ends = (a) => (MIRROR ? [a[1], a[0]] : a);
   runway(g, RW[0], ap.upgrades.longRunway ? LONG_RUNWAY_X1 : RW[0].x1, ends(ap.upgrades.runway2 ? ['09R', '27L'] : ['09', '27']));
   if (ap.upgrades.runway2) runway(g, RW[1], RW[1].x1, ends(['09L', '27R']));
+  if (ap.upgrades.crosswind) crosswind(g);
 
   // yellow centrelines, with arrows showing which way each one runs
   g.strokeStyle = C.yellow; g.lineWidth = 1.6;
@@ -260,13 +265,13 @@ function drawStatic(ap, res) {
     line(g, [[200, RW[1].exitY], [1820, RW[1].exitY]]);
     for (const ex of EXITS) { curveLine(g, ex - 60, RW[1].y, ex, RW[1].exitY); line(g, [[ex, RW[1].exitY], [ex, RW[0].y - RUNWAY_HALF - 6]]); line(g, [[ex, RW[0].y + RUNWAY_HALF + 6], [ex, TWY_A]]); }
   }
-  for (const L of lanesFor(ap.plots)) line(g, [[L.x, L.dir === 'N' ? TWY_A : TWY_B], [L.x, LANE2]]);
+  for (const L of lanesOf(ap)) line(g, [[L.x, L.dir === 'N' ? TWY_A : TWY_B], [L.x, LANE2]]);
   for (const [x0, x1] of owned(60, 1940)) line(g, [[x0, LANE2], [x1, LANE2]]);
   g.fillStyle = C.yellow;
   for (let x = 640; x < 1800; x += 220) arrow(g, x, TWY_A, 0);
   for (let x = bx1 - 120; x > bx0 + 60; x -= 220) arrow(g, x, TWY_B, Math.PI);
   for (const [x0, x1] of owned(60, 1940)) for (let x = x0 + 60; x < x1 - 30; x += 200) arrow(g, x, LANE2, 0);
-  for (const L of lanesFor(ap.plots)) arrow(g, L.x, (TWY_B + LANE2) / 2, L.dir === 'S' ? Math.PI / 2 : -Math.PI / 2);
+  for (const L of lanesOf(ap)) arrow(g, L.x, (TWY_B + LANE2) / 2, L.dir === 'S' ? Math.PI / 2 : -Math.PI / 2);
   // hold-short bars at the departure hold point
   g.strokeStyle = C.yellow; g.lineWidth = 2;
   for (const dy of [0, 4]) line(g, [[HOLD_POINT.x - 14, RW[0].y + RUNWAY_HALF + 16 + dy], [HOLD_POINT.x + 14, RW[0].y + RUNWAY_HALF + 16 + dy]]);
@@ -285,7 +290,7 @@ function ownedX(ap, _slot, def, right = false) {
   let v = def;
   for (const id of ['west', 'farwest', 'east', 'fareast']) {
     if (!ap.plots[id]) continue;
-    for (const r of PLOTS[id].rects) v = right ? Math.max(v, r.x + r.w - 10) : Math.min(v, r.x + 10);
+    for (const r of PLOTS[id].rects) v = right ? Math.max(v, id === 'fareast' && hasXW(ap) ? XW.x - 60 : r.x + r.w - 10) : Math.min(v, r.x + 10);
   }
   return v;
 }
@@ -297,7 +302,7 @@ function ownedSpan(ap, x0, x1) {
   if (ap.plots.west) pieces.push([430, 800]);
   if (ap.plots.east) pieces.push([1200, 1570]);
   if (ap.plots.farwest) pieces.push([60, 430]);
-  if (ap.plots.fareast) pieces.push([1570, 1940]);
+  if (ap.plots.fareast) pieces.push([1570, hasXW(ap) ? XW.x - 50 : 1940]);
   pieces.sort((a, b) => a[0] - b[0]);
   for (const p of pieces) {
     const last = spans[spans.length - 1];
@@ -399,6 +404,37 @@ function runway(g, rw, x1, labels) {
   g.font = '700 13px "Barlow Condensed", "Arial Narrow", sans-serif';
   g.textAlign = 'center'; g.textBaseline = 'middle';
   g.translate(x1 - 48, y); g.rotate(-Math.PI / 2); if (MIRROR) g.scale(-1, 1); g.fillText(labels[1], 0, 0); g.restore();
+}
+
+// The crosswind runway: north to south, departures only, with its link
+// from the apron lane and the hold line at the top.
+function crosswind(g) {
+  const h = RUNWAY_HALF;
+  g.fillStyle = C.asphalt;
+  g.fillRect(XW_HOLD.x - 14, XW.y0 - 6, 28, LANE2 - XW.y0 + 20);
+  g.fillRect(XW_HOLD.x - 14, XW.y0 - 6, XW.x - XW_HOLD.x + 14, 34);
+  g.fillStyle = 'rgba(0,0,0,0.08)'; g.fillRect(XW.x - h - 8, XW.y0 - 20, 2 * h + 16, XW.y1 - XW.y0 + 40);
+  g.fillStyle = '#4a4e55'; g.fillRect(XW.x - h, XW.y0 - 10, 2 * h, XW.y1 - XW.y0 + 20);
+  g.fillStyle = C.paint;
+  g.fillRect(XW.x - h + 1, XW.y0 - 10, 1.2, XW.y1 - XW.y0 + 20); g.fillRect(XW.x + h - 2.2, XW.y0 - 10, 1.2, XW.y1 - XW.y0 + 20);
+  for (let y = XW.y0 + 70; y < XW.y1 - 60; y += 36) g.fillRect(XW.x - 0.8, y, 1.6, 20);
+  for (const [ty, dir] of [[XW.y0, 1], [XW.y1, -1]]) {
+    for (let k = -3; k <= 3; k++) { if (k) g.fillRect(XW.x + k * 4.4 - 1.2, ty + (dir > 0 ? 2 : -24), 2.4, 22); }
+  }
+  g.save();
+  g.font = '700 13px "Barlow Condensed", "Arial Narrow", sans-serif';
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.translate(XW.x, XW.y0 + 46); if (MIRROR) g.scale(-1, 1); g.fillText('18', 0, 0);
+  g.restore();
+  g.save();
+  g.font = '700 13px "Barlow Condensed", "Arial Narrow", sans-serif';
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.translate(XW.x, XW.y1 - 46); g.rotate(Math.PI); if (MIRROR) g.scale(-1, 1); g.fillText('36', 0, 0);
+  g.restore();
+  g.strokeStyle = C.yellow; g.lineWidth = 1.6;
+  line(g, [[XW_HOLD.x, LANE2], [XW_HOLD.x, XW_HOLD.y], [XW_HOLD.x + 8, XW.y0 + 14], [XW.x - 26, XW.y0 + 4], [XW.x, XW.y0 + 30]]);
+  g.lineWidth = 2;
+  for (const dy of [0, 4]) line(g, [[XW_HOLD.x - 14, XW_HOLD.y - 18 - dy], [XW_HOLD.x + 14, XW_HOLD.y - 18 - dy]]);
 }
 
 function parkingLot(g, x, y, w, h, R) {
@@ -858,7 +894,7 @@ export function render(g, w, h, dpr, cam, ap, view) {
   // empty sites on land you own
   for (const id of SLOT_ORDER) {
     if (terminalBySlot(ap, id)) continue;
-    if (!ap.plots[SLOTS[id].plot]) continue;
+    if (!ap.plots[SLOTS[id].plot] || !slotAvailable(ap, id)) continue;
     const b = slotBuilding(id);
     const hot = view.hover && view.hover.kind === 'slot' && view.hover.id === id;
     g.fillStyle = hot ? 'rgba(255,194,14,0.22)' : 'rgba(255,255,255,0.12)';
@@ -871,13 +907,23 @@ export function render(g, w, h, dpr, cam, ap, view) {
   // empty car park sites on land you own
   for (const id of PARKING_ORDER) {
     const P = PARKING_SITES[id];
-    if (ap.parking[id] || !ap.plots[P.plot]) continue;
+    if (ap.parking[id] || !ap.plots[P.plot] || !parkingAvailable(ap, id)) continue;
     const hot = view.hover && view.hover.kind === 'parking' && view.hover.id === id;
     g.fillStyle = hot ? 'rgba(255,194,14,0.22)' : 'rgba(255,255,255,0.08)';
     g.fillRect(P.x, P.y, P.w, P.h);
     g.strokeStyle = 'rgba(255,194,14,0.8)'; g.lineWidth = 1.5; g.setLineDash([6, 6]);
     g.strokeRect(P.x, P.y, P.w, P.h); g.setLineDash([]);
     signLabel(g, P.x + P.w / 2, P.y + P.h / 2, '+ CAR PARK', hot ? 'yellow' : 'black', cam.zoom);
+  }
+
+  // room for the crosswind runway
+  if (hasXW(ap) && ap.plots.fareast && !ap.upgrades.crosswind) {
+    const hot = view.hover && view.hover.kind === 'runway';
+    g.fillStyle = hot ? 'rgba(255,194,14,0.18)' : 'rgba(255,255,255,0.08)';
+    g.fillRect(XW.x - 30, XW.y0 - 10, 60, XW.y1 - XW.y0 + 20);
+    g.strokeStyle = 'rgba(255,194,14,0.8)'; g.lineWidth = 1.5; g.setLineDash([6, 6]);
+    g.strokeRect(XW.x - 30, XW.y0 - 10, 60, XW.y1 - XW.y0 + 20); g.setLineDash([]);
+    signLabel(g, XW.x, (XW.y0 + XW.y1) / 2, '+ CROSSWIND RUNWAY', hot ? 'yellow' : 'black', cam.zoom);
   }
 
   // crowds: security line, lounges, connector platforms
@@ -1181,13 +1227,16 @@ export function pick(ap, wx, wy) {
     if (wx >= b.x && wx <= b.x + b.w && wy >= b.y - 20 && wy <= b.y + b.h) return { kind: 'terminal', id: T.slot };
   }
   for (const id of SLOT_ORDER) {
+    if (!slotAvailable(ap, id)) continue;
     const b = slotBuilding(id);
     if (wx >= b.x && wx <= b.x + b.w && wy >= b.y && wy <= b.y + b.h) {
       return ap.plots[SLOTS[id].plot] ? { kind: 'slot', id } : { kind: 'plot', id: SLOTS[id].plot };
     }
   }
+  if (hasXW(ap) && ap.plots.fareast && Math.abs(wx - XW.x) < 32 && wy > XW.y0 - 10 && wy < XW.y1 + 10) return { kind: 'runway' };
   for (const id of PARKING_ORDER) {
     const P = PARKING_SITES[id];
+    if (!parkingAvailable(ap, id)) continue;
     if (ap.plots[P.plot] && wx >= P.x && wx <= P.x + P.w && wy >= P.y && wy <= P.y + P.h) return { kind: 'parking', id };
   }
   for (const [id, P] of Object.entries(PLOTS)) {

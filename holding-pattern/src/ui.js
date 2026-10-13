@@ -275,7 +275,7 @@ function terminalSummary(ap, T) {
 function renderBuild(game, ap) {
   let h = `<h3 class="sec">Terminals</h3>`;
   for (const T of ap.terminals) h += terminalSummary(ap, T);
-  const free = SLOT_ORDER.filter((s) => !S.terminalBySlot(ap, s) && ap.plots[SLOTS[s].plot]);
+  const free = SLOT_ORDER.filter((s) => !S.terminalBySlot(ap, s) && ap.plots[SLOTS[s].plot] && S.slotAvailable(ap, s));
   if (free.length) {
     h += `<h3 class="sec">Open sites</h3><ul class="list">`;
     for (const s of free) h += `<li><div class="what"><b>${S.nm(ap, SLOTS[s].name)}</b><span>${SLOTS[s].row === 'mid' ? 'Midfield: across the apron from the main terminal' : SLOTS[s].adjacent ? 'Next to the main terminal: a walkway can reach it' : 'Main row, further out'}</span></div><button type="button" class="btn go" data-act="detail" data-kind="slot" data-id="${s}">Plan · ${money(S.terminalCost(ap))}+</button></li>`;
@@ -288,9 +288,9 @@ function renderBuild(game, ap) {
   for (const id of PLOT_ORDER) {
     const P = PLOTS[id];
     const owned = ap.plots[id];
-    const opens = SLOT_ORDER.filter((s) => SLOTS[s].plot === id).map((s) => S.nm(ap, SLOTS[s].name));
-    const ups = Object.entries(UPGRADES).filter(([, u]) => u.needsPlot === id).map(([, u]) => u.name);
-    const lots = PARKING_ORDER.filter((p) => PARKING_SITES[p].plot === id).map((p) => S.nm(ap, PARKING_SITES[p].name));
+    const opens = SLOT_ORDER.filter((s) => SLOTS[s].plot === id && S.slotAvailable(ap, s)).map((s) => S.nm(ap, SLOTS[s].name));
+    const ups = Object.entries(UPGRADES).filter(([k, u]) => u.needsPlot === id && S.upgradeBlocked(ap, k) !== 'Not at this airport').map(([, u]) => u.name);
+    const lots = PARKING_ORDER.filter((p) => PARKING_SITES[p].plot === id && S.parkingAvailable(ap, p)).map((p) => S.nm(ap, PARKING_SITES[p].name));
     const what = [...opens, ...ups, ...lots].join(', ');
     const needs = P.needs && !ap.plots[P.needs] ? `Buy the ${S.nm(ap, PLOTS[P.needs].name)} first` : null;
     h += `<li><div class="what"><b>${S.nm(ap, P.name)} ${recTag({ act: 'plot', data: { id } })}</b><span>${owned ? 'Owned' : `Opens: ${what}`}${owned ? '' : ` · tax ${rate(14 * S.site(ap).cost)}`}</span></div>${owned ? '<span class="tag green">Owned</span>' : needs ? `<span class="tag">${needs}</span>` : priceBtn('Buy', `plot" data-id="${id}`, S.plotCost(ap, id))}</li>`;
@@ -300,6 +300,7 @@ function renderBuild(game, ap) {
   for (const k of UPGRADE_ORDER) {
     const U = UPGRADES[k];
     const why = S.upgradeBlocked(ap, k);
+    if (why === 'Not at this airport') continue;
     h += `<li><div class="what"><b>${U.name} ${recTag({ act: 'upgrade', data: { id: k } })}</b><span>${U.desc}</span></div>${ap.upgrades[k] ? '<span class="tag green">Built</span>' : why ? `<span class="tag">${esc(why)}</span>` : priceBtn('Build', `upgrade" data-id="${k}`, S.upgradeCost(ap, k))}</li>`;
   }
   h += `</ul>`;
@@ -433,7 +434,7 @@ function parkingBlock(ap) {
   const rep = S.loadReport(ap);
   return `<table class="fc"><tr><td>Car parks</td><td>${barHtml(rep.parking.demand / rep.parking.cap)}</td><td class="num">${pct(rep.parking.demand / rep.parking.cap)}</td></tr></table>
   <p class="note">${num(rep.parking.demand)} drivers a minute want to park; ${num(rep.parking.cap)} fit. Every parcel of land has room for a car park: a surface lot is cheap (${rate(PARKING.lot.upkeep * S.site(ap).cost)} to run), and a garage stacks more levels on it later.</p>
-  <ul class="list">${PARKING_ORDER.map((id) => parkingRow(ap, id)).join('')}</ul>`;
+  <ul class="list">${PARKING_ORDER.filter((id) => S.parkingAvailable(ap, id)).map((id) => parkingRow(ap, id)).join('')}</ul>`;
 }
 
 function renderParkingDetail(game, ap, id) {
@@ -447,9 +448,9 @@ function renderParkingDetail(game, ap, id) {
 
 function renderPlotDetail(game, ap, id) {
   const P = PLOTS[id];
-  const opens = SLOT_ORDER.filter((s) => SLOTS[s].plot === id).map((s) => S.nm(ap, SLOTS[s].name));
-  const ups = Object.entries(UPGRADES).filter(([, u]) => u.needsPlot === id).map(([, u]) => u.name);
-  const lots = PARKING_ORDER.filter((p) => PARKING_SITES[p].plot === id).map((p) => S.nm(ap, PARKING_SITES[p].name));
+  const opens = SLOT_ORDER.filter((s) => SLOTS[s].plot === id && S.slotAvailable(ap, s)).map((s) => S.nm(ap, SLOTS[s].name));
+  const ups = Object.entries(UPGRADES).filter(([k, u]) => u.needsPlot === id && S.upgradeBlocked(ap, k) !== 'Not at this airport').map(([, u]) => u.name);
+  const lots = PARKING_ORDER.filter((p) => PARKING_SITES[p].plot === id && S.parkingAvailable(ap, p)).map((p) => S.nm(ap, PARKING_SITES[p].name));
   const needs = P.needs && !ap.plots[P.needs] ? S.nm(ap, PLOTS[P.needs].name) : null;
   return `<button type="button" class="back" data-act="back">◂ Back</button>
   <div class="title" style="font-size:24px">${S.nm(ap, P.name)}</div>
@@ -470,12 +471,13 @@ function renderRunwayDetail(game, ap) {
     <div><dt>Tower</dt><dd>${rep.runway.atc.toFixed(1)}/m</dd></div>
     <div><dt>Holding</dt><dd>${snap.holding}</dd></div>
   </dl>
+  ${ap.upgrades.crosswind ? `<p class="note">The crosswind runway takes the departures from main-terminal-row gates, up to about ${S.XW_DEPARTURES} a minute; everything else uses the parallel runway${ap.upgrades.runway2 ? 's' : ''}. Put busy routes on main-row terminals to use it.</p>` : ''}
   <p class="note">Every flight is two movements: a landing and a take-off. Throughput is the lower of what the runway can physically take and what your controllers can sequence. When arrivals cannot be slotted in they circle in the holding stack ${S.nm(ap, "west")} of the field, burning the airline's time.</p>
   <h3 class="sec">Tower staffing</h3>
   <p class="note">${S.controllers(ap)} controllers on shift: one per runway and one per terminal. Each sequences about ${(rep.runway.atc / Math.max(1, S.controllers(ap))).toFixed(1)} movements a minute.</p>
   ${staffRow(ap, 'atc', 'Controllers')}
   <h3 class="sec">Airfield upgrades</h3>
-  <ul class="list">${['radar', 'rapidExits', 'automation', 'cat3', 'longRunway', 'runway2'].map((k) => { const U = UPGRADES[k]; const why = S.upgradeBlocked(ap, k); return `<li><div class="what"><b>${U.name}</b><span>${U.desc}</span></div>${ap.upgrades[k] ? '<span class="tag green">Built</span>' : why ? `<span class="tag">${esc(why)}</span>` : priceBtn('Build', `upgrade" data-id="${k}`, S.upgradeCost(ap, k))}</li>`; }).join('')}</ul>`;
+  <ul class="list">${['radar', 'rapidExits', 'automation', 'cat3', 'longRunway', 'runway2', 'crosswind'].filter((k) => S.upgradeBlocked(ap, k) !== 'Not at this airport').map((k) => { const U = UPGRADES[k]; const why = S.upgradeBlocked(ap, k); return `<li><div class="what"><b>${U.name}</b><span>${U.desc}</span></div>${ap.upgrades[k] ? '<span class="tag green">Built</span>' : why ? `<span class="tag">${esc(why)}</span>` : priceBtn('Build', `upgrade" data-id="${k}`, S.upgradeCost(ap, k))}</li>`; }).join('')}</ul>`;
 }
 
 function renderPlaneDetail(game, ap, p) {

@@ -9,7 +9,7 @@ import {
 } from './config.js';
 import {
   RW, RUNWAY_HALF, TWY_A, TWY_B, LANE2, EXITS, HOLD_POINT, IAF, PLOTS, SLOTS, LONG_RUNWAY_X1,
-  gateStand, pathExitToGate, pathGateToHold, lanesFor,
+  gateStand, pathExitToGate, pathGateToHold, lanesFor, XW, XW_HOLD, pathGateToCrosswind, crosswindTakeoff,
   connectorRoute, apronCrossing, slotCenter, TERMINAL_CODES, PARKING_SITES, placeName,
 } from './layout.js';
 import { mulberry32, clamp, dist, pick, pathLength, pointAlong } from './util.js';
@@ -76,7 +76,9 @@ export function hydrate(ap, seed = Date.now()) {
   ap.zonesKey = '';
   ap.busBlocks = [];
   ap.depQueue = [];
-  ap.runways = RW.map(() => ({ occupant: null, clearEta: 0, reservedArr: null, crossers: new Set() }));
+  // the two parallel runways, then the crosswind (departures only)
+  ap.runways = [...RW, XW].map(() => ({ occupant: null, clearEta: 0, reservedArr: null, crossers: new Set() }));
+  ap.depQueueX = [];
   ap.atcTokens = 2;
   ap.ledger = [];
   ap.bucket = {};
@@ -165,6 +167,9 @@ export function restoreAirport(data) {
 export const site = (ap) => SITES[ap.siteIndex];
 // A place name as the player sees it at this airport.
 export const nm = (ap, name) => placeName(!!SITES[ap.siteIndex].mirror, name);
+// Sites with room for a crosswind runway keep the far east field for it.
+export function slotAvailable(ap, slot) { return !(site(ap).crosswind && slot === 'fareast'); }
+export function parkingAvailable(ap, id) { return !(site(ap).crosswind && id === 'fareast'); }
 // Gates a terminal can grow to here (rural sites build small).
 export function maxGates(ap, slot) { return Math.min(SLOTS[slot].maxGates, site(ap).maxGates || Infinity); }
 export const builtTerminals = (ap) => ap.terminals.filter((T) => isOpen(T));
@@ -195,6 +200,10 @@ export function atcCapacity(ap) {
   if (ap.upgrades.automation) per *= UPGRADES.automation.atc;
   return controllers(ap) * per * staffing(ap, 'atc').capacity * stormFactor(ap);
 }
+
+// Departures a minute the crosswind runway handles on its own (measured
+// with tools/runway.mjs).
+export const XW_DEPARTURES = 11;
 
 export function runwayPhysical(ap) {
   // Measured with tools/runway.mjs and a realistic airport: a mixed-mode
@@ -288,6 +297,7 @@ export function parkingCost(ap, id) {
 }
 export function parkingBlocked(ap, id) {
   const P = PARKING_SITES[id];
+  if (!parkingAvailable(ap, id)) return 'Kept for the crosswind runway';
   if (!ap.plots[P.plot]) return `Buy the ${nm(ap, PLOTS[P.plot].name)} first`;
   if (!parkingNext(ap, id)) return 'Full size';
   return null;
@@ -381,7 +391,15 @@ export function loadReport(ap, extra = null) {
       pt.pax += pax;
     }
   }
-  const runwayCap = Math.min(runwayPhysical(ap), atcCapacity(ap));
+  let runwayCap = Math.min(runwayPhysical(ap), atcCapacity(ap));
+  if (ap.upgrades.crosswind) {
+    // Departures from the main-terminal row take off from the crosswind;
+    // everything else shares the parallel runways. The busier side sets
+    // the limit.
+    const fromMainRow = contracts.reduce((s, c) => s + (SLOTS[c.terminal] && SLOTS[c.terminal].row === 'main' ? c.freq : 0), 0);
+    const util = Math.max((movements - fromMainRow) / runwayPhysical(ap), fromMainRow / XW_DEPARTURES, movements / atcCapacity(ap));
+    runwayCap = util > 0 ? movements / util : Math.min(runwayPhysical(ap) + XW_DEPARTURES, atcCapacity(ap));
+  }
   r.runway = { demand: movements, cap: runwayCap, atc: atcCapacity(ap), physical: runwayPhysical(ap) };
   r.security = { demand: depPax, cap: securityRate(ap) * 60 };
   r.parking = { demand: depPax * PAX.driveShare * (ap.upgrades.rail ? 0.7 : 1), cap: parkingCapacity(ap) };
@@ -526,6 +544,7 @@ export function buyPlot(game, ap, plot) {
 
 export function buildTerminal(game, ap, slot, connectorType, buses = 2) {
   if (terminalBySlot(ap, slot)) return 'Already built';
+  if (!slotAvailable(ap, slot)) return 'Kept for the crosswind runway';
   if (!ap.plots[SLOTS[slot].plot]) return 'Buy the land first';
   if (!connectorAllowed(connectorType, slot)) return 'That connector cannot reach this site';
   const cost = terminalCost(ap) + connectorBuildCost(connectorType, slot, ap);
@@ -624,7 +643,10 @@ export function removeLane(ap) {
 
 export function upgradeBlocked(ap, key) {
   const U = UPGRADES[key];
+  if (U.onlyAt && !site(ap)[U.onlyAt]) return 'Not at this airport';
   if (ap.upgrades[key]) return 'Owned';
+  if (key === 'crosswind' && terminalBySlot(ap, 'fareast')) return `The ${nm(ap, SLOTS.fareast.name)} terminal is in the way`;
+  if (key === 'crosswind' && ap.parking.fareast) return `The ${nm(ap, PARKING_SITES.fareast.name).toLowerCase()} is in the way`;
   if (U.needs && !ap.upgrades[U.needs]) return `Needs ${UPGRADES[U.needs].name}`;
   if (U.needsPlot && !ap.plots[U.needsPlot]) return `Needs the ${nm(ap, PLOTS[U.needsPlot].name)}`;
   return null;
@@ -1040,19 +1062,38 @@ function updatePlanes(game, ap, dt) {
         break;
       }
       case 'takeoff': {
-        const rw = RW[0];
-        if (p.x < rw.x0 + 5) p.speed = Math.min(p.speed + 40 * dt, 48);
+        // taxi slowly onto the runway, then full power
+        if (p.d < p.lineup) p.speed = Math.min(p.speed + 40 * dt, 48);
         else p.speed += FLIGHT.takeoffAccel * dt;
         p.d += p.speed * dt;
         const q = pointAlong(p.path, p.d);
         p.x = q.x; p.y = q.y; p.ang = q.ang;
         if (p.speed > FLIGHT.liftoffSpeed) p.alt += (p.speed - FLIGHT.liftoffSpeed + 30) * 0.35 * dt;
-        const R = ap.runways[0];
+        const R = ap.runways[p.depRw || 0];
         if (R.occupant === p && p.speed > FLIGHT.liftoffSpeed + 20) R.occupant = null; // airborne
-        if (p.x > 2250) p.state = 'gone';
+        if (p.x > 2250 || p.y > 1800) p.state = 'gone';
         break;
       }
       case 'holdShort': {
+        if (p.depRw === 2) {
+          // The crosswind takes departures only: one at a time, the next
+          // lining up once the one ahead is rolling well clear.
+          if (ap.depQueueX[0] !== p) break;
+          const R = ap.runways[2];
+          const occ = R.occupant;
+          if (ap.atcTokens >= 1 && (!occ || (occ.state === 'takeoff' && occ.y > XW.y0 + 160))) {
+            ap.atcTokens -= 1;
+            R.occupant = p;
+            R.clearEta = t + DEP_OCCUPANCY;
+            ap.depQueueX.shift();
+            p.state = 'takeoff';
+            p.speed = 30;
+            const path = crosswindTakeoff();
+            setPath(p, path);
+            p.lineup = pathLength(path.slice(0, 4));
+          }
+          break;
+        }
         if (ap.depQueue[0] !== p) break;
         const R = ap.runways[0];
         const arr = R.reservedArr;
@@ -1072,7 +1113,9 @@ function updatePlanes(game, ap, dt) {
           p.speed = 30;
           const rw = RW[0];
           const x1 = ap.upgrades.longRunway ? LONG_RUNWAY_X1 : rw.x1;
-          setPath(p, [{ x: HOLD_POINT.x, y: HOLD_POINT.y }, { x: HOLD_POINT.x + 18, y: rw.y + 26 }, { x: rw.x0 + 10, y: rw.y }, { x: x1 + 600, y: rw.y }]);
+          const path = [{ x: HOLD_POINT.x, y: HOLD_POINT.y }, { x: HOLD_POINT.x + 18, y: rw.y + 26 }, { x: rw.x0 + 10, y: rw.y }, { x: x1 + 600, y: rw.y }];
+          setPath(p, path);
+          p.lineup = pathLength(path.slice(0, 3)) - 5;
         }
         break;
       }
@@ -1153,7 +1196,7 @@ function touchdown(game, ap, p) {
 // largest aircraft to pass through it.
 const BOX = 29; // with R_PLANE: 59, just short of the 62 px between taxiways A and B
 function junctionBoxes(ap) {
-  const key = JSON.stringify([ap.plots, ap.terminals.map((T) => [T.slot, T.gates, T.connector && T.connector.type]), !!ap.upgrades.runway2]);
+  const key = JSON.stringify([ap.plots, ap.terminals.map((T) => [T.slot, T.gates, T.connector && T.connector.type]), !!ap.upgrades.runway2, !!ap.upgrades.crosswind]);
   if (ap.zonesKey === key) return ap.zones;
   // The runway turn-offs, so an aircraft can always get off a runway (one
   // stuck there would block every take-off, and take-offs are what drain
@@ -1164,6 +1207,7 @@ function junctionBoxes(ap) {
   const z = [];
   for (const ex of EXITS) { z.push({ x: ex, y: TWY_A }); z.push({ x: ex, y: TWY_B }); }
   for (const L of lanesFor(ap.plots)) { z.push({ x: L.x, y: TWY_B }); z.push({ x: L.x, y: LANE2 }); }
+  if (ap.upgrades.crosswind) z.push({ x: XW_HOLD.x, y: LANE2 });
   for (const T of ap.terminals) {
     const crossing = apronCrossing(T.slot);
     if (T.connector && T.connector.type === 'shuttle' && crossing) z.push({ x: crossing.x, y: LANE2 });
@@ -1237,7 +1281,7 @@ function groundTraffic(game, ap, dt) {
   const depOnGround = ap.planes.filter((p) => p.state === 'pushback' || p.state === 'taxiOut' || p.state === 'holdShort').length;
   // With a second runway the main one only takes departures and drains the
   // queue faster, so more may taxi at once.
-  const depCap = MAX_DEP_GROUND + (ap.upgrades.runway2 ? 4 : 0);
+  const depCap = MAX_DEP_GROUND + (ap.upgrades.runway2 ? 4 : 0) + (ap.upgrades.crosswind ? 4 : 0);
   const pending = depOnGround < depCap ? ap.planes.filter((p) => p.state === 'gate' && p.ready) : [];
 
   // 1. how far each can go before touching another aircraft
@@ -1330,8 +1374,10 @@ function groundTraffic(game, ap, dt) {
       if (loser.blockedFor > 6 && !loser.blockBy) continue;
       const ls = aWins ? hit[1] : hit[0];
       if (ls - SAMPLE < loser.free) loser.why += ' yield ' + (aWins ? A.m.id : B.m.id);
-      // Stop well short, so the winner's whole body clears us.
-      loser.free = Math.min(loser.free, Math.max(0, ls - 3 * SAMPLE));
+      // Stop well short, so the winner's whole body clears us; further short
+      // of an aircraft swinging off a runway along the curve of its exit.
+      const winner = aWins ? A.m : B.m;
+      loser.free = Math.min(loser.free, Math.max(0, ls - (offRunway(winner) ? 5 : 3) * SAMPLE));
     }
   }
 
@@ -1450,7 +1496,9 @@ function groundTraffic(game, ap, dt) {
         const ring = [m];
         let x = m.blockBy;
         while (x && !ring.includes(x) && ring.length < 8) { ring.push(x); x = x.blockBy; }
-        if (x === m && Math.max(...ring.map((r) => r.id)) === m.id) towBack(m, bodies, dt);
+        // the newest of them that is not still turning off a runway
+        const towable = ring.filter((r) => r.state !== 'rollout');
+        if (x === m && Math.max(...towable.map((r) => r.id)) === m.id) towBack(m, bodies, dt);
       }
       if (m.blockedFor > 60) ap.gridlocks = (ap.gridlocks || 0) + 1;
     } else {
@@ -1498,7 +1546,7 @@ function groundTraffic(game, ap, dt) {
     }
     if (m.d >= m.len - 0.01) {
       if (m.state === 'taxiIn') arriveAtGate(game, ap, m);
-      else if (m.state === 'taxiOut') { m.state = 'holdShort'; m.holdSince = t; m.speed = 0; ap.depQueue.push(m); }
+      else if (m.state === 'taxiOut') { m.state = 'holdShort'; m.holdSince = t; m.speed = 0; (m.depRw === 2 ? ap.depQueueX : ap.depQueue).push(m); }
     }
   }
 }
@@ -1614,7 +1662,9 @@ function turnaround(game, ap, p, dt) {
     closeFlight(game, ap, f);
     p.ready = true;
     p.readyAt = ap.t;
-    setPath(p, [{ x: p.stand.x, y: p.stand.y }].concat(pathGateToHold(p.stand, ap.plots)));
+    // Main-row departures use the crosswind runway when there is one.
+    p.depRw = ap.upgrades.crosswind && p.stand.laneY === LANE2 ? 2 : 0;
+    setPath(p, [{ x: p.stand.x, y: p.stand.y }].concat(p.depRw === 2 ? pathGateToCrosswind(p.stand) : pathGateToHold(p.stand, ap.plots)));
     p.pushLen = p.stand.y - p.stand.laneY;
   }
 }
@@ -1935,7 +1985,7 @@ export function opsSnapshot(ap) {
   const holding = ap.holdQueue.length;
   const holdingForGate = ap.holdQueue.filter((p) => p.holdReason === 'gate').length;
   const waitingPush = ap.planes.filter((p) => p.state === 'gate' && p.ready).length;
-  const depQ = ap.depQueue.length;
+  const depQ = ap.depQueue.length + ap.depQueueX.length;
   return { holding, holdingForGate, waitingPush, waitingGate: holdingForGate, depQ, secQueue: ap.secQueue || 0, secWait: (ap.secQueue || 0) / Math.max(0.01, securityRate(ap)) };
 }
 

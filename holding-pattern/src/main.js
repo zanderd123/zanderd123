@@ -198,7 +198,7 @@ canvas.addEventListener('pointermove', (e) => {
   }
   const w = screenToWorld(cam, W, H, e.clientX - rect.left, e.clientY - rect.top);
   const hit = pick(activeAirport(game), w.x, w.y);
-  view.hover = hit && (hit.kind === 'slot' || hit.kind === 'plot' || hit.kind === 'parking') ? hit : null;
+  view.hover = hit && (hit.kind === 'slot' || hit.kind === 'plot' || hit.kind === 'parking' || hit.kind === 'runway') ? hit : null;
   canvas.classList.toggle('pointing', !!hit);
 });
 

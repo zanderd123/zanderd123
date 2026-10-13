@@ -12,10 +12,10 @@ import * as S from '../src/sim.js';
 
 const minutes = Number(process.argv[2] || 15);
 
-function scenario(name, seed, setup) {
+function scenario(name, seed, setup, siteIndex = 0) {
   if (only && only !== name) return true;
   const game = { cash: 1e9, airports: [] };
-  const ap = createAirport(0, seed + Number(process.env.SEED || 0) * 100);
+  const ap = createAirport(siteIndex, seed + Number(process.env.SEED || 0) * 100);
   game.airports.push(ap);
   const slots = setup(game, ap);
   for (const T of ap.terminals) { T.buildLeft = 0; if (T.connector) T.connector.buildLeft = 0; T.gates = 4; T.heavy = true; }
@@ -38,7 +38,7 @@ function scenario(name, seed, setup) {
         if (d < worst) worst = d;
         if (d < 0.97) {
           overlaps++;
-          if (process.env.DEBUG === name && overlaps <= 3) console.log('overlap t', t.toFixed(1), [a, b].map((p) => `${p.id} ${p.state} @${p.x.toFixed(0)},${p.y.toFixed(0)} d${p.d.toFixed(0)}/${(p.len || 0).toFixed(0)} rollEnd ${p.rollEnd && p.rollEnd.toFixed(0)} why[${p.why}]`).join(' | '));
+          if (process.env.DEBUG === name && overlaps <= 3) console.log('overlap t', t.toFixed(1), [a, b].map((p) => `tow${(p.towed||0).toFixed(0)} ${p.id} ${p.state} @${p.x.toFixed(0)},${p.y.toFixed(0)} d${p.d.toFixed(0)}/${(p.len || 0).toFixed(0)} rollEnd ${p.rollEnd && p.rollEnd.toFixed(0)} why[${p.why}]`).join(' | '));
         }
       }
     }
@@ -77,4 +77,6 @@ pass &= scenario('core only', 1, (g, ap) => all(g, ap, [], ['midcenter'], () => 
 pass &= scenario('west and east, shuttles crossing the apron', 2, (g, ap) => all(g, ap, ['west', 'east'], ['midcenter', 'westwing', 'eastwing', 'midwest', 'mideast'], (s) => (s.startsWith('mid') ? 'shuttle' : 'walkway')));
 pass &= scenario('everything, one runway', 3, (g, ap) => all(g, ap, ['west', 'east', 'farwest', 'fareast'], ['midcenter', 'westwing', 'eastwing', 'midwest', 'mideast', 'farwest', 'fareast'], () => 'tunnel'));
 pass &= scenario('everything, two runways', 4, (g, ap) => { ap.upgrades.runway2 = true; ap.upgrades.rapidExits = true; return all(g, ap, ['west', 'east', 'farwest', 'fareast', 'north'], ['midcenter', 'westwing', 'eastwing', 'midwest', 'mideast', 'farwest', 'fareast'], () => 'monorail'); });
+pass &= scenario('crosswind departures runway', 6, (g, ap) => { ap.upgrades.crosswind = true; ap.upgrades.rapidExits = true; return all(g, ap, ['west', 'east', 'fareast', 'farwest'], ['midcenter', 'westwing', 'eastwing', 'midwest', 'mideast', 'farwest'], () => 'tunnel'); }, 2);
+pass &= scenario('crosswind and second runway', 7, (g, ap) => { ap.upgrades.crosswind = true; ap.upgrades.runway2 = true; ap.upgrades.rapidExits = true; return all(g, ap, ['west', 'east', 'fareast', 'farwest', 'north'], ['midcenter', 'westwing', 'eastwing', 'midwest', 'mideast', 'farwest'], () => 'monorail'); }, 2);
 process.exit(pass ? 0 : 1);
