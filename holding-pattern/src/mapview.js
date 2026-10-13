@@ -62,6 +62,16 @@ export function drawMap(game, dt) {
   const pos = (i) => ({ x: SITES[i].x * w, y: SITES[i].y * h });
   const owned = game.airports.map((a) => a.siteIndex);
 
+  // the island, in open water
+  SITES.forEach((s) => {
+    if (!s.island) return;
+    const x = s.x * w, y = s.y * h;
+    g.fillStyle = '#1b3a4f'; g.beginPath(); g.ellipse(x, y, w * 0.055, h * 0.075, 0, 0, Math.PI * 2); g.fill();
+    g.fillStyle = 'rgba(104,207,214,0.35)'; g.beginPath(); g.ellipse(x, y, w * 0.026, h * 0.036, 0, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#e6d6a8'; g.beginPath(); g.ellipse(x, y, w * 0.019, h * 0.027, 0, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#4f7f45'; g.beginPath(); g.ellipse(x, y, w * 0.014, h * 0.021, 0, 0, Math.PI * 2); g.fill();
+  });
+
   // routes between owned airports
   for (let a = 0; a < owned.length; a++) {
     for (let b = a + 1; b < owned.length; b++) {

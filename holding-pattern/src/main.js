@@ -2,7 +2,7 @@
 
 import { newGame, activeAirport, stepGame, save, load, wipe, exportCode, importCode, offlineEarnings, buySite, serialize, deserialize } from './game.js';
 import * as S from './sim.js';
-import { makeCamera, fitCamera, screenToWorld, render, attach, pick, dayPhase } from './render.js';
+import { makeCamera, fitCamera, screenToWorld, render, attach, pick, dayPhase, worldSize } from './render.js';
 import { ui, renderTop, renderOps, renderPanel, toast, showDialog } from './ui.js';
 import { makeTutorial } from './tutorial.js';
 import { acceptAlliance, declineAlliance } from './network.js';
@@ -71,7 +71,7 @@ function start(hotData) {
   setInterval(() => save(game), 5000);
   document.addEventListener('visibilitychange', () => { if (document.hidden) save(game); });
   window.addEventListener('pagehide', () => save(game));
-  window.__hp = { game: () => game, cam, sim: S };
+  window.__hp = { game: () => game, cam, sim: S, switchTo: (i) => switchTo(i) };
   if (window.claude && window.claude.hot && window.claude.hot.snapshot) {
     window.claude.hot.snapshot(() => ({ save: serialize(game) }));
   }
@@ -240,8 +240,9 @@ function zoomAt(sx, sy, factor) {
 }
 
 function clampCam() {
-  cam.x = clamp(cam.x, -100, 2100);
-  cam.y = clamp(cam.y, -100, 1250);
+  const W = worldSize();
+  cam.x = clamp(cam.x, -100, W.w + 100);
+  cam.y = clamp(cam.y, -100, W.h + 100);
 }
 
 function select(hit) {
@@ -413,7 +414,11 @@ $('mapModal').addEventListener('click', (e) => {
     const i = Number(buy.dataset.mapBuy);
     const err = buySite(game, i);
     if (err) toast(err, 'bad');
-    else { toast(`${SITES[i].name} is yours`, 'good'); switchTo(game.airports.length - 1); }
+    else {
+      toast(`${SITES[i].name} is yours`, 'good');
+      switchTo(game.airports.length - 1);
+      if (SITES[i].island) showDialog(`<h2>You made it</h2><p>Nine airports, from one small regional field to the busiest hub on the map, and now a little island strip of your own. Sunset Cay takes small planes only, has one terminal and one car park, and is here just to enjoy.</p><p>Thanks for playing <b>Holding Pattern</b>. Everything keeps running: there are milestones still to reach, alliances to sign and a hub to fill.</p><div class="btns"><button type="button" class="btn go" data-close="dialog">Keep flying</button></div>`);
+    }
   }
 });
 $('mapCanvas').addEventListener('click', (e) => {

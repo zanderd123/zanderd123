@@ -94,8 +94,15 @@ export function renderOps(game, clockText) {
   const rows = [];
   const rwU = S.utilisation(rep.runway.demand, rep.runway.cap);
   const holdRw = ap.holdQueue.filter((p) => p.holdReason === 'runway' || p.holdReason === 'taxi').length;
-  rows.push({ k: 'Runway', s: holdRw > 2 || rwU >= 1 ? 'bad' : rwU > 0.85 || holdRw ? 'warn' : '',
+  rows.push({ k: rep.runwayS ? 'Runways 1-2' : 'Runway', s: holdRw > 2 || rwU >= 1 ? 'bad' : rwU > 0.85 || holdRw ? 'warn' : '',
     v: `${pct(rwU)} of capacity`, sub: `${rep.runway.demand.toFixed(1)} of ${rep.runway.cap.toFixed(1)} landings & take-offs a minute${holdRw ? ` · ${holdRw} circling` : ''}` });
+  if (rep.runwayS) {
+    // the hub's south airfield
+    const u3 = S.utilisation(rep.runwayS.demand, rep.runwayS.cap);
+    const h3 = ap.south.holdQueue.filter((p) => p.holdReason === 'runway' || p.holdReason === 'taxi').length;
+    rows.push({ k: 'Runway 3', s: h3 > 2 || u3 >= 1 ? 'bad' : u3 > 0.85 || h3 ? 'warn' : '',
+      v: `${pct(u3)} of capacity`, sub: `${rep.runwayS.demand.toFixed(1)} of ${rep.runwayS.cap.toFixed(1)} a minute, south airfield${h3 ? ` · ${h3} circling` : ''}` });
+  }
   const open = rep.terminals.filter((t) => t.open);
   const gd = open.reduce((s, t) => s + t.gateDemand, 0), gc = open.reduce((s, t) => s + t.gates, 0);
   const worstGate = open.reduce((w, t) => (!w || t.gateDemand / t.gates > w.gateDemand / w.gates ? t : w), null);
@@ -133,7 +140,7 @@ export function renderPanel(force = false) {
   let html;
   ui.advice = advise(game, ap);
   // A selected aircraft that has left: back to the tab underneath.
-  if (ui.detail && ui.detail.kind === 'plane' && !ap.planes.includes(ui.detail.plane)) ui.detail = null;
+  if (ui.detail && ui.detail.kind === 'plane' && !S.allPlanes(ap).includes(ui.detail.plane)) ui.detail = null;
   if (ui.detail) html = renderDetail(game, ap, ui.detail);
   else if (ui.tab === 'advisor') html = renderAdvisor(game, ap);
   else if (ui.tab === 'network') html = renderNetwork(game);
@@ -156,7 +163,8 @@ function forecastRows(ap, o, slot) {
   const extra = { ...o, terminal: slot };
   const after = S.loadReport(ap, extra);
   const rows = [];
-  rows.push(['Runway', before.runway.demand / before.runway.cap, after.runway.demand / after.runway.cap]);
+  const rb = S.runwayFor(before, slot), ra = S.runwayFor(after, slot);
+  rows.push([rb.field ? 'Runway 3' : 'Runway', rb.demand / rb.cap, ra.demand / ra.cap]);
   const tb = before.terminals.find((t) => t.slot === slot), ta = after.terminals.find((t) => t.slot === slot);
   if (tb) rows.push([`Gates ${TERMINAL_CODES[slot]}`, tb.gateDemand / tb.gates, ta.gateDemand / ta.gates]);
   rows.push(['Security', before.security.demand / before.security.cap, after.security.demand / after.security.cap]);
@@ -353,29 +361,26 @@ function terminalSummary(ap, T) {
 function renderBuild(game, ap) {
   let h = `<h3 class="sec">Terminals</h3>`;
   for (const T of ap.terminals) h += terminalSummary(ap, T);
-  const hangars = SLOT_ORDER.filter((s) => ap.hangars[s]);
+  const hangars = S.slotList(ap).filter((s) => ap.hangars[s]);
   if (hangars.length) {
     h += `<h3 class="sec">Hangars</h3><ul class="list">`;
     for (const s of hangars) h += `<li><div class="what"><b>${HANGAR.name}</b><span>${S.nm(ap, SLOTS[s].name)}</span></div><button type="button" class="btn" data-act="detail" data-kind="slot" data-id="${s}">Open</button></li>`;
     h += `</ul>`;
   }
-  const free = SLOT_ORDER.filter((s) => !S.terminalBySlot(ap, s) && !ap.hangars[s] && ap.plots[SLOTS[s].plot] && S.slotAvailable(ap, s));
+  const free = S.slotList(ap).filter((s) => !S.terminalBySlot(ap, s) && !ap.hangars[s] && ap.plots[SLOTS[s].plot] && S.slotAvailable(ap, s));
   if (free.length) {
     h += `<h3 class="sec">Open sites</h3><ul class="list">`;
-    for (const s of free) h += `<li><div class="what"><b>${S.nm(ap, SLOTS[s].name)}</b><span>${SLOTS[s].row === 'mid' ? 'Midfield: across the apron from the main terminal' : SLOTS[s].adjacent ? 'Next to the main terminal: a walkway can reach it' : 'Main row, further out'}</span></div><button type="button" class="btn go" data-act="detail" data-kind="slot" data-id="${s}">Plan · ${money(S.terminalCost(ap))}+</button></li>`;
+    for (const s of free) h += `<li><div class="what"><b>${S.nm(ap, SLOTS[s].name)}</b><span>${SLOTS[s].field ? `South airfield${SLOTS[s].row === 'mid' ? ', midfield' : ''}: by bus under the highway, monorail or tunnel` : SLOTS[s].row === 'mid' ? 'Midfield: across the apron from the main terminal' : SLOTS[s].adjacent ? 'Next to the main terminal: a walkway can reach it' : 'Main row, further out'}</span></div><button type="button" class="btn go" data-act="detail" data-kind="slot" data-id="${s}">Plan · ${money(S.terminalCost(ap))}+</button></li>`;
     h += `</ul>`;
   } else {
     h += `<p class="note">Buy more land to open new terminal sites.</p>`;
   }
   h += `<h3 class="sec">Landside: car parks, hotels, rentals, solar</h3>${parkingBlock(ap)}`;
   h += `<h3 class="sec">Land</h3><ul class="list">`;
-  for (const id of PLOT_ORDER) {
+  for (const id of S.plotList(ap)) {
     const P = PLOTS[id];
     const owned = ap.plots[id];
-    const opens = SLOT_ORDER.filter((s) => SLOTS[s].plot === id && S.slotAvailable(ap, s)).map((s) => S.nm(ap, SLOTS[s].name));
-    const ups = Object.entries(UPGRADES).filter(([k, u]) => u.needsPlot === id && S.upgradeBlocked(ap, k) !== 'Not at this airport').map(([, u]) => u.name);
-    const lots = PARKING_ORDER.filter((p) => PARKING_SITES[p].plot === id && S.parkingAvailable(ap, p)).map((p) => S.nm(ap, PARKING_SITES[p].name));
-    const what = [...opens, ...ups, ...lots].join(', ');
+    const what = plotOpens(ap, id).join(', ');
     const needs = P.needs && !ap.plots[P.needs] ? `Buy the ${S.nm(ap, PLOTS[P.needs].name)} first` : null;
     h += `<li><div class="what"><b>${S.nm(ap, P.name)} ${recTag({ act: 'plot', data: { id } })}</b><span>${owned ? 'Owned' : `Opens: ${what}`}${owned ? '' : ` · tax ${rate(14 * S.site(ap).cost)}`}</span></div>${owned ? '<span class="tag green">Owned</span>' : needs ? `<span class="tag">${needs}</span>` : priceBtn('Buy', `plot" data-id="${id}`, S.plotCost(ap, id))}</li>`;
   }
@@ -568,7 +573,7 @@ function parkingBlock(ap) {
   const rep = S.loadReport(ap);
   return `<table class="fc"><tr><td>Car parks</td><td>${barHtml(rep.parking.demand / rep.parking.cap)}</td><td class="num">${pct(rep.parking.demand / rep.parking.cap)}</td></tr></table>
   <p class="note">${num(rep.parking.demand)} drivers a minute want to park; ${num(rep.parking.cap)} fit. Each parcel of land has a landside site: a car park (a garage can go on top later), an airport hotel, a rental car centre or a solar farm. Open a site to see every choice, or to tear down what is there.</p>
-  <ul class="list">${PARKING_ORDER.filter((id) => S.parkingAvailable(ap, id) || ap.parking[id]).map((id) => `<li class="stack click" data-act="detail" data-kind="parking" data-id="${id}" style="cursor:pointer">${siteRow(ap, id).slice('<li class="stack">'.length)}`).join('')}</ul>`;
+  <ul class="list">${S.parkingList(ap).filter((id) => (S.parkingAvailable(ap, id) || ap.parking[id]) && (!PARKING_SITES[id].field || ap.plots[PARKING_SITES[id].plot] || ap.parking[id])).map((id) => `<li class="stack click" data-act="detail" data-kind="parking" data-id="${id}" style="cursor:pointer">${siteRow(ap, id).slice('<li class="stack">'.length)}`).join('')}</ul>`;
 }
 
 function renderParkingDetail(game, ap, id) {
@@ -582,16 +587,27 @@ function renderParkingDetail(game, ap, id) {
 }
 const LANDSIDE_LIST = ['lot', 'hotel', 'rental', 'solar'];
 
+// What owning a parcel opens: terminal sites, upgrades, landside sites.
+function plotParts(ap, id) {
+  return {
+    opens: S.slotList(ap).filter((s) => SLOTS[s].plot === id && S.slotAvailable(ap, s)).map((s) => S.nm(ap, SLOTS[s].name)),
+    ups: Object.entries(UPGRADES).filter(([k, u]) => u.needsPlot === id && S.upgradeBlocked(ap, k) !== 'Not at this airport').map(([, u]) => u.name),
+    lots: S.parkingList(ap).filter((p) => PARKING_SITES[p].plot === id && S.parkingAvailable(ap, p)).map((p) => S.nm(ap, PARKING_SITES[p].name)),
+  };
+}
+function plotOpens(ap, id) {
+  const { opens, ups, lots } = plotParts(ap, id);
+  return [...(PLOTS[id].opens ? [PLOTS[id].opens] : []), ...opens, ...ups, ...lots];
+}
+
 function renderPlotDetail(game, ap, id) {
   const P = PLOTS[id];
-  const opens = SLOT_ORDER.filter((s) => SLOTS[s].plot === id && S.slotAvailable(ap, s)).map((s) => S.nm(ap, SLOTS[s].name));
-  const ups = Object.entries(UPGRADES).filter(([k, u]) => u.needsPlot === id && S.upgradeBlocked(ap, k) !== 'Not at this airport').map(([, u]) => u.name);
-  const lots = PARKING_ORDER.filter((p) => PARKING_SITES[p].plot === id && S.parkingAvailable(ap, p)).map((p) => S.nm(ap, PARKING_SITES[p].name));
+  const { opens, ups, lots } = plotParts(ap, id);
   const needs = P.needs && !ap.plots[P.needs] ? S.nm(ap, PLOTS[P.needs].name) : null;
   return `<button type="button" class="back" data-act="back">◂ Back</button>
   <div class="title" style="font-size:24px">${S.nm(ap, P.name)}</div>
   <p class="note">Farmland for now. Owning it opens:</p>
-  <ul class="list">${[...opens.map((o) => `<li><div class="what"><b>${o}</b><span>Terminal site</span></div></li>`), ...ups.map((u) => `<li><div class="what"><b>${u}</b><span>Upgrade</span></div></li>`), ...lots.map((u) => `<li><div class="what"><b>${u}</b><span>Room for a surface lot, later a garage</span></div></li>`)].join('')}${id === 'west' || id === 'east' ? `<li><div class="what"><b>Taxilane</b><span>A second route for aircraft between the runway and the main apron</span></div></li>` : ''}</ul>
+  <ul class="list">${P.opens ? `<li><div class="what"><b>${P.opens}</b><span>A third runway with its own tower, holding stack and taxiways</span></div></li>` : ''}${[...opens.map((o) => `<li><div class="what"><b>${o}</b><span>Terminal site</span></div></li>`), ...ups.map((u) => `<li><div class="what"><b>${u}</b><span>Upgrade</span></div></li>`), ...lots.map((u) => `<li><div class="what"><b>${u}</b><span>Room for a surface lot, later a garage</span></div></li>`)].join('')}${id === 'west' || id === 'east' ? `<li><div class="what"><b>Taxilane</b><span>A second route for aircraft between the runway and the main apron</span></div></li>` : ''}</ul>
   <p class="note">Land carries property tax of ${rate(14 * S.site(ap).cost)} once bought.</p>
   <div class="btns">${ap.plots[id] ? '<span class="tag green">Owned</span>' : needs ? `<span class="tag">Buy the ${needs} first</span>` : priceBtn('Buy land', `plot" data-id="${id}`, S.plotCost(ap, id), '', 'go')}</div>`;
 }
@@ -605,8 +621,16 @@ function renderRunwayDetail(game, ap) {
     <div><dt>Demand</dt><dd>${rep.runway.demand.toFixed(1)}/m</dd></div>
     <div><dt>Runway</dt><dd>${rep.runway.physical.toFixed(1)}/m</dd></div>
     <div><dt>Tower</dt><dd>${rep.runway.atc.toFixed(1)}/m</dd></div>
-    <div><dt>Holding</dt><dd>${snap.holding}</dd></div>
+    <div><dt>Holding</dt><dd>${ap.holdQueue.length}</dd></div>
   </dl>
+  ${rep.runwayS ? `<h3 class="sec">Runway 3 · south airfield</h3>
+  <dl class="board">
+    <div><dt>Demand</dt><dd>${rep.runwayS.demand.toFixed(1)}/m</dd></div>
+    <div><dt>Runway</dt><dd>${rep.runwayS.physical.toFixed(1)}/m</dd></div>
+    <div><dt>Tower</dt><dd>${rep.runwayS.atc.toFixed(1)}/m</dd></div>
+    <div><dt>Holding</dt><dd>${ap.south.holdQueue.length}</dd></div>
+  </dl>
+  <p class="note">The south airfield is its own airport on the ground: routes at its terminals (J to R) land and take off on runway 3, with its own tower, and never touch the north runways.</p>` : ''}
   ${ap.upgrades.crosswind ? `<p class="note">The crosswind runway takes the departures from main-terminal-row gates, up to about ${S.XW_DEPARTURES} a minute; everything else uses the parallel runway${ap.upgrades.runway2 ? 's' : ''}. Put busy routes on main-row terminals to use it.</p>` : ''}
   <p class="note">Every flight is two movements: a landing and a take-off. Throughput is the lower of what the runway can physically take and what your controllers can sequence. When arrivals cannot be slotted in they circle in the holding stack ${S.nm(ap, "west")} of the field, burning the airline's time.</p>
   <h3 class="sec">Tower staffing</h3>
@@ -668,7 +692,7 @@ function renderOperations(game, ap) {
   ${staffRow(ap, 'ground', 'Ground crews')}
   <h3 class="sec">Security checkpoint</h3>${securityBlock(ap)}
   <h3 class="sec">Tower</h3>
-  <p class="note">${S.controllers(ap)} controllers (one per runway, one per terminal) sequence ${rep.runway.atc.toFixed(1)} movements a minute. The runway itself takes ${rep.runway.physical.toFixed(1)}.</p>
+  <p class="note">${S.controllers(ap)} controllers (one per runway, one per terminal) sequence ${rep.runway.atc.toFixed(1)} movements a minute. The runway itself takes ${rep.runway.physical.toFixed(1)}.${rep.runwayS ? ` On the south airfield: ${rep.runwayS.atc.toFixed(1)} and ${rep.runwayS.physical.toFixed(1)}.` : ''}</p>
   <div class="btns"><button type="button" class="btn" data-act="detail" data-kind="runway">Runway & tower details</button></div>
   <h3 class="sec">Parking</h3>
   <table class="fc"><tr><td>Car park</td><td>${barHtml(rep.parking.demand / rep.parking.cap)}</td><td class="num">${pct(rep.parking.demand / rep.parking.cap)}</td></tr></table>

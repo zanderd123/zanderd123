@@ -4,7 +4,7 @@
 // matching button elsewhere in the panel would send.
 
 import { AIRCRAFT, CONNECTORS, UPGRADES, STAFFING, TERMINAL, PAX, COSTS, CONTRACTS, SECURITY as SECCFG } from './config.js';
-import { SLOTS, PLOTS, TERMINAL_CODES, PARKING_SITES, PARKING_ORDER } from './layout.js';
+import { SLOTS, PLOTS, TERMINAL_CODES, PARKING_SITES } from './layout.js';
 import * as S from './sim.js';
 
 let AP = null; // the airport being advised, for place names
@@ -34,10 +34,15 @@ export function advise(game, ap) {
   const add = (sev, area, title, detail, fixes = [], tip = '') => issues.push({ sev, area, title, detail, fixes: fixes.filter(Boolean), tip });
 
   // ------------------------------------------------------------ runway
-  const rwU = S.utilisation(rep.runway.demand, rep.runway.cap);
-  const holdRunway = ap.holdQueue.filter((p) => p.holdReason === 'runway').length;
+  // (the hub has a second airfield, with its own runway and tower; the
+  // later advice goes by the busier one)
+  const rwU = Math.max(S.utilisation(rep.runway.demand, rep.runway.cap), rep.runwayS ? S.utilisation(rep.runwayS.demand, rep.runwayS.cap) : 0);
+  for (const [rw, F] of [[rep.runway, ap], ...(rep.runwayS ? [[rep.runwayS, ap.south]] : [])]) {
+  const rwU = S.utilisation(rw.demand, rw.cap); // eslint-disable-line no-shadow
+  const holdRunway = F.holdQueue.filter((p) => p.holdReason === 'runway').length;
+  const south = rw.field === 1;
   if (rwU > 0.85 || holdRunway > 2) {
-    const atcLimited = rep.runway.atc < rep.runway.physical;
+    const atcLimited = rw.atc < rw.physical;
     const fixes = [];
     if (atcLimited) {
       fixes.push(upgradeFix(ap, 'radar', '+25% movements per controller'));
@@ -48,11 +53,15 @@ export function advise(game, ap) {
       fixes.push(upgradeFix(ap, 'runway2', 'about 30% more movements'));
       fixes.push(upgradeFix(ap, 'crosswind', 'main-terminal departures take off from it'));
     }
-    add(rwU >= 1 ? 3 : 2, 'runway', rwU >= 1 ? 'The runway is overbooked' : 'The runway is nearly full',
-      `Your routes need ${rep.runway.demand.toFixed(1)} landings and take-offs a minute; you can handle ${rep.runway.cap.toFixed(1)}. ` +
+    if (rep.runwayS) fixes.push(fix(`Move routes to the ${south ? 'north' : 'south'} airfield (Contracts tab)`, 'tab', { tab: 'contracts' }, 0));
+    else if (S.plotAvailable(ap, 'score') && !ap.plots.score) fixes.push({ ...fix('Buy the south airfield', 'plot', { id: 'score' }, S.plotCost(ap, 'score')), why: 'a third runway, with its own tower and terminals' });
+    const what = south ? 'Runway 3' : rep.runwayS ? 'The north runways' : 'The runway';
+    add(rwU >= 1 ? 3 : 2, 'runway', rwU >= 1 ? `${what} ${south || !rep.runwayS ? 'is' : 'are'} overbooked` : `${what} ${south || !rep.runwayS ? 'is' : 'are'} nearly full`,
+      `Your routes ${rep.runwayS ? `at ${south ? 'south' : 'north'}-airfield terminals ` : ''}need ${rw.demand.toFixed(1)} landings and take-offs a minute; you can handle ${rw.cap.toFixed(1)}. ` +
       `The limit right now is ${atcLimited ? 'your control tower: each terminal and runway adds a controller, and upgrades make each one faster' : 'the runway itself'}. ` +
       'Arrivals that cannot land circle in the holding stack, and every flight behind them runs late.',
       fixes, rwU >= 1 ? 'Until it is fixed, decline new routes: every extra flight makes all of them later.' : '');
+  }
   }
 
   // ------------------------------------------------------------ gates
@@ -60,7 +69,7 @@ export function advise(game, ap) {
     if (!tr.open) continue;
     const T = S.terminalBySlot(ap, tr.slot);
     const u = tr.gateDemand / tr.gates;
-    const waiting = ap.holdQueue.filter((p) => p.holdReason === 'gate' && p.f.terminal === tr.slot).length;
+    const waiting = S.allHolding(ap).filter((p) => p.holdReason === 'gate' && p.f.terminal === tr.slot).length;
     if (u > 0.85 || waiting) {
       const fixes = [];
       if (T.gates < S.maxGates(ap, tr.slot)) fixes.push(fix(`Add a gate to ${TERMINAL_CODES[tr.slot]}`, 'gate', { slot: tr.slot }, S.gateCost(ap, T)));
@@ -280,7 +289,7 @@ export function offerUnlockFixes(ap, cls) {
 // per space first.
 export function parkingFixes(ap, short = 1) {
   const opts = [];
-  for (const id of PARKING_ORDER) {
+  for (const id of S.parkingList(ap)) {
     const P = PARKING_SITES[id];
     const next = S.parkingNext(ap, id);
     if (!next) continue;

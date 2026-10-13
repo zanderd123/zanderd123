@@ -200,7 +200,10 @@ export const SITES = [
     blurb: 'Long-haul resort traffic: the long runway comes built.' },
   { id: 'MRD', name: 'Meridian Hub',        x: 0.84, y: 0.26, rev: 24,   cost: 5.3, demand: 1.9,  price: 4e8,   theme: 'city', mirror: true },
   { id: 'MCI', name: 'Mid-Continent International', x: 0.5, y: 0.47, rev: 40, cost: 7.0, demand: 2.3, price: 2.5e9, theme: 'prairie', hub: true, longRunway: true,
-    blurb: 'The hub at the heart of the network. All its land, both runways, rapid exits and approach radar come built, and airlines bring their biggest aircraft here.' },
+    blurb: 'The hub at the heart of the network. All its land, both runways, rapid exits and approach radar come built, airlines bring their biggest aircraft here, and it can buy a whole second airfield south of the highway with a third runway.' },
+  // The last one is just for fun: it unlocks as soon as the hub is yours.
+  { id: 'CAY', name: 'Sunset Cay', x: 0.665, y: 0.6, rev: 3, cost: 1.0, demand: 0.7, price: 1e6, theme: 'island', island: true, smallOnly: true,
+    blurb: 'A little island strip off the coast, reached by a causeway. One terminal, one car park and small planes only: not a money-maker, a reward. You made it.' },
 ];
 
 // Alliances: once you own a few airports, airline groups offer a package of

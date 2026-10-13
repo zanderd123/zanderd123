@@ -12,6 +12,7 @@ import {
   RW, RUNWAY_HALF, TWY_A, TWY_B, LANE2, EXITS, HOLD_POINT, IAF, PLOTS, SLOTS, LONG_RUNWAY_X1,
   gateStand, pathExitToGate, pathGateToHold, lanesFor, XW, XW_HOLD, pathGateToCrosswind, crosswindTakeoff,
   connectorRoute, apronCrossing, slotCenter, TERMINAL_CODES, PARKING_SITES, placeName,
+  SOUTH_M, slotField, southPlots, SLOT_ORDER, SOUTH_SLOT_ORDER, PLOT_ORDER, SOUTH_PLOT_ORDER, PARKING_ORDER, SOUTH_PARKING_ORDER,
 } from './layout.js';
 import { mulberry32, clamp, dist, pick, pathLength, pointAlong } from './util.js';
 
@@ -80,7 +81,7 @@ export function hydrate(ap, seed = Date.now()) {
   ap.busBlocks = [];
   ap.depQueue = [];
   // the two parallel runways, then the crosswind (departures only)
-  ap.runways = [...RW, XW].map(() => ({ occupant: null, clearEta: 0, reservedArr: null, crossers: new Set() }));
+  ap.runways = newRunways();
   ap.depQueueX = [];
   ap.atcTokens = 2;
   ap.ledger = [];
@@ -103,9 +104,49 @@ export function hydrate(ap, seed = Date.now()) {
   }
   ap.weather.stormUntil = 0;
   ap.weather.nextStorm = ap.t + 240;
+  if (SITES[ap.siteIndex].hub) Object.defineProperty(ap, 'south', { value: makeSouthField(ap), enumerable: false, configurable: true, writable: true });
   ap.costLines = computeCosts(ap);
   return ap;
 }
+
+// the two parallel runways, then the crosswind (departures only)
+function newRunways() {
+  return [...RW, XW].map(() => ({ occupant: null, clearEta: 0, reservedArr: null, crossers: new Set() }));
+}
+
+// The hub's south field runs the same aircraft code as the north field, in
+// the same local coordinates, on a view of the airport that has its own
+// aircraft, queues, runway and tower, and sees only its own terminals and
+// land. Everything else (money, flights, passengers, contracts) is shared:
+// reads and writes go straight through to the airport.
+const FIELD_KEYS = new Set(['planes', 'holdQueue', 'holdPhase', 'depQueue', 'depQueueX', 'runways', 'atcTokens',
+  'arrGround', 'lastMove', 'zones', 'zonesKey', 'busBlocks', 'nextPlaneId', 'field']);
+function makeSouthField(ap) {
+  const S = { field: 1, planes: [], holdQueue: [], holdPhase: 0, depQueue: [], depQueueX: [], runways: newRunways(),
+    atcTokens: 2, arrGround: 0, lastMove: null, zones: null, zonesKey: '', busBlocks: [], nextPlaneId: 100000 };
+  // effects are reported in world coordinates
+  const fx = (type, e) => { if (ap.fx) ap.fx(type, type === 'money' ? { ...e, y: SOUTH_M - e.y } : e); };
+  return new Proxy(ap, {
+    get(t, k) {
+      if (FIELD_KEYS.has(k)) return S[k];
+      if (k === 'plots') return southPlots(t.plots);
+      if (k === 'upgrades') return { ...t.upgrades, runway2: false, crosswind: false };
+      if (k === 'terminals') return t.terminals.filter((T) => slotField(T.slot) === 1);
+      if (k === 'fx') return t.fx ? fx : null;
+      return t[k];
+    },
+    set(t, k, v) {
+      if (FIELD_KEYS.has(k)) S[k] = v; else t[k] = v;
+      return true;
+    },
+  });
+}
+export const hasSouth = (ap) => !!(ap.south && ap.plots.score);
+// The field a terminal's aircraft use: the airport itself, or its south field.
+export function fieldFor(ap, slot) { return slotField(slot) && hasSouth(ap) ? ap.south : ap; }
+export function fields(ap) { return hasSouth(ap) ? [ap, ap.south] : [ap]; }
+export function allPlanes(ap) { return hasSouth(ap) ? ap.planes.concat(ap.south.planes) : ap.planes; }
+export function allHolding(ap) { return hasSouth(ap) ? ap.holdQueue.concat(ap.south.holdQueue) : ap.holdQueue; }
 
 function hydrateConnector(T) {
   const C = T.connector;
@@ -174,8 +215,19 @@ export const site = (ap) => SITES[ap.siteIndex];
 // A place name as the player sees it at this airport.
 export const nm = (ap, name) => placeName(!!SITES[ap.siteIndex].mirror, name);
 // Sites with room for a crosswind runway keep the far east field for it.
-export function slotAvailable(ap, slot) { return !(site(ap).crosswind && slot === 'fareast'); }
-export function parkingAvailable(ap, id) { return !(site(ap).crosswind && id === 'fareast'); }
+// The island has room for one terminal and one car park, nothing more.
+export function slotAvailable(ap, slot) { return site(ap).island ? slot === 'main' : !(site(ap).crosswind && slot === 'fareast'); }
+// Land this airport can ever own: the hub's south field only at the hub.
+export function plotAvailable(ap, id) {
+  const P = PLOTS[id];
+  if (site(ap).island) return id === 'core';
+  return !!P && (!P.hub || !!site(ap).hub);
+}
+// Every terminal site, parcel and landside site this airport can have.
+export const slotList = (ap) => (site(ap).hub ? SLOT_ORDER.concat(SOUTH_SLOT_ORDER) : SLOT_ORDER);
+export const plotList = (ap) => (site(ap).hub ? PLOT_ORDER.concat(SOUTH_PLOT_ORDER) : PLOT_ORDER).filter((id) => plotAvailable(ap, id));
+export const parkingList = (ap) => (site(ap).hub ? PARKING_ORDER.concat(SOUTH_PARKING_ORDER) : PARKING_ORDER);
+export function parkingAvailable(ap, id) { return site(ap).island ? id === 'front' : !(site(ap).crosswind && id === 'fareast'); }
 // Gates a terminal can grow to here (rural sites build small).
 export function maxGates(ap, slot) { return Math.min(SLOTS[slot].maxGates, site(ap).maxGates || Infinity); }
 export const builtTerminals = (ap) => ap.terminals.filter((T) => isOpen(T));
@@ -185,14 +237,21 @@ export function isOpen(T) {
   return !T.demolishing && T.buildLeft <= 0 && (T.slot === 'main' || (T.connector && T.connector.buildLeft <= 0));
 }
 
+// Runways in this field; totalRunways counts the hub's runway 3 too.
 export function runwayCount(ap) { return ap.upgrades.runway2 ? 2 : 1; }
+export function totalRunways(ap) { return runwayCount(ap) + (hasSouth(ap) ? 1 : 0); }
 
 export function staffing(ap, dept) { return STAFFING[ap.staffing[dept]]; }
 
 export function controllers(ap) {
   // One per runway and one per terminal: every terminal adds ground
   // movements that need their own controller.
-  return runwayCount(ap) + ap.terminals.filter((T) => T.buildLeft <= 0).length;
+  return fieldControllers(ap) + (hasSouth(ap) ? fieldControllers(ap.south) : 0);
+}
+// The ones working one field: each field has its own tower.
+function fieldControllers(F) {
+  const f = F.field || 0;
+  return runwayCount(F) + F.terminals.filter((T) => T.buildLeft <= 0 && slotField(T.slot) === f).length;
 }
 
 export function stormFactor(ap) {
@@ -204,7 +263,7 @@ export function atcCapacity(ap) {
   let per = COSTS.movementsPerController;
   if (ap.upgrades.radar) per *= UPGRADES.radar.atc;
   if (ap.upgrades.automation) per *= UPGRADES.automation.atc;
-  return controllers(ap) * per * staffing(ap, 'atc').capacity * stormFactor(ap);
+  return fieldControllers(ap) * per * staffing(ap, 'atc').capacity * stormFactor(ap);
 }
 
 // Departures a minute the crosswind runway handles on its own (measured
@@ -298,6 +357,7 @@ export function plotCost(ap, plot) { return Math.round(PLOTS[plot].price * site(
 // What a car park site can become next: 'lot', 'garage' or null (done).
 export function parkingNext(ap, id) {
   const lv = ap.parking[id];
+  if (site(ap).island && lv) return null; // no room to build up
   return !lv ? 'lot' : lv === 'lot' ? 'garage' : null;
 }
 
@@ -307,7 +367,7 @@ export function landsideOptions(ap, id) {
   const u = ap.parking[id];
   if (!parkingAvailable(ap, id)) return []; // kept for the crosswind: tear down only
   if (!u) return ['lot', ...LANDSIDE_ORDER];
-  return u === 'lot' ? ['garage'] : [];
+  return u === 'lot' && !site(ap).island ? ['garage'] : [];
 }
 export function landsideDef(use) { return use === 'lot' || use === 'garage' ? PARKING[use] : LANDSIDE[use]; }
 export function landsideCost(ap, id, use) { return Math.round(landsideDef(use).cost * site(ap).cost); }
@@ -347,7 +407,7 @@ const countUse = (ap, use) => Object.values(ap.parking).filter((u) => u === use)
 export const hangarCount = (ap) => Object.keys(ap.hangars || {}).length;
 export function hangarBlocked(ap, slot) {
   if (slot === 'main') return 'The main terminal stays';
-  if (!slotAvailable(ap, slot)) return 'Kept for the crosswind runway';
+  if (!slotAvailable(ap, slot)) return site(ap).island ? 'No room on the island' : 'Kept for the crosswind runway';
   if (!ap.plots[SLOTS[slot].plot]) return 'Buy the land first';
   if (terminalBySlot(ap, slot) || ap.hangars[slot]) return 'Already built';
   return null;
@@ -413,7 +473,7 @@ export function computeCosts(ap) {
     { key: 'ground', label: `Ground crews (${gates} gates)`, v: gates * COSTS.groundCrewPerGate * staffing(ap, 'ground').cost },
     { key: 'hvac', label: 'Heating, cooling & power', v: built.reduce((s, T) => s + COSTS.hvacBase + COSTS.hvacPerGate * T.gates, 0) * hvacMult },
     { key: 'cleaning', label: 'Cleaning & upkeep', v: built.length * COSTS.cleaningBase + (ap.rolling ? ap.rolling.flowPerMin : 0) * COSTS.cleaningPerPaxMin },
-    { key: 'runway', label: `Runway maintenance (${runwayCount(ap)})`, v: runwayCount(ap) * COSTS.runwayMaint },
+    { key: 'runway', label: `Runway maintenance (${totalRunways(ap)})`, v: totalRunways(ap) * COSTS.runwayMaint },
     { key: 'connectors', label: 'Connector operations', v: ap.terminals.reduce((s, T) => s + (T.connector && T.connector.buildLeft <= 0 ? connectorUpkeep(T.connector) : 0), 0) },
     { key: 'parking', label: 'Car parks, hotels & landside', v: parkingUpkeep(ap) },
     { key: 'hangars', label: `Maintenance hangars (${hangarCount(ap)})`, v: hangarCount(ap) * HANGAR.upkeep },
@@ -440,6 +500,7 @@ export function terminalSupports(ap, T, cls) {
 
 export function classAllowed(ap, cls) {
   const A = AIRCRAFT[cls];
+  if (site(ap).smallOnly && cls !== 'regional') return 'Only small aircraft fit the island strip';
   if (A.longRunway && !ap.upgrades.longRunway) return 'Needs the runway extension';
   if (A.heavy && !ap.terminals.some((T) => isOpen(T) && T.heavy)) return 'Needs a terminal with heavy gates';
   return null;
@@ -459,30 +520,22 @@ function gateMinutes(ap, cls) {
 export function loadReport(ap, extra = null) {
   const contracts = extra ? ap.contracts.concat([extra]) : ap.contracts;
   const r = {};
-  let movements = 0, depPax = 0;
+  let depPax = 0;
   const perT = new Map();
   for (const T of ap.terminals) perT.set(T.slot, { gateDemand: 0, pax: 0 });
   for (const c of contracts) {
     const A = AIRCRAFT[c.cls];
-    movements += 2 * c.freq;
     const pax = A.pax * c.load * c.freq;
     depPax += pax;
     const pt = perT.get(c.terminal);
     if (pt) {
-      pt.gateDemand += c.freq * gateMinutes(ap, c.cls);
+      pt.gateDemand += c.freq * gateMinutes(fieldFor(ap, c.terminal), c.cls);
       pt.pax += pax;
     }
   }
-  let runwayCap = Math.min(runwayPhysical(ap), atcCapacity(ap));
-  if (ap.upgrades.crosswind) {
-    // Departures from the main-terminal row take off from the crosswind;
-    // everything else shares the parallel runways. The busier side sets
-    // the limit.
-    const fromMainRow = contracts.reduce((s, c) => s + (SLOTS[c.terminal] && SLOTS[c.terminal].row === 'main' ? c.freq : 0), 0);
-    const util = Math.max((movements - fromMainRow) / runwayPhysical(ap), fromMainRow / XW_DEPARTURES, movements / atcCapacity(ap));
-    runwayCap = util > 0 ? movements / util : Math.min(runwayPhysical(ap) + XW_DEPARTURES, atcCapacity(ap));
-  }
-  r.runway = { demand: movements, cap: runwayCap, atc: atcCapacity(ap), physical: runwayPhysical(ap) };
+  r.runway = runwayLoad(ap, contracts.filter((c) => !slotField(c.terminal)));
+  // the hub's runway 3, with its own tower
+  if (hasSouth(ap)) r.runwayS = runwayLoad(ap.south, contracts.filter((c) => slotField(c.terminal)));
   r.security = { demand: depPax, cap: securityRate(ap) * 60 };
   r.parking = { demand: depPax * PAX.driveShare * (ap.upgrades.rail ? 0.7 : 1), cap: parkingCapacity(ap) };
   r.terminals = ap.terminals.map((T) => {
@@ -499,6 +552,24 @@ export function loadReport(ap, extra = null) {
   });
   return r;
 }
+
+// Movements a minute one field's routes need, against what its runways and
+// tower can handle.
+function runwayLoad(F, contracts) {
+  const movements = contracts.reduce((s, c) => s + 2 * c.freq, 0);
+  let cap = Math.min(runwayPhysical(F), atcCapacity(F));
+  if (F.upgrades.crosswind) {
+    // Departures from the main-terminal row take off from the crosswind;
+    // everything else shares the parallel runways. The busier side sets
+    // the limit.
+    const fromMainRow = contracts.reduce((s, c) => s + (SLOTS[c.terminal] && SLOTS[c.terminal].row === 'main' ? c.freq : 0), 0);
+    const util = Math.max((movements - fromMainRow) / runwayPhysical(F), fromMainRow / XW_DEPARTURES, movements / atcCapacity(F));
+    cap = util > 0 ? movements / util : Math.min(runwayPhysical(F) + XW_DEPARTURES, atcCapacity(F));
+  }
+  return { demand: movements, cap, atc: atcCapacity(F), physical: runwayPhysical(F), field: F.field || 0 };
+}
+// The runway load a terminal's routes count against.
+export function runwayFor(rep, slot) { return slotField(slot) && rep.runwayS ? rep.runwayS : rep.runway; }
 
 export function utilisation(d, cap) { return cap > 0 ? d / cap : d > 0 ? 9 : 0; }
 
@@ -539,6 +610,7 @@ export function rollOffer(ap, game, forceCls = null) {
   if (lvl >= UNLOCKS.jumbo) classes.push('jumbo');
   if (lvl >= 4) classes.splice(0, 1); // big airports stop courting tiny routes
   if (SITES[ap.siteIndex].hub && lvl >= 2) classes.push('wide', 'wide', 'jumbo'); // the hub draws the big jets
+  if (SITES[ap.siteIndex].smallOnly) classes.splice(0, classes.length, 'regional');
   const cls = forceCls || pick(R, classes);
   const al = pick(R, AIRLINES);
   const [f0, f1] = CONTRACTS.freq[cls];
@@ -650,7 +722,12 @@ export function demolishTerminal(game, ap, slot) {
     if (f.closed || f.terminal !== slot) continue;
     if (f.plane && f.plane.gate >= 0 && f.plane.state !== 'holding' && f.plane.state !== 'inbound') continue; // already coming in here
     const c = ap.contracts.find((x) => x.id === f.contract);
-    const to = (c && c.terminal) || suggestTerminal(ap, f.cls);
+    let to = (c && c.terminal) || suggestTerminal(ap, f.cls);
+    // an aircraft already on its way stays on its own airfield
+    if (f.plane && slotField(to) !== (f.plane.field || 0)) {
+      const same = ap.terminals.find((o) => o !== T && isOpen(o) && terminalSupports(ap, o, f.cls) && slotField(o.slot) === (f.plane.field || 0));
+      if (same) to = same.slot;
+    }
     moveFlightPax(ap, f.id, T, terminalBySlot(ap, to));
     f.terminal = to;
   }
@@ -693,7 +770,7 @@ export function buyPlot(game, ap, plot) {
 
 export function buildTerminal(game, ap, slot, connectorType, buses = 2) {
   if (terminalBySlot(ap, slot)) return 'Already built';
-  if (!slotAvailable(ap, slot)) return 'Kept for the crosswind runway';
+  if (!slotAvailable(ap, slot)) return site(ap).island ? 'No room on the island' : 'Kept for the crosswind runway';
   if (ap.hangars[slot]) return 'A hangar stands there';
   if (!ap.plots[SLOTS[slot].plot]) return 'Buy the land first';
   if (!connectorAllowed(connectorType, slot)) return 'That connector cannot reach this site';
@@ -794,6 +871,7 @@ export function removeLane(ap) {
 export function upgradeBlocked(ap, key) {
   const U = UPGRADES[key];
   if (U.onlyAt && !site(ap)[U.onlyAt]) return 'Not at this airport';
+  if (site(ap).island && U.needsPlot) return 'Not at this airport'; // no land for it
   if (ap.upgrades[key]) return 'Owned';
   if (key === 'crosswind' && ap.hangars.fareast) return 'The hangar on the far east field is in the way: tear it down first';
   if (key === 'crosswind' && terminalBySlot(ap, 'fareast')) return `The ${nm(ap, SLOTS.fareast.name)} terminal is in the way: tear it down first`;
@@ -828,7 +906,7 @@ export function offerFit(ap, o, slot = suggestTerminal(ap, o.cls)) {
   const r = loadReport(ap, { ...o, terminal: slot });
   const tr = r.terminals.find((t) => t.slot === slot);
   const loads = {
-    runway: r.runway.demand / r.runway.cap,
+    runway: runwayFor(r, slot).demand / runwayFor(r, slot).cap,
     gates: tr ? tr.gateDemand / tr.gates : 0,
     security: r.security.demand / r.security.cap,
     connector: tr && tr.connCap != null ? tr.pax / Math.max(1, tr.connCap) : 0,
@@ -954,6 +1032,11 @@ export function step(game, ap, dt) {
   flowPassengers(game, ap, dt);
   updateBuses(ap, dt);
   updatePlanes(game, ap, dt);
+  if (hasSouth(ap)) {
+    const F = ap.south;
+    F.atcTokens = Math.min(2, F.atcTokens + atcCapacity(F) / 60 * dt);
+    updatePlanes(game, F, dt);
+  }
   updateContracts(game, ap, dt);
   updateRep(ap, dt);
 
@@ -1032,12 +1115,13 @@ function scheduleFlights(game, ap) {
     }
   }
   for (const f of ap.flights.values()) {
-    if (!f.plane && !f.closed && t >= f.spawnAt) spawnPlane(ap, f);
+    if (!f.plane && !f.closed && t >= f.spawnAt) spawnPlane(fieldFor(ap, f.terminal), f);
   }
 }
 
 function inboundEstimate(ap, c) {
-  const r = arrivalRoute(ap, arrRunway(ap), c.cls, gateStand(c.terminal, 0));
+  const F = fieldFor(ap, c.terminal);
+  const r = arrivalRoute(F, arrRunway(F), c.cls, gateStand(c.terminal, 0));
   return 8 + (pathLength(r.route) - r.rollEnd) / FLIGHT.taxiSpeed * (1 + FLIGHT.taxiPad);
 }
 
@@ -1079,6 +1163,7 @@ function spawnPlane(ap, f) {
     path: null, d: 0, blockedFor: 0,
     gate: -1, turnLeft: 0, turnTotal: 0, deplaned: 0,
     rw: arrRunway(ap),
+    field: ap.field || 0,
   };
   f.plane = p;
   ap.planes.push(p);
@@ -1216,6 +1301,15 @@ function updatePlanes(game, ap, dt) {
       case 'holding': {
         const rw = RW[p.rw];
         p.heldFor = (p.heldFor || 0) + dt;
+        // No terminal left in this field that can take it (one was torn
+        // down): after half a minute it diverts elsewhere.
+        if (p.heldFor > 30 && Math.floor(p.heldFor) !== Math.floor(p.heldFor - dt) && findGate(ap, p) === -2) {
+          closeFlight(game, ap, p.f);
+          p.state = 'gone';
+          ap.holdQueue.splice(ap.holdQueue.indexOf(p), 1);
+          notify(ap, 'missed', `${p.f.no} diverted: no open terminal on its airfield can take it`);
+          break;
+        }
         const slot = holdSlot(ap, ap.holdQueue.indexOf(p));
         // Circle with the stack, sliding gently into this aircraft's own slot.
         p.holdA += HOLD_OMEGA * dt + clamp(wrapAngle(slot.a - p.holdA), -0.7 * dt, 0.7 * dt);
@@ -1398,7 +1492,7 @@ function junctionBoxes(ap) {
   if (ap.upgrades.crosswind) z.push({ x: XW_HOLD.x, y: LANE2 });
   for (const T of ap.terminals) {
     const crossing = apronCrossing(T.slot);
-    if (T.connector && T.connector.type === 'shuttle' && crossing) z.push({ x: crossing.x, y: LANE2 });
+    if (T.connector && T.connector.type === 'shuttle' && crossing && crossing.field === (ap.field || 0)) z.push({ x: crossing.x, y: LANE2 });
   }
   ap.zones = z;
   ap.zonesKey = key;
@@ -1782,8 +1876,9 @@ function findGate(ap, p) {
   if (!T || !isOpen(T) || !terminalSupports(ap, T, p.cls)) {
     // Contract moved or terminal closed: fall back to any terminal that fits.
     const was = T;
-    T = ap.terminals.find((x) => isOpen(x) && terminalSupports(ap, x, p.cls));
-    if (!T) return -1;
+    const f = ap.field || 0;
+    T = ap.terminals.find((x) => isOpen(x) && terminalSupports(ap, x, p.cls) && slotField(x.slot) === f);
+    if (!T) return -2;
     if (was) moveFlightPax(ap, p.f.id, was, T);
     p.f.terminal = T.slot;
   }
@@ -2102,6 +2197,7 @@ function busBoard(ap, T, C, b, end) {
 function updateBuses(ap, dt) {
   ap.buses.length = 0;
   ap.busBlocks = [];
+  if (hasSouth(ap)) ap.south.busBlocks = [];
   const def = CONNECTORS.shuttle;
   for (const T of ap.terminals) {
     const C = T.connector;
@@ -2136,7 +2232,7 @@ function updateBuses(ap, dt) {
         let nd = b.d + b.dir * def.speed * dt;
         if (sX != null && Math.abs(b.d - sX) >= 30 && Math.abs(nd - sX) < 30) {
           // Wait at the line if an aircraft is in the crossing.
-          const busy = ap.planes.some((p) => p.alt <= 0.5 && p.state !== 'gate' && Math.hypot(p.x - X.x, p.y - X.y) < p.r + 40);
+          const busy = fieldFor(ap, T.slot).planes.some((p) => p.alt <= 0.5 && p.state !== 'gate' && Math.hypot(p.x - X.x, p.y - X.ly) < p.r + 40);
           if (busy) nd = b.d;
         }
         b.d = nd;
@@ -2147,7 +2243,7 @@ function updateBuses(ap, dt) {
       ap.buses.push({ x: q.x, y: q.y, ang: q.ang + (b.dir > 0 ? 0 : Math.PI), slot: T.slot });
       // Only a bus actually in the crossing blocks it; one waiting at the
       // line does not.
-      if (sX != null && Math.abs(b.d - sX) < 24) ap.busBlocks.push({ x: q.x, y: q.y, r: 10, p: null });
+      if (sX != null && Math.abs(b.d - sX) < 24) fieldFor(ap, T.slot).busBlocks.push({ x: q.x, y: X.field ? SOUTH_M - q.y : q.y, r: 10, p: null });
     }
   }
 }
@@ -2188,10 +2284,11 @@ function updateRep(ap, dt) {
 
 // A quick view of what is going on, for the ops board.
 export function opsSnapshot(ap) {
-  const holding = ap.holdQueue.length;
-  const holdingForGate = ap.holdQueue.filter((p) => p.holdReason === 'gate').length;
-  const waitingPush = ap.planes.filter((p) => p.state === 'gate' && p.ready).length;
-  const depQ = ap.depQueue.length + ap.depQueueX.length;
+  const hq = allHolding(ap);
+  const holding = hq.length;
+  const holdingForGate = hq.filter((p) => p.holdReason === 'gate').length;
+  const waitingPush = allPlanes(ap).filter((p) => p.state === 'gate' && p.ready).length;
+  const depQ = fields(ap).reduce((s, F) => s + F.depQueue.length + F.depQueueX.length, 0);
   return { holding, holdingForGate, waitingPush, waitingGate: holdingForGate, depQ, secQueue: ap.secQueue || 0, secWait: (ap.secQueue || 0) / Math.max(0.01, securityRate(ap)) };
 }
 

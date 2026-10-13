@@ -12,7 +12,7 @@ import * as S from '../src/sim.js';
 
 const minutes = Number(process.argv[2] || 15);
 
-function scenario(name, seed, setup, siteIndex = 0) {
+function scenario(name, seed, setup, siteIndex = 0, routes = 20) {
   if (only && only !== name) return true;
   const game = { cash: 1e9, airports: [] };
   const ap = createAirport(siteIndex, seed + Number(process.env.SEED || 0) * 100);
@@ -22,7 +22,7 @@ function scenario(name, seed, setup, siteIndex = 0) {
   ap.securityLanes = 14; ap.staffing.atc = 'surge'; ap.upgrades.radar = true; ap.upgrades.automation = true;
   ap.contracts = [];
   const classes = ['regional', 'narrow', 'narrow', 'wide'];
-  for (let i = 0; i < 20; i++) {
+  for (let i = 0; i < routes; i++) {
     ap.offers = [{ id: 'x' + i, airline: 'A', code: 'AA', color: '#fff', city: 'X', cls: classes[i % 4], freq: 0.9, paxFee: 10, load: 0.8, expires: 1e9, bonus: 0 }];
     acceptOffer(game, ap, 'x' + i, slots[i % slots.length]);
   }
@@ -30,7 +30,9 @@ function scenario(name, seed, setup, siteIndex = 0) {
   const seen = new Set();
   for (let t = 0; t < minutes * 60; t += 0.05) {
     step(game, ap, 0.05);
-    const g = ap.planes.filter((p) => p.alt <= 0.5 && p.state !== 'gate');
+    // each airfield on its own: the hub's south field shares coordinates
+    for (const F of S.fields(ap)) {
+    const g = F.planes.filter((p) => p.alt <= 0.5 && p.state !== 'gate');
     for (let i = 0; i < g.length; i++) {
       for (let j = i + 1; j < g.length; j++) {
         const a = g[i], b = g[j];
@@ -41,6 +43,7 @@ function scenario(name, seed, setup, siteIndex = 0) {
           if (process.env.DEBUG === name && overlaps <= 3) console.log('overlap t', t.toFixed(1), [a, b].map((p) => `tow${(p.towed||0).toFixed(0)} ${p.id} ${p.state} @${p.x.toFixed(0)},${p.y.toFixed(0)} d${p.d.toFixed(0)}/${(p.len || 0).toFixed(0)} rollEnd ${p.rollEnd && p.rollEnd.toFixed(0)} why[${p.why}]`).join(' | '));
         }
       }
+    }
     }
     if (process.env.TRACE && process.env.DEBUG === name && t > Number(process.env.TRACE) && t < Number(process.env.TRACE) + 12 && Math.abs(t % 1) < 0.05) {
       const R = ap.runways[0];
@@ -55,7 +58,7 @@ function scenario(name, seed, setup, siteIndex = 0) {
         for (const o of ap.planes) if (o !== st && o.alt <= 0.5 && Math.hypot(o.x - st.x, o.y - st.y) < 220) console.log('   ', fmt(o));
       }
     }
-    for (const p of ap.planes) {
+    for (const p of S.allPlanes(ap)) {
       if (p.state === 'rollout' && !seen.has('l' + p.id)) { seen.add('l' + p.id); landings++; }
       if (p.state === 'takeoff' && !seen.has('t' + p.id)) { seen.add('t' + p.id); takeoffs++; }
     }
@@ -79,4 +82,7 @@ pass &= scenario('everything, one runway', 3, (g, ap) => all(g, ap, ['west', 'ea
 pass &= scenario('everything, two runways', 4, (g, ap) => { ap.upgrades.runway2 = true; ap.upgrades.rapidExits = true; return all(g, ap, ['west', 'east', 'farwest', 'fareast', 'north'], ['midcenter', 'westwing', 'eastwing', 'midwest', 'mideast', 'farwest', 'fareast'], () => 'monorail'); });
 pass &= scenario('crosswind departures runway', 6, (g, ap) => { ap.upgrades.crosswind = true; ap.upgrades.rapidExits = true; return all(g, ap, ['west', 'east', 'fareast', 'farwest'], ['midcenter', 'westwing', 'eastwing', 'midwest', 'mideast', 'farwest'], () => 'tunnel'); }, 2);
 pass &= scenario('crosswind and second runway', 7, (g, ap) => { ap.upgrades.crosswind = true; ap.upgrades.runway2 = true; ap.upgrades.rapidExits = true; return all(g, ap, ['west', 'east', 'fareast', 'farwest', 'north'], ['midcenter', 'westwing', 'eastwing', 'midwest', 'mideast', 'farwest'], () => 'monorail'); }, 2);
+// the hub: both north runways plus the south field and runway 3
+const N = ['midcenter', 'westwing', 'eastwing', 'midwest', 'mideast', 'farwest', 'fareast'];
+pass &= scenario('hub, both airfields', 8, (g, ap) => all(g, ap, ['score', 'swest', 'seast', 'sfarwest', 'sfareast'], [...N, 'smain', ...N.map((k) => 's' + k)], (s) => (s.startsWith('s') && !s.startsWith('smid') ? 'shuttle' : 'tunnel')), 7, 36);
 process.exit(pass ? 0 : 1);

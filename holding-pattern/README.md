@@ -85,7 +85,16 @@ station manager to hire who signs offers that fit and declines the rest.
 International (MCI), sits in the middle of the map. It costs the most and
 starts as a hub: every parcel of land, both runways, the long runway,
 rapid exits and radar, the most demand, and widebodies and superjumbos
-earlier than anywhere else. From three airports on, airline alliances offer
+earlier than anywhere else. Its map is twice as tall: across the highway
+it can buy a whole second airfield, the north one mirrored, with runway 3,
+its own tower, holding stack and taxiway loop, more car park sites and
+eight more terminal sites (J to R). Buses reach them along a road under
+the highway; monorails and tunnels go over and under it. Routes signed at
+south terminals land and take off on runway 3 only, so the two airfields
+never share a taxiway. Once the hub is yours, the ninth and last airport
+is for sale: Sunset Cay, a little island strip on a causeway, for small
+planes only, with one terminal and one car park. It is a reward, not a
+business, and it says thank you. From three airports on, airline alliances offer
 packages: a route at each of three to five of your airports, better fees and
 one large bonus, signed or declined as a whole from the All tab. Nothing is
 "won"; milestones (a quiet link in the Money tab) mark the way, from the

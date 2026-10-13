@@ -28,6 +28,8 @@ export const MILESTONES = [
   ['ap4', 'Regional network', 'Own four airports', (g) => g.airports.length >= 4, (g) => [g.airports.length, 4]],
   ['apAll', 'Coast to coast', `Own all ${SITES.length} airports`, (g) => g.airports.length >= SITES.length, (g) => [g.airports.length, SITES.length]],
   ['hub', 'The hub', 'Own Mid-Continent International', (g) => anyAp(g, (a) => SITES[a.siteIndex].hub), null],
+  ['southField', 'Hub of hubs', 'Open the south airfield at Mid-Continent', (g) => anyAp(g, (a) => a.plots.score), null],
+  ['island', 'You made it', 'Own Sunset Cay', (g) => anyAp(g, (a) => SITES[a.siteIndex].island), null],
   ['lvl10', 'Top of the table', `Take an airport to level ${LEVELS.length - 1}`, (g) => anyAp(g, (a) => a.level >= LEVELS.length - 1), (g) => [Math.max(...g.airports.map((a) => a.level)), LEVELS.length - 1]],
   ['net1k', 'Money machine', 'Earn $1,000 a second across the company', (g) => net(g) >= 1000, (g) => [Math.max(0, net(g)), 1000]],
   ['net100k', 'Printing money', 'Earn $100,000 a second', (g) => net(g) >= 1e5, (g) => [Math.max(0, net(g)), 1e5]],
@@ -36,9 +38,10 @@ export const MILESTONES = [
   ['punctual', 'Like clockwork', '95% on time at an airport with 10 or more routes', (g) => anyAp(g, (a) => a.contracts.length >= 10 && a.rolling.otp >= 0.95), null],
   ['alliance', 'Allied', 'Sign an alliance package', (g) => (g.alliancesSigned || 0) >= 1, null],
   ['alliance5', 'The alliance of choice', 'Sign five alliance packages', (g) => (g.alliancesSigned || 0) >= 5, (g) => [g.alliancesSigned || 0, 5]],
-  ['threeRunways', 'Three runways', 'Two parallel runways and a crosswind at one airport', (g) => anyAp(g, (a) => a.upgrades.runway2 && a.upgrades.crosswind), null],
+  ['threeRunways', 'Three runways', 'Three runways at one airport', (g) => anyAp(g, (a) => a.upgrades.runway2 && (a.upgrades.crosswind || a.plots.score)), null],
   ['everyUse', 'Something for everyone', 'A garage, hotel, rental centre, solar farm and hangar somewhere', (g) => ['garage', 'hotel', 'rental', 'solar', 'hangar'].every((u) => usesBuilt(g).has(u)), (g) => [['garage', 'hotel', 'rental', 'solar', 'hangar'].filter((u) => usesBuilt(g).has(u)).length, 5]],
   ['fullHouse', 'Full house', 'Eight terminals at one airport', (g) => anyAp(g, (a) => a.terminals.length >= 8), (g) => [Math.max(...g.airports.map((a) => a.terminals.length)), 8]],
+  ['sixteen', 'Sixteen', 'All sixteen terminal sites built at the hub', (g) => anyAp(g, (a) => a.terminals.length >= 16), (g) => [Math.max(...g.airports.map((a) => a.terminals.length)), 16]],
 ].map(([id, name, desc, test, progress]) => ({ id, name, desc, test, progress }));
 
 // Returns the milestones earned just now.

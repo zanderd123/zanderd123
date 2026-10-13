@@ -64,7 +64,7 @@ export function siteStatus(game, i) {
   const next = nextSite(game);
   if (i !== next) return { state: 'locked' };
   const newest = game.airports[game.airports.length - 1];
-  if (newest.level < UNLOCKS.nextAirport) {
+  if (newest.level < UNLOCKS.nextAirport && !SITES[i].island) {
     return { state: 'needsLevel', need: UNLOCKS.nextAirport, from: newest.name };
   }
   return { state: 'available', price: SITES[i].price };
