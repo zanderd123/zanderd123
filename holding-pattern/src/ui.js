@@ -513,8 +513,13 @@ function siteRow(ap, id, detail = false) {
   const owned = ap.plots[P.plot];
   const now = u ? `${useName(u)}${u === 'lot' || u === 'garage' ? ` · ${num(S.parkingSiteCap(id, u))} drivers/min` : ''}` : owned ? 'Empty land' : `On the ${S.nm(ap, PLOTS[P.plot].name)}`;
   let btns = '';
-  if (!owned) btns = `<span class="tag">Buy the ${esc(S.nm(ap, PLOTS[P.plot].name))} first</span>`;
-  else {
+  const kept = !S.parkingAvailable(ap, id);
+  if (kept && u) {
+    // built before this land was kept for the crosswind runway
+    const back = S.landsideRefund(ap, id);
+    btns = `<span class="tag amber">Kept for the crosswind runway</span>${armBtn('dsite-' + id, `Tear down${back ? ` · get back ${money(back)}` : ''}`, 'Confirm: tear it down', 'demolish-site', `data-id="${id}"`)}`;
+  } else if (!owned) btns = `<span class="tag">Buy the ${esc(S.nm(ap, PLOTS[P.plot].name))} first</span>`;
+  else if (!kept) {
     const opts = S.landsideOptions(ap, id);
     for (const use of detail ? opts : opts.slice(0, u ? 1 : 2)) {
       btns += priceBtn(`${use === 'garage' ? 'Garage' : useName(use)} · ${siteGain(ap, id, use)}`, `landside" data-id="${id}" data-use="${use}`, S.landsideCost(ap, id, use));
@@ -532,7 +537,7 @@ function parkingBlock(ap) {
   const rep = S.loadReport(ap);
   return `<table class="fc"><tr><td>Car parks</td><td>${barHtml(rep.parking.demand / rep.parking.cap)}</td><td class="num">${pct(rep.parking.demand / rep.parking.cap)}</td></tr></table>
   <p class="note">${num(rep.parking.demand)} drivers a minute want to park; ${num(rep.parking.cap)} fit. Each parcel of land has a landside site: a car park (a garage can go on top later), an airport hotel, a rental car centre or a solar farm. Open a site to see every choice, or to tear down what is there.</p>
-  <ul class="list">${PARKING_ORDER.filter((id) => S.parkingAvailable(ap, id)).map((id) => `<li class="stack click" data-act="detail" data-kind="parking" data-id="${id}" style="cursor:pointer">${siteRow(ap, id).slice('<li class="stack">'.length)}`).join('')}</ul>`;
+  <ul class="list">${PARKING_ORDER.filter((id) => S.parkingAvailable(ap, id) || ap.parking[id]).map((id) => `<li class="stack click" data-act="detail" data-kind="parking" data-id="${id}" style="cursor:pointer">${siteRow(ap, id).slice('<li class="stack">'.length)}`).join('')}</ul>`;
 }
 
 function renderParkingDetail(game, ap, id) {

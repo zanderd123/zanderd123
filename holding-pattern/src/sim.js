@@ -304,6 +304,7 @@ export function parkingNext(ap, id) {
 // farm. What a site can be turned into from what it is now:
 export function landsideOptions(ap, id) {
   const u = ap.parking[id];
+  if (!parkingAvailable(ap, id)) return []; // kept for the crosswind: tear down only
   if (!u) return ['lot', ...LANDSIDE_ORDER];
   return u === 'lot' ? ['garage'] : [];
 }

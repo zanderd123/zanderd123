@@ -1304,12 +1304,12 @@ export function pick(ap, wx, wy) {
       return ap.plots[SLOTS[id].plot] ? { kind: 'slot', id } : { kind: 'plot', id: SLOTS[id].plot };
     }
   }
-  if (hasXW(ap) && ap.plots.fareast && Math.abs(wx - XW.x) < 32 && wy > XW.y0 - 10 && wy < XW.y1 + 10) return { kind: 'runway' };
   for (const id of PARKING_ORDER) {
     const P = PARKING_SITES[id];
-    if (!parkingAvailable(ap, id)) continue;
+    if (!parkingAvailable(ap, id) && !ap.parking[id]) continue;
     if (ap.plots[P.plot] && wx >= P.x && wx <= P.x + P.w && wy >= P.y && wy <= P.y + P.h) return { kind: 'parking', id };
   }
+  if (hasXW(ap) && ap.plots.fareast && Math.abs(wx - XW.x) < 32 && wy > XW.y0 - 10 && wy < XW.y1 + 10) return { kind: 'runway' };
   for (const [id, P] of Object.entries(PLOTS)) {
     if (ap.plots[id]) continue;
     for (const r of P.rects) if (wx >= r.x && wx <= r.x + r.w && wy >= r.y && wy <= r.y + r.h) return { kind: 'plot', id };
