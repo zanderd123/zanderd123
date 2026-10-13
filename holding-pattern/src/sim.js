@@ -27,10 +27,11 @@ export function createAirport(siteIndex, seed = Date.now()) {
     siteIndex,
     id: site.id,
     name: site.name,
-    plots: { core: true },
+    // the hub comes with all its land
+    plots: site.hub ? { core: true, west: true, east: true, south: true, farwest: true, fareast: true, north: true } : { core: true },
     terminals: [newTerminal('main', true)],
     securityLanes: SEC.startLanes,
-    upgrades: site.longRunway ? { longRunway: true } : {},
+    upgrades: site.hub ? { longRunway: true, runway2: true, rapidExits: true, radar: true } : site.longRunway ? { longRunway: true } : {},
     parking: { front: 'lot' },
     hangars: {},
     staffing: { atc: 'standard', security: 'standard', ground: 'standard' },
@@ -529,7 +530,7 @@ export function contractValue(ap, c, game) {
 // contracts
 // ======================================================================
 
-function rollOffer(ap, game, forceCls = null) {
+export function rollOffer(ap, game, forceCls = null) {
   const R = ap.rand;
   const lvl = ap.level;
   const classes = ['regional'];
@@ -537,6 +538,7 @@ function rollOffer(ap, game, forceCls = null) {
   if (lvl >= UNLOCKS.wide) classes.push('wide', 'wide');
   if (lvl >= UNLOCKS.jumbo) classes.push('jumbo');
   if (lvl >= 4) classes.splice(0, 1); // big airports stop courting tiny routes
+  if (SITES[ap.siteIndex].hub && lvl >= 2) classes.push('wide', 'wide', 'jumbo'); // the hub draws the big jets
   const cls = forceCls || pick(R, classes);
   const al = pick(R, AIRLINES);
   const [f0, f1] = CONTRACTS.freq[cls];
@@ -569,7 +571,7 @@ export function acceptOffer(game, ap, offerId, terminalSlot) {
   if (!slot) return 'No open terminal can take this aircraft';
   ap.offers.splice(i, 1);
   const c = {
-    id: o.id, airline: o.airline, code: o.code, color: o.color, city: o.city, network: o.network,
+    id: o.id, airline: o.airline, code: o.code, color: o.color, city: o.city, network: o.network, alliance: o.alliance,
     cls: o.cls, freq: o.freq, paxFee: o.paxFee, load: o.load, terminal: slot,
     otpHist: [], unhappyFor: 0, nextStd: 0, flown: 0,
   };

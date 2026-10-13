@@ -5,6 +5,8 @@ import * as S from './sim.js';
 import { makeCamera, fitCamera, screenToWorld, render, attach, pick, dayPhase } from './render.js';
 import { ui, renderTop, renderOps, renderPanel, toast, showDialog } from './ui.js';
 import { makeTutorial } from './tutorial.js';
+import { acceptAlliance, declineAlliance } from './network.js';
+import { checkMilestones } from './milestones.js';
 import { renderMapSide, drawMap, siteAt } from './mapview.js';
 import { money, duration, clamp } from './util.js';
 import { SITES } from './config.js';
@@ -58,6 +60,7 @@ function start(hotData) {
     openTab(tab) { ui.tab = tab; ui.detail = null; openPanel(); renderPanel(true); },
     onDone() { toast('Tutorial done. Help has the rest.', 'good'); },
   });
+  checkMilestones(game); // what an existing save has already earned, quietly
   renderPanel(true);
   if (game.cashRecovered) {
     delete game.cashRecovered;
@@ -112,6 +115,11 @@ function frame(now) {
     renderOps(game, `${String(Math.floor(mins / 60)).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}`);
     renderPanel();
     if (tut && tut.active()) tut.tick();
+    for (const m of checkMilestones(game)) toast(`Milestone: ${m.name}`, 'good');
+    if (game.allianceNews) {
+      toast(`${game.allianceNews.name} offers routes at ${game.allianceNews.legs.length} of your airports: see the All tab`, 'good');
+      game.allianceNews = null;
+    }
     if (!$('mapModal').hidden) renderMapSide(game);
     drainEvents();
   }
@@ -281,6 +289,7 @@ body.addEventListener('change', (e) => {
 body.addEventListener('click', (e) => {
   const b = e.target.closest('[data-act]');
   if (!b || b.disabled) return;
+  if (b.tagName === 'A') e.preventDefault();
   const d = b.dataset;
   // buttons on the network tab act on their own airport
   const ap = d.ap != null && game.airports[Number(d.ap)] ? game.airports[Number(d.ap)] : activeAirport(game);
@@ -289,6 +298,8 @@ body.addEventListener('click', (e) => {
   if (d.ap != null && ap !== activeAirport(game) && (d.act === 'tab' || d.act === 'detail')) switchTo(Number(d.ap));
   switch (d.act) {
     case 'goto': ui.tab = 'advisor'; switchTo(Number(d.ap)); return;
+    case 'alliance-accept': err = acceptAlliance(game, d.id); ui.armed = null; ok = 'Alliance signed: routes added at every airport in the package'; break;
+    case 'alliance-decline': declineAlliance(game, d.id); break;
     case 'manager': S.setManager(ap, d.on === '1'); ok = d.on === '1' ? `Station manager hired at ${ap.id}` : `Station manager let go at ${ap.id}`; break;
     case 'accept': err = S.acceptOffer(game, ap, d.id, d.slot); ok = 'Contract signed'; break;
     case 'decline': S.declineOffer(ap, d.id); break;
@@ -349,6 +360,7 @@ function replaceGame(g) {
   ui.exported = null;
   view.selected = null;
   attach(activeAirport(game));
+  checkMilestones(game);
   setSpeed(g.speed || 1);
   save(game);
 }

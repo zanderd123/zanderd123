@@ -67,11 +67,12 @@ a premium.
 **Every airport is its own place.** Pinewood sits in forest, Bayside on a
 bay, High Mesa in the desert (hot and high: the long runway comes built, and
 as a rural field its terminals hold 3 gates), Harbor City by the docks,
-Northgate in the snow, Coral Coast on a tropical shore (long runway built)
-and Meridian Hub in the city. Bayside, Northgate and Meridian face the other
-way: their runways run east to west. The remote fields, High Mesa and
-Northgate, keep their far east field for a crosswind runway: north to south,
-departures only, used by every flight from a main-terminal-row gate.
+Northgate in the snow, Coral Coast on a tropical shore (long runway built),
+Meridian Hub in the city and Mid-Continent on the prairie. Bayside,
+Northgate and Meridian face the other way: their runways run east to west.
+The remote fields, High Mesa and Northgate, keep their far east field for a
+crosswind runway: north to south, departures only, used by every flight
+from a main-terminal-row gate.
 
 **Change your mind.** A terminal site takes a terminal or a maintenance
 hangar; a landside site a car park, hotel, rental car centre or solar farm.
@@ -79,6 +80,16 @@ Anything but the main terminal can be torn down for a quarter of its cost.
 With several airports, the All tab runs them together: each airport's money,
 on-time and top recommendation, every open offer to sign or decline, and a
 station manager to hire who signs offers that fit and declines the rest.
+
+**The hub and the long game.** The eighth airport, Mid-Continent
+International (MCI), sits in the middle of the map. It costs the most and
+starts as a hub: every parcel of land, both runways, the long runway,
+rapid exits and radar, the most demand, and widebodies and superjumbos
+earlier than anywhere else. From three airports on, airline alliances offer
+packages: a route at each of three to five of your airports, better fees and
+one large bonus, signed or declined as a whole from the All tab. Nothing is
+"won"; milestones (a quiet link in the Money tab) mark the way, from the
+first thousand passengers to a hundred million.
 
 **Everyone is accounted for.** Cars drop departing passengers at the curb and
 pick arrivals up; shuttle buses load at one stop and unload at the other;

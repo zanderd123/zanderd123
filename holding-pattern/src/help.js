@@ -61,6 +61,9 @@ export function helpHtml() {
     <li>Levels come from passengers served (${LEVELS.slice(1, 5).map((v) => v.toLocaleString('en-US')).join(', ')}…). Narrowbody routes appear at level ${UNLOCKS.narrow}, widebodies at ${UNLOCKS.wide}, superjumbos at ${UNLOCKS.jumbo}.</li>
     <li>At level ${UNLOCKS.nextAirport} the <b>Network map</b> sells you a second airport. Your first keeps earning; the new one earns more per passenger. Every airport you own adds passengers to all the others.</li>
     <li>With two or more airports, the <b>All</b> tab shows every airport at once: money, on-time, the one thing each needs (one click to buy it) and every open offer, which you can sign or decline from there. Hire a <b>station manager</b> at an airport and it signs offers that fit comfortably and declines the rest.</li>
+    <li>Once you own three airports, airline alliances start offering <b>packages</b>: one route at each of three to five of your airports, at better fees and with a large joint bonus. They appear at the top of the All tab for a few minutes; sign all of it or decline it.</li>
+    <li>The eighth airport, <b>Mid-Continent International</b>, is the hub: it comes with every parcel of land, both runways, the long runway, rapid exits and radar, and gets bigger aircraft sooner.</li>
+    <li>There is no end. <b>Milestones</b> (a link in the Money tab) mark the way: ten million passengers, every airport in the black, three runways at one field.</li>
   </ul>
   ${sec('Changing your mind')}
   <ul class="plain">

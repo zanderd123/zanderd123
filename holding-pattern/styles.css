@@ -188,6 +188,8 @@ select {
 .list li { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; padding: 9px 0; border-bottom: 1px solid var(--line); }
 .list li:last-child { border-bottom: 0; }
 .list li.stack { grid-template-columns: 1fr; }
+a.quiet { color: var(--muted); text-decoration: none; border-bottom: 1px dotted var(--muted); }
+a.quiet:hover { color: var(--text); }
 .list li.stack .btns { margin-top: 2px; }
 .list .what b { display: block; font-weight: 600; }
 .list .what span { color: var(--muted); font-size: 12.5px; }

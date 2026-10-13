@@ -199,7 +199,16 @@ export const SITES = [
   { id: 'CRL', name: 'Coral Coast',         x: 0.78, y: 0.70, rev: 14,   cost: 4.0, demand: 1.75, price: 8e7,   theme: 'tropical', longRunway: true,
     blurb: 'Long-haul resort traffic: the long runway comes built.' },
   { id: 'MRD', name: 'Meridian Hub',        x: 0.84, y: 0.26, rev: 24,   cost: 5.3, demand: 1.9,  price: 4e8,   theme: 'city', mirror: true },
+  { id: 'MCI', name: 'Mid-Continent International', x: 0.5, y: 0.47, rev: 40, cost: 7.0, demand: 2.3, price: 2.5e9, theme: 'prairie', hub: true, longRunway: true,
+    blurb: 'The hub at the heart of the network. All its land, both runways, rapid exits and approach radar come built, and airlines bring their biggest aircraft here.' },
 ];
+
+// Alliances: once you own a few airports, airline groups offer a package of
+// routes across several of them at once, signed or declined as one.
+export const ALLIANCE = {
+  minAirports: 3, every: [150, 260], life: 160, legs: [3, 5], feeBonus: 1.25, bonusMult: 2.5,
+  names: [['Polaris Alliance', '#3d6fb6'], ['SkyBridge Group', '#c2412f'], ['Atlas Air Group', '#2f8f6a'], ['Horizon Partners', '#c98a14'], ['Starline Alliance', '#6a4bb3']],
+};
 export const NETWORK = {
   paxFeePerAirport: 0.06, // passive fee bonus at every airport per other owned airport
   routeFeeBonus: 1.35,    // network contracts pay this multiple

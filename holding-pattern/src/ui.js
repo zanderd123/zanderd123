@@ -12,6 +12,8 @@ import * as S from './sim.js';
 import { money, num, duration, pathLength, clamp, rate, every } from './util.js';
 import { advise, key as fixKey, offerUnlockFixes } from './advisor.js';
 import { helpHtml } from './help.js';
+import { MILESTONES } from './milestones.js';
+import { allianceFits } from './network.js';
 import { activeAirport } from './game.js';
 
 const $ = (id) => document.getElementById(id);
@@ -78,6 +80,7 @@ export function renderTop(game) {
   $('netTab').hidden = game.airports.length < 2;
   let waiting = 0;
   for (const a of game.airports) if (a !== ap) waiting += (a.manager ? 0 : a.offers.length) + ((a.perMin.operating || 0) < 0 && a.t > 60 ? 1 : 0);
+  waiting += (game.alliances || []).length;
   $('netBadge').hidden = !waiting;
   $('netBadge').textContent = waiting;
 }
@@ -186,6 +189,18 @@ function renderNetwork(game) {
   const total = rows.reduce((s, r) => s + (r.ap.perMin.operating || 0), 0);
   const offers = rows.reduce((s, r) => s + r.ap.offers.length, 0);
   let h = `<dl class="board"><div><dt>Airports</dt><dd>${rows.length}</dd></div><div><dt>Net, all</dt><dd class="${total >= 0 ? 'pos' : 'neg'}">${rate(total, true)}</dd></div><div><dt>Open offers</dt><dd>${offers}</dd></div><div><dt>Losing money</dt><dd>${rows.filter((r) => (r.ap.perMin.operating || 0) < 0 && r.ap.t > 60).length}</dd></div></dl>`;
+  for (const a of game.alliances || []) {
+    const fits = allianceFits(game, a);
+    const allFit = fits.every((f) => f.fit.fits);
+    const stuck = fits.find((f) => !f.fit.slot);
+    const left = Math.max(0, a.expires - (game.netT || 0));
+    h += `<div class="card best"><div class="eyebrow">Alliance offer · ${fits.length} airports · ${duration(left)} left</div>
+      <div class="row between"><div class="row"><span class="chip" style="background:${a.color}"></span><div class="title">${esc(a.name)}</div></div><span class="tag ${allFit ? 'green' : 'amber'}">${allFit ? 'Fits' : 'Tight'}</span></div>
+      <ul class="list">${fits.map((f) => `<li><div class="what"><b>${f.airport.id} · ${esc(f.offer.city)}</b><span>${AIRCRAFT[f.offer.cls].name} · ${every(f.offer.freq)} · ${f.fit.slot ? `${rate(S.contractValue(f.airport, { ...f.offer, terminal: f.fit.slot }, game))} at ${TERMINAL_CODES[f.fit.slot]}` : ''}${f.fit.fits ? '' : ` · <b class="neg">${esc(f.fit.why)}</b>`}</span></div></li>`).join('')}</ul>
+      <p class="note">Premium fees on every route and a joint bonus of <b>${money(a.bonus)}</b>. Signed or declined as one package.</p>
+      <div class="btns">${stuck ? `<span class="tag">${esc(stuck.airport.id)} can't take its route yet</span>` : allFit ? `<button type="button" class="btn go" data-act="alliance-accept" data-id="${a.id}">Sign all · bonus <span class="price">${money(a.bonus)}</span></button>` : armBtn('al-' + a.id, `Sign all anyway · ${money(a.bonus)}`, 'Confirm: sign the package', 'alliance-accept', `data-id="${a.id}"`)}<button type="button" class="btn" data-act="alliance-decline" data-id="${a.id}">Decline</button></div>
+    </div>`;
+  }
   h += `<h3 class="sec">Airports</h3>`;
   for (const { ap, i, adv } of rows) {
     const net = ap.perMin.operating || 0;
@@ -214,6 +229,22 @@ function renderNetwork(game) {
     }
   }
   return h;
+}
+
+function renderMilestones(game) {
+  const got = game.milestones || {};
+  const rows = MILESTONES.map((m) => {
+    const done = got[m.id];
+    let prog = '';
+    if (!done && m.progress) {
+      try { const [v, target] = m.progress(game); prog = `<div class="bar" style="margin-top:6px"><i style="width:${(clamp(v / target, 0, 1) * 100).toFixed(1)}%"></i></div><span>${num(v)} of ${num(target)}</span>`; } catch { prog = ''; }
+    }
+    return `<li class="stack" style="${done ? '' : 'opacity:0.72'}"><div class="what"><b>${done ? '✓ ' : ''}${esc(m.name)}</b><span>${esc(m.desc)}${done ? ` · ${new Date(done).toLocaleDateString()}` : ''}</span>${prog}</div></li>`;
+  }).join('');
+  return `<button type="button" class="back" data-act="back">◂ Back</button>
+  <div class="title" style="font-size:24px">Milestones · ${Object.keys(got).length} of ${MILESTONES.length}</div>
+  <p class="note">Nothing to win: just landmarks along the way.</p>
+  <ul class="list">${rows}</ul>`;
 }
 
 function renderAdvisor(game, ap) {
@@ -612,6 +643,7 @@ function renderDetail(game, ap, d) {
   if (d.kind === 'slot') return S.terminalBySlot(ap, d.id) ? renderTerminalDetail(game, ap, d.id) : ap.hangars[d.id] ? renderHangarDetail(game, ap, d.id) : renderSlotDetail(game, ap, d.id);
   if (d.kind === 'terminal') return renderTerminalDetail(game, ap, d.id);
   if (d.kind === 'plot') return renderPlotDetail(game, ap, d.id);
+  if (d.kind === 'milestones') return renderMilestones(game);
   if (d.kind === 'parking') return renderParkingDetail(game, ap, d.id);
   if (d.kind === 'runway') return renderRunwayDetail(game, ap);
   if (d.kind === 'plane') return renderPlaneDetail(game, ap, d.plane);
@@ -663,7 +695,8 @@ function renderFinance(game, ap) {
     <div><dt>Revenue</dt><dd>${money(game.airports.reduce((s, a) => s + a.lifetime.revenue, 0))}</dd></div>
     <div><dt>Flights</dt><dd>${num(game.airports.reduce((s, a) => s + a.lifetime.flights, 0))}</dd></div>
     <div><dt>Passengers</dt><dd>${num(game.airports.reduce((s, a) => s + a.paxServed, 0))}</dd></div>
-  </dl>`;
+  </dl>
+  <p class="note"><a href="#" class="quiet" data-act="detail" data-kind="milestones" data-id="">Milestones · ${Object.keys(game.milestones || {}).length} of ${MILESTONES.length}</a></p>`;
   const nextL = LEVELS[ap.level];
   if (nextL) h += `<p class="note">Level ${ap.level + 1} at ${num(nextL)} passengers served (${num(ap.paxServed)} so far). Levels bring bigger aircraft and, at level 4, the next airport.</p>`;
   h += `<h3 class="sec">Save</h3>

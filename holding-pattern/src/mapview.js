@@ -90,7 +90,9 @@ export function drawMap(game, dt) {
     const isOwned = st.state === 'owned';
     const cur = isOwned && st.index === game.active;
     g.fillStyle = isOwned ? '#ffc20e' : st.state === 'available' ? '#ece8dc' : 'rgba(236,232,220,0.35)';
-    g.beginPath(); g.arc(p.x, p.y, isOwned ? 8 : 6, 0, Math.PI * 2); g.fill();
+    const r = (isOwned ? 8 : 6) * (s.hub ? 1.6 : 1);
+    g.beginPath(); g.arc(p.x, p.y, r, 0, Math.PI * 2); g.fill();
+    if (s.hub) { g.strokeStyle = isOwned ? '#ffc20e' : 'rgba(236,232,220,0.5)'; g.lineWidth = 1.5; g.beginPath(); g.arc(p.x, p.y, r + 5, 0, Math.PI * 2); g.stroke(); }
     if (cur) { g.strokeStyle = '#ffc20e'; g.lineWidth = 2; g.beginPath(); g.arc(p.x, p.y, 13 + Math.sin(mapT * 3) * 2, 0, Math.PI * 2); g.stroke(); }
     g.font = '700 14px "Barlow Condensed", "Arial Narrow", sans-serif';
     const label = s.id;

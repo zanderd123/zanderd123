@@ -3,6 +3,7 @@
 
 import { SITES, START, UNLOCKS, OFFLINE } from './config.js';
 import { createAirport, step, serializeAirport, restoreAirport } from './sim.js';
+import { updateNetwork } from './network.js';
 
 const SAVE_KEY = 'holding-pattern-save-v1';
 
@@ -29,6 +30,7 @@ export function stepGame(game, dt, onScreen = null) {
     ap.lag = (ap.lag || 0) + dt;
     while (ap.lag >= BG_STEP) { step(game, ap, BG_STEP); ap.lag -= BG_STEP; }
   }
+  if (onScreen) updateNetwork(game, dt);
   // Safety net: if a bug ever turns the balance into NaN, nothing could be
   // bought again and the broken number would be saved. Put back the last
   // good balance instead.
@@ -89,6 +91,8 @@ export function serialize(game) {
     started: game.started,
     tutorial: game.tutorial,
     tutorialDone: !!game.tutorialDone,
+    milestones: game.milestones || {},
+    alliancesSigned: game.alliancesSigned || 0,
     savedAt: Date.now(),
     airports: game.airports.map(serializeAirport),
   };
@@ -103,6 +107,8 @@ export function deserialize(data) {
     started: data.started || Date.now(),
     tutorial: data.tutorial || 0,
     tutorialDone: !!data.tutorialDone,
+    milestones: data.milestones || {},
+    alliancesSigned: data.alliancesSigned || 0,
     airports: data.airports.map(restoreAirport),
     savedAt: data.savedAt,
   };

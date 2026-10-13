@@ -31,6 +31,7 @@ const THEMES = {
   harbor:   { ground: '#7c9466', stripe: '#83996c', farmA: '#a9a173', farmB: '#9da56f', farmEdge: '#7f7c56', outside: '#2f5f7f', coast: 'east', water: '#2f5f7f', shallow: '#4a7d9b', sand: '#b9b2a2', decor: 'building' },
   snow:     { ground: '#e6ecef', stripe: '#eef2f4', farmA: '#dce3e7', farmB: '#d3dbe0', farmEdge: '#aeb9c0', outside: '#cfd8dd', decor: 'snowpine', farmLine: 'rgba(90,110,125,0.16)' },
   tropical: { ground: '#78ad59', stripe: '#80b460', farmA: '#a8b46a', farmB: '#9cae63', farmEdge: '#7f8c4e', outside: '#2aa8b8', coast: 'west', water: '#2aa8b8', shallow: '#6fd3d3', sand: '#f1e1b2', decor: 'palm' },
+  prairie:  { ground: '#93a861', stripe: '#9bb068', farmA: '#d1b866', farmB: '#c7b05e', farmEdge: '#9c8a48', outside: '#86994f', decor: 'mixedCity' },
   city:     { ground: '#7a8c66', stripe: '#80926b', farmA: '#a49f78', farmB: '#989d70', farmEdge: '#76735a', outside: '#6d7378', decor: 'building' },
 };
 const themeOf = (ap) => THEMES[SITES[ap.siteIndex].theme] || THEMES.forest;
@@ -337,7 +338,7 @@ function curveLine(g, x0, y0, x1, y1) {
 }
 
 function decor(g, TH, x, y, r, R) {
-  const kind = TH.decor === 'mixed' ? (R() < 0.35 ? 'palm' : 'tree') : TH.decor;
+  const kind = TH.decor === 'mixed' ? (R() < 0.35 ? 'palm' : 'tree') : TH.decor === 'mixedCity' ? (R() < 0.4 ? 'building' : 'tree') : TH.decor;
   if (kind === 'palm') {
     g.fillStyle = 'rgba(20,40,15,0.22)'; g.beginPath(); g.arc(x + r * 0.4, y + r * 0.4, r * 0.8, 0, Math.PI * 2); g.fill();
     g.strokeStyle = '#3f8a3a'; g.lineWidth = r * 0.32; g.lineCap = 'round';
