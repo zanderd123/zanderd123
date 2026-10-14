@@ -82,7 +82,9 @@ pass &= scenario('everything, one runway', 3, (g, ap) => all(g, ap, ['west', 'ea
 pass &= scenario('everything, two runways', 4, (g, ap) => { ap.upgrades.runway2 = true; ap.upgrades.rapidExits = true; return all(g, ap, ['west', 'east', 'farwest', 'fareast', 'north'], ['midcenter', 'westwing', 'eastwing', 'midwest', 'mideast', 'farwest', 'fareast'], () => 'monorail'); });
 pass &= scenario('crosswind departures runway', 6, (g, ap) => { ap.upgrades.crosswind = true; ap.upgrades.rapidExits = true; return all(g, ap, ['west', 'east', 'fareast', 'farwest'], ['midcenter', 'westwing', 'eastwing', 'midwest', 'mideast', 'farwest'], () => 'tunnel'); }, 2);
 pass &= scenario('crosswind and second runway', 7, (g, ap) => { ap.upgrades.crosswind = true; ap.upgrades.runway2 = true; ap.upgrades.rapidExits = true; return all(g, ap, ['west', 'east', 'fareast', 'farwest', 'north'], ['midcenter', 'westwing', 'eastwing', 'midwest', 'mideast', 'farwest'], () => 'monorail'); }, 2);
-// the hub: both north runways plus the south field and runway 3
-const N = ['midcenter', 'westwing', 'eastwing', 'midwest', 'mideast', 'farwest', 'fareast'];
-pass &= scenario('hub, both airfields', 8, (g, ap) => all(g, ap, ['score', 'swest', 'seast', 'sfarwest', 'sfareast'], [...N, 'smain', ...N.map((k) => 's' + k)], (s) => (s.startsWith('s') && !s.startsWith('smid') ? 'shuttle' : 'tunnel')), 7, 36);
+// the hub: the south field, the star and the three pocket fields, every
+// site built
+const HUB = ['midcenter', 'westwing', 'eastwing', 'midwest', 'mideast'];
+pass &= scenario('hub, every field', 8, (g, ap) => all(g, ap, S.plotList(ap).filter((p) => !ap.plots[p]),
+  [...HUB, ...S.slotList(ap).filter((s) => s.includes('.'))], (s) => (s.includes('.') ? 'tunnel' : s === 'midcenter' ? 'shuttle' : 'walkway')), 7, 48);
 process.exit(pass ? 0 : 1);

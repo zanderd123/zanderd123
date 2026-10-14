@@ -83,15 +83,22 @@ station manager to hire who signs offers that fit and declines the rest.
 
 **The hub and the long game.** The eighth airport, Mid-Continent
 International (MCI), sits in the middle of the map. It costs the most and
-starts as a hub: every parcel of land, both runways, the long runway,
-rapid exits and radar, the most demand, and widebodies and superjumbos
-earlier than anywhere else. Its map is twice as tall: across the highway
-it can buy a whole second airfield, the north one mirrored, with runway 3,
-its own tower, holding stack and taxiway loop, more car park sites and
-eight more terminal sites (J to R). Buses reach them along a road under
-the highway; monorails and tunnels go over and under it. Routes signed at
-south terminals land and take off on runway 3 only, so the two airfields
-never share a taxiway. Once the hub is yours, the ninth and last airport
+gets the most demand, with widebodies and superjumbos earlier than
+anywhere else. It is built like no other airport: a star of three
+runways crossing in the middle, inside a frame of four straight runways
+whose ends the star touches, each running on past one corner like a
+pinwheel. It is five airfields that never share a taxiway. The south
+field is the usual plan (main terminal, security, car parks) with the long
+runway, rapid exits and radar built. The star field is open from the
+start: each star runway lands and takes off toward the centre from one
+end, the three take turns through the middle, and a terminal site sits in
+each corner of the frame (J to M). The north, east and west fields are the
+usual plan turned to face out from the frame; each is for sale with its
+own runway, tower and holding stack and up to six terminals, and the west
+and east fields each add a remote site in the far corner of the map.
+Thirty terminal sites in all, every one off the south field reached by
+tunnel or monorail, and routes use the runways of the field their
+terminal is in. Once the hub is yours, the ninth and last airport
 is for sale: Sunset Cay, a Hawaiian island with a road all the way round,
 a long beach on the west and a marina on the east. It takes small planes
 only, with one terminal and one car park, and it is a reward, not a

@@ -3,11 +3,16 @@
 // stays earned.
 
 import { SITES, LEVELS } from './config.js';
+import { SLOT_ORDER } from './layout.js';
+import { HUB_SLOT_ORDER, HUB_NO_SLOTS } from './hub.js';
 
 const pax = (g) => g.airports.reduce((s, a) => s + a.paxServed, 0);
 const revenue = (g) => g.airports.reduce((s, a) => s + a.lifetime.revenue, 0);
 const net = (g) => g.airports.reduce((s, a) => s + (a.perMin.operating || 0), 0) / 60;
 const anyAp = (g, f) => g.airports.some(f);
+// Terminal sites at the hub, and how many hold a terminal or a hangar.
+const HUB_SITES = SLOT_ORDER.filter((id) => !HUB_NO_SLOTS.has(id)).length + HUB_SLOT_ORDER.length;
+const hubBuilt = (g) => g.airports.filter((a) => SITES[a.siteIndex].hub).reduce((n, a) => n + a.terminals.length + Object.keys(a.hangars || {}).length, 0);
 const usesBuilt = (g) => {
   const seen = new Set();
   for (const a of g.airports) {
@@ -28,7 +33,7 @@ export const MILESTONES = [
   ['ap4', 'Regional network', 'Own four airports', (g) => g.airports.length >= 4, (g) => [g.airports.length, 4]],
   ['apAll', 'Coast to coast', `Own all ${SITES.length} airports`, (g) => g.airports.length >= SITES.length, (g) => [g.airports.length, SITES.length]],
   ['hub', 'The hub', 'Own Mid-Continent International', (g) => anyAp(g, (a) => SITES[a.siteIndex].hub), null],
-  ['southField', 'Hub of hubs', 'Open the south airfield at Mid-Continent', (g) => anyAp(g, (a) => a.plots.score), null],
+  ['southField', 'Hub of hubs', 'Open a second airfield at Mid-Continent', (g) => anyAp(g, (a) => a.plots['n.core'] || a.plots['e.core'] || a.plots['w.core']), null],
   ['island', 'You made it', 'Own Sunset Cay', (g) => anyAp(g, (a) => SITES[a.siteIndex].island), null],
   ['lvl10', 'Top of the table', `Take an airport to level ${LEVELS.length - 1}`, (g) => anyAp(g, (a) => a.level >= LEVELS.length - 1), (g) => [Math.max(...g.airports.map((a) => a.level)), LEVELS.length - 1]],
   ['net1k', 'Money machine', 'Earn $1,000 a second across the company', (g) => net(g) >= 1000, (g) => [Math.max(0, net(g)), 1000]],
@@ -38,10 +43,10 @@ export const MILESTONES = [
   ['punctual', 'Like clockwork', '95% on time at an airport with 10 or more routes', (g) => anyAp(g, (a) => a.contracts.length >= 10 && a.rolling.otp >= 0.95), null],
   ['alliance', 'Allied', 'Sign an alliance package', (g) => (g.alliancesSigned || 0) >= 1, null],
   ['alliance5', 'The alliance of choice', 'Sign five alliance packages', (g) => (g.alliancesSigned || 0) >= 5, (g) => [g.alliancesSigned || 0, 5]],
-  ['threeRunways', 'Three runways', 'Three runways at one airport', (g) => anyAp(g, (a) => a.upgrades.runway2 && (a.upgrades.crosswind || a.plots.score)), null],
+  ['threeRunways', 'Three runways', 'Three runways at one airport', (g) => anyAp(g, (a) => SITES[a.siteIndex].hub || (a.upgrades.runway2 && a.upgrades.crosswind)), null],
   ['everyUse', 'Something for everyone', 'A garage, hotel, rental centre, solar farm and hangar somewhere', (g) => ['garage', 'hotel', 'rental', 'solar', 'hangar'].every((u) => usesBuilt(g).has(u)), (g) => [['garage', 'hotel', 'rental', 'solar', 'hangar'].filter((u) => usesBuilt(g).has(u)).length, 5]],
   ['fullHouse', 'Full house', 'Eight terminals at one airport', (g) => anyAp(g, (a) => a.terminals.length >= 8), (g) => [Math.max(...g.airports.map((a) => a.terminals.length)), 8]],
-  ['sixteen', 'Sixteen', 'All sixteen terminal sites built at the hub', (g) => anyAp(g, (a) => a.terminals.length >= 16), (g) => [Math.max(...g.airports.map((a) => a.terminals.length)), 16]],
+  ['sixteen', 'Thirty', `All ${HUB_SITES} terminal sites at the hub built on`, (g) => hubBuilt(g) >= HUB_SITES, (g) => [hubBuilt(g), HUB_SITES]],
 ].map(([id, name, desc, test, progress]) => ({ id, name, desc, test, progress }));
 
 // Returns the milestones earned just now.

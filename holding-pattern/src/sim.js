@@ -12,8 +12,12 @@ import {
   RW, RUNWAY_HALF, TWY_A, TWY_B, LANE2, EXITS, HOLD_POINT, IAF, PLOTS, SLOTS, LONG_RUNWAY_X1,
   gateStand, pathExitToGate, pathGateToHold, lanesFor, XW, XW_HOLD, pathGateToCrosswind, crosswindTakeoff,
   connectorRoute, apronCrossing, slotCenter, TERMINAL_CODES, PARKING_SITES, placeName,
-  SOUTH_M, slotField, southPlots, SLOT_ORDER, SOUTH_SLOT_ORDER, PLOT_ORDER, SOUTH_PLOT_ORDER, PARKING_ORDER, SOUTH_PARKING_ORDER,
+  slotField, SLOT_ORDER, PLOT_ORDER, PARKING_ORDER,
 } from './layout.js';
+import {
+  HUB_SLOT_ORDER, HUB_PLOT_ORDER, HUB_NO_PLOTS, HUB_NO_SLOTS, POCKETS, STAR, STAR_LINES, STAR_THRESHOLD, STAR_EXIT, STAR_LANE,
+  WEDGES, starPoint,
+} from './hub.js';
 import { mulberry32, clamp, dist, pick, pathLength, pointAlong } from './util.js';
 
 const DEG = Math.PI / 180;
@@ -28,11 +32,13 @@ export function createAirport(siteIndex, seed = Date.now()) {
     siteIndex,
     id: site.id,
     name: site.name,
-    // the hub comes with all its land
-    plots: site.hub ? { core: true, west: true, east: true, south: true, farwest: true, fareast: true, north: true } : { core: true },
+    // the hub comes with its south field and the star; the north, east and
+    // west fields are for sale
+    plots: site.hub ? { core: true, west: true, east: true, south: true } : { core: true },
+    hubV: site.hub ? 2 : undefined,
     terminals: [newTerminal('main', true)],
     securityLanes: SEC.startLanes,
-    upgrades: site.hub ? { longRunway: true, runway2: true, rapidExits: true, radar: true } : site.longRunway ? { longRunway: true } : {},
+    upgrades: site.hub ? { longRunway: true, rapidExits: true, radar: true } : site.longRunway ? { longRunway: true } : {},
     parking: { front: 'lot' },
     hangars: {},
     staffing: { atc: 'standard', security: 'standard', ground: 'standard' },
@@ -104,7 +110,11 @@ export function hydrate(ap, seed = Date.now()) {
   }
   ap.weather.stormUntil = 0;
   ap.weather.nextStorm = ap.t + 240;
-  if (SITES[ap.siteIndex].hub) Object.defineProperty(ap, 'south', { value: makeSouthField(ap), enumerable: false, configurable: true, writable: true });
+  if (SITES[ap.siteIndex].hub) {
+    const views = {};
+    for (const k of [...POCKETS, 'X']) views[k] = makeField(ap, k);
+    Object.defineProperty(ap, 'fieldViews', { value: views, enumerable: false, configurable: true, writable: true });
+  }
   ap.costLines = computeCosts(ap);
   return ap;
 }
@@ -114,39 +124,46 @@ function newRunways() {
   return [...RW, XW].map(() => ({ occupant: null, clearEta: 0, reservedArr: null, crossers: new Set() }));
 }
 
-// The hub's south field runs the same aircraft code as the north field, in
-// the same local coordinates, on a view of the airport that has its own
-// aircraft, queues, runway and tower, and sees only its own terminals and
+// The hub's other airfields run the same aircraft code as the main one, in
+// their own coordinates, on a view of the airport that has its own
+// aircraft, queues, runways and tower, and sees only its own terminals and
 // land. Everything else (money, flights, passengers, contracts) is shared:
-// reads and writes go straight through to the airport.
-const FIELD_KEYS = new Set(['planes', 'holdQueue', 'holdPhase', 'depQueue', 'depQueueX', 'runways', 'atcTokens',
-  'arrGround', 'lastMove', 'zones', 'zonesKey', 'busBlocks', 'nextPlaneId', 'field']);
-function makeSouthField(ap) {
-  const S = { field: 1, planes: [], holdQueue: [], holdPhase: 0, depQueue: [], depQueueX: [], runways: newRunways(),
-    atcTokens: 2, arrGround: 0, lastMove: null, zones: null, zonesKey: '', busBlocks: [], nextPlaneId: 100000 };
-  // effects are reported in world coordinates
-  const fx = (type, e) => { if (ap.fx) ap.fx(type, type === 'money' ? { ...e, y: SOUTH_M - e.y } : e); };
+// reads and writes go straight through to the airport. The star field ('X')
+// has its own runway logic (updateStarPlanes); the pockets are the usual
+// plan, turned (hub.js).
+const FIELD_KEYS = new Set(['planes', 'holdQueue', 'holdPhase', 'depQueue', 'depQueueX', 'depQueues', 'lastMoves', 'runways', 'atcTokens',
+  'arrGround', 'lastMove', 'zones', 'zonesKey', 'busBlocks', 'nextPlaneId', 'field', 'centreFree']);
+function makeField(ap, key) {
+  const S = { field: key, planes: [], holdQueue: [], holdPhase: 0, depQueue: [], depQueueX: [], depQueues: [[], [], []], lastMoves: [null, null, null],
+    runways: newRunways(), atcTokens: 2, arrGround: 0, lastMove: null, zones: null, zonesKey: '', busBlocks: [], centreFree: 0,
+    nextPlaneId: 100000 * (1 + 'NEWX'.indexOf(key)) };
+  const k = key.toLowerCase();
+  // effects carry the field they happened in, for the renderer to place
+  const fx = (type, e) => { if (ap.fx) ap.fx(type, { ...e, field: key }); };
   return new Proxy(ap, {
-    get(t, k) {
-      if (FIELD_KEYS.has(k)) return S[k];
-      if (k === 'plots') return southPlots(t.plots);
-      if (k === 'upgrades') return { ...t.upgrades, runway2: false, crosswind: false };
-      if (k === 'terminals') return t.terminals.filter((T) => slotField(T.slot) === 1);
-      if (k === 'fx') return t.fx ? fx : null;
-      return t[k];
+    get(t, prop) {
+      if (FIELD_KEYS.has(prop)) return S[prop];
+      if (prop === 'plots') return key === 'X' ? { core: true } : { core: !!t.plots[k + '.core'], west: !!t.plots[k + '.west'], east: !!t.plots[k + '.east'], farwest: !!t.plots[k + '.farwest'] };
+      if (prop === 'upgrades') return { ...t.upgrades, runway2: false, crosswind: false, longRunway: false };
+      if (prop === 'terminals') return t.terminals.filter((T) => slotField(T.slot) === key);
+      if (prop === 'fx') return t.fx ? fx : null;
+      return t[prop];
     },
-    set(t, k, v) {
-      if (FIELD_KEYS.has(k)) S[k] = v; else t[k] = v;
+    set(t, prop, v) {
+      if (FIELD_KEYS.has(prop)) S[prop] = v; else t[prop] = v;
       return true;
     },
   });
 }
-export const hasSouth = (ap) => !!(ap.south && ap.plots.score);
-// The field a terminal's aircraft use: the airport itself, or its south field.
-export function fieldFor(ap, slot) { return slotField(slot) && hasSouth(ap) ? ap.south : ap; }
-export function fields(ap) { return hasSouth(ap) ? [ap, ap.south] : [ap]; }
-export function allPlanes(ap) { return hasSouth(ap) ? ap.planes.concat(ap.south.planes) : ap.planes; }
-export function allHolding(ap) { return hasSouth(ap) ? ap.holdQueue.concat(ap.south.holdQueue) : ap.holdQueue; }
+// Which of the hub's airfields are open: the star always, a pocket once
+// its land is bought.
+export function hasField(ap, key) { return !!(ap.fieldViews && (key === 'X' || ap.plots[key.toLowerCase() + '.core'])); }
+// The field a terminal's aircraft use: the airport itself, or one of the hub's.
+export function fieldFor(ap, slot) { const f = slotField(slot); return f && hasField(ap, f) ? ap.fieldViews[f] : ap; }
+export function fields(ap) { return ap.fieldViews ? [ap, ...[...POCKETS, 'X'].filter((k) => hasField(ap, k)).map((k) => ap.fieldViews[k])] : [ap]; }
+export function allPlanes(ap) { const F = fields(ap); return F.length > 1 ? F.flatMap((x) => x.planes) : ap.planes; }
+export function allHolding(ap) { const F = fields(ap); return F.length > 1 ? F.flatMap((x) => x.holdQueue) : ap.holdQueue; }
+const isStar = (F) => F.field === 'X';
 
 function hydrateConnector(T) {
   const C = T.connector;
@@ -182,6 +199,7 @@ export function serializeAirport(ap) {
     perMin: ap.perMin,
     lifetime: ap.lifetime,
     nextOfferAt: ap.t + 10,
+    hubV: ap.hubV,
   };
 }
 
@@ -203,8 +221,38 @@ export function restoreAirport(data) {
   if (ap.upgrades.garage1) ap.parking.southwest = 'garage';
   if (ap.upgrades.garage2) ap.parking.southeast = 'garage';
   delete ap.upgrades.garage1; delete ap.upgrades.garage2;
+  if (site.hub && ap.hubV !== 2) migrateHub(ap);
   hydrate(ap);
   return ap;
+}
+
+// Older saves of the hub had the usual plan (and, for a while, a mirrored
+// second airfield). Keep what fits the new layout, move the rest of the
+// terminals to the new sites (with the land they need, free), and drop
+// what has nowhere to go.
+function migrateHub(ap) {
+  ap.hubV = 2;
+  const keep = new Set(['core', 'west', 'east', 'south']);
+  for (const id of Object.keys(ap.plots)) if (!keep.has(id)) delete ap.plots[id];
+  delete ap.upgrades.runway2; delete ap.upgrades.crosswind;
+  const free = HUB_SLOT_ORDER.slice();
+  const moved = {};
+  for (const T of ap.terminals) {
+    if (SLOTS[T.slot] && !SLOTS[T.slot].field && !HUB_NO_SLOTS.has(T.slot)) continue;
+    const to = free.shift();
+    if (!to) { T.gone = true; continue; }
+    moved[T.slot] = to;
+    T.slot = to;
+    T.gates = Math.min(T.gates, SLOTS[to].maxGates);
+    if (T.connector && T.connector.type !== 'tunnel' && T.connector.type !== 'monorail') T.connector = { type: 'tunnel', level: 0, buses: 0, buildLeft: 0 };
+    delete T.pendingConnector;
+    const plot = SLOTS[to].plot;
+    if (plot !== 'core') { ap.plots[plot] = true; ap.plots[plot.split('.')[0] + '.core'] = true; }
+  }
+  ap.terminals = ap.terminals.filter((T) => !T.gone);
+  for (const c of ap.contracts) if (moved[c.terminal]) c.terminal = moved[c.terminal]; else if (!SLOTS[c.terminal] || HUB_NO_SLOTS.has(c.terminal)) c.terminal = 'main';
+  for (const id of Object.keys(ap.hangars)) if (!SLOTS[id] || HUB_NO_SLOTS.has(id) || SLOTS[id].field) delete ap.hangars[id];
+  for (const id of Object.keys(ap.parking)) if (!PARKING_SITES[id] || !keep.has(PARKING_SITES[id].plot)) delete ap.parking[id];
 }
 
 // ======================================================================
@@ -216,18 +264,27 @@ export const site = (ap) => SITES[ap.siteIndex];
 export const nm = (ap, name) => placeName(!!SITES[ap.siteIndex].mirror, name);
 // Sites with room for a crosswind runway keep the far east field for it.
 // The island has room for one terminal and one car park, nothing more.
-export function slotAvailable(ap, slot) { return site(ap).island ? slot === 'main' : !(site(ap).crosswind && slot === 'fareast'); }
+export function slotAvailable(ap, slot) {
+  if (site(ap).island) return slot === 'main';
+  if (site(ap).hub) return !HUB_NO_SLOTS.has(slot);
+  return !SLOTS[slot].field && !(site(ap).crosswind && slot === 'fareast');
+}
 // Land this airport can ever own: the hub's south field only at the hub.
 export function plotAvailable(ap, id) {
   const P = PLOTS[id];
   if (site(ap).island) return id === 'core';
-  return !!P && (!P.hub || !!site(ap).hub);
+  if (site(ap).hub) return !!P && !HUB_NO_PLOTS.has(id);
+  return !!P && !P.hub;
 }
 // Every terminal site, parcel and landside site this airport can have.
-export const slotList = (ap) => (site(ap).hub ? SLOT_ORDER.concat(SOUTH_SLOT_ORDER) : SLOT_ORDER);
-export const plotList = (ap) => (site(ap).hub ? PLOT_ORDER.concat(SOUTH_PLOT_ORDER) : PLOT_ORDER).filter((id) => plotAvailable(ap, id));
-export const parkingList = (ap) => (site(ap).hub ? PARKING_ORDER.concat(SOUTH_PARKING_ORDER) : PARKING_ORDER);
-export function parkingAvailable(ap, id) { return site(ap).island ? id === 'front' : !(site(ap).crosswind && id === 'fareast'); }
+export const slotList = (ap) => (site(ap).hub ? SLOT_ORDER.concat(HUB_SLOT_ORDER) : SLOT_ORDER).filter((id) => slotAvailable(ap, id));
+export const plotList = (ap) => (site(ap).hub ? PLOT_ORDER.concat(HUB_PLOT_ORDER) : PLOT_ORDER).filter((id) => plotAvailable(ap, id));
+export const parkingList = (ap) => PARKING_ORDER;
+export function parkingAvailable(ap, id) {
+  if (site(ap).island) return id === 'front';
+  if (site(ap).hub) return !HUB_NO_PLOTS.has(PARKING_SITES[id].plot);
+  return !(site(ap).crosswind && id === 'fareast');
+}
 // Gates a terminal can grow to here (rural sites build small).
 export function maxGates(ap, slot) { return Math.min(SLOTS[slot].maxGates, site(ap).maxGates || Infinity); }
 export const builtTerminals = (ap) => ap.terminals.filter((T) => isOpen(T));
@@ -237,16 +294,17 @@ export function isOpen(T) {
   return !T.demolishing && T.buildLeft <= 0 && (T.slot === 'main' || (T.connector && T.connector.buildLeft <= 0));
 }
 
-// Runways in this field; totalRunways counts the hub's runway 3 too.
-export function runwayCount(ap) { return ap.upgrades.runway2 ? 2 : 1; }
-export function totalRunways(ap) { return runwayCount(ap) + (hasSouth(ap) ? 1 : 0); }
+// Runways in this field (the star has three); totalRunways counts every
+// field the airport has.
+export function runwayCount(ap) { return isStar(ap) ? 3 : ap.upgrades.runway2 ? 2 : 1; }
+export function totalRunways(ap) { return fields(ap).reduce((n, F) => n + runwayCount(F), 0); }
 
 export function staffing(ap, dept) { return STAFFING[ap.staffing[dept]]; }
 
 export function controllers(ap) {
   // One per runway and one per terminal: every terminal adds ground
   // movements that need their own controller.
-  return fieldControllers(ap) + (hasSouth(ap) ? fieldControllers(ap.south) : 0);
+  return fields(ap).reduce((n, F) => n + fieldControllers(F), 0);
 }
 // The ones working one field: each field has its own tower.
 function fieldControllers(F) {
@@ -269,6 +327,8 @@ export function atcCapacity(ap) {
 // Departures a minute the crosswind runway handles on its own (measured
 // with tools/runway.mjs).
 export const XW_DEPARTURES = 11;
+// The star field's movements a minute, as a multiple of one runway's.
+export const STAR_PHYSICAL = 2.2;
 
 export function runwayPhysical(ap) {
   // Measured with tools/runway.mjs and a realistic airport: a mixed-mode
@@ -276,6 +336,9 @@ export function runwayPhysical(ap) {
   // second runway (arrivals north, departures south) adds about 30%: its
   // arrivals have to cross the main runway between take-offs.
   const single = ap.upgrades.rapidExits ? 14.5 : 13;
+  // The star's three runways run at once, but take-offs cross the centre
+  // one at a time.
+  if (isStar(ap)) return single * STAR_PHYSICAL * stormFactor(ap);
   return (ap.upgrades.runway2 ? single * 1.3 : single) * stormFactor(ap);
 }
 
@@ -332,6 +395,8 @@ export function connectorBuildCost(type, slot, ap) {
 
 export function connectorAllowed(type, slot) {
   const def = CONNECTORS[type];
+  // the hub's other airfields lie across runways: under them or over them
+  if (SLOTS[slot].field) return type === 'tunnel' || type === 'monorail';
   return !(def.adjacentOnly && !SLOTS[slot].adjacent);
 }
 
@@ -533,9 +598,9 @@ export function loadReport(ap, extra = null) {
       pt.pax += pax;
     }
   }
-  r.runway = runwayLoad(ap, contracts.filter((c) => !slotField(c.terminal)));
-  // the hub's runway 3, with its own tower
-  if (hasSouth(ap)) r.runwayS = runwayLoad(ap.south, contracts.filter((c) => slotField(c.terminal)));
+  // each airfield has its own runways and tower (the hub has up to five)
+  r.runways = fields(ap).map((F) => runwayLoad(F, contracts.filter((c) => (slotField(c.terminal) || 0) === (F.field || 0))));
+  r.runway = r.runways[0];
   r.security = { demand: depPax, cap: securityRate(ap) * 60 };
   r.parking = { demand: depPax * PAX.driveShare * (ap.upgrades.rail ? 0.7 : 1), cap: parkingCapacity(ap) };
   r.terminals = ap.terminals.map((T) => {
@@ -569,7 +634,7 @@ function runwayLoad(F, contracts) {
   return { demand: movements, cap, atc: atcCapacity(F), physical: runwayPhysical(F), field: F.field || 0 };
 }
 // The runway load a terminal's routes count against.
-export function runwayFor(rep, slot) { return slotField(slot) && rep.runwayS ? rep.runwayS : rep.runway; }
+export function runwayFor(rep, slot) { const f = slotField(slot) || 0; return rep.runways.find((x) => x.field === f) || rep.runway; }
 
 export function utilisation(d, cap) { return cap > 0 ? d / cap : d > 0 ? 9 : 0; }
 
@@ -1032,10 +1097,10 @@ export function step(game, ap, dt) {
   flowPassengers(game, ap, dt);
   updateBuses(ap, dt);
   updatePlanes(game, ap, dt);
-  if (hasSouth(ap)) {
-    const F = ap.south;
+  for (const F of fields(ap)) {
+    if (F === ap) continue;
     F.atcTokens = Math.min(2, F.atcTokens + atcCapacity(F) / 60 * dt);
-    updatePlanes(game, F, dt);
+    if (isStar(F)) updateStarPlanes(game, F, dt); else updatePlanes(game, F, dt);
   }
   updateContracts(game, ap, dt);
   updateRep(ap, dt);
@@ -1121,6 +1186,7 @@ function scheduleFlights(game, ap) {
 
 function inboundEstimate(ap, c) {
   const F = fieldFor(ap, c.terminal);
+  if (isStar(F)) { const r = starArrivalRoute(c.terminal, gateStand(c.terminal, 0)); return 8 + (pathLength(r.route) - r.rollEnd) / FLIGHT.taxiSpeed * (1 + FLIGHT.taxiPad); }
   const r = arrivalRoute(F, arrRunway(F), c.cls, gateStand(c.terminal, 0));
   return 8 + (pathLength(r.route) - r.rollEnd) / FLIGHT.taxiSpeed * (1 + FLIGHT.taxiPad);
 }
@@ -1152,6 +1218,7 @@ const MAX_ARR_GROUND = 6;    // arrivals allowed to land and taxi in at once
 const PUSH_SPEED = 22;
 
 function spawnPlane(ap, f) {
+  if (isStar(ap)) { spawnStarPlane(ap, f); return; }
   const A = AIRCRAFT[f.cls];
   const rw = RW[arrRunway(ap)];
   const a = (ap.rand() - 0.5) * 140 * DEG;
@@ -1458,7 +1525,7 @@ function touchdown(game, ap, p) {
   const A = AIRCRAFT[p.cls];
   const ex = p.exitX;
   const vx = ap.upgrades.rapidExits ? FLIGHT.exitSpeedRapid : FLIGHT.exitSpeed;
-  const rollD = ex - 60 - rw.x0;
+  const rollD = p.rollD || ex - 60 - rw.x0;
   p.decel = (FLIGHT.touchdownSpeed ** 2 - vx ** 2) / (2 * rollD);
   p.speed = FLIGHT.touchdownSpeed;
   p.exitSpeed = vx;
@@ -1470,6 +1537,262 @@ function touchdown(game, ap, p) {
   if (ap.fx) ap.fx('money', { x: p.x + 40, y: p.y - 14, v: A.landingFee * site(ap).rev });
 }
 
+// ---------------------------------------------------------------- the star
+//
+// The hub's star field: three runways crossing at the centre. Each lands
+// and takes off toward the centre from one end (STAR_LINES). Arrivals turn
+// off well before the centre, into the box corner beside the runway, and
+// taxi out along the corner's taxilane to their stand; departures carry on
+// out along the same lane to the hold line at the runway's end, line up and
+// are airborne before they reach the centre. So nothing on the ground ever
+// crosses another runway, and the only thing the three runways share is the
+// air over the centre: take-offs pass it one at a time.
+
+const STAR_HS = 425;        // the hold line, out along the corner's taxilane
+const STAR_IAF = 650;       // the approach fix, out beyond the threshold
+const STAR_DEP_GROUND = 10; // departures off their stands at once
+const STAR_BOXES = [];      // one lane per corner: no junctions to lock
+const starP = (slot, s, o) => starPoint(WEDGES[slot].line, WEDGES[slot].n, s, o);
+const along = (line, q) => (q.x - STAR.C.x) * STAR_LINES[line].ea.x + (q.y - STAR.C.y) * STAR_LINES[line].ea.y;
+
+// Landing roll and turn-off into the corner, then out along its lane to
+// the stand.
+function starArrivalRoute(slot, stand) {
+  const P = (sv, o) => starP(slot, sv, o);
+  const roll = [P(STAR_THRESHOLD, 0), P(STAR_EXIT, 0), P(STAR_EXIT - 40, 16), P(STAR_EXIT - 58, 46)];
+  const laneS = along(WEDGES[slot].line, stand.lane);
+  const route = roll.concat([P(STAR_EXIT - 48, STAR_LANE - 6), P(STAR_EXIT - 28, STAR_LANE), P(laneS, STAR_LANE), { x: stand.x, y: stand.y }]);
+  return { route, rollEnd: pathLength(roll), rollD: STAR_THRESHOLD - STAR_EXIT };
+}
+// Pushback onto the lane, out to the hold line.
+function starDeparturePath(slot, stand) {
+  return [{ x: stand.lane.x, y: stand.lane.y }, starP(slot, STAR_HS, STAR_LANE)];
+}
+// From the hold line onto the runway, and off toward the centre.
+function starTakeoffPath(slot, line) {
+  const P = (sv, o) => starP(slot, sv, o);
+  const far = starPoint(line, { x: 0, y: 0 }, -1900, 0);
+  return [P(STAR_HS, STAR_LANE), P(STAR_HS + 26, STAR_LANE - 22), P(STAR_HS + 30, 26), P(STAR_THRESHOLD, 0), far];
+}
+// The corner's taxiways as drawn: the turn-off, the lane, the line-up.
+export function starTaxiLines(slot) {
+  const P = (sv, o) => starP(slot, sv, o);
+  return {
+    exit: [P(STAR_EXIT + 20, 0), P(STAR_EXIT, 0), P(STAR_EXIT - 40, 16), P(STAR_EXIT - 58, 46), P(STAR_EXIT - 48, STAR_LANE - 6), P(STAR_EXIT - 28, STAR_LANE)],
+    lane: [P(STAR_EXIT - 28, STAR_LANE), P(STAR_HS, STAR_LANE)],
+    lineup: starTakeoffPath(slot, WEDGES[slot].line).slice(0, 4),
+    hs: P(STAR_HS, STAR_LANE),
+    apron: [P(STAR_EXIT - 70, STAR_LANE - 26), P(STAR_HS + 20, STAR_LANE - 26), P(STAR_HS + 20, 180), P(STAR_EXIT - 70, 180)],
+  };
+}
+function starOffRunway(m) {
+  const ea = STAR_LINES[m.rw].ea;
+  const off = Math.abs((m.x - STAR.C.x) * ea.y - (m.y - STAR.C.y) * ea.x);
+  return off >= RUNWAY_HALF + m.r + 3;
+}
+const starIAF = (line) => starPoint(line, { x: 0, y: 0 }, STAR_THRESHOLD + STAR_IAF, 0);
+// the holding stack sits off to one side of the approach
+function starHoldCentre(line) {
+  const ea = STAR_LINES[line].ea, I = starIAF(line);
+  return { x: I.x - ea.y * FLIGHT.holdRadius, y: I.y + ea.x * FLIGHT.holdRadius };
+}
+export function starHoldStacks(F) {
+  return STAR_LINES.map((_, i) => ({ n: F.holdQueue.filter((p) => p.rw === i).length, c: starHoldCentre(i) }));
+}
+
+function spawnStarPlane(F, f) {
+  const A = AIRCRAFT[f.cls];
+  const line = WEDGES[f.terminal] ? WEDGES[f.terminal].line : 0;
+  const I = starIAF(line), ea = STAR_LINES[line].ea;
+  const a = (F.rand() - 0.5) * 140 * DEG, out = Math.atan2(ea.y, ea.x) + a;
+  const x = I.x + 420 * Math.cos(out), y = I.y + 420 * Math.sin(out);
+  const p = {
+    id: F.nextPlaneId++, f, cls: f.cls, color: f.color, scale: A.scale, r: R_PLANE * A.scale,
+    state: 'inbound', x, y, ang: Math.atan2(I.y - y, I.x - x), alt: 160, speed: FLIGHT.cruiseSpeed,
+    path: null, d: 0, blockedFor: 0, gate: -1, turnLeft: 0, turnTotal: 0, deplaned: 0,
+    rw: line, field: 'X',
+  };
+  f.plane = p;
+  F.planes.push(p);
+}
+
+function canClearStarArrival(F, p, eta) {
+  const g = findGate(F, p);
+  if (g < 0) { p.holdReason = 'gate'; return false; }
+  // its terminal may have moved to a corner served by another runway
+  const W = WEDGES[p.f.terminal];
+  if (W && W.line !== p.rw) { p.rw = W.line; return false; }
+  // the turn-off and the start of the corner's lane must be clear
+  const ex = starP(p.f.terminal, STAR_EXIT - 40, 40);
+  if (F.planes.some((o) => o !== p && o.alt <= 0.5 && o.state !== 'gate' && Math.hypot(o.x - ex.x, o.y - ex.y) < 75)) { p.holdReason = 'taxi'; return false; }
+  if (F.arrGround >= MAX_ARR_GROUND * 3) { p.holdReason = 'taxi'; return false; }
+  p.holdReason = 'runway';
+  const R = F.runways[p.rw];
+  if (F.atcTokens < 1 || R.reservedArr) return false;
+  if (R.occupant && R.occupant.blockedFor > 0) return false;
+  let freeAt = R.occupant ? Math.max(R.clearEta, F.t + 1) : F.t;
+  if (freeAt > F.t + eta - 0.2) return false;
+  // one landing then one take-off while departures wait
+  const q = F.depQueues[p.rw];
+  if (q.length && F.lastMoves[p.rw] === 'arr') return false;
+  if (q.length && (F.t - q[0].holdSince > 3 || q.length > 1)) {
+    if (freeAt + DEP_OCCUPANCY > F.t + eta) return false;
+    if (F.atcTokens < 2) return false;
+  }
+  return true;
+}
+function tryClearStarArrival(F, p) {
+  const I = starIAF(p.rw), T = starPoint(p.rw, { x: 0, y: 0 }, STAR_THRESHOLD, 0);
+  const eta = dist(p.x, p.y, I.x, I.y) / FLIGHT.cruiseSpeed + STAR_IAF / FLIGHT.approachSpeed;
+  if (!canClearStarArrival(F, p, eta)) return false;
+  const g = findGate(F, p);
+  if (g < 0) return false;
+  F.lastMoves[p.rw] = 'arr';
+  const Tm = terminalBySlot(F, p.f.terminal);
+  p.gate = g; Tm.gateUse[g] = p;
+  F.arrGround++;
+  p.stand = gateStand(Tm.slot, g);
+  const r = starArrivalRoute(Tm.slot, p.stand);
+  p.route = r.route; p.rollEnd = r.rollEnd; p.rollD = r.rollD; p.routeLen = pathLength(r.route); p.crossAt = null;
+  F.runways[p.rw].reservedArr = p;
+  F.atcTokens -= 1;
+  p.state = 'final';
+  setPath(p, [{ x: p.x, y: p.y }, I, T]);
+  p.altStart = p.alt;
+  const i = F.holdQueue.indexOf(p);
+  if (i >= 0) F.holdQueue.splice(i, 1);
+  return true;
+}
+
+function updateStarPlanes(game, F, dt) {
+  const t = F.t;
+  F.holdPhase += HOLD_OMEGA * dt;
+  F.arrGround = 0;
+  for (const o of F.planes) if (o.state === 'rollout' || o.state === 'taxiIn' || o.state === 'final') F.arrGround++;
+  // first come first served, one clearance per runway at a time
+  const tried = new Set();
+  for (const p of [...F.holdQueue]) { if (tried.has(p.rw)) continue; tried.add(p.rw); tryClearStarArrival(F, p); }
+
+  for (const p of F.planes) {
+    switch (p.state) {
+      case 'inbound': {
+        const I = starIAF(p.rw);
+        const d = dist(p.x, p.y, I.x, I.y), step = p.speed * dt;
+        p.ang = Math.atan2(I.y - p.y, I.x - p.x);
+        if (d <= step + 1) {
+          p.x = I.x; p.y = I.y;
+          if (!F.holdQueue.some((o) => o.rw === p.rw) && tryClearStarArrival(F, p)) break;
+          p.state = 'holding';
+          const c = starHoldCentre(p.rw);
+          p.holdA = Math.atan2(p.y - c.y, p.x - c.x);
+          p.holdR = FLIGHT.holdRadius;
+          F.holdQueue.push(p);
+        } else { p.x += (I.x - p.x) / d * step; p.y += (I.y - p.y) / d * step; }
+        break;
+      }
+      case 'holding': {
+        p.heldFor = (p.heldFor || 0) + dt;
+        if (p.heldFor > 30 && Math.floor(p.heldFor) !== Math.floor(p.heldFor - dt) && findGate(F, p) === -2) {
+          closeFlight(game, F, p.f);
+          p.state = 'gone';
+          F.holdQueue.splice(F.holdQueue.indexOf(p), 1);
+          notify(F, 'missed', `${p.f.no} diverted: no open terminal on its airfield can take it`);
+          break;
+        }
+        const c = starHoldCentre(p.rw);
+        const same = F.holdQueue.filter((o) => o.rw === p.rw);
+        const slot = holdSlot(F, same.indexOf(p));
+        p.holdA += HOLD_OMEGA * dt + clamp(wrapAngle(slot.a - p.holdA), -0.7 * dt, 0.7 * dt);
+        p.holdR += (slot.R - p.holdR) * Math.min(1, dt);
+        p.x = c.x + p.holdR * Math.cos(p.holdA);
+        p.y = c.y + p.holdR * Math.sin(p.holdA);
+        p.ang = p.holdA + Math.PI / 2;
+        p.alt += (slot.alt - p.alt) * Math.min(1, dt);
+        break;
+      }
+      case 'final': {
+        p.d += FLIGHT.approachSpeed * dt;
+        const q = pointAlong(p.path, p.d);
+        p.x = q.x; p.y = q.y; p.ang = q.ang;
+        p.alt = Math.min(p.altStart, Math.max(0, p.len - p.d) * 0.55);
+        if (p.d >= p.len) starTouchdown(game, F, p);
+        break;
+      }
+      case 'rollout': {
+        if (p.d >= p.rollEnd - 70) break;
+        p.speed = Math.max(p.exitSpeed, p.speed - p.decel * dt);
+        p.d += p.speed * dt;
+        const q = pointAlong(p.path, p.d);
+        p.x = q.x; p.y = q.y; p.ang = q.ang;
+        break;
+      }
+      case 'gate': if (!p.ready) turnaround(game, F, p, dt); break;
+      case 'takeoff': {
+        if (p.d < p.lineup) p.speed = Math.min(p.speed + 40 * dt, 48);
+        else p.speed += FLIGHT.takeoffAccel * dt;
+        p.d += p.speed * dt;
+        const q = pointAlong(p.path, p.d);
+        p.x = q.x; p.y = q.y; p.ang = q.ang;
+        if (p.speed > FLIGHT.liftoffSpeed) p.alt += (p.speed - FLIGHT.liftoffSpeed + 30) * 0.35 * dt;
+        const R = F.runways[p.depRw];
+        if (R.occupant === p && p.speed > FLIGHT.liftoffSpeed + 20) R.occupant = null;
+        if (dist(p.x, p.y, STAR.C.x, STAR.C.y) > 1500) p.state = 'gone';
+        break;
+      }
+      case 'holdShort': {
+        const L = p.depRw, q = F.depQueues[L];
+        if (q[0] !== p) break;
+        const R = F.runways[L];
+        const arr = R.reservedArr;
+        const arrEta = arr ? (arr.len - arr.d) / FLIGHT.approachSpeed : Infinity;
+        const occ = R.occupant;
+        const free = !occ || (occ.state === 'takeoff' && occ.d > occ.lineup + 140);
+        if (F.atcTokens >= 1 && free && arrEta > DEP_OCCUPANCY && t >= F.centreFree) {
+          F.atcTokens -= 1;
+          R.occupant = p;
+          R.clearEta = t + DEP_OCCUPANCY;
+          q.shift();
+          F.lastMoves[L] = 'dep';
+          F.centreFree = t + STAR_CENTRE_GAP;
+          p.state = 'takeoff';
+          p.speed = 30;
+          const path = starTakeoffPath(p.depSlot, L);
+          setPath(p, path);
+          p.lineup = pathLength(path.slice(0, 4)) - 5;
+        }
+        break;
+      }
+    }
+  }
+
+  groundTraffic(game, F, dt);
+
+  if (F.planes.some((p) => p.state === 'gone')) {
+    for (const p of F.planes) if (p.state === 'gone') F.flights.delete(p.f.id);
+    F.planes = F.planes.filter((p) => p.state !== 'gone');
+  }
+}
+// seconds between take-offs over the centre, from any of the three runways
+const STAR_CENTRE_GAP = 3.2;
+
+function starTouchdown(game, F, p) {
+  p.alt = 0;
+  const R = F.runways[p.rw];
+  R.reservedArr = null;
+  R.occupant = p;
+  const A = AIRCRAFT[p.cls];
+  const vx = F.upgrades.rapidExits ? FLIGHT.exitSpeedRapid : FLIGHT.exitSpeed;
+  p.decel = (FLIGHT.touchdownSpeed ** 2 - vx ** 2) / (2 * p.rollD);
+  p.speed = FLIGHT.touchdownSpeed;
+  p.exitSpeed = vx;
+  setPath(p, p.route);
+  R.clearEta = F.t + 2 * p.rollD / (FLIGHT.touchdownSpeed + vx) + 48 / vx;
+  p.state = 'rollout';
+  earn(game, F, 'landing', A.landingFee * site(F).rev);
+  F.lifetime.flights++;
+  if (F.fx) F.fx('money', { x: p.x + 40, y: p.y - 14, v: A.landingFee * site(F).rev });
+}
+
 // ---------------------------------------------------------------- the ground
 
 // Junctions nobody may stop in unless they can get all the way through
@@ -1478,6 +1801,7 @@ function touchdown(game, ap, p) {
 // largest aircraft to pass through it.
 const BOX = 29; // with R_PLANE: 59, just short of the 62 px between taxiways A and B
 function junctionBoxes(ap) {
+  if (isStar(ap)) return STAR_BOXES;
   const key = JSON.stringify([ap.plots, ap.terminals.map((T) => [T.slot, T.gates, T.connector && T.connector.type]), !!ap.upgrades.runway2, !!ap.upgrades.crosswind]);
   if (ap.zonesKey === key) return ap.zones;
   // The runway turn-offs, so an aircraft can always get off a runway (one
@@ -1555,7 +1879,7 @@ function groundTraffic(game, ap, dt) {
   // An aircraft being pushed back owns the spot on the lane it is backing
   // into, so nobody drives up to it in the meantime.
   for (const p of ap.planes) {
-    if (p.state === 'pushback') bodies.push({ x: p.stand.x, y: p.stand.laneY, r: p.r, p });
+    if (p.state === 'pushback') bodies.push({ x: p.stand.lane.x, y: p.stand.lane.y, r: p.r, p });
   }
 
   const movers = ap.planes.filter(isMover);
@@ -1563,7 +1887,7 @@ function groundTraffic(game, ap, dt) {
   const depOnGround = ap.planes.filter((p) => p.state === 'pushback' || p.state === 'taxiOut' || p.state === 'holdShort').length;
   // With a second runway the main one only takes departures and drains the
   // queue faster, so more may taxi at once.
-  const depCap = MAX_DEP_GROUND + (ap.upgrades.runway2 ? 4 : 0) + (ap.upgrades.crosswind ? 4 : 0);
+  const depCap = isStar(ap) ? STAR_DEP_GROUND : MAX_DEP_GROUND + (ap.upgrades.runway2 ? 4 : 0) + (ap.upgrades.crosswind ? 4 : 0);
   const pending = depOnGround < depCap ? ap.planes.filter((p) => p.state === 'gate' && p.ready) : [];
 
   // 1. how far each can go before touching another aircraft
@@ -1794,7 +2118,7 @@ function groundTraffic(game, ap, dt) {
     const q = pointAlong(m.path, m.d);
     m.x = q.x; m.y = q.y;
     if (m.state === 'pushback') {
-      m.ang = Math.PI / 2; // being pushed backwards, nose to the terminal
+      m.ang = m.stand.ang; // being pushed backwards, nose to the terminal
     } else if (m.state === 'rollout' && m.d < m.rollEnd) {
       m.ang = q.ang;
     } else {
@@ -1803,7 +2127,7 @@ function groundTraffic(game, ap, dt) {
 
     // transitions
     // The runway is free once the whole aircraft is clear of its edge.
-    if (m.state === 'rollout' && (m.d >= m.rollEnd || m.y >= RW[m.rw].y + RUNWAY_HALF + m.r + 3)) {
+    if (m.state === 'rollout' && (m.d >= m.rollEnd || (isStar(ap) ? starOffRunway(m) : m.y >= RW[m.rw].y + RUNWAY_HALF + m.r + 3))) {
       const R = ap.runways[m.rw];
       if (R.occupant === m) R.occupant = null;
       if (m.d >= m.rollEnd) m.state = 'taxiIn';
@@ -1828,7 +2152,7 @@ function groundTraffic(game, ap, dt) {
     }
     if (m.d >= m.len - 0.01) {
       if (m.state === 'taxiIn') arriveAtGate(game, ap, m);
-      else if (m.state === 'taxiOut') { m.state = 'holdShort'; m.holdSince = t; m.speed = 0; (m.depRw === 2 ? ap.depQueueX : ap.depQueue).push(m); }
+      else if (m.state === 'taxiOut') { m.state = 'holdShort'; m.holdSince = t; m.speed = 0; (isStar(ap) ? ap.depQueues[m.depRw] : m.depRw === 2 ? ap.depQueueX : ap.depQueue).push(m); }
     }
   }
 }
@@ -1893,7 +2217,7 @@ function findGate(ap, p) {
 
 function arriveAtGate(game, ap, p) {
   p.state = 'gate';
-  p.x = p.stand.x; p.y = p.stand.y; p.ang = Math.PI / 2;
+  p.x = p.stand.x; p.y = p.stand.y; p.ang = p.stand.ang;
   // Crews hurry a late aircraft: up to a quarter off the turnaround.
   const late = Math.max(0, ap.t - (p.f.std - turnTime(ap, p.cls)));
   p.f.gateInLate = ap.t - (p.f.std - turnTime(ap, p.cls));
@@ -1948,10 +2272,17 @@ function turnaround(game, ap, p, dt) {
     closeFlight(game, ap, f);
     p.ready = true;
     p.readyAt = ap.t;
-    // Main-row departures use the crosswind runway when there is one.
-    p.depRw = ap.upgrades.crosswind && p.stand.laneY === LANE2 ? 2 : 0;
-    setPath(p, [{ x: p.stand.x, y: p.stand.y }].concat(p.depRw === 2 ? pathGateToCrosswind(p.stand) : pathGateToHold(p.stand, ap.plots)));
-    p.pushLen = p.stand.y - p.stand.laneY;
+    if (isStar(ap)) {
+      // out along the corner's taxilane to the hold line by the runway's end
+      p.depRw = WEDGES[f.terminal].line;
+      p.depSlot = f.terminal;
+      setPath(p, [{ x: p.stand.x, y: p.stand.y }].concat(starDeparturePath(f.terminal, p.stand)));
+    } else {
+      // Main-row departures use the crosswind runway when there is one.
+      p.depRw = ap.upgrades.crosswind && p.stand.laneY === LANE2 ? 2 : 0;
+      setPath(p, [{ x: p.stand.x, y: p.stand.y }].concat(p.depRw === 2 ? pathGateToCrosswind(p.stand) : pathGateToHold(p.stand, ap.plots)));
+    }
+    p.pushLen = Math.hypot(p.stand.x - p.stand.lane.x, p.stand.y - p.stand.lane.y);
   }
 }
 
@@ -2197,7 +2528,6 @@ function busBoard(ap, T, C, b, end) {
 function updateBuses(ap, dt) {
   ap.buses.length = 0;
   ap.busBlocks = [];
-  if (hasSouth(ap)) ap.south.busBlocks = [];
   const def = CONNECTORS.shuttle;
   for (const T of ap.terminals) {
     const C = T.connector;
@@ -2232,7 +2562,7 @@ function updateBuses(ap, dt) {
         let nd = b.d + b.dir * def.speed * dt;
         if (sX != null && Math.abs(b.d - sX) >= 30 && Math.abs(nd - sX) < 30) {
           // Wait at the line if an aircraft is in the crossing.
-          const busy = fieldFor(ap, T.slot).planes.some((p) => p.alt <= 0.5 && p.state !== 'gate' && Math.hypot(p.x - X.x, p.y - X.ly) < p.r + 40);
+          const busy = ap.planes.some((p) => p.alt <= 0.5 && p.state !== 'gate' && Math.hypot(p.x - X.x, p.y - X.ly) < p.r + 40);
           if (busy) nd = b.d;
         }
         b.d = nd;
@@ -2243,7 +2573,7 @@ function updateBuses(ap, dt) {
       ap.buses.push({ x: q.x, y: q.y, ang: q.ang + (b.dir > 0 ? 0 : Math.PI), slot: T.slot });
       // Only a bus actually in the crossing blocks it; one waiting at the
       // line does not.
-      if (sX != null && Math.abs(b.d - sX) < 24) fieldFor(ap, T.slot).busBlocks.push({ x: q.x, y: X.field ? SOUTH_M - q.y : q.y, r: 10, p: null });
+      if (sX != null && Math.abs(b.d - sX) < 24) ap.busBlocks.push({ x: q.x, y: q.y, r: 10, p: null });
     }
   }
 }
@@ -2288,7 +2618,7 @@ export function opsSnapshot(ap) {
   const holding = hq.length;
   const holdingForGate = hq.filter((p) => p.holdReason === 'gate').length;
   const waitingPush = allPlanes(ap).filter((p) => p.state === 'gate' && p.ready).length;
-  const depQ = fields(ap).reduce((s, F) => s + F.depQueue.length + F.depQueueX.length, 0);
+  const depQ = fields(ap).reduce((s, F) => s + F.depQueue.length + F.depQueueX.length + (isStar(F) ? F.depQueues.reduce((n, q) => n + q.length, 0) : 0), 0);
   return { holding, holdingForGate, waitingPush, waitingGate: holdingForGate, depQ, secQueue: ap.secQueue || 0, secWait: (ap.secQueue || 0) / Math.max(0.01, securityRate(ap)) };
 }
 

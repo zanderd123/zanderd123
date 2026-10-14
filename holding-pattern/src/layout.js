@@ -112,64 +112,29 @@ export const SLOT_ORDER = ['main', 'midcenter', 'westwing', 'eastwing', 'midwest
 // Concourse letters, as on real airport signage: gates are A1, B3 and so on.
 export const TERMINAL_CODES = { main: 'A', midcenter: 'B', westwing: 'C', eastwing: 'D', midwest: 'E', mideast: 'F', farwest: 'G', fareast: 'H' };
 
-// ------------------------------------------------------- the hub's south field
-// Mid-Continent International, the hub, can buy a second airfield south of
-// the highway: the same plan as the north one, mirrored north to south, so
-// its terminals face the car parks across the highway and runway 3 runs
-// along the bottom of the map. Its aircraft are simulated in the same local
-// coordinates as the north field (sim.js keeps them apart); the mirror is
-// applied only where things are drawn, picked or walked to.
-export const SOUTH_M = 2180; // world y = SOUTH_M - local y
-export const HUB_WORLD = { w: 2000, h: 2110 };
-export const SPINE_X = 1158; // the service road under the highway, north field to south
-const SOUTH = {
-  main:      ['South Central Pier',   'J'],
-  midcenter: ['South Midfield',       'K'],
-  westwing:  ['South-West Pier',      'L'],
-  eastwing:  ['South-East Pier',      'M'],
-  midwest:   ['South-West Midfield',  'N'],
-  mideast:   ['South-East Midfield',  'P'],
-  farwest:   ['South-West Remote',    'Q'],
-  fareast:   ['South-East Remote',    'R'],
-};
-const SOUTH_PLOT = { core: 'score', west: 'swest', east: 'seast', farwest: 'sfarwest', fareast: 'sfareast' };
-export const SOUTH_SLOT_ORDER = SLOT_ORDER.map((k) => 's' + k);
-for (const k of SLOT_ORDER) {
-  SLOTS['s' + k] = { ...SLOTS[k], name: SOUTH[k][0], plot: SOUTH_PLOT[SLOTS[k].plot], adjacent: false, field: 1 };
-  TERMINAL_CODES['s' + k] = SOUTH[k][1];
+// Other airfields can share the main field's map (the hub has five). Each
+// has its own coordinates, mapped onto the main field's by an affine
+// transform {a, b, c, d, e, f}: x' = a x + c y + e, y' = b x + d y + f.
+// Their slots carry `field`, and slots drawn at an angle carry `xf`, the
+// transform from the usual terminal-row geometry to their field's.
+export const ID = { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };
+export const FIELD_XF = {};
+export const xfApply = (m, p) => ({ x: m.a * p.x + m.c * p.y + m.e, y: m.b * p.x + m.d * p.y + m.f });
+export const xfMul = (m, n) => ({ a: m.a * n.a + m.c * n.b, b: m.b * n.a + m.d * n.b, c: m.a * n.c + m.c * n.d, d: m.b * n.c + m.d * n.d, e: m.a * n.e + m.c * n.f + m.e, f: m.b * n.e + m.d * n.f + m.f });
+export function xfInv(m) {
+  const det = m.a * m.d - m.b * m.c;
+  const a = m.d / det, b = -m.b / det, c = -m.c / det, d = m.a / det;
+  return { a, b, c, d, e: -(a * m.e + c * m.f), f: -(b * m.e + d * m.f) };
 }
-// The south field's land, in world coordinates. Buying the core buys runway 3
-// and its taxiways.
-const flipRect = (r) => ({ x: r.x, y: SOUTH_M - r.y - r.h, w: r.w, h: r.h });
-Object.assign(PLOTS, {
-  score:    { name: 'South airfield',     rects: PLOTS.core.rects.map(flipRect), price: 3.5e6, hub: true, field: 1, opens: 'Runway 3 and its own taxiways' },
-  swest:    { name: 'South-west apron',   rects: PLOTS.west.rects.map(flipRect), price: 16000, needs: 'score', hub: true, field: 1 },
-  seast:    { name: 'South-east apron',   rects: PLOTS.east.rects.map(flipRect), price: 16000, needs: 'score', hub: true, field: 1 },
-  sland:    { name: 'Highway frontage',   rects: [{ x: 430, y: 1104, w: 1140, h: 136 }], price: 38000, needs: 'score', hub: true, field: 1 },
-  sfarwest: { name: 'Far south-west field', rects: PLOTS.farwest.rects.map(flipRect), price: 70000, needs: 'swest', hub: true, field: 1 },
-  sfareast: { name: 'Far south-east field', rects: PLOTS.fareast.rects.map(flipRect), price: 70000, needs: 'seast', hub: true, field: 1 },
-});
-export const SOUTH_PLOT_ORDER = ['score', 'swest', 'seast', 'sland', 'sfarwest', 'sfareast'];
-// The local plot names the south field's taxi routes are built from.
-export function southPlots(plots) {
-  const out = {};
-  for (const k in SOUTH_PLOT) out[k] = !!plots[SOUTH_PLOT[k]];
-  return out;
-}
-const southSite = (id, name, code, plot) => ({ ...flipRect(PARKING_SITES[id]), name, code, plot, field: 1 });
-Object.assign(PARKING_SITES, {
-  sfront:     southSite('front', 'South front site', 'L8', 'score'),
-  swest:      southSite('west', 'South-west site', 'L9', 'swest'),
-  seast:      southSite('east', 'South-east site', 'L10', 'seast'),
-  shighwayw:  { name: 'Highway site west', code: 'L11', plot: 'sland', x: 470, y: 1114, w: 360, h: 108, field: 1 },
-  shighwaye:  { name: 'Highway site east', code: 'L12', plot: 'sland', x: 1170, y: 1114, w: 360, h: 108, field: 1 },
-  sfarwest:   southSite('farwest', 'Far south-west site', 'L13', 'sfarwest'),
-  sfareast:   southSite('fareast', 'Far south-east site', 'L14', 'sfareast'),
-});
-export const SOUTH_PARKING_ORDER = ['sfront', 'swest', 'seast', 'shighwayw', 'shighwaye', 'sfarwest', 'sfareast'];
+export const xfAngle = (m) => Math.atan2(m.b, m.a);
 export const slotField = (slot) => (SLOTS[slot] && SLOTS[slot].field) || 0;
-// World coordinates of a point in a slot's field.
-export function toWorld(field, x, y) { return field ? { x, y: SOUTH_M - y } : { x, y }; }
+// From a slot's own drawing frame to the main field's coordinates.
+export function slotToMain(slot) {
+  const s = SLOTS[slot];
+  const m = s.xf || ID;
+  return s.field && FIELD_XF[s.field] ? xfMul(FIELD_XF[s.field], m) : m;
+}
+export function slotCenterM(slot) { return xfApply(slotToMain(slot), slotCenter(slot)); }
 
 export function slotCenter(slotId) {
   const s = SLOTS[slotId];
@@ -183,16 +148,6 @@ export function slotBuilding(slotId) {
   return { x: s.x0, y: b.y0, w: s.x1 - s.x0, h: b.y1 - b.y0 };
 }
 
-// The same in world coordinates (the south field is mirrored).
-export function slotBuildingW(slotId) {
-  const b = slotBuilding(slotId);
-  return SLOTS[slotId].field ? flipRect(b) : b;
-}
-export function slotCenterW(slotId) {
-  const c = slotCenter(slotId);
-  return toWorld(SLOTS[slotId].field, c.x, c.y);
-}
-
 // Stands sit at fixed places along the pier so adding a gate never moves an
 // aircraft already parked. Gates fill from the middle outwards.
 const STAND_ORDER = [1, 2, 0, 3];
@@ -200,11 +155,17 @@ export function gateStand(slotId, i) {
   const s = SLOTS[slotId];
   const cx = (s.x0 + s.x1) / 2;
   const k = STAND_ORDER[i] ?? i;
-  return {
+  const st = {
     x: cx + (k - 1.5) * GATE_SPACING,
     y: s.row === 'main' ? MAIN_STAND_Y : MID_STAND_Y,
     laneY: s.row === 'main' ? LANE2 : TWY_B,
+    ang: Math.PI / 2, // nose to the terminal
   };
+  st.lane = { x: st.x, y: st.laneY }; // where pushback ends
+  if (!s.xf) return st;
+  // a terminal drawn at an angle: its stands in its field's coordinates
+  const p = xfApply(s.xf, st), q = xfApply(s.xf, st.lane);
+  return { x: p.x, y: p.y, laneY: NaN, ang: Math.PI / 2 + xfAngle(s.xf), lane: q };
 }
 
 export function lanesFor(plots) {
@@ -281,7 +242,7 @@ export function connectorRoute(type, slotId) {
   const s = SLOTS[slotId];
   const c = slotCenter(slotId);
   const west = c.x < 1000;
-  if (s.field) return southRoute(type, slotId);
+  if (s.field) return farRoute(type, slotId);
   if (type === 'walkway') {
     return [{ x: MAIN_CENTER.x, y: MAIN_CENTER.y }, { x: west ? 860 : 1140, y: MAIN_CENTER.y }, { x: west ? s.x1 : s.x0, y: MAIN_CENTER.y }, { x: c.x, y: MAIN_CENTER.y }];
   }
@@ -301,23 +262,12 @@ export function connectorRoute(type, slotId) {
   return [{ x: MAIN_CENTER.x, y: 688 }, { x: c.x, y: s.row === 'main' ? 688 : 458 }];
 }
 
-// To the south field: under the highway along the spine road, over it on
-// the monorail, or straight under everything in the tunnel.
-function southRoute(type, slotId) {
-  const s = SLOTS[slotId];
-  const c = slotCenter(slotId);
-  const w = (y) => SOUTH_M - y;
-  if (type === 'shuttle') {
-    const pts = [{ x: MAIN_CENTER.x, y: SERVICE_Y }, { x: SPINE_X, y: SERVICE_Y }, { x: SPINE_X, y: w(SERVICE_Y) }];
-    if (s.row === 'main') pts.push({ x: c.x, y: w(SERVICE_Y) });
-    else { const sx = busCrossX(slotId); pts.push({ x: sx, y: w(SERVICE_Y) }, { x: sx, y: w(MID_BLDG.y1 + 9) }, { x: c.x, y: w(MID_BLDG.y1 + 9) }); }
-    return dedupe(pts);
-  }
-  if (type === 'monorail') {
-    const end = s.row === 'main' ? w(660) : w(470);
-    return dedupe([{ x: MAIN_CENTER.x, y: 700 }, { x: 1060, y: 700 }, { x: 1060, y: w(700) }, { x: c.x, y: w(700) }, { x: c.x, y: end }]);
-  }
-  return [{ x: MAIN_CENTER.x, y: 688 }, { x: c.x, y: w(s.row === 'main' ? 688 : 458) }];
+// To another airfield: only an underground tunnel or an elevated people
+// mover can get there across the runways.
+function farRoute(type, slotId) {
+  const c = slotCenterM(slotId);
+  if (type === 'monorail') return [{ x: MAIN_CENTER.x, y: 660 }, { x: MAIN_CENTER.x, y: 600 }, { x: c.x, y: c.y }];
+  return [{ x: MAIN_CENTER.x, y: 688 }, { x: c.x, y: c.y }];
 }
 
 function busCrossX(slotId) {
@@ -330,5 +280,5 @@ export function apronCrossing(slotId) {
   const s = SLOTS[slotId];
   if (s.row !== 'mid') return null;
   const f = s.field || 0;
-  return { x: busCrossX(slotId), y: f ? SOUTH_M - LANE2 : LANE2, ly: LANE2, field: f };
+  return { x: busCrossX(slotId), y: LANE2, ly: LANE2, field: f };
 }

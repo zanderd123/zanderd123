@@ -241,8 +241,8 @@ function zoomAt(sx, sy, factor) {
 
 function clampCam() {
   const W = worldSize();
-  cam.x = clamp(cam.x, -100, W.w + 100);
-  cam.y = clamp(cam.y, -100, W.h + 100);
+  cam.x = clamp(cam.x, W.x0 - 100, W.x0 + W.w + 100);
+  cam.y = clamp(cam.y, W.y0 - 100, W.y0 + W.h + 100);
 }
 
 function select(hit) {

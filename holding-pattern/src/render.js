@@ -7,12 +7,13 @@ import {
   TAXILANES, PLOTS, SLOTS, SLOT_ORDER, MAIN_BLDG, MID_BLDG, SERVICE_Y, CURB_Y,
   HIGHWAY_Y, RAMP_IN_X, RAMP_OUT_X, MAIN_STAND_Y, MID_STAND_Y, TERMINAL_CODES,
   slotBuilding, gateStand, lanesFor, connectorRoute, twyBSpan, PARKING_SITES, PARKING_ORDER, placeName, XW, XW_HOLD,
-  SOUTH_M, HUB_WORLD, SPINE_X, SOUTH_SLOT_ORDER, SOUTH_PARKING_ORDER, southPlots, slotField, slotBuildingW, toWorld,
+  slotField, slotToMain, xfApply, xfInv, xfAngle, FIELD_XF, ID,
 } from './layout.js';
+import { HUB_RECT, STAR, STAR_LINES, STAR_SLOTS, POCKETS } from './hub.js';
 import { mulberry32, pointAlong, pathLength, clamp, money } from './util.js';
 import { drawShore, drawLand, islandAttach, islandArrive, islandFrame, rentalPoint } from './island.js';
 import { FLIGHT } from './config.js';
-import { isOpen, terminalBySlot, slotAvailable, parkingAvailable, hasSouth, allPlanes, slotList, plotList, parkingList } from './sim.js';
+import { isOpen, terminalBySlot, slotAvailable, parkingAvailable, hasField, allPlanes, slotList, plotList, parkingList, starHoldStacks, starTaxiLines } from './sim.js';
 
 const C = {
   grass: '#7f9f63', grassB: '#86a76a', farmA: '#b5a46b', farmB: '#a7ad6c', farmEdge: '#8a8455',
@@ -41,32 +42,73 @@ const themeOf = (ap) => THEMES[SITES[ap.siteIndex].theme] || THEMES.forest;
 // Where a site keeps the far east field for a crosswind runway, nothing
 // else is drawn there: no taxilane, and the apron and roads stop short.
 const hasXW = (ap) => !!SITES[ap.siteIndex].crosswind;
-// One airfield's worth of what to draw: the north one, or the hub's south one
-// (drawn mirrored north to south, in its own local coordinates).
-function fieldsOf(ap) {
-  const north = { field: 0, plots: ap.plots, upgrades: ap.upgrades, terminals: ap.terminals.filter((T) => !slotField(T.slot)), slots: SLOT_ORDER, xw: hasXW(ap) };
-  if (!hasSouth(ap)) return [north];
-  return [north, { field: 1, plots: southPlots(ap.plots), upgrades: { ...ap.upgrades, runway2: false, crosswind: false }, terminals: ap.terminals.filter((T) => slotField(T.slot)), slots: SOUTH_SLOT_ORDER, xw: false }];
-}
 const lanesOf = (F) => lanesFor(F.plots).filter((L) => !(F.xw && L.plot === 'fareast'));
 const hubSite = (ap) => !!SITES[ap.siteIndex].hub;
 const slotIds = slotList, parkingIds = parkingList, plotIds = plotList;
-// The world is taller at the hub, for its south field.
-export const worldOf = (ap) => (hubSite(ap) ? HUB_WORLD : WORLD);
-let WN = WORLD;
-// Draw something of the south field in its own coordinates.
-let FLIPY = false;
-function inField(g, field, fn) {
-  if (!field) { fn(); return; }
-  g.save(); g.transform(1, 0, 0, -1, 0, SOUTH_M); FLIPY = true;
-  try { fn(); } finally { FLIPY = false; g.restore(); }
+// The area the camera and the static layer cover, in the main field's
+// coordinates: the hub reaches well beyond its main field.
+// Where the highway leaves the map to the east.
+const hwEastX = (ap) => (hubSite(ap) ? 1850 : WORLD.w);
+export const worldOf = (ap) => (hubSite(ap) ? HUB_RECT : { x0: 0, y0: 0, ...WORLD });
+let WN = { x0: 0, y0: 0, ...WORLD };
+
+// Drawing in another airfield's coordinates, or an angled terminal's own
+// frame. ROT is that frame's rotation, so text can be turned back upright.
+let ROT = 0;
+function inFrame(g, m, fn) {
+  if (!m || m === ID) { fn(); return; }
+  const prev = ROT;
+  g.save(); g.transform(m.a, m.b, m.c, m.d, m.e, m.f); ROT = prev + xfAngle(m);
+  try { fn(); } finally { ROT = prev; g.restore(); }
 }
-// A plane as drawn: the south field's are mirrored into world coordinates.
+const inField = (g, key, fn) => inFrame(g, key ? FIELD_XF[key] : null, fn);
+const inSlot = (g, slot, fn) => inFrame(g, slotToMain(slot), fn);
+// A plane as drawn: other airfields' are turned into main coordinates.
 function inWorld(p) {
-  if (!p.field) return p;
+  const m = p.field && FIELD_XF[p.field];
+  if (!m) return p;
   const q = Object.create(p);
-  q.y = SOUTH_M - p.y; q.ang = -p.ang;
+  const w = xfApply(m, p);
+  q.x = w.x; q.y = w.y; q.ang = p.ang + xfAngle(m);
   return q;
+}
+const fieldPt = (key, pt) => (key && FIELD_XF[key] ? xfApply(FIELD_XF[key], pt) : pt);
+// A point in a terminal's own frame to main coordinates, and a point in its
+// field's coordinates into that frame.
+const slotMain = (slot, pt) => xfApply(slotToMain(slot), pt);
+const slotLocal = (slot, pt) => (SLOTS[slot].xf ? xfApply(xfInv(SLOTS[slot].xf), pt) : pt);
+// A terminal site's bounding box in main coordinates.
+function slotBox(slot) {
+  const b = slotBuilding(slot), m = slotToMain(slot);
+  const pts = [[b.x, b.y], [b.x + b.w, b.y], [b.x, b.y + b.h], [b.x + b.w, b.y + b.h]].map(([x, y]) => xfApply(m, { x, y }));
+  const xs = pts.map((q) => q.x), ys = pts.map((q) => q.y);
+  const x = Math.min(...xs), y = Math.min(...ys);
+  return { x, y, w: Math.max(...xs) - x, h: Math.max(...ys) - y };
+}
+// Is a main-coordinate point on a terminal site (with a margin on its airside)?
+function onSlot(slot, wx, wy, reach) {
+  const q = xfApply(xfInv(slotToMain(slot)), { x: wx, y: wy }), b = slotBuilding(slot);
+  return q.x >= b.x && q.x <= b.x + b.w && q.y >= b.y - reach && q.y <= b.y + b.h;
+}
+// Runway numbers from the direction aircraft land in a field.
+function rwNumbers(key) {
+  const deg = ((xfAngle(key && FIELD_XF[key] ? FIELD_XF[key] : ID) * 180 / Math.PI + 90) % 360 + 360) % 360;
+  const n = Math.round(deg / 10) || 36, o = ((n + 17) % 36) + 1;
+  return [String(n).padStart(2, '0'), String(o).padStart(2, '0')];
+}
+// Every airfield to draw: the main one, the hub's three pockets (their
+// runways are part of the frame even before they open) and the star.
+function fieldsOf(ap) {
+  const hub = hubSite(ap);
+  const main = { key: '', plots: ap.plots, upgrades: ap.upgrades, terminals: ap.terminals.filter((T) => !slotField(T.slot)), slots: SLOT_ORDER.filter((id) => slotAvailable(ap, id)), xw: hasXW(ap), x1: hub ? 1700 : 1820, frame: hub };
+  if (!hub) return [main];
+  const out = [main];
+  for (const k of POCKETS) {
+    const v = ap.fieldViews[k];
+    out.push({ key: k, plots: v.plots, upgrades: v.upgrades, terminals: v.terminals, slots: slotIds(ap).filter((id) => slotField(id) === k), xw: false, x1: 1700, frame: true, closed: !hasField(ap, k) });
+  }
+  out.push({ key: 'X', star: true, plots: { core: true }, upgrades: ap.fieldViews.X.upgrades, terminals: ap.fieldViews.X.terminals, slots: STAR_SLOTS });
+  return out;
 }
 
 // ------------------------------------------------------------------ camera
@@ -100,8 +142,8 @@ let staticCanvas = null, staticKey = '';
 let MIRROR = false;
 const mirrored = (ap) => !!SITES[ap.siteIndex].mirror;
 function textAt(g, s, x, y) {
-  if (!MIRROR && !FLIPY) { g.fillText(s, x, y); return; }
-  g.save(); g.translate(x, y); g.scale(MIRROR ? -1 : 1, FLIPY ? -1 : 1); g.fillText(s, 0, 0); g.restore();
+  if (!MIRROR && !ROT) { g.fillText(s, x, y); return; }
+  g.save(); g.translate(x, y); if (ROT) g.rotate(-ROT); if (MIRROR) g.scale(-1, 1); g.fillText(s, 0, 0); g.restore();
 }
 
 function layoutKey(ap, res) {
@@ -116,7 +158,7 @@ function drawStatic(ap, res) {
   cv.width = Math.round(WORLD.w * res);
   cv.height = Math.round(WORLD.h * res);
   const g = cv.getContext('2d');
-  g.setTransform(res, 0, 0, res, 0, 0);
+  g.setTransform(res, 0, 0, res, -WORLD.x0 * res, -WORLD.y0 * res);
   MIRROR = mirrored(ap);
   if (MIRROR) g.transform(-1, 0, 0, 1, WORLD.w, 0);
   const R = mulberry32(7 + ap.siteIndex * 101);
@@ -124,11 +166,12 @@ function drawStatic(ap, res) {
   // grass with mowing stripes (or sand ripples, or snow drifts)
   const TH = themeOf(ap);
   g.fillStyle = TH.ground;
-  g.fillRect(0, 0, WORLD.w, WORLD.h);
+  g.fillRect(WORLD.x0, WORLD.y0, WORLD.w, WORLD.h);
   g.fillStyle = TH.stripe;
-  for (let x = -WORLD.h; x < WORLD.w; x += 56) {
+  for (let x = WORLD.x0 - WORLD.h; x < WORLD.x0 + WORLD.w; x += 56) {
+    const y0 = WORLD.y0, y1 = WORLD.y0 + WORLD.h;
     g.beginPath();
-    g.moveTo(x, 0); g.lineTo(x + 28, 0); g.lineTo(x + 28 + WORLD.h * 0.5, WORLD.h); g.lineTo(x + WORLD.h * 0.5, WORLD.h);
+    g.moveTo(x, y0); g.lineTo(x + 28, y0); g.lineTo(x + 28 + WORLD.h * 0.5, y1); g.lineTo(x + WORLD.h * 0.5, y1);
     g.fill();
   }
 
@@ -189,7 +232,8 @@ function drawStatic(ap, res) {
   }
 
   // things growing (or standing) along the edges of the map
-  if (!TH.island) {
+  if (hubSite(ap)) hubEdges(g, TH, R);
+  else if (!TH.island) {
   const coastX = TH.coast === 'west' ? 64 : TH.coast === 'east' ? WORLD.w - 64 : null;
   const edgeOk = (x) => coastX == null || (TH.coast === 'west' ? x > coastX : x < coastX);
   for (let i = 0; i < 90; i++) {
@@ -208,10 +252,15 @@ function drawStatic(ap, res) {
   if (TH.island) {
     drawLand(g, R, { road: C.road, palm: (gg, x, y, r, RR) => decor(gg, { decor: 'palm' }, x, y, r, RR) });
   } else {
+    // at the hub it turns south before the east field's far end
+    const hx = hwEastX(ap), bend = hx < WORLD.x0 + WORLD.w;
     g.fillStyle = C.road;
-    g.fillRect(0, HIGHWAY_Y - 13, WORLD.w, 26);
+    g.fillRect(WORLD.x0, HIGHWAY_Y - 13, hx - WORLD.x0 + (bend ? 13 : 0), 26);
+    if (bend) g.fillRect(hx - 13, HIGHWAY_Y - 13, 26, WORLD.y0 + WORLD.h - HIGHWAY_Y + 13);
     g.strokeStyle = 'rgba(255,255,255,0.55)'; g.lineWidth = 1.5; g.setLineDash([14, 12]);
-    g.beginPath(); g.moveTo(0, HIGHWAY_Y); g.lineTo(WORLD.w, HIGHWAY_Y); g.stroke(); g.setLineDash([]);
+    g.beginPath(); g.moveTo(WORLD.x0, HIGHWAY_Y); g.lineTo(hx, HIGHWAY_Y);
+    if (bend) g.lineTo(hx, WORLD.y0 + WORLD.h);
+    g.stroke(); g.setLineDash([]);
     g.fillStyle = C.road;
     g.fillRect(RAMP_IN_X - 8, CURB_Y, 16, HIGHWAY_Y - CURB_Y);
     g.fillRect(RAMP_OUT_X - 8, CURB_Y, 16, HIGHWAY_Y - CURB_Y);
@@ -246,20 +295,22 @@ function drawStatic(ap, res) {
   }
   if (ap.upgrades.rail) railStation(g);
   tower(g, 1166, 905);
-  if (hasSouth(ap)) southLandside(g, ap, R);
 
   const FS = fieldsOf(ap);
-  for (const F of FS) inField(g, F.field, () => drawFieldGround(g, ap, F));
+  for (const F of FS) {
+    if (F.star) drawStarGround(g, ap, R);
+    else inField(g, F.key, () => drawFieldGround(g, ap, F));
+  }
 
   // terminals and connectors
   for (const T of ap.terminals) {
     if (T.connector && T.connector.buildLeft <= 0) staticConnector(g, T);
   }
-  for (const F of FS) inField(g, F.field, () => {
+  for (const F of FS) {
     // maintenance hangars on terminal sites
-    for (const slot of F.slots) if (ap.hangars && ap.hangars[slot]) hangarBuilding(g, slotBuilding(slot), SLOTS[slot].row);
-    for (const T of F.terminals) terminal(g, ap, T);
-  });
+    for (const slot of F.slots) if (ap.hangars && ap.hangars[slot]) inSlot(g, slot, () => hangarBuilding(g, slotBuilding(slot), SLOTS[slot].row));
+    for (const T of F.terminals) inSlot(g, T.slot, () => terminal(g, ap, T));
+  }
   for (const T of ap.terminals) {
     if (T.connector && T.connector.buildLeft <= 0 && T.connector.type === 'walkway') walkway(g, T);
   }
@@ -268,6 +319,15 @@ function drawStatic(ap, res) {
 // The airfield itself: aprons, taxiways, runways and their markings, in the
 // field's own coordinates.
 function drawFieldGround(g, ap, F) {
+  const X1 = F.x1 || 1820;
+  if (F.closed) {
+    // a pocket not yet bought: its runway is part of the frame, but closed
+    runway(g, RW[0], RW[0].x1, rwNumbers(F.key));
+    frameEnd(g);
+    g.strokeStyle = C.yellow; g.lineWidth = 4;
+    for (const x of [600, 1400]) { line(g, [[x - 24, RW[0].y - 12], [x + 24, RW[0].y + 12]]); line(g, [[x - 24, RW[0].y + 12], [x + 24, RW[0].y - 12]]); }
+    return;
+  }
 
   // aprons
   const owned = (x0, x1) => ownedSpan(F, x0, x1);
@@ -288,13 +348,13 @@ function drawFieldGround(g, ap, F) {
   }
 
   // taxiways A & B, the links between them, and runway exits
-  const [bx0, bx1] = twyBSpan(F.plots);
+  const [bx0, bxMax] = twyBSpan(F.plots), bx1 = Math.min(bxMax, X1);
   g.fillStyle = C.asphalt;
-  g.fillRect(200, TWY_A - 14, 1620, 28);
+  g.fillRect(200, TWY_A - 14, X1 - 200, 28);
   g.fillRect(bx0 - 14, TWY_B - 14, bx1 - bx0 + 28, 28);
-  g.fillRect(200, TWY_A, 1620, TWY_B - TWY_A);
+  g.fillRect(200, TWY_A, X1 - 200, TWY_B - TWY_A);
   g.fillStyle = C.asphaltB;
-  g.fillRect(200, TWY_A + 14, 1620, TWY_B - TWY_A - 28);
+  g.fillRect(200, TWY_A + 14, X1 - 200, TWY_B - TWY_A - 28);
   g.fillStyle = C.asphalt;
   for (const ex of EXITS) {
     g.fillRect(ex - 14, TWY_A, 28, TWY_B - TWY_A);
@@ -319,15 +379,15 @@ function drawFieldGround(g, ap, F) {
   // runways
   // Facing the other way the numbers swap ends: planes land on runway 27.
   const ends = (a) => (MIRROR ? [a[1], a[0]] : a);
-  // the hub's runways are numbered left, centre and right
-  const hub = hasSouth(ap);
-  runway(g, RW[0], F.upgrades.longRunway ? LONG_RUNWAY_X1 : RW[0].x1, ends(F.field ? ['09R', '27L'] : hub ? ['09C', '27C'] : F.upgrades.runway2 ? ['09R', '27L'] : ['09', '27']));
+  const nums = rwNumbers(F.key);
+  runway(g, RW[0], F.upgrades.longRunway && !F.frame ? LONG_RUNWAY_X1 : RW[0].x1, ends(F.upgrades.runway2 ? [nums[0] + 'R', nums[1] + 'L'] : nums));
+  if (F.frame) frameEnd(g);
   if (F.upgrades.runway2) runway(g, RW[1], RW[1].x1, ends(['09L', '27R']));
   if (F.upgrades.crosswind) crosswind(g);
 
   // yellow centrelines, with arrows showing which way each one runs
   g.strokeStyle = C.yellow; g.lineWidth = 1.6;
-  line(g, [[200, TWY_A], [1820, TWY_A]]);
+  line(g, [[200, TWY_A], [X1, TWY_A]]);
   line(g, [[bx0, TWY_B], [bx1, TWY_B]]);
   line(g, [[HOLD_POINT.x, TWY_B], [HOLD_POINT.x, HOLD_POINT.y], [HOLD_POINT.x + 18, RW[0].y + 26], [RW[0].x0 + 10, RW[0].y]]);
   for (const ex of EXITS) { curveLine(g, ex - 60, RW[0].y, ex, TWY_A); line(g, [[ex, TWY_A], [ex, TWY_B]]); }
@@ -338,7 +398,7 @@ function drawFieldGround(g, ap, F) {
   for (const L of lanesOf(F)) line(g, [[L.x, L.dir === 'N' ? TWY_A : TWY_B], [L.x, LANE2]]);
   for (const [x0, x1] of owned(60, 1940)) line(g, [[x0, LANE2], [x1, LANE2]]);
   g.fillStyle = C.yellow;
-  for (let x = 640; x < 1800; x += 220) arrow(g, x, TWY_A, 0);
+  for (let x = 640; x < X1 - 20; x += 220) arrow(g, x, TWY_A, 0);
   for (let x = bx1 - 120; x > bx0 + 60; x -= 220) arrow(g, x, TWY_B, Math.PI);
   for (const [x0, x1] of owned(60, 1940)) for (let x = x0 + 60; x < x1 - 30; x += 200) arrow(g, x, LANE2, 0);
   for (const L of lanesOf(F)) arrow(g, L.x, (TWY_B + LANE2) / 2, L.dir === 'S' ? Math.PI / 2 : -Math.PI / 2);
@@ -347,33 +407,58 @@ function drawFieldGround(g, ap, F) {
   for (const dy of [0, 4]) line(g, [[HOLD_POINT.x - 14, RW[0].y + RUNWAY_HALF + 16 + dy], [HOLD_POINT.x + 14, RW[0].y + RUNWAY_HALF + 16 + dy]]);
 }
 
-// The hub's south landside, in world coordinates: the spine road under the
-// highway, the south service road and curb, and the south car park sites.
-function southLandside(g, ap, R) {
-  const sp = southPlots(ap.plots);
-  const spans = ownedSpan({ plots: sp, xw: false }, 60, 1940);
-  const x0 = Math.min(...spans.map((a) => a[0])), x1 = Math.max(...spans.map((a) => a[1]));
-  const sv = SOUTH_M - SERVICE_Y, cb = SOUTH_M - CURB_Y;
-  g.fillStyle = C.road;
-  g.fillRect(SPINE_X - 7, SERVICE_Y, 14, sv - SERVICE_Y);
-  g.fillRect(x0, cb - 7, x1 - x0, 14);
-  g.fillStyle = '#5b6068';
-  g.fillRect(x0, sv - 5, x1 - x0, 11);
-  // where the spine passes under the highway
-  g.fillStyle = 'rgba(0,0,0,0.25)'; g.fillRect(SPINE_X - 10, HIGHWAY_Y - 15, 20, 4); g.fillRect(SPINE_X - 10, HIGHWAY_Y + 11, 20, 4);
-  for (const id of SOUTH_PARKING_ORDER) {
-    const P = PARKING_SITES[id], lv = ap.parking[id];
-    if (!lv) continue;
-    g.fillStyle = C.road;
-    if (P.y < HIGHWAY_Y + 40) g.fillRect(P.x + P.w / 2 - 7, HIGHWAY_Y, 14, P.y - HIGHWAY_Y); // straight off the highway
-    else g.fillRect(P.x + P.w / 2 < SPINE_X ? P.x + 24 : P.x + P.w - 38, P.y + P.h, 14, cb - P.y - P.h);
-    if (lv === 'garage') garage(g, P.x, P.y, P.w, P.h, P.code);
-    else if (lv === 'hotel') hotel(g, P.x, P.y, P.w, P.h);
-    else if (lv === 'rental') rentalCentre(g, P.x, P.y, P.w, P.h, R);
-    else if (lv === 'solar') solarFarm(g, P.x, P.y, P.w, P.h);
-    else parkingLot(g, P.x, P.y, P.w, P.h, R);
+// The hub's frame runways run on through the corner beyond their end, so
+// the four of them cross like a pinwheel.
+function frameEnd(g) {
+  const y = RW[0].y, h = RUNWAY_HALF, x = RW[0].x1 + 20;
+  g.fillStyle = C.asphalt; g.fillRect(x, y - h, 55, 2 * h);
+  g.fillStyle = C.paint; g.fillRect(x, y - h, 55, 1.2); g.fillRect(x, y + h - 1.2, 55, 1.2);
+}
+
+// The star: three runways crossing in the middle of the box, and in each
+// of the box's corners a taxilane from the runway's turn-off out to the
+// hold line at its end, with the corner's terminal along it.
+function drawStarGround(g, ap, R) {
+  for (const slot of STAR_SLOTS) {
+    const L = starTaxiLines(slot);
+    g.fillStyle = C.concrete;
+    g.beginPath(); L.apron.forEach((q, i) => (i ? g.lineTo(q.x, q.y) : g.moveTo(q.x, q.y))); g.closePath(); g.fill();
+    g.strokeStyle = C.asphalt; g.lineWidth = 28; g.lineCap = 'round'; g.lineJoin = 'round';
+    for (const pl of [L.exit, L.lane, L.lineup]) line(g, pl.map((q) => [q.x, q.y]));
+    g.lineCap = 'butt';
   }
-  tower(g, 1166, SOUTH_M - 905);
+  STAR_LINES.forEach((Ln, i) => {
+    g.save(); g.translate(STAR.C.x, STAR.C.y); g.rotate(Math.atan2(-Ln.ea.y, -Ln.ea.x));
+    runway(g, { x0: -STAR.r, y: 0 }, STAR.r, [Ln.name, Ln.other]);
+    g.restore();
+  });
+  // a compass rose where the three cross
+  g.save(); g.translate(STAR.C.x, STAR.C.y);
+  g.strokeStyle = 'rgba(243,241,234,0.7)'; g.lineWidth = 2; g.beginPath(); g.arc(0, 0, 26, 0, Math.PI * 2); g.stroke();
+  g.fillStyle = C.yellow; g.beginPath(); g.moveTo(0, -22); g.lineTo(5, 0); g.lineTo(0, 22); g.lineTo(-5, 0); g.closePath(); g.fill();
+  g.restore();
+  g.strokeStyle = C.yellow; g.lineWidth = 1.6;
+  for (const slot of STAR_SLOTS) {
+    const L = starTaxiLines(slot);
+    for (const pl of [L.exit, L.lane, L.lineup]) line(g, pl.map((q) => [q.x, q.y]));
+    // hold-short bars and an arrow along the lane
+    const a = L.lane[0], b = L.lane[1], ang = Math.atan2(b.y - a.y, b.x - a.x);
+    g.fillStyle = C.yellow; arrow(g, (a.x + b.x) / 2, (a.y + b.y) / 2, ang);
+    g.save(); g.translate(L.hs.x, L.hs.y); g.rotate(ang); g.lineWidth = 2;
+    for (const dx of [16, 20]) line(g, [[dx, -14], [dx, 14]]);
+    g.restore();
+  }
+}
+
+// Trees round the edge of the hub's map.
+function hubEdges(g, TH, R) {
+  const W = WN;
+  for (let i = 0; i < 160; i++) {
+    const side = Math.floor(R() * 4), k = R();
+    const x = side < 2 ? W.x0 + k * W.w : side === 2 ? W.x0 + R() * 50 : W.x0 + W.w - R() * 50;
+    const y = side >= 2 ? W.y0 + k * W.h : side === 0 ? W.y0 + R() * 40 : W.y0 + W.h - R() * 20;
+    decor(g, TH, x, y, 6 + R() * 6, R);
+  }
 }
 
 function ownedX(ap, _slot, def, right = false) {
@@ -491,11 +576,11 @@ function runway(g, rw, x1, labels) {
   g.save();
   g.font = '700 13px "Barlow Condensed", "Arial Narrow", sans-serif';
   g.textAlign = 'center'; g.textBaseline = 'middle';
-  g.translate(rw.x0 + 48, y); g.rotate(Math.PI / 2); if (MIRROR !== FLIPY) g.scale(-1, 1); g.fillText(labels[0], 0, 0); g.restore();
+  g.translate(rw.x0 + 48, y); g.rotate(Math.PI / 2); if (MIRROR) g.scale(-1, 1); g.fillText(labels[0], 0, 0); g.restore();
   g.save();
   g.font = '700 13px "Barlow Condensed", "Arial Narrow", sans-serif';
   g.textAlign = 'center'; g.textBaseline = 'middle';
-  g.translate(x1 - 48, y); g.rotate(-Math.PI / 2); if (MIRROR !== FLIPY) g.scale(-1, 1); g.fillText(labels[1], 0, 0); g.restore();
+  g.translate(x1 - 48, y); g.rotate(-Math.PI / 2); if (MIRROR) g.scale(-1, 1); g.fillText(labels[1], 0, 0); g.restore();
 }
 
 // The crosswind runway: north to south, departures only, with its link
@@ -614,8 +699,8 @@ function garage(g, x, y, w, h, label) {
 }
 
 function railStation(g) {
-  g.fillStyle = '#6b5a4a'; g.fillRect(0, 1118, WORLD.w, 4);
-  g.fillStyle = '#8a7a66'; for (let x = 0; x < WORLD.w; x += 8) g.fillRect(x, 1115, 2, 10);
+  g.fillStyle = '#6b5a4a'; g.fillRect(WN.x0, 1118, WN.w, 4);
+  g.fillStyle = '#8a7a66'; for (let x = WN.x0; x < WN.x0 + WN.w; x += 8) g.fillRect(x, 1115, 2, 10);
   g.fillStyle = '#d8d3c8'; g.fillRect(920, 1104, 160, 10);
   g.fillStyle = '#2c3037'; g.fillRect(940, 1106, 120, 6);
 }
@@ -722,7 +807,7 @@ function staticConnector(g, T) {
     g.strokeStyle = 'rgba(255,255,255,0.7)'; g.lineWidth = 1; g.setLineDash([6, 6]);
     line(g, r.map((p) => [p.x, p.y])); g.setLineDash([]);
     // zebra where buses cross the apron lane
-    const lane = slotField(T.slot) ? SOUTH_M - LANE2 : LANE2;
+    const lane = LANE2;
     for (let i = 1; i < r.length; i++) {
       const a = r[i - 1], b = r[i];
       if (Math.abs(a.x - b.x) < 1 && Math.min(a.y, b.y) < lane && Math.max(a.y, b.y) > lane) {
@@ -896,7 +981,7 @@ export function attach(ap) {
   pickupQ.length = 0; dropAcc = 0; cars.length = 0;
   dotAcc = {}; dotKeys = 0;
   ap.fx = (type, e) => {
-    if (type === 'money') { floaters.push({ x: e.x, y: e.y, text: '+' + money(e.v), life: 1.6 }); return; }
+    if (type === 'money') { const q = fieldPt(e.field, e); floaters.push({ x: q.x, y: q.y, text: '+' + money(e.v), life: 1.6 }); return; }
     if (type === 'curb') {
       // departing passengers arrive by car: one car per few of them
       dropAcc += e.n / ppd;
@@ -912,7 +997,7 @@ export function attach(ap) {
       if (e.off) spawnDots('busOff' + e.slot + e.end, e.off, () => {
         const from = { x: jitter(e.x, 4), y: jitter(e.y, 4) };
         if (e.end === 'far') {
-          const b = slotBuildingW(e.slot);
+          const b = slotBox(e.slot);
           return walker([from, { x: jitter(st.x, 10), y: st.y }, { x: jitter(b.x + b.w / 2, b.w * 0.6), y: b.y + b.h * 0.45 }], 30, C.depart);
         }
         return toCurb(from);
@@ -948,11 +1033,12 @@ export function attach(ap) {
     if (type === 'deplane') {
       const p = e.p;
       const T = terminalBySlot(ap, e.slot);
-      const W = (q) => toWorld(slotField(e.slot), q.x, q.y);
+      // in the terminal's own frame, then out to main coordinates
+      const W = (q) => slotMain(e.slot, q), pl = slotLocal(e.slot, p);
       spawnDots('dep' + p.id, e.n, () => {
         const b = slotBuilding(e.slot);
-        const door = W({ x: p.x + 14, y: b.y - 10 });
-        const inside = W({ x: jitter(p.x, 20), y: b.y + 10 });
+        const door = W({ x: pl.x + 14, y: b.y - 10 });
+        const inside = W({ x: jitter(pl.x, 20), y: b.y + 10 });
         if (e.slot === 'main') return (ISLAND_NOW ? toRental : toCurb)({ x: inside.x, y: MAIN_BLDG.y0 + 30 }, [door, inside]);
         const st = T.connector.route[T.connector.route.length - 1];
         return walker([door, inside, { x: jitter(st.x, 10), y: jitter(st.y, 10) }], 30, C.arrive);
@@ -961,12 +1047,12 @@ export function attach(ap) {
     }
     if (type === 'board') {
       const p = e.p;
-      const W = (q) => toWorld(slotField(e.slot), q.x, q.y);
+      const W = (q) => slotMain(e.slot, q), pl = slotLocal(e.slot, p);
       spawnDots('brd' + p.id, e.n, () => {
         // from their group at the gate, through the jet bridge to the door
         const b = slotBuilding(e.slot);
-        const cl = clusters.get(p.f.id) || { x: p.x, y: b.y + 10 };
-        return walker([W({ x: jitter(cl.x, 18), y: cl.y + 4 }), W({ x: p.x + 14, y: b.y + 2 }), W({ x: p.x + 14, y: b.y - 12 })], 30, C.depart);
+        const cl = clusters.get(p.f.id) || { x: pl.x, y: b.y + 10 };
+        return walker([W({ x: jitter(cl.x, 18), y: cl.y + 4 }), W({ x: pl.x + 14, y: b.y + 2 }), W({ x: pl.x + 14, y: b.y - 12 })], 30, C.depart);
       });
     }
   };
@@ -980,7 +1066,7 @@ function clusterTarget(ap, T, fid) {
   const b = slotBuilding(T.slot);
   const f = ap.flights.get(fid);
   const p = f && f.plane;
-  if (p && p.gate >= 0 && p.stand && f.terminal === T.slot) return { x: p.stand.x, y: b.y + 10 };
+  if (p && p.gate >= 0 && p.stand && f.terminal === T.slot) return { x: slotLocal(T.slot, p.stand).x, y: b.y + 10 };
   const k = ((fid * 2654435761) >>> 0) % 997 / 997;
   return { x: b.x + 34 + k * (b.w - 68), y: b.y + (T.slot === 'main' ? 34 : b.h * 0.5) };
 }
@@ -1029,14 +1115,15 @@ export function render(g, w, h, dpr, cam, ap, view) {
   const vx0 = cam.x - w / 2 / cam.zoom, vx1 = cam.x + w / 2 / cam.zoom;
   const vy0 = cam.y - h / 2 / cam.zoom, vy1 = cam.y + h / 2 / cam.zoom;
   g.setTransform(dpr, 0, 0, dpr, 0, 0);
-  if (vx0 < 0 || vy0 < 0 || vx1 > WORLD.w || vy1 > WORLD.h) { g.fillStyle = themeOf(ap).outside; g.fillRect(0, 0, w, h); }
+  if (vx0 < WORLD.x0 || vy0 < WORLD.y0 || vx1 > WORLD.x0 + WORLD.w || vy1 > WORLD.y0 + WORLD.h) { g.fillStyle = themeOf(ap).outside; g.fillRect(0, 0, w, h); }
   g.setTransform(cam.zoom * dpr, 0, 0, cam.zoom * dpr, (w / 2 - cam.x * cam.zoom) * dpr, (h / 2 - cam.y * cam.zoom) * dpr);
   g.imageSmoothingEnabled = true;
   const vis = (p, m) => { const x = MIRROR ? WORLD.w - p.x : p.x; return x > vx0 - m && x < vx1 + m && p.y > vy0 - m && p.y < vy1 + m; };
   // copy only the visible part of the static layer
-  const sx0 = clamp(Math.floor(vx0), 0, WORLD.w), sx1 = clamp(Math.ceil(vx1), 0, WORLD.w);
-  const sy0 = clamp(Math.floor(vy0), 0, WORLD.h), sy1 = clamp(Math.ceil(vy1), 0, WORLD.h);
-  if (sx1 > sx0 && sy1 > sy0) g.drawImage(staticCanvas, sx0 * res, sy0 * res, (sx1 - sx0) * res, (sy1 - sy0) * res, sx0, sy0, sx1 - sx0, sy1 - sy0);
+  const X0 = WORLD.x0, Y0 = WORLD.y0;
+  const sx0 = clamp(Math.floor(vx0), X0, X0 + WORLD.w), sx1 = clamp(Math.ceil(vx1), X0, X0 + WORLD.w);
+  const sy0 = clamp(Math.floor(vy0), Y0, Y0 + WORLD.h), sy1 = clamp(Math.ceil(vy1), Y0, Y0 + WORLD.h);
+  if (sx1 > sx0 && sy1 > sy0) g.drawImage(staticCanvas, (sx0 - X0) * res, (sy0 - Y0) * res, (sx1 - sx0) * res, (sy1 - sy0) * res, sx0, sy0, sx1 - sx0, sy1 - sy0);
   // the static layer is already mirrored; everything drawn after this is not
   MIRROR = mirrored(ap);
   if (MIRROR) g.transform(-1, 0, 0, 1, WORLD.w, 0);
@@ -1046,7 +1133,7 @@ export function render(g, w, h, dpr, cam, ap, view) {
 
   // construction
   for (const T of ap.terminals) {
-    const b = slotBuildingW(T.slot);
+    const b = slotBox(T.slot);
     if (T.buildLeft > 0) crane(g, b, t, 1 - T.buildLeft / TERMINAL.buildTime);
     const Cn = T.pendingConnector || (T.connector && T.connector.buildLeft > 0 ? T.connector : null);
     if (Cn) {
@@ -1064,21 +1151,23 @@ export function render(g, w, h, dpr, cam, ap, view) {
     const Tx = terminalBySlot(ap, id);
     if (Tx && Tx.demolishing) {
       // being torn down
-      const b = slotBuildingW(id);
-      g.strokeStyle = '#c8102e'; g.lineWidth = 2.5; g.setLineDash([8, 6]);
-      g.strokeRect(b.x - 3, b.y - 3, b.w + 6, b.h + 6); g.setLineDash([]);
+      const lb = slotBuilding(id), b = slotBox(id);
+      inSlot(g, id, () => { g.strokeStyle = '#c8102e'; g.lineWidth = 2.5; g.setLineDash([8, 6]); g.strokeRect(lb.x - 3, lb.y - 3, lb.w + 6, lb.h + 6); g.setLineDash([]); });
       signLabel(g, b.x + b.w / 2, b.y + b.h / 2, 'CLOSING', 'red', cam.zoom);
       continue;
     }
     if (Tx || (ap.hangars && ap.hangars[id])) continue;
     if (!ap.plots[SLOTS[id].plot] || !slotAvailable(ap, id)) continue;
-    const b = slotBuildingW(id);
+    const lb = slotBuilding(id), b = slotBox(id);
     const hot = view.hover && view.hover.kind === 'slot' && view.hover.id === id;
-    g.fillStyle = hot ? 'rgba(255,194,14,0.22)' : 'rgba(255,255,255,0.12)';
-    g.fillRect(b.x, b.y, b.w, b.h);
-    g.strokeStyle = '#ffc20e'; g.lineWidth = 2; g.setLineDash([7, 5]);
-    g.strokeRect(b.x, b.y, b.w, b.h); g.setLineDash([]);
-    signLabel(g, b.x + b.w / 2, b.y + b.h / 2, '+ BUILD TERMINAL OR HANGAR', 'yellow', cam.zoom);
+    inSlot(g, id, () => {
+      g.fillStyle = hot ? 'rgba(255,194,14,0.22)' : 'rgba(255,255,255,0.12)';
+      g.fillRect(lb.x, lb.y, lb.w, lb.h);
+      g.strokeStyle = '#ffc20e'; g.lineWidth = 2; g.setLineDash([7, 5]);
+      g.strokeRect(lb.x, lb.y, lb.w, lb.h); g.setLineDash([]);
+    });
+    // sites turned on end (the east and west fields) sit side by side: a short label
+    signLabel(g, b.x + b.w / 2, b.y + b.h / 2, b.h > b.w ? '+ BUILD' : '+ BUILD TERMINAL OR HANGAR', 'yellow', cam.zoom);
   }
 
   // empty car park sites on land you own
@@ -1111,7 +1200,7 @@ export function render(g, w, h, dpr, cam, ap, view) {
   for (const T of ap.terminals) {
     if (T.buildLeft > 0) continue;
     const b = slotBuilding(T.slot);
-    inField(g, slotField(T.slot), () => {
+    inSlot(g, T.slot, () => {
     for (const [fid, n] of T.waiting) {
       if (n < 0.5) continue;
       const tg = clusterTarget(ap, T, fid);
@@ -1200,12 +1289,12 @@ export function render(g, w, h, dpr, cam, ap, view) {
   }
 
   // holding stack ring
-  for (const [holders, cy] of holdStacks(ap)) {
+  for (const { n: holders, c } of holdStacks(ap)) {
     if (!holders) continue;
     g.strokeStyle = 'rgba(255,255,255,0.55)'; g.lineWidth = 1.5; g.setLineDash([5, 6]);
-    for (let ring = 0; ring * 7 < holders; ring++) { g.beginPath(); g.arc(IAF.x, cy, FLIGHT.holdRadius + ring * 44, 0, Math.PI * 2); g.stroke(); }
+    for (let ring = 0; ring * 7 < holders; ring++) { g.beginPath(); g.arc(c.x, c.y, FLIGHT.holdRadius + ring * 44, 0, Math.PI * 2); g.stroke(); }
     g.setLineDash([]);
-    signLabel(g, IAF.x, cy, `HOLDING ${holders}`, holders > 2 ? 'red' : 'yellow', cam.zoom);
+    signLabel(g, c.x, c.y, `HOLDING ${holders}`, holders > 2 ? 'red' : 'yellow', cam.zoom);
   }
 
   for (const p of air) { const q = inWorld(p); if (vis(q, 90)) drawPlane(g, q, t, night, view.selected === p); }
@@ -1273,19 +1362,27 @@ function lights(g, ap, dark) {
     g.fillStyle = '#fff3b0';
     for (let x = rw.x0 - 40; x > rw.x0 - 210; x -= 18) g.fillRect(x - 1, rw.y - 1, 3, 3);
   };
-  for (const F of fieldsOf(ap)) inField(g, F.field, () => {
-    edge(RW[0], F.upgrades.longRunway ? LONG_RUNWAY_X1 : RW[0].x1);
-    if (F.upgrades.runway2) edge(RW[1], RW[1].x1);
-    g.fillStyle = '#5aa0ff';
-    for (let x = 200; x < 1820; x += 30) { g.fillRect(x, TWY_A - 15, 2, 2); g.fillRect(x, TWY_B + 14, 2, 2); }
-    g.fillStyle = '#4cff7a';
-    for (let x = 210; x < 1820; x += 15) { g.fillRect(x, TWY_A - 0.5, 1.5, 1.5); }
-  });
+  for (const F of fieldsOf(ap)) {
+    if (F.closed) continue;
+    if (F.star) {
+      for (const Ln of STAR_LINES) { g.save(); g.translate(STAR.C.x, STAR.C.y); g.rotate(Math.atan2(-Ln.ea.y, -Ln.ea.x)); edge({ x0: -STAR.r, y: 0 }, STAR.r); g.restore(); }
+      continue;
+    }
+    const X1 = F.x1 || 1820;
+    inField(g, F.key, () => {
+      edge(RW[0], F.upgrades.longRunway && !F.frame ? LONG_RUNWAY_X1 : RW[0].x1);
+      if (F.upgrades.runway2) edge(RW[1], RW[1].x1);
+      g.fillStyle = '#5aa0ff';
+      for (let x = 200; x < X1; x += 30) { g.fillRect(x, TWY_A - 15, 2, 2); g.fillRect(x, TWY_B + 14, 2, 2); }
+      g.fillStyle = '#4cff7a';
+      for (let x = 210; x < X1; x += 15) { g.fillRect(x, TWY_A - 0.5, 1.5, 1.5); }
+    });
+  }
   // terminal glow
   for (const T of ap.terminals) {
     if (T.buildLeft > 0) continue;
-    const b = slotBuildingW(T.slot);
-    g.fillStyle = 'rgba(255,220,150,0.18)'; g.fillRect(b.x - 4, b.y - 4, b.w + 8, b.h + 8);
+    const b = slotBuilding(T.slot);
+    inSlot(g, T.slot, () => { g.fillStyle = 'rgba(255,220,150,0.18)'; g.fillRect(b.x - 4, b.y - 4, b.w + 8, b.h + 8); });
   }
   g.globalAlpha = 1;
 }
@@ -1366,13 +1463,19 @@ function drawCars(g, ap, dt) {
     const colors = ['#c9473a', '#e8e8e8', '#2b5f9e', '#262626', '#9aa0a6', '#d9b44a'];
     const fromWest = Math.random() < 0.5;
     const stopX = clamp(job.x, RAMP_IN_X + 20, RAMP_OUT_X - 20);
+    // cars come and go off the map's edges (at the hub, the east end
+    // turns south: there they keep to the right, x+6 northbound)
+    const hx = hwEastX(ap), bend = hx < WORLD.x0 + WORLD.w, west = WORLD.x0 - 20, bot = WORLD.y0 + WORLD.h + 20;
+    const eastIn = bend ? [{ x: hx + 6, y: bot }, { x: hx + 6, y: HIGHWAY_Y - 6 }] : [{ x: WORLD.x0 + WORLD.w + 20, y: HIGHWAY_Y - 6 }];
+    const eastOut = bend ? [{ x: hx - 6, y: HIGHWAY_Y + 6 }, { x: hx - 6, y: bot }] : [{ x: WORLD.x0 + WORLD.w + 20, y: HIGHWAY_Y + 6 }];
     const pts = [
-      { x: fromWest ? -20 : WORLD.w + 20, y: HIGHWAY_Y + (fromWest ? 6 : -6) },
+      ...(fromWest ? [{ x: west, y: HIGHWAY_Y + 6 }] : eastIn),
       { x: RAMP_IN_X, y: HIGHWAY_Y + (fromWest ? 6 : -6) },
       { x: RAMP_IN_X, y: CURB_Y }, { x: stopX, y: CURB_Y - 4 }, { x: RAMP_OUT_X, y: CURB_Y },
-      { x: RAMP_OUT_X, y: HIGHWAY_Y - 6 }, { x: fromWest ? WORLD.w + 20 : -20, y: HIGHWAY_Y - 6 },
+      { x: RAMP_OUT_X, y: HIGHWAY_Y + (fromWest ? 6 : -6) },
+      ...(fromWest ? eastOut : [{ x: west, y: HIGHWAY_Y - 6 }]),
     ];
-    cars.push({ pts, d: 0, len: pathLength(pts), color: colors[Math.floor(Math.random() * colors.length)], stopAt: pathLength(pts.slice(0, 4)), stopped: 0, ...job });
+    cars.push({ pts, d: 0, len: pathLength(pts), color: colors[Math.floor(Math.random() * colors.length)], stopAt: pathLength(pts.slice(0, pts.findIndex((p) => p.x === stopX && p.y === CURB_Y - 4) + 1)), stopped: 0, ...job });
   }
   // arrivals waiting to be picked up
   g.fillStyle = C.arrive;
@@ -1416,15 +1519,11 @@ export function pick(ap, wx, wy) {
     if (d < r && d < bd) { bd = d; best = { kind: 'plane', plane: p }; }
   }
   if (best) return best;
-  for (const T of ap.terminals) {
-    const b = slotBuildingW(T.slot);
-    const reach = slotField(T.slot) ? 0 : 20; // the jet bridges, on the airside face
-    if (wx >= b.x && wx <= b.x + b.w && wy >= b.y - reach && wy <= b.y + b.h + 20 - reach) return { kind: 'terminal', id: T.slot };
-  }
+  // the jet bridges, on the airside face, count as the terminal
+  for (const T of ap.terminals) if (onSlot(T.slot, wx, wy, 20)) return { kind: 'terminal', id: T.slot };
   for (const id of slotIds(ap)) {
     if (!slotAvailable(ap, id)) continue;
-    const b = slotBuildingW(id);
-    if (wx >= b.x && wx <= b.x + b.w && wy >= b.y && wy <= b.y + b.h) {
+    if (onSlot(id, wx, wy, 0)) {
       return ap.plots[SLOTS[id].plot] ? { kind: 'slot', id } : { kind: 'plot', id: SLOTS[id].plot };
     }
   }
@@ -1443,15 +1542,28 @@ export function pick(ap, wx, wy) {
     if (rw.id === 1 && !ap.upgrades.runway2) continue;
     if (wy > rw.y - 24 && wy < rw.y + 24 && wx > rw.x0 - 30 && wx < rw.x1 + 30) return { kind: 'runway' };
   }
-  if (hasSouth(ap) && Math.abs(wy - (SOUTH_M - RW[0].y)) < 24 && wx > RW[0].x0 - 30 && wx < RW[0].x1 + 30) return { kind: 'runway' };
-  for (const [, cy] of holdStacks(ap)) if (Math.hypot(wx - IAF.x, wy - cy) < FLIGHT.holdRadius + 10) return { kind: 'runway' };
+  // the hub's other runways
+  if (ap.fieldViews) {
+    for (const k of POCKETS) {
+      const q = xfApply(xfInv(FIELD_XF[k]), { x: wx, y: wy });
+      if (Math.abs(q.y - RW[0].y) < 24 && q.x > RW[0].x0 - 30 && q.x < RW[0].x1 + 30) return { kind: 'runway' };
+    }
+    for (const Ln of STAR_LINES) {
+      const dx = wx - STAR.C.x, dy = wy - STAR.C.y;
+      if (Math.abs(dx * Ln.ea.y - dy * Ln.ea.x) < 24 && Math.hypot(dx, dy) < STAR.r) return { kind: 'runway' };
+    }
+  }
+  for (const { c } of holdStacks(ap)) if (Math.hypot(wx - c.x, wy - c.y) < FLIGHT.holdRadius + 10) return { kind: 'runway' };
   return null;
 }
 
-// Each airfield's holding stack: how many are circling, and where (world y).
+// Each airfield's holding stack: how many are circling, and where.
 function holdStacks(ap) {
-  const out = [[ap.holdQueue.length, RW[ap.upgrades.runway2 ? 1 : 0].y + FLIGHT.holdRadius]];
-  if (hasSouth(ap)) out.push([ap.south.holdQueue.length, SOUTH_M - (RW[0].y + FLIGHT.holdRadius)]);
+  const out = [{ n: ap.holdQueue.length, c: { x: IAF.x, y: RW[ap.upgrades.runway2 ? 1 : 0].y + FLIGHT.holdRadius } }];
+  if (ap.fieldViews) {
+    for (const k of POCKETS) if (hasField(ap, k)) out.push({ n: ap.fieldViews[k].holdQueue.length, c: fieldPt(k, { x: IAF.x, y: RW[0].y + FLIGHT.holdRadius }) });
+    out.push(...starHoldStacks(ap.fieldViews.X));
+  }
   return out;
 }
 

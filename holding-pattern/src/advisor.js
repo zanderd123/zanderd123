@@ -5,6 +5,7 @@
 
 import { AIRCRAFT, CONNECTORS, UPGRADES, STAFFING, TERMINAL, PAX, COSTS, CONTRACTS, SECURITY as SECCFG } from './config.js';
 import { SLOTS, PLOTS, TERMINAL_CODES, PARKING_SITES } from './layout.js';
+import { FIELD_NAMES } from './hub.js';
 import * as S from './sim.js';
 
 let AP = null; // the airport being advised, for place names
@@ -36,11 +37,12 @@ export function advise(game, ap) {
   // ------------------------------------------------------------ runway
   // (the hub has a second airfield, with its own runway and tower; the
   // later advice goes by the busier one)
-  const rwU = Math.max(S.utilisation(rep.runway.demand, rep.runway.cap), rep.runwayS ? S.utilisation(rep.runwayS.demand, rep.runwayS.cap) : 0);
-  for (const [rw, F] of [[rep.runway, ap], ...(rep.runwayS ? [[rep.runwayS, ap.south]] : [])]) {
+  const rwU = Math.max(...rep.runways.map((r) => S.utilisation(r.demand, r.cap)));
+  const FS = S.fields(ap), many = FS.length > 1;
+  for (let i = 0; i < FS.length; i++) {
+  const rw = rep.runways[i], F = FS[i];
   const rwU = S.utilisation(rw.demand, rw.cap); // eslint-disable-line no-shadow
   const holdRunway = F.holdQueue.filter((p) => p.holdReason === 'runway').length;
-  const south = rw.field === 1;
   if (rwU > 0.85 || holdRunway > 2) {
     const atcLimited = rw.atc < rw.physical;
     const fixes = [];
@@ -53,11 +55,13 @@ export function advise(game, ap) {
       fixes.push(upgradeFix(ap, 'runway2', 'about 30% more movements'));
       fixes.push(upgradeFix(ap, 'crosswind', 'main-terminal departures take off from it'));
     }
-    if (rep.runwayS) fixes.push(fix(`Move routes to the ${south ? 'north' : 'south'} airfield (Contracts tab)`, 'tab', { tab: 'contracts' }, 0));
-    else if (S.plotAvailable(ap, 'score') && !ap.plots.score) fixes.push({ ...fix('Buy the south airfield', 'plot', { id: 'score' }, S.plotCost(ap, 'score')), why: 'a third runway, with its own tower and terminals' });
-    const what = south ? 'Runway 3' : rep.runwayS ? 'The north runways' : 'The runway';
-    add(rwU >= 1 ? 3 : 2, 'runway', rwU >= 1 ? `${what} ${south || !rep.runwayS ? 'is' : 'are'} overbooked` : `${what} ${south || !rep.runwayS ? 'is' : 'are'} nearly full`,
-      `Your routes ${rep.runwayS ? `at ${south ? 'south' : 'north'}-airfield terminals ` : ''}need ${rw.demand.toFixed(1)} landings and take-offs a minute; you can handle ${rw.cap.toFixed(1)}. ` +
+    if (many) fixes.push(fix('Move routes to a quieter airfield (Contracts tab)', 'tab', { tab: 'contracts' }, 0));
+    // the hub: open another of its airfields
+    const next = ['n.core', 'e.core', 'w.core'].find((id) => S.plotAvailable(ap, id) && !ap.plots[id]);
+    if (next) fixes.push({ ...fix(`Buy the ${PLOTS[next].name.toLowerCase()}`, 'plot', { id: next }, S.plotCost(ap, next)), why: 'another runway, with its own tower and terminals' });
+    const what = many ? `The ${FIELD_NAMES[rw.field || ''].toLowerCase()}'s runway${rw.field === 'X' ? 's are' : ' is'}` : 'The runway is';
+    add(rwU >= 1 ? 3 : 2, 'runway', rwU >= 1 ? `${what} overbooked` : `${what} nearly full`,
+      `Your routes ${many ? `at the ${FIELD_NAMES[rw.field || ''].toLowerCase()}'s terminals ` : ''}need ${rw.demand.toFixed(1)} landings and take-offs a minute; you can handle ${rw.cap.toFixed(1)}. ` +
       `The limit right now is ${atcLimited ? 'your control tower: each terminal and runway adds a controller, and upgrades make each one faster' : 'the runway itself'}. ` +
       'Arrivals that cannot land circle in the holding stack, and every flight behind them runs late.',
       fixes, rwU >= 1 ? 'Until it is fixed, decline new routes: every extra flight makes all of them later.' : '');
