@@ -22,6 +22,9 @@ let W = 0, H = 0, DPR = 1;
 
 // ------------------------------------------------------------------ boot
 
+// The web fonts load without holding up the first paint (see index.html).
+for (const l of document.querySelectorAll('link[data-font]')) l.media = 'all';
+
 function start(hotData) {
   let restored = null;
   if (hotData && hotData.save) {
