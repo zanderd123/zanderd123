@@ -417,7 +417,7 @@ $('mapModal').addEventListener('click', (e) => {
     else {
       toast(`${SITES[i].name} is yours`, 'good');
       switchTo(game.airports.length - 1);
-      if (SITES[i].island) showDialog(`<h2>You made it</h2><p>Nine airports, from one small regional field to the busiest hub on the map, and now a little island strip of your own. Sunset Cay takes small planes only, has one terminal and one car park, and is here just to enjoy.</p><p>Thanks for playing <b>Holding Pattern</b>. Everything keeps running: there are milestones still to reach, alliances to sign and a hub to fill.</p><div class="btns"><button type="button" class="btn go" data-close="dialog">Keep flying</button></div>`);
+      if (SITES[i].island) showDialog(`<h2>You made it</h2><p>Nine airports, from one small regional field to the busiest hub on the map, and now a little island strip of your own. Sunset Cay takes small planes only, has one terminal and one car park, and is here just to enjoy.</p><p>Thanks for playing <b>Holding Pattern</b>! Everything keeps running: there are milestones still to reach, alliances to sign and a hub to fill.</p><div class="btns"><button type="button" class="btn go" data-close="dialog">Keep flying</button></div>`);
     }
   }
 });

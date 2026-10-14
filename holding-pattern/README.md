@@ -92,9 +92,12 @@ eight more terminal sites (J to R). Buses reach them along a road under
 the highway; monorails and tunnels go over and under it. Routes signed at
 south terminals land and take off on runway 3 only, so the two airfields
 never share a taxiway. Once the hub is yours, the ninth and last airport
-is for sale: Sunset Cay, a little island strip on a causeway, for small
-planes only, with one terminal and one car park. It is a reward, not a
-business, and it says thank you. From three airports on, airline alliances offer
+is for sale: Sunset Cay, a Hawaiian island with a road all the way round,
+a long beach on the west and a marina on the east. It takes small planes
+only, with one terminal and one car park, and it is a reward, not a
+business. Its visitors fly in, rent a car, drive once round the island,
+sit on the beach for 3 to 25 seconds, then drive back and fly out, and
+fireworks go up over "Thanks for playing!" every time you arrive. From three airports on, airline alliances offer
 packages: a route at each of three to five of your airports, better fees and
 one large bonus, signed or declined as a whole from the All tab. Nothing is
 "won"; milestones (a quiet link in the Money tab) mark the way, from the

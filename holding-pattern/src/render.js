@@ -10,6 +10,7 @@ import {
   SOUTH_M, HUB_WORLD, SPINE_X, SOUTH_SLOT_ORDER, SOUTH_PARKING_ORDER, southPlots, slotField, slotBuildingW, toWorld,
 } from './layout.js';
 import { mulberry32, pointAlong, pathLength, clamp, money } from './util.js';
+import { drawShore, drawLand, islandAttach, islandArrive, islandFrame, rentalPoint } from './island.js';
 import { FLIGHT } from './config.js';
 import { isOpen, terminalBySlot, slotAvailable, parkingAvailable, hasSouth, allPlanes, slotList, plotList, parkingList } from './sim.js';
 
@@ -131,7 +132,7 @@ function drawStatic(ap, res) {
     g.fill();
   }
 
-  if (TH.island) islandShore(g, TH, R);
+  if (TH.island) drawShore(g, TH, WORLD.w, WORLD.h, R);
 
   // land we do not own yet is farmland
   for (const id of plotIds(ap)) {
@@ -203,20 +204,18 @@ function drawStatic(ap, res) {
   }
   }
 
-  // highway, ramps, curb, service road
-  g.fillStyle = C.road;
-  g.fillRect(0, HIGHWAY_Y - 13, WORLD.w, 26);
-  g.strokeStyle = 'rgba(255,255,255,0.55)'; g.lineWidth = 1.5; g.setLineDash([14, 12]);
-  g.beginPath(); g.moveTo(0, HIGHWAY_Y); g.lineTo(WORLD.w, HIGHWAY_Y); g.stroke(); g.setLineDash([]);
+  // highway, ramps, curb, service road (the island has its ring road instead)
   if (TH.island) {
-    // over the water it is a causeway, with railings and piers
-    g.fillStyle = '#d9d4c8'; g.fillRect(0, HIGHWAY_Y - 15, WORLD.w, 2.5); g.fillRect(0, HIGHWAY_Y + 13, WORLD.w, 2.5);
-    g.fillStyle = 'rgba(0,0,0,0.25)'; for (let x = 20; x < WORLD.w; x += 90) g.fillRect(x, HIGHWAY_Y + 16, 8, 6);
-    thanksSign(g);
+    drawLand(g, R, { road: C.road, palm: (gg, x, y, r, RR) => decor(gg, { decor: 'palm' }, x, y, r, RR) });
+  } else {
+    g.fillStyle = C.road;
+    g.fillRect(0, HIGHWAY_Y - 13, WORLD.w, 26);
+    g.strokeStyle = 'rgba(255,255,255,0.55)'; g.lineWidth = 1.5; g.setLineDash([14, 12]);
+    g.beginPath(); g.moveTo(0, HIGHWAY_Y); g.lineTo(WORLD.w, HIGHWAY_Y); g.stroke(); g.setLineDash([]);
+    g.fillStyle = C.road;
+    g.fillRect(RAMP_IN_X - 8, CURB_Y, 16, HIGHWAY_Y - CURB_Y);
+    g.fillRect(RAMP_OUT_X - 8, CURB_Y, 16, HIGHWAY_Y - CURB_Y);
   }
-  g.fillStyle = C.road;
-  g.fillRect(RAMP_IN_X - 8, CURB_Y, 16, HIGHWAY_Y - CURB_Y);
-  g.fillRect(RAMP_OUT_X - 8, CURB_Y, 16, HIGHWAY_Y - CURB_Y);
   const landX0 = ownedX(ap, 'main', 860), landX1 = ownedX(ap, 'main', 1140, true);
   g.fillStyle = C.curb;
   g.fillRect(landX0, MAIN_BLDG.y1, landX1 - landX0, 6);
@@ -377,96 +376,6 @@ function southLandside(g, ap, R) {
   tower(g, 1166, SOUTH_M - 905);
 }
 
-// Sunset Cay: the field on a rounded island, a beach all round, sea beyond.
-const ISLAND = { cx: 1000, cy: 560, rx: 900, ry: 520 };
-function islandPoint(t, pad) {
-  const c = Math.cos(t), s = Math.sin(t);
-  return { x: ISLAND.cx + (ISLAND.rx + pad) * Math.sign(c) * Math.sqrt(Math.abs(c)), y: ISLAND.cy + (ISLAND.ry + pad) * Math.sign(s) * Math.sqrt(Math.abs(s)) };
-}
-function islandPath(g, pad) {
-  g.beginPath();
-  for (let k = 0; k <= 120; k++) {
-    const p = islandPoint(k / 120 * Math.PI * 2, pad);
-    if (k) g.lineTo(p.x, p.y); else g.moveTo(p.x, p.y);
-  }
-  g.closePath();
-}
-function islandShore(g, TH, R) {
-  g.fillStyle = TH.water; g.fillRect(0, 0, WN.w, WN.h);
-  g.strokeStyle = 'rgba(255,255,255,0.16)'; g.lineWidth = 1.2;
-  for (let i = 0; i < 160; i++) {
-    const x = R() * WN.w, y = R() * WN.h;
-    g.beginPath(); g.moveTo(x, y); g.quadraticCurveTo(x + 8, y - 3, x + 16, y); g.stroke();
-  }
-  g.fillStyle = TH.shallow; islandPath(g, 42); g.fill();
-  g.fillStyle = TH.sand; islandPath(g, 16); g.fill();
-  g.fillStyle = TH.ground; islandPath(g, 0); g.fill();
-  g.save(); islandPath(g, 0); g.clip();
-  g.fillStyle = TH.stripe;
-  for (let x = -WN.h; x < WN.w; x += 56) {
-    g.beginPath(); g.moveTo(x, 0); g.lineTo(x + 28, 0); g.lineTo(x + 28 + WN.h * 0.5, WN.h); g.lineTo(x + WN.h * 0.5, WN.h); g.fill();
-  }
-  g.restore();
-  // surf on the beach
-  g.strokeStyle = 'rgba(255,255,255,0.6)'; g.lineWidth = 1.5; islandPath(g, 30); g.stroke();
-  // palms round the shore, clear of the causeway
-  for (let k = 0; k < 90; k++) {
-    const p = islandPoint(R() * Math.PI * 2, -6 - R() * 14);
-    if (p.y > 980 && Math.abs(p.x - 1000) < 220) continue;
-    decor(g, { decor: 'palm' }, p.x, p.y, 6 + R() * 4, R);
-  }
-  // a few boats
-  for (const [x, y, a] of [[300, 1110, 0.2], [1700, 1125, -0.3], [1880, 140, 1.2], [120, 760, 2.0], [1500, 30, 0.1]]) {
-    g.save(); g.translate(x, y); g.rotate(a);
-    g.fillStyle = 'rgba(255,255,255,0.35)'; g.fillRect(-26, -1, 14, 2);
-    g.fillStyle = '#f4f1e8'; g.beginPath(); g.moveTo(12, 0); g.lineTo(4, -5); g.lineTo(-10, -5); g.lineTo(-10, 5); g.lineTo(4, 5); g.closePath(); g.fill();
-    g.fillStyle = '#3d6f9e'; g.fillRect(-6, -3, 7, 6);
-    g.restore();
-  }
-}
-// Painted on the grass north of the runway, for whoever made it this far.
-function thanksSign(g) {
-  g.save();
-  g.font = '700 54px "Barlow Condensed", "Arial Narrow", sans-serif';
-  g.textAlign = 'center'; g.textBaseline = 'middle';
-  g.fillStyle = 'rgba(0,0,0,0.18)'; g.fillText('THANKS FOR PLAYING', 1004, 110);
-  g.fillStyle = '#fbf7ec'; g.fillText('THANKS FOR PLAYING', 1000, 106);
-  g.font = '700 16px "Barlow Condensed", "Arial Narrow", sans-serif';
-  g.fillStyle = 'rgba(251,247,236,0.85)'; g.fillText('SUNSET CAY · HOLDING PATTERN', 1000, 144);
-  g.restore();
-}
-
-// A small plane towing a banner round the island.
-function bannerTow(g, t) {
-  const u = t * 0.05;
-  const at = (v) => ({ x: ISLAND.cx + 860 * Math.cos(v), y: ISLAND.cy + 470 * Math.sin(v) });
-  const p = at(u), q = at(u + 0.01);
-  const ang = Math.atan2(q.y - p.y, q.x - p.x);
-  const alt = 120, L = 190, gap = 34;
-  const draw = (shadow) => {
-    g.save();
-    g.translate(p.x + (shadow ? alt * 0.32 : 0), p.y + (shadow ? alt * 0.42 : 0));
-    g.rotate(ang);
-    if (shadow) g.globalAlpha = 0.35;
-    g.strokeStyle = shadow ? C.shadow : 'rgba(40,40,40,0.8)'; g.lineWidth = 0.8;
-    g.beginPath(); g.moveTo(-16, 0); g.lineTo(-16 - gap, 0); g.stroke();
-    g.fillStyle = shadow ? C.shadow : '#fbf7ec';
-    g.fillRect(-16 - gap - L, -9, L, 18);
-    if (!shadow) {
-      g.strokeStyle = '#c8102e'; g.lineWidth = 1.5; g.strokeRect(-16 - gap - L, -9, L, 18);
-      g.save(); g.translate(-16 - gap - L / 2, 0);
-      if (Math.cos(ang) < 0) g.rotate(Math.PI); // keep the words the right way up
-      g.font = '700 14px "Barlow Condensed", "Arial Narrow", sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
-      g.fillStyle = '#c8102e'; g.fillText('THANKS FOR PLAYING', 0, 1);
-      g.restore();
-    }
-    g.scale(1.25, 1.25);
-    drawPlaneShape(g, 'regional', '#c8102e', shadow);
-    g.restore();
-  };
-  draw(true); draw(false);
-}
-
 function ownedX(ap, _slot, def, right = false) {
   let v = def;
   for (const id of ['west', 'farwest', 'east', 'fareast']) {
@@ -522,7 +431,9 @@ function decor(g, TH, x, y, r, R) {
       g.beginPath(); g.moveTo(x, y); g.quadraticCurveTo(x + Math.cos(a) * r * 0.7, y + Math.sin(a) * r * 0.7 - 2, x + Math.cos(a) * r * 1.2, y + Math.sin(a) * r * 1.2); g.stroke();
     }
     g.lineCap = 'butt';
-    g.fillStyle = '#7a5a34'; g.beginPath(); g.arc(x, y, r * 0.22, 0, Math.PI * 2); g.fill();
+    // coconuts
+    g.fillStyle = '#6b4a2a';
+    for (let k = 0; k < 3; k++) { g.beginPath(); g.arc(x + Math.cos(k * 2.1) * r * 0.2, y + Math.sin(k * 2.1) * r * 0.2, r * 0.15, 0, Math.PI * 2); g.fill(); }
   } else if (kind === 'cactus') {
     g.fillStyle = 'rgba(80,50,20,0.25)'; g.beginPath(); g.ellipse(x + 3, y + 3, r * 0.5, r * 0.25, 0, 0, Math.PI * 2); g.fill();
     g.fillStyle = '#5e8a4a';
@@ -951,6 +862,15 @@ function toCurb(from, before = []) {
   return w;
 }
 
+// On the island they walk on to the rental cars in the front lot instead.
+function toRental(from, before = []) {
+  const exit = { x: jitter(1000, 120), y: MAIN_BLDG.y1 - 4 };
+  const w = walker([...before, from, exit, { x: exit.x, y: CURB_Y - 10 }, rentalPoint()], 30, C.arrive);
+  w.rent = true;
+  return w;
+}
+let ISLAND_NOW = false;
+
 function walker(pts, speed, color, delay = 0) {
   return { pts, d: -delay * speed, len: pathLength(pts), speed, color };
 }
@@ -968,6 +888,8 @@ function loungePoint(slot, gateIndex = null) {
 
 export function attach(ap) {
   WN = worldOf(ap);
+  ISLAND_NOW = !!SITES[ap.siteIndex].island;
+  if (ISLAND_NOW) islandAttach(); // fireworks every time you arrive
   particles.length = 0;
   floaters.length = 0;
   clusters.clear();
@@ -1031,7 +953,7 @@ export function attach(ap) {
         const b = slotBuilding(e.slot);
         const door = W({ x: p.x + 14, y: b.y - 10 });
         const inside = W({ x: jitter(p.x, 20), y: b.y + 10 });
-        if (e.slot === 'main') return toCurb({ x: inside.x, y: MAIN_BLDG.y0 + 30 }, [door, inside]);
+        if (e.slot === 'main') return (ISLAND_NOW ? toRental : toCurb)({ x: inside.x, y: MAIN_BLDG.y0 + 30 }, [door, inside]);
         const st = T.connector.route[T.connector.route.length - 1];
         return walker([door, inside, { x: jitter(st.x, 10), y: jitter(st.y, 10) }], 30, C.arrive);
       });
@@ -1224,6 +1146,7 @@ export function render(g, w, h, dpr, cam, ap, view) {
     if (q.d >= q.len) {
       particles[i] = particles[particles.length - 1]; particles.pop();
       if (q.then) particles.push(q.then);
+      else if (q.rent) islandArrive();
       else if (q.pickup && pickupQ.length < 60) pickupQ.push({ x: q.pts[q.pts.length - 1].x + jitter(0, 6), y: CURB_Y - 10 + jitter(0, 4) });
       continue;
     }
@@ -1286,7 +1209,7 @@ export function render(g, w, h, dpr, cam, ap, view) {
   }
 
   for (const p of air) { const q = inWorld(p); if (vis(q, 90)) drawPlane(g, q, t, night, view.selected === p); }
-  if (SITES[ap.siteIndex].island) bannerTow(g, t);
+  if (SITES[ap.siteIndex].island) islandFrame(g, t, dt, { car: carShape, plane: drawPlaneShape });
 
   // money floaters
   for (let i = floaters.length - 1; i >= 0; i--) {
@@ -1417,7 +1340,15 @@ function signLabel(g, x, y, text, style, zoom) {
 
 // Cars: one per few departing passengers, cycling the curb loop.
 const cars = [];
+function carShape(g, x, y, ang, color) {
+  g.save(); g.translate(x, y); g.rotate(ang);
+  g.fillStyle = 'rgba(0,0,0,0.25)'; g.fillRect(-4 + 1, -2.2 + 1, 8, 4.4);
+  g.fillStyle = color; g.fillRect(-4, -2.2, 8, 4.4);
+  g.fillStyle = 'rgba(30,40,55,0.7)'; g.fillRect(0.5, -1.7, 2, 3.4);
+  g.restore();
+}
 function drawCars(g, ap, dt) {
+  if (ISLAND_NOW) return; // island visitors drive themselves (island.js)
   // A car drops off a few departing passengers, or picks up a few arrivals
   // waiting at the curb. Each car stops where its people are.
   const CAR = 3;
