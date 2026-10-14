@@ -173,7 +173,9 @@ function ring(from, to, dir, laps) {
   for (let s = 0; s <= steps; s++) { out.push(ISL.road[i]); i = (i + dir + N) % N; }
   return out;
 }
-const lotSpot = () => ({ x: 892 + Math.random() * 216, y: 790 + Math.floor(Math.random() * 4) * 36 + 7 });
+// a bay in the car park, or the kerb when something else stands on its site
+let lotOpen = true;
+const lotSpot = () => (lotOpen ? { x: 892 + Math.random() * 216, y: 790 + Math.floor(Math.random() * 4) * 36 + 7 } : { x: 892 + Math.random() * 216, y: 768 });
 const beachBay = (i) => ({ x: BEACH_LOT.x + (i % 2 ? BEACH_LOT.w - 15 : 15), y: BEACH_LOT.y + 12 + (Math.floor(i / 2) % 9) * 12 });
 const leg = (pts, speed) => ({ pts, len: pathLength(pts), d: 0, speed });
 
@@ -237,6 +239,7 @@ export function rentalPoint() { return { x: 900 + Math.random() * 200, y: 786 };
 
 export function islandFrame(g, t, dt, deps) {
   const { car, plane } = deps;
+  lotOpen = deps.lot !== false;
   // a lone arrival does not wait for company for ever
   if (waiting) { waitT += dt; if (waitT > 6) { if (parties.length < 22) newParty(waiting); waiting = 0; waitT = 0; } }
   for (let i = parties.length - 1; i >= 0; i--) {

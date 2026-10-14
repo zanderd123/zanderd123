@@ -135,7 +135,10 @@ export function screenToWorld(cam, w, h, sx, sy) {
 
 // ------------------------------------------------------------------ static
 
-let staticCanvas = null, staticKey = '';
+let staticCanvas = null, staticKey = '', staticRes = 0, staticSite = -1, lowFor = 0;
+// The map's lettering is drawn into the static layer: redraw it once the
+// web fonts arrive (they load without holding up the first paint).
+if (typeof document !== 'undefined' && document.fonts && document.fonts.addEventListener) document.fonts.addEventListener('loadingdone', () => { staticKey = ''; });
 
 // Some sites face the other way: the whole field is drawn mirrored (the
 // simulation does not change). Text is flipped back so it stays readable.
@@ -732,7 +735,9 @@ function terminal(g, ap, T) {
   for (let x = b.x + 10; x < b.x + b.w; x += 10) { g.beginPath(); g.moveTo(x, b.y); g.lineTo(x, b.y + b.h); g.stroke(); }
   // gate lounges with seat rows along the airside face
   for (let i = 0; i < T.gates; i++) {
-    const s = gateStand(T.slot, i);
+    // in the slot's own frame (the star piers' stands come turned)
+    const s0 = gateStand(T.slot, i);
+    const s = S.xf ? { ...slotLocal(T.slot, s0), laneY: S.row === 'main' ? LANE2 : TWY_B } : s0;
     g.fillStyle = C.seat;
     for (let r = 0; r < 3; r++) g.fillRect(s.x - 20, b.y + 8 + r * 6, 40, 2.4);
     // jet bridge
@@ -1104,7 +1109,13 @@ export function render(g, w, h, dpr, cam, ap, view) {
   const WORLD = WN;
   // the hub's taller static layer stays under the canvas size limit of
   // mobile browsers
-  const res = clamp(Math.round(cam.zoom * dpr * 2) / 2, 0.5, hubSite(ap) ? 1.5 : 2);
+  // Sharper at once when zooming in; coarser only once the zoom has
+  // settled, so zooming back and forth doesn't redraw the layer each time.
+  const want = clamp(Math.round(cam.zoom * dpr * 2) / 2, 0.5, hubSite(ap) ? 1.5 : 2);
+  if (want > staticRes || ap.siteIndex !== staticSite) { staticRes = want; staticSite = ap.siteIndex; lowFor = 0; }
+  else if (want < staticRes) { lowFor += 1; if (lowFor > 45) { staticRes = want; lowFor = 0; } }
+  else lowFor = 0;
+  const res = staticRes;
   const key = layoutKey(ap, res);
   if (key !== staticKey) { drawStatic(ap, res); staticKey = key; }
 
@@ -1298,7 +1309,7 @@ export function render(g, w, h, dpr, cam, ap, view) {
   }
 
   for (const p of air) { const q = inWorld(p); if (vis(q, 90)) drawPlane(g, q, t, night, view.selected === p); }
-  if (SITES[ap.siteIndex].island) islandFrame(g, t, dt, { car: carShape, plane: drawPlaneShape });
+  if (SITES[ap.siteIndex].island) islandFrame(g, t, dt, { car: carShape, plane: drawPlaneShape, lot: ap.parking.front === 'lot' });
 
   // money floaters
   for (let i = floaters.length - 1; i >= 0; i--) {
@@ -1533,11 +1544,8 @@ export function pick(ap, wx, wy) {
     if (ap.plots[P.plot] && wx >= P.x && wx <= P.x + P.w && wy >= P.y && wy <= P.y + P.h) return { kind: 'parking', id };
   }
   if (hasXW(ap) && ap.plots.fareast && Math.abs(wx - XW.x) < 32 && wy > XW.y0 - 10 && wy < XW.y1 + 10) return { kind: 'runway' };
-  for (const id of plotIds(ap)) {
-    const P = PLOTS[id];
-    if (ap.plots[id]) continue;
-    for (const r of P.rects) if (wx >= r.x && wx <= r.x + r.w && wy >= r.y && wy <= r.y + r.h) return { kind: 'plot', id };
-  }
+  // runways in use come before land for sale (a closed pocket field's
+  // runway is part of the land it sells)
   for (const rw of RW) {
     if (rw.id === 1 && !ap.upgrades.runway2) continue;
     if (wy > rw.y - 24 && wy < rw.y + 24 && wx > rw.x0 - 30 && wx < rw.x1 + 30) return { kind: 'runway' };
@@ -1545,6 +1553,7 @@ export function pick(ap, wx, wy) {
   // the hub's other runways
   if (ap.fieldViews) {
     for (const k of POCKETS) {
+      if (!hasField(ap, k)) continue;
       const q = xfApply(xfInv(FIELD_XF[k]), { x: wx, y: wy });
       if (Math.abs(q.y - RW[0].y) < 24 && q.x > RW[0].x0 - 30 && q.x < RW[0].x1 + 30) return { kind: 'runway' };
     }
@@ -1552,6 +1561,11 @@ export function pick(ap, wx, wy) {
       const dx = wx - STAR.C.x, dy = wy - STAR.C.y;
       if (Math.abs(dx * Ln.ea.y - dy * Ln.ea.x) < 24 && Math.hypot(dx, dy) < STAR.r) return { kind: 'runway' };
     }
+  }
+  for (const id of plotIds(ap)) {
+    const P = PLOTS[id];
+    if (ap.plots[id]) continue;
+    for (const r of P.rects) if (wx >= r.x && wx <= r.x + r.w && wy >= r.y && wy <= r.y + r.h) return { kind: 'plot', id };
   }
   for (const { c } of holdStacks(ap)) if (Math.hypot(wx - c.x, wy - c.y) < FLIGHT.holdRadius + 10) return { kind: 'runway' };
   return null;

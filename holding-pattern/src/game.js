@@ -82,7 +82,7 @@ export function buySite(game, i) {
 
 // ---------------------------------------------------------------- saving
 
-export function serialize(game) {
+export function serialize(game, at) {
   return {
     v: 1,
     cash: game.cash,
@@ -93,16 +93,18 @@ export function serialize(game) {
     tutorialDone: !!game.tutorialDone,
     milestones: game.milestones || {},
     alliancesSigned: game.alliancesSigned || 0,
-    savedAt: Date.now(),
+    savedAt: at || Date.now(),
     airports: game.airports.map(serializeAirport),
   };
 }
 
 export function deserialize(data) {
+  // a save code from anywhere: refuse anything that isn't a game
+  if (!data || !Array.isArray(data.airports) || !data.airports.length || data.airports.some((a) => !a || !SITES[a.siteIndex] || !Array.isArray(a.terminals))) throw new Error('Not a save');
   return {
     cash: recoverCash(data),
     cashRecovered: !Number.isFinite(data.cash),
-    active: Math.min(data.active || 0, data.airports.length - 1),
+    active: Math.max(0, Math.min(Number(data.active) || 0, data.airports.length - 1)),
     speed: data.speed || 1,
     started: data.started || Date.now(),
     tutorial: data.tutorial || 0,
@@ -114,19 +116,28 @@ export function deserialize(data) {
   };
 }
 
-export function save(game) {
+// `at` is when the player stopped watching (a hidden tab), for offline pay.
+export function save(game, at) {
   try {
-    localStorage.setItem(SAVE_KEY, JSON.stringify(serialize(game)));
+    localStorage.setItem(SAVE_KEY, JSON.stringify(serialize(game, at)));
     return true;
   } catch { return false; }
 }
 
+// A save that exists but can't be read is kept aside (not overwritten by
+// the new game's autosave), and loadFailed() says so.
+let failed = false;
+export const loadFailed = () => failed;
 export function load() {
+  let raw = null;
   try {
-    const raw = localStorage.getItem(SAVE_KEY);
+    raw = localStorage.getItem(SAVE_KEY);
     if (!raw) return null;
     return deserialize(JSON.parse(raw));
-  } catch { return null; }
+  } catch {
+    if (raw) { failed = true; try { localStorage.setItem(SAVE_KEY + '-broken', raw); } catch { /* storage full */ } }
+    return null;
+  }
 }
 
 export function wipe() {

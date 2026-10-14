@@ -56,6 +56,8 @@ export function makeTutorial(game, hooks) {
     const s = STEPS[i];
     if (!s) { stop(true); return; }
     if (s.tab) hooks.openTab(s.tab);
+    // the ops board starts folded away on phones
+    if (s.target === '#ops') { const o = document.getElementById('ops'); o.classList.remove('collapsed'); if (window.innerWidth <= 860) o.classList.add('open'); }
     state.base = s.count ? s.count(game) : 0;
     box.innerHTML = `<div class="tut-count">${i + 1} / ${STEPS.length}</div><p>${s.text}</p>
       <div class="btns">${s.waitFor ? `<span class="tut-wait">${s.waitLabel}</span>` : `<button type="button" class="btn go" data-tut="next">${s.last ? 'Start playing' : 'Next'}</button>`}

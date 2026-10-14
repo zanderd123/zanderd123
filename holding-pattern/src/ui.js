@@ -132,7 +132,8 @@ export function renderOps(game, clockText) {
 export function renderPanel(force = false) {
   if (!force && ui.holding) return;
   const ae = document.activeElement;
-  if (!force && ae && ae.tagName === 'SELECT' && $('panelBody').contains(ae)) return;
+  // not while the player is choosing or typing (a redraw would wipe it)
+  if (!force && ae && /^(SELECT|TEXTAREA|INPUT)$/.test(ae.tagName) && $('panelBody').contains(ae)) return;
   const game = ui.game;
   const ap = activeAirport(game);
   let html;

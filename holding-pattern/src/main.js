@@ -1,6 +1,6 @@
 // Boot, the frame loop, input and the action dispatcher.
 
-import { newGame, activeAirport, stepGame, save, load, wipe, exportCode, importCode, offlineEarnings, buySite, serialize, deserialize } from './game.js';
+import { newGame, activeAirport, stepGame, save, load, wipe, exportCode, importCode, offlineEarnings, buySite, serialize, deserialize, loadFailed } from './game.js';
 import * as S from './sim.js';
 import { makeCamera, fitCamera, screenToWorld, render, attach, pick, dayPhase, worldSize } from './render.js';
 import { ui, renderTop, renderOps, renderPanel, toast, showDialog } from './ui.js';
@@ -32,8 +32,7 @@ function start(hotData) {
   ui.game = game;
   attach(activeAirport(game));
   resize();
-  const narrow = window.innerWidth <= 860;
-  fitCamera(cam, W, H, { x0: 0, x1: W - panelWidth(), y0: topHeight(), y1: narrow ? H * 0.54 : H });
+  fitView();
   setSpeed(game.speed || 1);
 
   if (fromStorage && fromStorage.savedAt) {
@@ -46,7 +45,8 @@ function start(hotData) {
       }
     }
   } else if (!restored) {
-    showDialog(`<h2>Holding Pattern</h2>
+    showDialog(`<h2>Holding Pattern</h2>${loadFailed() ? `
+      <p><b>Your saved game could not be read</b>, so a new one has started. A copy of the old save was kept in this browser.</p>` : ''}
       <p>You run Pinewood Regional: one runway, one small terminal, one airline. Sign airline routes to grow, and keep planes and passengers moving.</p>
       <ul>
         <li>Planes and passengers arrive on their own. Every terminal, lane and controller costs money every second.</li>
@@ -68,13 +68,22 @@ function start(hotData) {
   }
   last = performance.now();
   requestAnimationFrame(frame);
-  setInterval(() => save(game), 5000);
-  document.addEventListener('visibilitychange', () => { if (document.hidden) save(game); });
-  window.addEventListener('pagehide', () => save(game));
+  setInterval(saveNow, 5000);
+  document.addEventListener('visibilitychange', () => { if (document.hidden) saveNow(); });
+  window.addEventListener('pagehide', saveNow);
   window.__hp = { game: () => game, cam, sim: S, switchTo: (i) => switchTo(i) };
   if (window.claude && window.claude.hot && window.claude.hot.snapshot) {
     window.claude.hot.snapshot(() => ({ save: serialize(game) }));
   }
+}
+
+// Saves while the tab is hidden keep the time it was hidden, so closing a
+// hidden tab still pays for the time away. Warns once if nothing can be saved.
+let saveWarned = false;
+function saveNow() {
+  if (save(game, hidden ? hiddenAt : 0) || saveWarned) return;
+  saveWarned = true;
+  toast('This browser is not letting the game save: progress will be lost when the page closes.', 'bad');
 }
 
 function panelWidth() { return window.innerWidth > 860 ? 400 : 0; }
@@ -91,7 +100,15 @@ window.addEventListener('resize', resize);
 // ------------------------------------------------------------------ loop
 
 let last = 0, uiAcc = 0, hidden = false;
+let frameFailed = false;
 function frame(now) {
+  try { frameBody(now); } catch (e) {
+    if (!frameFailed) { frameFailed = true; console.error(e); toast('Something went wrong; the game carries on. Reloading the page may help.', 'bad'); }
+    last = now;
+  }
+  requestAnimationFrame(frame);
+}
+function frameBody(now) {
   let dt = Math.min(0.25, (now - last) / 1000);
   last = now;
   if (hidden) dt = 0;
@@ -112,7 +129,7 @@ function frame(now) {
     renderTop(game);
     const ph = dayPhase(ap.t).ph;
     const mins = Math.floor(((ph * 24 + 6) % 24) * 60); // darkest at midnight
-    renderOps(game, `${String(Math.floor(mins / 60)).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}`);
+    if (!pressIn('ops')) renderOps(game, `${String(Math.floor(mins / 60)).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}`);
     renderPanel();
     if (tut && tut.active()) tut.tick();
     for (const m of checkMilestones(game)) toast(`Milestone: ${m.name}`, 'good');
@@ -120,10 +137,9 @@ function frame(now) {
       toast(`${game.allianceNews.name} offers routes at ${game.allianceNews.legs.length} of your airports: see the All tab`, 'good');
       game.allianceNews = null;
     }
-    if (!$('mapModal').hidden) renderMapSide(game);
+    if (!$('mapModal').hidden && !pressIn('mapSide')) renderMapSide(game);
     drainEvents();
   }
-  requestAnimationFrame(frame);
 }
 
 // Catch up when the tab comes back: simulate the first half minute so the
@@ -133,8 +149,8 @@ const CATCH_UP = 30;
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) { hidden = true; hiddenAt = Date.now(); return; }
   hidden = false;
-  const away = (Date.now() - hiddenAt) / 1000 * game.speed;
-  const sim = Math.min(CATCH_UP, away);
+  const away = (Date.now() - hiddenAt) / 1000;
+  const sim = Math.min(CATCH_UP, away * game.speed);
   // No animations for the skipped time: they would play out for aircraft
   // that have already left.
   const ap = activeAirport(game), fx = ap.fx;
@@ -142,7 +158,7 @@ document.addEventListener('visibilitychange', () => {
   for (let t = 0; t < sim; t += 0.05) stepGame(game, 0.05);
   ap.fx = fx;
   if (away > CATCH_UP + 30) {
-    const off = offlineEarnings(game, away - sim);
+    const off = offlineEarnings(game, away - sim / game.speed);
     if (off.total > 0) { game.cash += off.total; toast(`While you were away: +${money(off.total)}`, 'good'); }
   }
   last = performance.now();
@@ -272,12 +288,20 @@ $('tabs').addEventListener('click', (e) => {
 });
 
 const body = $('panelBody');
+// While a finger or button is down on a panel, it isn't redrawn under it
+// (a redraw mid-press loses the click). A touch scroll ends in
+// pointercancel, not pointerup.
+let pressed = null;
+const pressIn = (id) => !!(pressed && pressed.closest('#' + id));
 body.addEventListener('pointerdown', () => { ui.holding = true; });
-window.addEventListener('pointerup', () => { setTimeout(() => { ui.holding = false; }, 50); });
+window.addEventListener('pointerdown', (e) => { pressed = e.target instanceof Element ? e.target : null; }, true);
+for (const ev of ['pointerup', 'pointercancel']) window.addEventListener(ev, () => { setTimeout(() => { ui.holding = false; pressed = null; }, 50); });
 
 body.addEventListener('change', (e) => {
   const ap = activeAirport(game);
   const el = e.target;
+  // only the drop-downs act on change; a text box keeps what was typed
+  if (el.tagName !== 'SELECT') return;
   if (el.dataset.offerSlot) { ui.offerSlot = ui.offerSlot || {}; ui.offerSlot[el.dataset.offerSlot] = el.value; }
   if (el.dataset.contractSlot) {
     const err = S.reassignContract(ap, el.dataset.contractSlot, el.value);
@@ -352,15 +376,24 @@ body.addEventListener('click', (e) => {
   renderPanel(true);
 });
 
+// Fit the camera to the airport on show, in the part of the screen the
+// panels leave free (each airport has its own size and zoom limit).
+function fitView() {
+  const narrow = window.innerWidth <= 860;
+  fitCamera(cam, W, H, { x0: 0, x1: W - panelWidth(), y0: topHeight(), y1: narrow ? H * 0.54 : H });
+}
+
 function replaceGame(g) {
   game = g;
   if (tut) tut.setGame(g);
   ui.game = g;
   ui.detail = null;
+  if (g.airports.length < 2 && ui.tab === 'network') ui.tab = 'advisor';
   ui.importOpen = false;
   ui.exported = null;
   view.selected = null;
   attach(activeAirport(game));
+  fitView();
   checkMilestones(game);
   setSpeed(g.speed || 1);
   save(game);
@@ -433,6 +466,7 @@ function switchTo(i) {
   if (game.airports[game.active]) game.airports[game.active].fx = null;
   game.active = i;
   attach(activeAirport(game));
+  fitView();
   ui.detail = null;
   view.selected = null;
   $('mapModal').hidden = true;

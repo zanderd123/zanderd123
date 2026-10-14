@@ -177,11 +177,11 @@ export function serializeAirport(ap) {
   return {
     siteIndex: ap.siteIndex,
     plots: ap.plots,
-    terminals: ap.terminals.map((T) => ({
+    terminals: ap.terminals.filter((T) => !T.demolishing).map((T) => ({
       slot: T.slot, gates: T.gates, heavy: T.heavy, retail: T.retail, buildLeft: T.buildLeft,
       connector: T.connector ? { type: T.connector.type, level: T.connector.level, buses: T.connector.buses, buildLeft: T.connector.buildLeft } : null,
       pendingConnector: T.pendingConnector ? { ...T.pendingConnector } : undefined,
-    })).filter((T) => !T.demolishing),
+    })),
     securityLanes: ap.securityLanes,
     upgrades: ap.upgrades,
     parking: ap.parking,
@@ -211,9 +211,13 @@ export function restoreAirport(data) {
     if (T.pendingConnector) T.pendingConnector = { ...T.pendingConnector };
     else delete T.pendingConnector;
   }
+  // a shared save code goes into the page's HTML: keep what it says plain
+  for (const c of ap.contracts || []) {
+    if (!/^#[0-9a-fA-F]{3,8}$/.test(String(c.color))) c.color = '#9aa0a6';
+    if (typeof c.id === 'string') c.id = c.id.replace(/[^\w.-]/g, '');
+  }
   ap.upgrades = { ...ap.upgrades };
   if (site.longRunway) ap.upgrades.longRunway = true;
-  for (const T of ap.terminals) T.gates = Math.min(T.gates, maxGates(ap, T.slot)); // older saves allowed 5
   if (!ap.perMin || !Object.values(ap.perMin).every(Number.isFinite)) ap.perMin = { net: 0, operating: 0 };
   // Older saves had two garage upgrades instead of car park sites.
   ap.parking = { front: 'lot', ...(ap.parking || {}) };
@@ -222,6 +226,9 @@ export function restoreAirport(data) {
   if (ap.upgrades.garage2) ap.parking.southeast = 'garage';
   delete ap.upgrades.garage1; delete ap.upgrades.garage2;
   if (site.hub && ap.hubV !== 2) migrateHub(ap);
+  // (after the hub's move: older hub saves had sites that no longer exist)
+  ap.terminals = ap.terminals.filter((T) => SLOTS[T.slot]);
+  for (const T of ap.terminals) T.gates = Math.min(T.gates, maxGates(ap, T.slot)); // older saves allowed 5
   hydrate(ap);
   return ap;
 }
@@ -247,7 +254,7 @@ function migrateHub(ap) {
     if (T.connector && T.connector.type !== 'tunnel' && T.connector.type !== 'monorail') T.connector = { type: 'tunnel', level: 0, buses: 0, buildLeft: 0 };
     delete T.pendingConnector;
     const plot = SLOTS[to].plot;
-    if (plot !== 'core') { ap.plots[plot] = true; ap.plots[plot.split('.')[0] + '.core'] = true; }
+    for (let pl = plot; pl && pl !== 'core'; pl = PLOTS[pl].needs) ap.plots[pl] = true; // with the land it needs
   }
   ap.terminals = ap.terminals.filter((T) => !T.gone);
   for (const c of ap.contracts) if (moved[c.terminal]) c.terminal = moved[c.terminal]; else if (!SLOTS[c.terminal] || HUB_NO_SLOTS.has(c.terminal)) c.terminal = 'main';
@@ -285,6 +292,8 @@ export function parkingAvailable(ap, id) {
   if (site(ap).hub) return !HUB_NO_PLOTS.has(PARKING_SITES[id].plot);
   return !(site(ap).crosswind && id === 'fareast');
 }
+// Why a site can't be used here.
+const noRoom = (ap) => (site(ap).island ? 'No room on the island' : site(ap).hub ? 'No room at the hub' : 'Kept for the crosswind runway');
 // Gates a terminal can grow to here (rural sites build small).
 export function maxGates(ap, slot) { return Math.min(SLOTS[slot].maxGates, site(ap).maxGates || Infinity); }
 export const builtTerminals = (ap) => ap.terminals.filter((T) => isOpen(T));
@@ -438,7 +447,7 @@ export function landsideDef(use) { return use === 'lot' || use === 'garage' ? PA
 export function landsideCost(ap, id, use) { return Math.round(landsideDef(use).cost * site(ap).cost); }
 export function landsideBlocked(ap, id, use) {
   const P = PARKING_SITES[id];
-  if (!parkingAvailable(ap, id)) return 'Kept for the crosswind runway';
+  if (!parkingAvailable(ap, id)) return noRoom(ap);
   if (!ap.plots[P.plot]) return `Buy the ${nm(ap, PLOTS[P.plot].name)} first`;
   if (!landsideOptions(ap, id).includes(use)) return ap.parking[id] ? 'Already built' : 'Not here';
   return null;
@@ -472,7 +481,7 @@ const countUse = (ap, use) => Object.values(ap.parking).filter((u) => u === use)
 export const hangarCount = (ap) => Object.keys(ap.hangars || {}).length;
 export function hangarBlocked(ap, slot) {
   if (slot === 'main') return 'The main terminal stays';
-  if (!slotAvailable(ap, slot)) return site(ap).island ? 'No room on the island' : 'Kept for the crosswind runway';
+  if (!slotAvailable(ap, slot)) return noRoom(ap);
   if (!ap.plots[SLOTS[slot].plot]) return 'Buy the land first';
   if (terminalBySlot(ap, slot) || ap.hangars[slot]) return 'Already built';
   return null;
@@ -499,7 +508,7 @@ export function parkingCost(ap, id) {
 }
 export function parkingBlocked(ap, id) {
   const P = PARKING_SITES[id];
-  if (!parkingAvailable(ap, id)) return 'Kept for the crosswind runway';
+  if (!parkingAvailable(ap, id)) return noRoom(ap);
   if (ap.parking[id] && ap.parking[id] !== 'lot' && ap.parking[id] !== 'garage') return `It is a ${landsideDef(ap.parking[id]).name.toLowerCase()}`;
   if (!ap.plots[P.plot]) return `Buy the ${nm(ap, PLOTS[P.plot].name)} first`;
   if (!parkingNext(ap, id)) return 'Full size';
@@ -807,10 +816,17 @@ function finishDemolition(ap, T) {
   }
   const C = T.connector;
   if (C) {
-    for (const x of C.outQ) { const f = ap.flights.get(x.f); const to = f && terminalBySlot(ap, f.terminal); if (to && to !== T) moveFlightPax(ap, x.f, T, to); }
+    for (const x of [...C.outQ]) { const f = ap.flights.get(x.f); const to = f && terminalBySlot(ap, f.terminal); if (to && to !== T) moveFlightPax(ap, x.f, T, to); }
     ap.paxServed += C.inQ.total;
-    for (const x of C.transit) if (x.dir === 'in') ap.paxServed += x.n;
-    for (const b of C.fleet || []) for (const x of b.load) if (x.dir === 'in') ap.paxServed += x.n;
+    // riders on their way out go on to their flight's new terminal
+    const onward = (x) => {
+      const f = ap.flights.get(x.f), to = f && !f.closed && terminalBySlot(ap, f.terminal);
+      if (!to || to === T) return;
+      if (to.slot === 'main' || !to.connector) to.waiting.set(x.f, (to.waiting.get(x.f) || 0) + x.n);
+      else to.connector.outQ.push(x.f, x.n);
+    };
+    for (const x of C.transit) if (x.dir === 'in') ap.paxServed += x.n; else onward(x);
+    for (const b of C.fleet || []) for (const x of b.load) if (x.dir === 'in') ap.paxServed += x.n; else onward(x);
   }
   ap.terminals = ap.terminals.filter((x) => x !== T);
   ap.costLines = computeCosts(ap);
@@ -835,7 +851,7 @@ export function buyPlot(game, ap, plot) {
 
 export function buildTerminal(game, ap, slot, connectorType, buses = 2) {
   if (terminalBySlot(ap, slot)) return 'Already built';
-  if (!slotAvailable(ap, slot)) return site(ap).island ? 'No room on the island' : 'Kept for the crosswind runway';
+  if (!slotAvailable(ap, slot)) return noRoom(ap);
   if (ap.hangars[slot]) return 'A hangar stands there';
   if (!ap.plots[SLOTS[slot].plot]) return 'Buy the land first';
   if (!connectorAllowed(connectorType, slot)) return 'That connector cannot reach this site';
@@ -1420,7 +1436,8 @@ function updatePlanes(game, ap, dt) {
         if (p.speed > FLIGHT.liftoffSpeed) p.alt += (p.speed - FLIGHT.liftoffSpeed + 30) * 0.35 * dt;
         const R = ap.runways[p.depRw || 0];
         if (R.occupant === p && p.speed > FLIGHT.liftoffSpeed + 20) R.occupant = null; // airborne
-        if (p.x > 2250 || p.y > 1800) p.state = 'gone';
+        // off the map, or at the end of a path that stays on it (the crosswind's)
+        if (p.x > 2250 || p.y > 1800 || p.d >= p.len) p.state = 'gone';
         break;
       }
       case 'holdShort': {
@@ -1621,7 +1638,13 @@ function canClearStarArrival(F, p, eta) {
   if (g < 0) { p.holdReason = 'gate'; return false; }
   // its terminal may have moved to a corner served by another runway
   const W = WEDGES[p.f.terminal];
-  if (W && W.line !== p.rw) { p.rw = W.line; return false; }
+  if (W && W.line !== p.rw) {
+    // its terminal moved to another line: circle over to that line's stack
+    // from where it is, rather than jumping there
+    p.rw = W.line;
+    if (p.state === 'holding') { const c = starHoldCentre(p.rw); p.holdA = Math.atan2(p.y - c.y, p.x - c.x); p.holdR = Math.hypot(p.x - c.x, p.y - c.y); }
+    return false;
+  }
   // the turn-off and the start of the corner's lane must be clear
   const ex = starP(p.f.terminal, STAR_EXIT - 40, 40);
   if (F.planes.some((o) => o !== p && o.alt <= 0.5 && o.state !== 'gate' && Math.hypot(o.x - ex.x, o.y - ex.y) < 75)) { p.holdReason = 'taxi'; return false; }
@@ -2197,7 +2220,8 @@ function startPushback(ap, p) {
 
 function findGate(ap, p) {
   let T = terminalBySlot(ap, p.f.terminal);
-  if (!T || !isOpen(T) || !terminalSupports(ap, T, p.cls)) {
+  // (a terminal on another of the hub's airfields is out of reach)
+  if (!T || !isOpen(T) || !terminalSupports(ap, T, p.cls) || slotField(T.slot) !== (ap.field || 0)) {
     // Contract moved or terminal closed: fall back to any terminal that fits.
     const was = T;
     const f = ap.field || 0;

@@ -112,6 +112,7 @@ export function drawMap(game, dt) {
     g.fillStyle = isOwned ? '#ffc20e' : '#9a9d96';
     g.textBaseline = 'middle';
     g.fillText(label, p.x + 17, p.y + 0.5);
+    if (w < 500) return; // no room for captions on a phone
     if (isOwned) {
       const ap = game.airports[st.index];
       g.font = '500 11px "IBM Plex Mono", monospace';
