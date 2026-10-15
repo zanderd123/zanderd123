@@ -12,7 +12,7 @@ import * as S from '../src/sim.js';
 
 const minutes = Number(process.argv[2] || 15);
 
-function scenario(name, seed, setup, siteIndex = 0, routes = 20) {
+function scenario(name, seed, setup, siteIndex = 0, routes = 20, classes = ['regional', 'narrow', 'narrow', 'wide']) {
   if (only && only !== name) return true;
   const game = { cash: 1e9, airports: [] };
   const ap = createAirport(siteIndex, seed + Number(process.env.SEED || 0) * 100);
@@ -21,7 +21,7 @@ function scenario(name, seed, setup, siteIndex = 0, routes = 20) {
   for (const T of ap.terminals) { T.buildLeft = 0; if (T.connector) T.connector.buildLeft = 0; T.gates = 4; T.heavy = true; }
   ap.securityLanes = 14; ap.staffing.atc = 'surge'; ap.upgrades.radar = true; ap.upgrades.automation = true;
   ap.contracts = [];
-  const classes = ['regional', 'narrow', 'narrow', 'wide'];
+  if (classes.includes('jumbo')) ap.upgrades.longRunway = true;
   for (let i = 0; i < routes; i++) {
     ap.offers = [{ id: 'x' + i, airline: 'A', code: 'AA', color: '#fff', city: 'X', cls: classes[i % 4], freq: 0.9, paxFee: 10, load: 0.8, expires: 1e9, bonus: 0 }];
     acceptOffer(game, ap, 'x' + i, slots[i % slots.length]);
@@ -87,4 +87,6 @@ pass &= scenario('crosswind and second runway', 7, (g, ap) => { ap.upgrades.cros
 const HUB = ['midcenter', 'westwing', 'eastwing', 'midwest', 'mideast'];
 pass &= scenario('hub, every field', 8, (g, ap) => all(g, ap, S.plotList(ap).filter((p) => !ap.plots[p]),
   [...HUB, ...S.slotList(ap).filter((s) => s.includes('.'))], (s) => (s.includes('.') ? 'tunnel' : s === 'midcenter' ? 'shuttle' : 'walkway')), 7, 48);
+// superjumbos: the widest aircraft, rolling past taxiway A
+pass &= scenario('superjumbos', 9, (g, ap) => { ap.upgrades.runway2 = true; ap.upgrades.rapidExits = true; return all(g, ap, ['west', 'east', 'north'], ['midcenter', 'westwing', 'eastwing', 'midwest', 'mideast'], () => 'tunnel'); }, 0, 20, ['regional', 'narrow', 'wide', 'jumbo']);
 process.exit(pass ? 0 : 1);

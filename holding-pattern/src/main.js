@@ -10,6 +10,7 @@ import { checkMilestones } from './milestones.js';
 import { renderMapSide, drawMap, siteAt } from './mapview.js';
 import { money, duration, clamp } from './util.js';
 import { SITES } from './config.js';
+import { ISLAND_FOCUS } from './island.js';
 
 const $ = (id) => document.getElementById(id);
 const canvas = $('field');
@@ -89,12 +90,25 @@ function saveNow() {
   toast('This browser is not letting the game save: progress will be lost when the page closes.', 'bad');
 }
 
-function panelWidth() { return window.innerWidth > 860 ? 400 : 0; }
+// How much of the screen's width the panel covers: all of a desktop's
+// side panel or a landscape phone's, none of a portrait phone's (it sits
+// along the bottom there).
+function panelWidth() {
+  if (window.innerWidth > 860) return 400;
+  const r = $('panel').getBoundingClientRect();
+  return r.left > window.innerWidth * 0.3 ? r.width : 0;
+}
 function topHeight() { return $('topbar').offsetHeight; }
 
+let lastShape = '';
 function resize() {
   DPR = Math.min(2, window.devicePixelRatio || 1);
   W = canvas.clientWidth; H = canvas.clientHeight;
+  // a phone turned on its side, or a window crossing the phone/desktop
+  // layout: frame the field again for the new shape
+  const shape = `${W > H}${window.innerWidth <= 860}`;
+  if (lastShape && shape !== lastShape && game) fitView();
+  lastShape = shape;
   canvas.width = Math.round(W * DPR); canvas.height = Math.round(H * DPR);
   document.documentElement.style.setProperty('--top', `${topHeight()}px`);
 }
@@ -381,9 +395,11 @@ body.addEventListener('click', (e) => {
 
 // Fit the camera to the airport on show, in the part of the screen the
 // panels leave free (each airport has its own size and zoom limit).
+// The island opens on its "Thanks for playing" sign and the fireworks.
 function fitView() {
-  const narrow = window.innerWidth <= 860;
-  fitCamera(cam, W, H, { x0: 0, x1: W - panelWidth(), y0: topHeight(), y1: narrow ? H * 0.54 : H });
+  const pw = panelWidth(), below = window.innerWidth <= 860 && pw === 0; // panel along the bottom
+  const island = SITES[activeAirport(game).siteIndex].island;
+  fitCamera(cam, W, H, { x0: 0, x1: W - pw, y0: topHeight(), y1: below ? H * 0.54 : H }, island ? ISLAND_FOCUS : undefined);
 }
 
 function replaceGame(g) {

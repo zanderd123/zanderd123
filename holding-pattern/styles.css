@@ -238,6 +238,7 @@ textarea { width: 100%; min-height: 80px; background: var(--ink); color: var(--t
 #tut .btn.go { background: var(--ink); color: #fff; }
 #tut .btn:not(.go) { background: transparent; color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--ink); }
 #tut .tut-wait { font: 700 13px/2.2 var(--display); text-transform: uppercase; letter-spacing: 0.05em; }
+#mapModal { z-index: 31; } /* over the tutorial while it is open */
 #tutRing { position: fixed; z-index: 29; border: 3px solid var(--sign); border-radius: 4px; pointer-events: none; box-shadow: 0 0 0 4000px rgba(5,7,10,0.35); animation: ring 1.4s ease-in-out infinite; }
 @keyframes ring { 50% { border-color: #fff; } }
 
@@ -315,6 +316,14 @@ ul.plain li { margin: 6px 0; font-size: 13.5px; }
   .map-body { grid-template-columns: 1fr; grid-template-rows: 45% 1fr; }
   #mapSide { border-left: 0; border-top: 1px solid var(--line); }
   .conn-grid { grid-template-columns: 1fr; }
+}
+
+/* a phone on its side: the panel goes to the right, as on a desktop, so
+   the field keeps the full height */
+@media (max-width: 860px) and (orientation: landscape) and (max-height: 520px) {
+  .stats { order: 0; flex-basis: auto; }
+  #panel { top: var(--top, 56px); bottom: 0; left: auto; right: 0; width: 46%; height: auto; border-top: 0; border-left: 1px solid #000; }
+  #panel.min { height: auto; width: auto; }
 }
 
 @media (prefers-reduced-motion: reduce) {

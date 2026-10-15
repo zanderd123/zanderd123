@@ -64,10 +64,10 @@ export function createAirport(siteIndex, seed = Date.now()) {
   return ap;
 }
 
-function newTerminal(slot, built) {
+function newTerminal(slot, built, gates = TERMINAL.startGates) {
   return {
     slot,
-    gates: TERMINAL.startGates,
+    gates,
     heavy: false,
     retail: 0,
     buildLeft: built ? 0 : TERMINAL.buildTime,
@@ -220,7 +220,7 @@ export function restoreAirport(data) {
   if (site.longRunway) ap.upgrades.longRunway = true;
   if (!ap.perMin || !Object.values(ap.perMin).every(Number.isFinite)) ap.perMin = { net: 0, operating: 0 };
   // Older saves had two garage upgrades instead of car park sites.
-  ap.parking = { front: 'lot', ...(ap.parking || {}) };
+  ap.parking = data.parking ? { ...data.parking } : { front: 'lot' };
   ap.hangars = { ...(ap.hangars || {}) };
   if (ap.upgrades.garage1) ap.parking.southwest = 'garage';
   if (ap.upgrades.garage2) ap.parking.southeast = 'garage';
@@ -737,7 +737,9 @@ export function acceptOffer(game, ap, offerId, terminalSlot) {
   const o = ap.offers[i];
   const why = classAllowed(ap, o.cls);
   if (why) return why;
-  const slot = terminalSlot || suggestTerminal(ap, o.cls);
+  // only onto a terminal that is open (not closing) and takes the aircraft
+  const T = terminalSlot && terminalBySlot(ap, terminalSlot);
+  const slot = T && isOpen(T) && terminalSupports(ap, T, o.cls) ? terminalSlot : suggestTerminal(ap, o.cls);
   if (!slot) return 'No open terminal can take this aircraft';
   ap.offers.splice(i, 1);
   const c = {
@@ -882,7 +884,7 @@ export function buildTerminal(game, ap, slot, connectorType, buses = 2) {
   if (!connectorAllowed(connectorType, slot)) return 'That connector cannot reach this site';
   const cost = terminalCost(ap, slot) + connectorBuildCost(connectorType, slot, ap);
   if (!spend(game, cost)) return 'Not enough cash';
-  const T = newTerminal(slot, false);
+  const T = newTerminal(slot, false, Math.min(TERMINAL.startGates, maxGates(ap, slot)));
   T.waiting = new Map();
   T.arrivingHere = 0;
   T.connector = { type: connectorType, level: 0, buses: connectorType === 'shuttle' ? buses : 0, buildLeft: CONNECTORS[connectorType].buildTime };
@@ -894,6 +896,7 @@ export function buildTerminal(game, ap, slot, connectorType, buses = 2) {
 
 export function replaceConnector(game, ap, slot, type) {
   const T = terminalBySlot(ap, slot);
+  if (T && T.demolishing) return 'Being torn down';
   if (!T || slot === 'main') return 'No connector here';
   if (!connectorAllowed(type, slot)) return 'That connector cannot reach this site';
   if (T.connector.type === type) return 'Already uses that';
@@ -906,6 +909,7 @@ export function replaceConnector(game, ap, slot, type) {
 
 export function upgradeConnector(game, ap, slot) {
   const T = terminalBySlot(ap, slot);
+  if (T && T.demolishing) return 'Being torn down';
   const C = T && T.connector;
   const def = C && CONNECTORS[C.type];
   if (!def || !def.upgrade || C.level) return 'Nothing to upgrade';
@@ -917,6 +921,7 @@ export function upgradeConnector(game, ap, slot) {
 
 export function setBuses(game, ap, slot, delta) {
   const T = terminalBySlot(ap, slot);
+  if (T && T.demolishing) return 'Being torn down';
   const C = T && T.connector;
   if (!C || C.type !== 'shuttle') return 'Not a shuttle';
   const b = CONNECTORS.shuttle.bus;
@@ -935,6 +940,7 @@ export function setBuses(game, ap, slot, delta) {
 
 export function addGate(game, ap, slot) {
   const T = terminalBySlot(ap, slot);
+  if (T && T.demolishing) return 'Being torn down';
   if (!T || T.gates >= maxGates(ap, slot)) return 'No room for more gates';
   if (!spend(game, gateCost(ap, T))) return 'Not enough cash';
   T.gates++;
@@ -944,6 +950,7 @@ export function addGate(game, ap, slot) {
 
 export function buyHeavy(game, ap, slot) {
   const T = terminalBySlot(ap, slot);
+  if (T && T.demolishing) return 'Being torn down';
   if (!T || T.heavy) return 'Already heavy';
   if (!spend(game, heavyCost(ap, T))) return 'Not enough cash';
   T.heavy = true;
@@ -952,6 +959,7 @@ export function buyHeavy(game, ap, slot) {
 
 export function buyRetail(game, ap, slot) {
   const T = terminalBySlot(ap, slot);
+  if (T && T.demolishing) return 'Being torn down';
   const cost = T && retailCost(ap, T);
   if (cost == null) return 'Retail is maxed out';
   if (!spend(game, cost)) return 'Not enough cash';
@@ -992,6 +1000,15 @@ export function buyUpgrade(game, ap, key) {
   if (why) return why;
   if (!spend(game, upgradeCost(ap, key))) return 'Not enough cash';
   ap.upgrades[key] = true;
+  // arrivals still in the air switch to the new arrivals runway (from
+  // where they are: no jump), so none lands across the new one's traffic
+  if (key === 'runway2') {
+    for (const p of ap.planes) {
+      if (p.state !== 'inbound' && p.state !== 'holding') continue;
+      p.rw = arrRunway(ap);
+      if (p.state === 'holding') { const cx = IAF.x, cy = RW[p.rw].y + FLIGHT.holdRadius; p.holdA = Math.atan2(p.y - cy, p.x - cx); p.holdR = Math.hypot(p.x - cx, p.y - cy); }
+    }
+  }
   ap.costLines = computeCosts(ap);
   return null;
 }
@@ -1411,13 +1428,7 @@ function updatePlanes(game, ap, dt) {
         p.heldFor = (p.heldFor || 0) + dt;
         // No terminal left in this field that can take it (one was torn
         // down): after half a minute it diverts elsewhere.
-        if (p.heldFor > 30 && Math.floor(p.heldFor) !== Math.floor(p.heldFor - dt) && findGate(ap, p) === -2) {
-          closeFlight(game, ap, p.f);
-          p.state = 'gone';
-          ap.holdQueue.splice(ap.holdQueue.indexOf(p), 1);
-          notify(ap, 'missed', `${p.f.no} diverted: no open terminal on its airfield can take it`);
-          break;
-        }
+        if (diverts(game, ap, p, dt)) break;
         const slot = holdSlot(ap, ap.holdQueue.indexOf(p));
         // Circle with the stack, sliding gently into this aircraft's own slot.
         p.holdA += HOLD_OMEGA * dt + clamp(wrapAngle(slot.a - p.holdA), -0.7 * dt, 0.7 * dt);
@@ -1441,10 +1452,7 @@ function updatePlanes(game, ap, dt) {
         // On the runway: decelerate to the exit. The turn-off itself is
         // handled with the rest of the ground traffic.
         if (p.d >= p.rollEnd - 70) break;
-        p.speed = Math.max(p.exitSpeed, p.speed - p.decel * dt);
-        p.d += p.speed * dt;
-        const q = pointAlong(p.path, p.d);
-        p.x = q.x; p.y = q.y; p.ang = q.ang;
+        rollOn(ap, p, dt);
         break;
       }
       case 'gate': {
@@ -1740,13 +1748,7 @@ function updateStarPlanes(game, F, dt) {
       }
       case 'holding': {
         p.heldFor = (p.heldFor || 0) + dt;
-        if (p.heldFor > 30 && Math.floor(p.heldFor) !== Math.floor(p.heldFor - dt) && findGate(F, p) === -2) {
-          closeFlight(game, F, p.f);
-          p.state = 'gone';
-          F.holdQueue.splice(F.holdQueue.indexOf(p), 1);
-          notify(F, 'missed', `${p.f.no} diverted: no open terminal on its airfield can take it`);
-          break;
-        }
+        if (diverts(game, F, p, dt)) break;
         const c = starHoldCentre(p.rw);
         const same = F.holdQueue.filter((o) => o.rw === p.rw);
         const slot = holdSlot(F, same.indexOf(p));
@@ -1768,10 +1770,7 @@ function updateStarPlanes(game, F, dt) {
       }
       case 'rollout': {
         if (p.d >= p.rollEnd - 70) break;
-        p.speed = Math.max(p.exitSpeed, p.speed - p.decel * dt);
-        p.d += p.speed * dt;
-        const q = pointAlong(p.path, p.d);
-        p.x = q.x; p.y = q.y; p.ang = q.ang;
+        rollOn(F, p, dt);
         break;
       }
       case 'gate': if (!p.ready) turnaround(game, F, p, dt); break;
@@ -1907,6 +1906,50 @@ function lookahead(p) {
     out.push({ s, x: q.x, y: q.y });
   }
   return out;
+}
+
+// The landing roll, down to the turn-off. Anything on the ground ahead (an
+// aircraft still turning off at an earlier exit, say) and it brakes hard,
+// stopping short of it if it must.
+const ROLL_BRAKE = 140; // px/s², hard braking
+function rollOn(ap, p, dt) {
+  p.speed = Math.max(p.exitSpeed, p.speed - p.decel * dt);
+  const reach = p.speed * p.speed / (2 * ROLL_BRAKE) + 30;
+  let free = Infinity;
+  const pts = [];
+  for (let s = 0; s <= reach; s += 8) pts.push({ s, q: pointAlong(p.path, p.d + s) });
+  for (const o of ap.planes) {
+    if (o === p || o.alt > 0.5 || o.state === 'gate' || o.state === 'gone') continue;
+    if (Math.abs(o.x - p.x) > reach + 80 || Math.abs(o.y - p.y) > reach + 80) continue;
+    const rr = p.r + o.r + 2, now = Math.hypot(p.x - o.x, p.y - o.y);
+    for (const { s, q } of pts) {
+      if (s >= free) break;
+      const d = Math.hypot(q.x - o.x, q.y - o.y);
+      if (d < rr && d < now - 0.5) { free = Math.max(0, s - 8); break; }
+    }
+  }
+  if (free < Infinity) p.speed = Math.min(p.speed, Math.sqrt(2 * ROLL_BRAKE * free));
+  p.d += Math.min(p.speed * dt, free);
+  const q = pointAlong(p.path, p.d);
+  p.x = q.x; p.y = q.y; p.ang = q.ang;
+}
+
+// A holding aircraft gives up and diverts elsewhere: when no terminal on
+// its airfield can take it any more (one was torn down), or when it has
+// circled for five minutes (the gates are badly overbooked). Its
+// passengers count as missed. Without the second, an overbooked airport's
+// stack would grow for ever.
+const HOLD_GIVE_UP = 300;
+function diverts(game, F, p, dt) {
+  if (p.heldFor <= 30 || Math.floor(p.heldFor) === Math.floor(p.heldFor - dt)) return false;
+  const none = findGate(F, p) === -2;
+  if (!none && p.heldFor < HOLD_GIVE_UP) return false;
+  closeFlight(game, F, p.f);
+  p.state = 'gone';
+  F.holdQueue.splice(F.holdQueue.indexOf(p), 1);
+  if (none) notify(F, 'missed', `${p.f.no} diverted: no open terminal on its airfield can take it`);
+  else if (F.t - (F.lastDivertNote || -1e9) > 30) { F.lastDivertNote = F.t; notify(F, 'missed', `${p.f.no} diverted after circling for 5 minutes: not enough gates`); }
+  return true;
 }
 
 function isMover(p) {

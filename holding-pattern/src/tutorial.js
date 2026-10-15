@@ -17,6 +17,7 @@ const STEPS = [
     target: '#tabs [data-tab="contracts"]',
     tab: 'contracts',
     text: 'Airlines offer <b>routes</b> here. Signing one brings more flights, and more money. <b>Sign one now.</b>',
+    needOffer: true,
     count: (g) => activeAirport(g).contracts.length,
     waitFor: (g, base) => activeAirport(g).contracts.length > base,
     waitLabel: 'Waiting for you to sign a route…',
@@ -55,6 +56,8 @@ export function makeTutorial(game, hooks) {
     state.step = i;
     const s = STEPS[i];
     if (!s) { stop(true); return; }
+    // something to sign: bring the next offer forward
+    if (s.needOffer) { const ap = activeAirport(game); if (!ap.offers.length) ap.nextOfferAt = Math.min(ap.nextOfferAt, ap.t); }
     if (s.tab) hooks.openTab(s.tab);
     // the ops board starts folded away on phones
     if (s.target === '#ops') { const o = document.getElementById('ops'); o.classList.remove('collapsed'); if (window.innerWidth <= 860) o.classList.add('open'); }
@@ -69,6 +72,11 @@ export function makeTutorial(game, hooks) {
   function place() {
     const s = STEPS[state.step];
     if (!s) return;
+    // out of the way while the network map is open
+    const mapOpen = !document.getElementById('mapModal').hidden;
+    box.style.visibility = mapOpen ? 'hidden' : '';
+    ring.style.visibility = mapOpen ? 'hidden' : '';
+    if (mapOpen) return;
     const el = s.target && document.querySelector(s.target);
     const vw = window.innerWidth, vh = window.innerHeight;
     if (!el || s.target === '#field') {
@@ -85,6 +93,8 @@ export function makeTutorial(game, hooks) {
     let x = r.left - bw - 16, y = r.top;
     if (x < 16) x = Math.min(vw - bw - 16, r.right + 16);
     if (x + bw > vw - 16 || (r.width > vw * 0.6)) { x = Math.max(16, Math.min(vw - bw - 16, r.left)); y = r.bottom + 12; }
+    // still on top of the target (a narrow screen): above or below it instead
+    if (x < r.right && x + bw > r.left) { x = Math.max(16, Math.min(vw - bw - 16, r.left)); y = r.top - bh - 12 >= 16 ? r.top - bh - 12 : r.bottom + 12; }
     if (y + bh > vh - 16) y = Math.max(16, r.top - bh - 12);
     box.style.left = `${Math.max(16, x)}px`;
     box.style.top = `${Math.max(16, y)}px`;
@@ -95,6 +105,7 @@ export function makeTutorial(game, hooks) {
     box.hidden = true;
     ring.hidden = true;
     game.tutorialDone = true;
+    if (window.innerWidth <= 860) document.getElementById('ops').classList.remove('open'); // opened for step 5
     if (finished) hooks.onDone();
   }
 

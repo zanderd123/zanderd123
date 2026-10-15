@@ -35,7 +35,8 @@ export function money(v, digits = 1) {
 export function rate(perMin, signed = false) {
   const v = perMin / 60;
   const a = Math.abs(v);
-  const sign = v < 0 ? '-' : signed ? '+' : '';
+  const zero = a < 0.05; // shows as 0.0: no sign
+  const sign = zero ? '' : v < 0 ? '-' : signed ? '+' : '';
   const body = a >= 1000 ? money(a).slice(1) : a >= 100 ? Math.round(a).toString() : a.toFixed(1);
   return `${sign}$${body}/s`;
 }

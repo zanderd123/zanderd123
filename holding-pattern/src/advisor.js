@@ -240,7 +240,7 @@ export function advise(game, ap) {
   // ------------------------------------------------------------ money
   const net = ap.perMin.operating || 0;
   const money = moneyBreakdown(ap);
-  if (net < 0 && ap.t > 30) {
+  if (net < -6 && ap.t > 30) { // more than a rounding error
     const fixes = [];
     const lines = [...ap.costLines].sort((a, b) => b.v - a.v);
     if (secU < 0.5 && ap.securityLanes > 1) fixes.push(fix('Close an idle security lane', 'lane-', {}, 0));
@@ -258,7 +258,12 @@ export function advise(game, ap) {
   // ------------------------------------------------------------ good next steps
   if (!issues.some((i) => i.sev >= 2)) {
     const ideas = [];
-    if (!delayed && rwU < 0.7 && rep.terminals.some((t) => t.open && t.gateDemand / t.gates < 0.6)) ideas.push(fix('Sign more routes: you have spare capacity', 'tab', { tab: 'contracts' }, 0));
+    if (!delayed && rwU < 0.7 && rep.terminals.some((t) => t.open && t.gateDemand / t.gates < 0.6)) {
+      // one click signs the offer that fits best; with none on the table, go and look
+      const o = ap.offers.map((x) => ({ x, f: S.offerFit(ap, x) })).filter((y) => y.f.fits).sort((a, b) => S.contractValue(ap, { ...b.x, terminal: b.f.slot }, game) - S.contractValue(ap, { ...a.x, terminal: a.f.slot }, game))[0];
+      ideas.push(o ? { ...fix(`Sign ${o.x.airline} to ${o.x.city}`, 'accept', { id: o.x.id, slot: o.f.slot }, 0), why: 'it fits: you have spare capacity' }
+        : fix('Sign more routes: you have spare capacity', 'tab', { tab: 'contracts' }, 0));
+    }
     const main = S.terminalBySlot(ap, 'main');
     if (main.retail < 2 && S.retailCost(ap, main) != null) ideas.push({ ...fix(`Better shops in ${TERMINAL_CODES.main}`, 'retail', { slot: 'main' }, S.retailCost(ap, main)), why: `waiting passengers spend ×${TERMINAL.retailLevels[main.retail + 1].mult}` });
     if (ap.terminals.length >= 2) ideas.push(upgradeFix(ap, 'hvac', 'cuts climate bills 35%'));
@@ -273,7 +278,7 @@ export function advise(game, ap) {
   // The best next step is the first fix for the most urgent problem that
   // can be afforded now (opening a tab counts: sometimes the fix is a choice).
   let best = null;
-  for (const i of issues) { best = i.fixes.find((f) => f.cost <= game.cash) || null; if (best) break; }
+  for (const i of issues) { best = i.fixes.find((f) => f.cost <= game.cash) || null; if (best) { best = { ...best, problem: i.sev >= 1 ? i.title : 'Room to grow' }; break; } }
   const recommended = new Set(issues.filter((i) => i.sev >= 1).flatMap((i) => i.fixes).map((f) => key(f)));
   return { issues, best, recommended, money, delayed };
 }

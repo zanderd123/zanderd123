@@ -35,6 +35,8 @@ export const RAMP_END = { out: ISL.road[J_OUT].y, in: ISL.road[J_IN].y };
 const BEACH_LOT = { x: 380, y: 590, w: 72, h: 120 };
 const J_BEACH = nearest(BEACH_LOT.x, BEACH_LOT.y + BEACH_LOT.h / 2);
 const SIGN = { x: 1520, y: 470 };
+// where the camera opens on arrival: the sign, with the terminal beside it
+export const ISLAND_FOCUS = { x: SIGN.x - 60, y: SIGN.y + 80 };
 const DOCKS = [500, 580, 660, 740, 820].map((y) => { const i = nearest(1990, y); return { x: ISL.coast[i].x - 12, y }; });
 
 // places to sit on the west beach
@@ -277,7 +279,7 @@ export function islandFrame(g, t, dt, deps) {
     show -= rdt; nextBurst -= rdt;
     if (nextBurst <= 0) {
       nextBurst = 0.22 + Math.random() * 0.3;
-      const x = 650 + Math.random() * 1100, y = 260 + Math.random() * 480;
+      const x = SIGN.x - 650 + Math.random() * 900, y = 260 + Math.random() * 480; // over the sign, in view
       const col = ['#ff4f8b', '#ffd23f', '#5fe0ff', '#ff8a3d', '#b98bff', '#ffffff', '#7dff8a'][Math.floor(Math.random() * 7)];
       for (let k = 0; k < 70; k++) { const a = k / 70 * Math.PI * 2, v = 170 + Math.random() * 120; sparks.push({ x, y, px: x, py: y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 1.2 + Math.random() * 0.7, col }); }
     }

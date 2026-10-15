@@ -121,12 +121,13 @@ export function worldSize() { return WN; }
 
 // Open on the working part of the field, centred in the part of the screen
 // the panels leave free; zoom out to see the land for sale.
-export function fitCamera(cam, w, h, free) {
+// (focus: the world point to centre on, the main terminal unless given)
+export function fitCamera(cam, w, h, free, focus = { x: 1000, y: 500 }) {
   const fw = free.x1 - free.x0, fh = free.y1 - free.y0;
   cam.minZoom = Math.min(fw / (WN.w * 1.05), fh / (WN.h * 1.05));
   cam.zoom = Math.min(fw / (fw < 600 ? 820 : 1250), fh / 820);
-  cam.x = 1000 + (w / 2 - (free.x0 + free.x1) / 2) / cam.zoom;
-  cam.y = 500 + (h / 2 - (free.y0 + free.y1) / 2) / cam.zoom;
+  cam.x = focus.x + (w / 2 - (free.x0 + free.x1) / 2) / cam.zoom;
+  cam.y = focus.y + (h / 2 - (free.y0 + free.y1) / 2) / cam.zoom;
 }
 
 export function screenToWorld(cam, w, h, sx, sy) {
