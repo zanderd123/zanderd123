@@ -15,8 +15,9 @@
 // ordinary airfield, with the rest of the hub drawn around it.
 
 import {
-  SLOTS, PLOTS, TERMINAL_CODES, FIELD_XF, xfApply, xfMul, xfAngle, ID,
+  SLOTS, PLOTS, TERMINAL_CODES, FIELD_XF, SITE_XF, xfApply, xfMul, xfAngle, ID, placeName,
 } from './layout.js';
+import { SITES } from './config.js';
 
 // The box and the star. The south field's runway (y 210) is the box's
 // bottom side.
@@ -75,9 +76,9 @@ for (const f of POCKETS) {
 const REMOTE = { W: ['West field, far north end', 'North-West Remote'], E: ['East field, far south end', 'South-East Remote'] };
 for (const f of Object.keys(REMOTE)) {
   const k = f.toLowerCase();
-  PLOTS[`${k}.farwest`] = { name: REMOTE[f][0], rects: PLOTS.farwest.rects.map((r) => rectIn(FIELD_XF[f], r)), hub: true, field: f, price: 70000, needs: `${k}.west` };
+  PLOTS[`${k}.farwest`] = { name: REMOTE[f][0], rects: PLOTS.farwest.rects.map((r) => rectIn(FIELD_XF[f], r)), hub: true, hubOnly: true, field: f, price: 70000, needs: `${k}.west` };
   HUB_PLOT_ORDER.push(`${k}.farwest`);
-  SLOTS[`${k}.farwest`] = { ...SLOTS.farwest, name: REMOTE[f][1], plot: `${k}.farwest`, field: f };
+  SLOTS[`${k}.farwest`] = { ...SLOTS.farwest, name: REMOTE[f][1], plot: `${k}.farwest`, field: f, hubOnly: true };
   TERMINAL_CODES[`${k}.farwest`] = `${f}G`;
   HUB_SLOT_ORDER.push(`${k}.farwest`);
 }
@@ -115,7 +116,7 @@ for (const id of STAR_SLOTS) {
   // along the wedge's taxilane: x runs along the arm, y out into the corner
   const o0 = STAR.C, base = { x: o0.x + ea.x * (W.sc - 1000 * sg) + n.x * (STAR_LANE - 530), y: o0.y + ea.y * (W.sc - 1000 * sg) + n.y * (STAR_LANE - 530) };
   const xf = { a: ea.x * sg, b: ea.y * sg, c: n.x, d: n.y, e: base.x, f: base.y };
-  SLOTS[id] = { name: W.name, row: 'main', x0: 1000 - W.w / 2, x1: 1000 + W.w / 2, plot: 'core', maxGates: W.gates, adjacent: false, field: 'X', xf };
+  SLOTS[id] = { name: W.name, row: 'main', x0: 1000 - W.w / 2, x1: 1000 + W.w / 2, plot: 'core', maxGates: W.gates, adjacent: false, field: 'X', xf, hubOnly: true };
   TERMINAL_CODES[id] = W.code;
   HUB_SLOT_ORDER.push(id);
 }
@@ -126,5 +127,73 @@ export const HUB_NO_PLOTS = new Set(['farwest', 'fareast', 'north']);
 export const HUB_NO_SLOTS = new Set(['farwest', 'fareast']);
 
 export const fieldOfSlot = (slot) => (SLOTS[slot] && SLOTS[slot].field) || '';
+
+// ------------------------------------------------------------ expansions
+// Every other airport (but the island) starts as the usual single field.
+// Once three of its terminals are built out to every gate, it can grow to
+// the hub's size: new airfields for sale around it, each the usual plan
+// turned to face out, on the sides away from any coast. Each airport has
+// its own arrangement.
+export const EXPANSIONS = {
+  PWR: ['N', 'E'],
+  BSI: ['N', 'E'], // the bay is to the west
+  HMA: ['N', 'W'],
+  HBC: ['N', 'W'], // the harbour is to the east
+  NGT: ['E', 'W'],
+  CRL: ['N', 'E'], // the sea is to the west
+  MRD: ['N', 'E', 'W'],
+};
+// Where they go, in the main field's coordinates: the north field turned
+// round above it, the east and west fields on their sides, runways nearest
+// the main field and terminals facing out.
+const OUT_XF = {
+  N: { a: -1, b: 0, c: 0, d: -1, e: 2000, f: 110 },
+  E: { a: 0, b: -1, c: 1, d: 0, e: 1910, f: 1150 },
+  W: { a: 0, b: 1, c: -1, d: 0, e: 90, f: -850 },
+};
+export const EXPAND_TERMINALS = 3;
+const siteId = (site) => SITES[site] && SITES[site].id;
+// The airfields an airport can add ([] for one that can't grow; the hub's
+// come with it).
+export function siteFields(site) {
+  if (SITES[site] && SITES[site].hub) return POCKETS;
+  return EXPANSIONS[siteId(site)] || [];
+}
+SITES.forEach((s, i) => {
+  if (!EXPANSIONS[s.id]) return;
+  SITE_XF[i] = {};
+  for (const k of EXPANSIONS[s.id]) SITE_XF[i][k] = OUT_XF[k];
+});
+// The whole map of a grown airport, in main coordinates.
+const RECTS = {};
+export function siteRect(site) {
+  if (SITES[site] && SITES[site].hub) return HUB_RECT;
+  if (RECTS[site]) return RECTS[site];
+  let x0 = 0, y0 = 0, x1 = 2000, y1 = 1150;
+  for (const k of siteFields(site)) {
+    const b = rectIn(OUT_XF[k], { x: 0, y: 120, w: 2000, h: 840 });
+    // a margin only where the map grows past the main field
+    if (b.x < x0) x0 = b.x - 20;
+    if (b.y < y0) y0 = b.y - 20;
+    if (b.x + b.w > x1) x1 = b.x + b.w + 20;
+  }
+  return (RECTS[site] = { x0, y0, w: x1 - x0, h: y1 - y0 });
+}
+// A parcel's outline at this airport (another airfield's lies wherever
+// that airport put the field).
+const PLOT_RECTS = {};
+export function plotRects(site, id) {
+  const P = PLOTS[id];
+  if (!P.field || (SITES[site] && SITES[site].hub) || !SITE_XF[site]) return P.rects;
+  const key = site + ':' + id;
+  if (!PLOT_RECTS[key]) PLOT_RECTS[key] = PLOTS[id.split('.')[1]].rects.map((r) => rectIn(SITE_XF[site][P.field], r));
+  return PLOT_RECTS[key];
+}
+// An airfield's name at this airport (east and west swap where it is
+// drawn mirrored).
+export function fieldName(site, key) {
+  if (!key) return SITES[site] && SITES[site].hub ? 'South field' : 'Main field';
+  return placeName(!!(SITES[site] && SITES[site].mirror), FIELD_NAMES[key]);
+}
 export const fieldXf = (f) => FIELD_XF[f] || ID;
 export { xfApply, xfMul, xfAngle };

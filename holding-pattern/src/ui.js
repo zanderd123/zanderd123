@@ -8,7 +8,7 @@ import {
   TERMINAL, LEVELS, SITES, PAX, CONTRACTS, PARKING, LANDSIDE, HANGAR, DEMOLISH_REFUND, MANAGER,
 } from './config.js';
 import { SLOTS, SLOT_ORDER, PLOTS, PLOT_ORDER, TERMINAL_CODES, PARKING_SITES, PARKING_ORDER, connectorRoute } from './layout.js';
-import { FIELD_NAMES } from './hub.js';
+import { fieldName, siteFields, EXPAND_TERMINALS } from './hub.js';
 import * as S from './sim.js';
 import { money, num, duration, pathLength, clamp, rate, every } from './util.js';
 import { advise, key as fixKey, offerUnlockFixes } from './advisor.js';
@@ -100,7 +100,7 @@ export function renderOps(game, clockText) {
   const rwR = rep.runways[worstRw], rwU = S.utilisation(rwR.demand, rwR.cap);
   const holdRw = FS[worstRw].holdQueue.filter((p) => p.holdReason === 'runway' || p.holdReason === 'taxi').length;
   rows.push({ k: FS.length > 1 ? 'Runways' : 'Runway', s: holdRw > 2 || rwU >= 1 ? 'bad' : rwU > 0.85 || holdRw ? 'warn' : '',
-    v: `${pct(rwU)} of capacity`, sub: `${FS.length > 1 ? `busiest: ${FIELD_NAMES[rwR.field || '']}, ` : ''}${rwR.demand.toFixed(1)} of ${rwR.cap.toFixed(1)} landings & take-offs a minute${holdRw ? ` · ${holdRw} circling` : ''}` });
+    v: `${pct(rwU)} of capacity`, sub: `${FS.length > 1 ? `busiest: ${fieldName(ap.siteIndex, rwR.field || '')}, ` : ''}${rwR.demand.toFixed(1)} of ${rwR.cap.toFixed(1)} landings & take-offs a minute${holdRw ? ` · ${holdRw} circling` : ''}` });
   const open = rep.terminals.filter((t) => t.open);
   const gd = open.reduce((s, t) => s + t.gateDemand, 0), gc = open.reduce((s, t) => s + t.gates, 0);
   const worstGate = open.reduce((w, t) => (!w || t.gateDemand / t.gates > w.gateDemand / w.gates ? t : w), null);
@@ -163,7 +163,7 @@ function forecastRows(ap, o, slot) {
   const after = S.loadReport(ap, extra);
   const rows = [];
   const rb = S.runwayFor(before, slot), ra = S.runwayFor(after, slot);
-  rows.push([rb.field === 'X' ? 'Star runways' : rb.field ? `Runway (${FIELD_NAMES[rb.field]})` : 'Runway', rb.demand / rb.cap, ra.demand / ra.cap]);
+  rows.push([rb.field === 'X' ? 'Star runways' : rb.field ? `Runway (${fieldName(ap.siteIndex, rb.field)})` : 'Runway', rb.demand / rb.cap, ra.demand / ra.cap]);
   const tb = before.terminals.find((t) => t.slot === slot), ta = after.terminals.find((t) => t.slot === slot);
   if (tb) rows.push([`Gates ${TERMINAL_CODES[slot]}`, tb.gateDemand / tb.gates, ta.gateDemand / ta.gates]);
   rows.push(['Security', before.security.demand / before.security.cap, after.security.demand / after.security.cap]);
@@ -358,6 +358,18 @@ function terminalSummary(ap, T) {
   </div>`;
 }
 
+// Room to grow: how close the airport is to adding its new airfields, or
+// what it has added.
+function growBlock(ap) {
+  const n = siteFields(ap.siteIndex).length;
+  if (S.grown(ap)) {
+    const open = siteFields(ap.siteIndex).filter((k) => S.hasField(ap, k)).length;
+    return `<h3 class="sec">Room to grow</h3><p class="note">${ap.name} has grown: ${n} new airfields around the old one, ${open} open. Each has its own runway, tower and six terminal sites, reached by tunnel or monorail. Their land is for sale below.</p>`;
+  }
+  const done = Math.min(EXPAND_TERMINALS, S.growProgress(ap));
+  return `<h3 class="sec">Room to grow</h3><p class="note">Build out <b>${EXPAND_TERMINALS} terminals</b> to every gate and ${ap.name} can grow to the size of Mid-Continent: ${n} new airfields, each with its own runway and six terminal sites.</p><div class="bar"><i style="width:${(done / EXPAND_TERMINALS * 100).toFixed(0)}%;background:var(--sign)"></i></div><p class="note">${done} of ${EXPAND_TERMINALS} terminals built out</p>`;
+}
+
 function renderBuild(game, ap) {
   let h = `<h3 class="sec">Terminals</h3>`;
   for (const T of ap.terminals) h += terminalSummary(ap, T);
@@ -370,12 +382,13 @@ function renderBuild(game, ap) {
   const free = S.slotList(ap).filter((s) => !S.terminalBySlot(ap, s) && !ap.hangars[s] && ap.plots[SLOTS[s].plot] && S.slotAvailable(ap, s));
   if (free.length) {
     h += `<h3 class="sec">Open sites</h3><ul class="list">`;
-    for (const s of free) h += `<li><div class="what"><b>${S.nm(ap, SLOTS[s].name)}</b><span>${SLOTS[s].field ? `${FIELD_NAMES[SLOTS[s].field]}: reached by tunnel or monorail` : SLOTS[s].row === 'mid' ? 'Midfield: across the apron from the main terminal' : SLOTS[s].adjacent ? 'Next to the main terminal: a walkway can reach it' : 'Main row, further out'}</span></div><button type="button" class="btn go" data-act="detail" data-kind="slot" data-id="${s}">Plan · ${money(S.terminalCost(ap, s))}+</button></li>`;
+    for (const s of free) h += `<li><div class="what"><b>${S.nm(ap, SLOTS[s].name)}</b><span>${SLOTS[s].field ? `${fieldName(ap.siteIndex, SLOTS[s].field)}: reached by tunnel or monorail` : SLOTS[s].row === 'mid' ? 'Midfield: across the apron from the main terminal' : SLOTS[s].adjacent ? 'Next to the main terminal: a walkway can reach it' : 'Main row, further out'}</span></div><button type="button" class="btn go" data-act="detail" data-kind="slot" data-id="${s}">Plan · ${money(S.terminalCost(ap, s))}+</button></li>`;
     h += `</ul>`;
   } else {
     h += `<p class="note">Buy more land to open new terminal sites.</p>`;
   }
   h += `<h3 class="sec">Landside: car parks, hotels, rentals, solar</h3>${parkingBlock(ap)}`;
+  if (S.canGrow(ap)) h += growBlock(ap);
   h += `<h3 class="sec">Land</h3><ul class="list">`;
   for (const id of S.plotList(ap)) {
     const P = PLOTS[id];
@@ -399,8 +412,9 @@ function renderBuild(game, ap) {
 function connectorCard(ap, type, slot, chosen, current = null) {
   const def = CONNECTORS[type];
   const allowed = S.connectorAllowed(type, slot);
-  const len = pathLength(connectorRoute(type, slot));
-  const fake = { type, level: 0, buses: type === 'shuttle' ? 2 : 0, buildLeft: 0, len, route: connectorRoute(type, slot) };
+  const route = connectorRoute(type, slot, ap.siteIndex);
+  const len = pathLength(route);
+  const fake = { type, level: 0, buses: type === 'shuttle' ? 2 : 0, buildLeft: 0, len, route };
   const cap = S.connectorCap(fake) * 60;
   const trip = S.connectorTravel(fake);
   const cost = S.connectorBuildCost(type, slot, ap);
@@ -624,7 +638,7 @@ function renderRunwayDetail(game, ap) {
     <div><dt>Tower</dt><dd>${rep.runway.atc.toFixed(1)}/m</dd></div>
     <div><dt>Holding</dt><dd>${ap.holdQueue.length}</dd></div>
   </dl>
-  ${rep.runways.slice(1).map((r, i) => `<h3 class="sec">${FIELD_NAMES[r.field]}</h3>
+  ${rep.runways.slice(1).map((r, i) => `<h3 class="sec">${fieldName(ap.siteIndex, r.field)}</h3>
   <dl class="board">
     <div><dt>Demand</dt><dd>${r.demand.toFixed(1)}/m</dd></div>
     <div><dt>Runway${r.field === 'X' ? 's' : ''}</dt><dd>${r.physical.toFixed(1)}/m</dd></div>

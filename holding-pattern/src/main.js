@@ -136,6 +136,7 @@ function frameBody(now) {
   for (let i = 0; i < n; i++) stepGame(game, simDt / n, ap);
 
   view.dt = simDt;
+  watchGrowth();
   render(ctx, W, H, DPR, cam, ap, view);
 
   if (!$('mapModal').hidden) drawMap(game, dt);
@@ -273,7 +274,7 @@ function zoomAt(sx, sy, factor) {
 }
 
 function clampCam() {
-  const W = worldSize();
+  const W = worldSize(activeAirport(game));
   cam.x = clamp(cam.x, W.x0 - 100, W.x0 + W.w + 100);
   cam.y = clamp(cam.y, W.y0 - 100, W.y0 + W.h + 100);
 }
@@ -396,10 +397,31 @@ body.addEventListener('click', (e) => {
 // Fit the camera to the airport on show, in the part of the screen the
 // panels leave free (each airport has its own size and zoom limit).
 // The island opens on its "Thanks for playing" sign and the fireworks.
-function fitView() {
+// The part of the screen the panels leave free.
+function freeRect() {
   const pw = panelWidth(), below = window.innerWidth <= 860 && pw === 0; // panel along the bottom
+  return { x0: 0, x1: W - pw, y0: topHeight(), y1: below ? H * 0.54 : H };
+}
+function fitView() {
   const island = SITES[activeAirport(game).siteIndex].island;
-  fitCamera(cam, W, H, { x0: 0, x1: W - pw, y0: topHeight(), y1: below ? H * 0.54 : H }, island ? ISLAND_FOCUS : undefined);
+  fitCamera(cam, W, H, freeRect(), island ? ISLAND_FOCUS : undefined);
+  lastMap = mapKey();
+}
+// When the airport on show grows, zoom out over the whole new map.
+let lastMap = '';
+const mapKey = () => { const M = worldSize(activeAirport(game)); return `${game.active}:${M.x0},${M.y0},${M.w},${M.h}`; };
+function watchGrowth() {
+  const k = mapKey();
+  if (k === lastMap) return;
+  const grew = lastMap.split(':')[0] === String(game.active);
+  lastMap = k;
+  const M = worldSize(activeAirport(game)), F = freeRect();
+  const fw = F.x1 - F.x0, fh = F.y1 - F.y0;
+  cam.minZoom = Math.min(fw / (M.w * 1.05), fh / (M.h * 1.05));
+  if (!grew) return;
+  cam.zoom = cam.minZoom;
+  cam.x = M.x0 + M.w / 2 + (W / 2 - (F.x0 + F.x1) / 2) / cam.zoom;
+  cam.y = M.y0 + M.h / 2 + (H / 2 - (F.y0 + F.y1) / 2) / cam.zoom;
 }
 
 function replaceGame(g) {

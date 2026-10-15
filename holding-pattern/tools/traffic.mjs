@@ -87,6 +87,15 @@ pass &= scenario('crosswind and second runway', 7, (g, ap) => { ap.upgrades.cros
 const HUB = ['midcenter', 'westwing', 'eastwing', 'midwest', 'mideast'];
 pass &= scenario('hub, every field', 8, (g, ap) => all(g, ap, S.plotList(ap).filter((p) => !ap.plots[p]),
   [...HUB, ...S.slotList(ap).filter((s) => s.includes('.'))], (s) => (s.includes('.') ? 'tunnel' : s === 'midcenter' ? 'shuttle' : 'walkway')), 7, 48);
+// a grown airport: Meridian with its north, east and west airfields
+pass &= scenario('grown airport', 10, (g, ap) => {
+  for (const p of ['west', 'east']) S.buyPlot(g, ap, p);
+  for (const s of ['midcenter', 'westwing']) S.buildTerminal(g, ap, s, 'tunnel');
+  for (const T of ap.terminals) { T.buildLeft = 0; if (T.connector) T.connector.buildLeft = 0; T.gates = S.maxGates(ap, T.slot); }
+  ap.expandReady = true;
+  const far = S.slotList(ap).filter((s) => s.includes('.'));
+  return all(g, ap, S.plotList(ap).filter((p) => !ap.plots[p] && p.includes('.')), far, () => 'tunnel').concat(['midcenter', 'westwing']);
+}, 6, 36);
 // superjumbos: the widest aircraft, rolling past taxiway A
 pass &= scenario('superjumbos', 9, (g, ap) => { ap.upgrades.runway2 = true; ap.upgrades.rapidExits = true; return all(g, ap, ['west', 'east', 'north'], ['midcenter', 'westwing', 'eastwing', 'midwest', 'mideast'], () => 'tunnel'); }, 0, 20, ['regional', 'narrow', 'wide', 'jumbo']);
 process.exit(pass ? 0 : 1);

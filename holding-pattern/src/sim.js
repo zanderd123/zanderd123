@@ -16,7 +16,7 @@ import {
 } from './layout.js';
 import {
   HUB_SLOT_ORDER, HUB_PLOT_ORDER, HUB_NO_PLOTS, HUB_NO_SLOTS, POCKETS, STAR, STAR_LINES, STAR_THRESHOLD, STAR_EXIT, STAR_LANE,
-  WEDGES, starPoint,
+  WEDGES, starPoint, siteFields, EXPAND_TERMINALS,
 } from './hub.js';
 import { mulberry32, clamp, dist, pick, pathLength, pointAlong } from './util.js';
 
@@ -101,7 +101,7 @@ export function hydrate(ap, seed = Date.now()) {
   for (const T of ap.terminals) {
     T.waiting = new Map();
     T.arrivingHere = 0;
-    if (T.connector) hydrateConnector(T);
+    if (T.connector) hydrateConnector(T, ap);
   }
   for (const c of ap.contracts) {
     c.nextStd = ap.t + 20 + ap.rand() * 30;
@@ -110,9 +110,10 @@ export function hydrate(ap, seed = Date.now()) {
   }
   ap.weather.stormUntil = 0;
   ap.weather.nextStorm = ap.t + 240;
-  if (SITES[ap.siteIndex].hub) {
+  const extra = siteFields(ap.siteIndex);
+  if (extra.length) {
     const views = {};
-    for (const k of [...POCKETS, 'X']) views[k] = makeField(ap, k);
+    for (const k of SITES[ap.siteIndex].hub ? [...extra, 'X'] : extra) views[k] = makeField(ap, k);
     Object.defineProperty(ap, 'fieldViews', { value: views, enumerable: false, configurable: true, writable: true });
   }
   ap.costLines = computeCosts(ap);
@@ -157,19 +158,19 @@ function makeField(ap, key) {
 }
 // Which of the hub's airfields are open: the star always, a pocket once
 // its land is bought.
-export function hasField(ap, key) { return !!(ap.fieldViews && (key === 'X' || ap.plots[key.toLowerCase() + '.core'])); }
+export function hasField(ap, key) { return !!(ap.fieldViews && ap.fieldViews[key] && (key === 'X' || ap.plots[key.toLowerCase() + '.core'])); }
 // The field a terminal's aircraft use: the airport itself, or one of the hub's.
 export function fieldFor(ap, slot) { const f = slotField(slot); return f && hasField(ap, f) ? ap.fieldViews[f] : ap; }
-export function fields(ap) { return ap.fieldViews ? [ap, ...[...POCKETS, 'X'].filter((k) => hasField(ap, k)).map((k) => ap.fieldViews[k])] : [ap]; }
+export function fields(ap) { return ap.fieldViews ? [ap, ...Object.keys(ap.fieldViews).filter((k) => hasField(ap, k)).map((k) => ap.fieldViews[k])] : [ap]; }
 export function allPlanes(ap) { const F = fields(ap); return F.length > 1 ? F.flatMap((x) => x.planes) : ap.planes; }
 export function allHolding(ap) { const F = fields(ap); return F.length > 1 ? F.flatMap((x) => x.holdQueue) : ap.holdQueue; }
 const isStar = (F) => F.field === 'X';
 
-function hydrateConnector(T) {
+function hydrateConnector(T, ap) {
   const C = T.connector;
   C.outQ = new PaxQueue(); C.inQ = new PaxQueue(); C.transit = [];
   C.brokenUntil = 0;
-  C.route = connectorRoute(C.type, T.slot);
+  C.route = connectorRoute(C.type, T.slot, ap.siteIndex);
   C.len = pathLength(C.route);
 }
 
@@ -200,6 +201,7 @@ export function serializeAirport(ap) {
     lifetime: ap.lifetime,
     nextOfferAt: ap.t + 10,
     hubV: ap.hubV,
+    expandReady: ap.expandReady || undefined,
   };
 }
 
@@ -278,19 +280,31 @@ export const nm = (ap, name) => placeName(!!SITES[ap.siteIndex].mirror, name);
 // The island has room for one terminal and one car park, nothing more.
 export function slotAvailable(ap, slot) {
   if (site(ap).island) return slot === 'main';
+  const S = SLOTS[slot];
+  if (!S) return false;
+  if (S.field) return site(ap).hub || (!S.hubOnly && grown(ap) && siteFields(ap.siteIndex).includes(S.field));
   if (site(ap).hub) return !HUB_NO_SLOTS.has(slot);
-  return !SLOTS[slot].field && !(site(ap).crosswind && slot === 'fareast');
+  return !(site(ap).crosswind && slot === 'fareast');
 }
-// Land this airport can ever own: the hub's south field only at the hub.
+// Land this airport can ever own: another airfield's once it has grown.
 export function plotAvailable(ap, id) {
   const P = PLOTS[id];
   if (site(ap).island) return id === 'core';
-  if (site(ap).hub) return !!P && !HUB_NO_PLOTS.has(id);
-  return !!P && !P.hub;
+  if (!P) return false;
+  if (P.field) return site(ap).hub || (!P.hubOnly && grown(ap) && siteFields(ap.siteIndex).includes(P.field));
+  if (site(ap).hub) return !HUB_NO_PLOTS.has(id);
+  return true;
+}
+// Room to grow: an airport that can add airfields, once it has this many
+// terminals built out to every gate. Then it stays grown.
+export const canGrow = (ap) => !site(ap).hub && siteFields(ap.siteIndex).length > 0;
+export const grown = (ap) => !!ap.expandReady;
+export function growProgress(ap) {
+  return ap.terminals.filter((T) => isOpen(T) && !slotField(T.slot) && T.gates >= maxGates(ap, T.slot)).length;
 }
 // Every terminal site, parcel and landside site this airport can have.
-export const slotList = (ap) => (site(ap).hub ? SLOT_ORDER.concat(HUB_SLOT_ORDER) : SLOT_ORDER).filter((id) => slotAvailable(ap, id));
-export const plotList = (ap) => (site(ap).hub ? PLOT_ORDER.concat(HUB_PLOT_ORDER) : PLOT_ORDER).filter((id) => plotAvailable(ap, id));
+export const slotList = (ap) => (ap.fieldViews ? SLOT_ORDER.concat(HUB_SLOT_ORDER) : SLOT_ORDER).filter((id) => slotAvailable(ap, id));
+export const plotList = (ap) => (ap.fieldViews ? PLOT_ORDER.concat(HUB_PLOT_ORDER) : PLOT_ORDER).filter((id) => plotAvailable(ap, id));
 export const parkingList = (ap) => PARKING_ORDER;
 export function parkingAvailable(ap, id) {
   if (site(ap).island) return id === 'front';
@@ -406,7 +420,7 @@ export function connectorUpkeep(C) {
 
 export function connectorBuildCost(type, slot, ap) {
   const def = CONNECTORS[type];
-  const len = pathLength(connectorRoute(type, slot));
+  const len = pathLength(connectorRoute(type, slot, ap && ap.siteIndex));
   let cost = def.buildBase + def.buildPerPx * len;
   if (type === 'shuttle') cost += 2 * def.bus.cost;
   return Math.round(cost * site(ap).cost);
@@ -423,14 +437,14 @@ export function connectorAllowed(type, slot) {
 // airfield (each has its own land, taxiways and tower), so all thirty
 // sites stay within reach; the first on a new field costs the base price.
 export function terminalCost(ap, slot = null) {
-  const f = slot && site(ap).hub ? slotField(slot) : null;
+  const f = slot && ap.fieldViews ? slotField(slot) : null;
   const n = f == null ? ap.terminals.length - 1 // main counts as the first
     : ap.terminals.filter((T) => slotField(T.slot) === f).length - (f ? 0 : 1);
   return Math.round(TERMINAL.baseCost * Math.pow(TERMINAL.costGrowth, n) * site(ap).cost);
 }
 // Security lanes the main terminal has room for (the hub's checkpoint
 // screens every airfield's passengers, so it is twice the size).
-export const maxLanes = (ap) => SEC.maxLanes * (site(ap).hub ? 2 : 1);
+export const maxLanes = (ap) => SEC.maxLanes * (site(ap).hub || grown(ap) ? 2 : 1);
 
 export function gateCost(ap, T) {
   // A gate added to a heavy terminal is built heavy: it pays its share of
@@ -445,7 +459,9 @@ export function retailCost(ap, T) {
   return L ? Math.round(L.cost * site(ap).cost) : null;
 }
 export function laneCost(ap) { return Math.round(SEC.laneCost * Math.pow(SEC.laneGrowth, ap.securityLanes - 1) * site(ap).cost); }
-export function plotCost(ap, plot) { return Math.round(PLOTS[plot].price * site(ap).cost); }
+// (a grown airport's new airfields cost less than the hub's)
+export function plotCost(ap, plot) { return Math.round(PLOTS[plot].price * site(ap).cost * (PLOTS[plot].field && !site(ap).hub ? GROW_PRICE : 1)); }
+const GROW_PRICE = 0.3;
 // What a car park site can become next: 'lot', 'garage' or null (done).
 export function parkingNext(ap, id) {
   const lv = ap.parking[id];
@@ -888,7 +904,7 @@ export function buildTerminal(game, ap, slot, connectorType, buses = 2) {
   T.waiting = new Map();
   T.arrivingHere = 0;
   T.connector = { type: connectorType, level: 0, buses: connectorType === 'shuttle' ? buses : 0, buildLeft: CONNECTORS[connectorType].buildTime };
-  hydrateConnector(T);
+  hydrateConnector(T, ap);
   ap.terminals.push(T);
   ap.costLines = computeCosts(ap);
   return null;
@@ -1117,7 +1133,7 @@ export function step(game, ap, dt) {
         const old = T.connector;
         T.connector = { ...T.pendingConnector, buildLeft: 0 };
         delete T.pendingConnector;
-        hydrateConnector(T);
+        hydrateConnector(T, ap);
         // Carry passengers across so nobody vanishes in the switch.
         for (const x of old.outQ) T.connector.outQ.push(x.f, x.n);
         for (const x of old.inQ) T.connector.inQ.push(x.f, x.n);
@@ -1186,6 +1202,13 @@ export function step(game, ap, dt) {
     for (const k of ['security', 'connector', 'late']) r[k] = r[k] * 0.5 + (w[k] || 0);
     ap.missedAcc = 0;
     ap.missedWhy = { security: 0, connector: 0, late: 0 };
+  }
+
+  // room to grow
+  if (!ap.expandReady && canGrow(ap) && growProgress(ap) >= EXPAND_TERMINALS) {
+    ap.expandReady = true;
+    ap.costLines = computeCosts(ap);
+    notify(ap, 'level', `${ap.name} can grow: ${siteFields(ap.siteIndex).length} new airfields are for sale around it. Zoom out to see them.`);
   }
 
   // levels

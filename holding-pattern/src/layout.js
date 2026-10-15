@@ -74,7 +74,7 @@ export const PLOTS = {
   farwest: { name: 'Far west field', rects: [{ x: 60, y: 310, w: 370, h: 630 }], price: 70000, needs: 'west' },
   fareast: { name: 'Far east field', rects: [{ x: 1570, y: 310, w: 370, h: 630 }], price: 70000, needs: 'east' },
   south:   { name: 'South landside', rects: [{ x: 430, y: 940, w: 1140, h: 190 }], price: 38000 },
-  north:   { name: 'North field',    rects: [{ x: 180, y: 25, w: 1640, h: 125 }], price: 140000 },
+  north:   { name: 'North strip',    rects: [{ x: 180, y: 25, w: 1640, h: 125 }], price: 140000 },
 };
 // A landside site on each parcel: a car park, hotel, rental car centre or
 // solar farm (see LANDSIDE in config.js).
@@ -119,6 +119,10 @@ export const TERMINAL_CODES = { main: 'A', midcenter: 'B', westwing: 'C', eastwi
 // transform from the usual terminal-row geometry to their field's.
 export const ID = { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };
 export const FIELD_XF = {};
+// Where each airport's other airfields lie (hub.js fills it in): a site's
+// own table, or the hub's.
+export const SITE_XF = {};
+export const xfsOf = (site) => (site != null && SITE_XF[site]) || FIELD_XF;
 export const xfApply = (m, p) => ({ x: m.a * p.x + m.c * p.y + m.e, y: m.b * p.x + m.d * p.y + m.f });
 export const xfMul = (m, n) => ({ a: m.a * n.a + m.c * n.b, b: m.b * n.a + m.d * n.b, c: m.a * n.c + m.c * n.d, d: m.b * n.c + m.d * n.d, e: m.a * n.e + m.c * n.f + m.e, f: m.b * n.e + m.d * n.f + m.f });
 export function xfInv(m) {
@@ -129,12 +133,14 @@ export function xfInv(m) {
 export const xfAngle = (m) => Math.atan2(m.b, m.a);
 export const slotField = (slot) => (SLOTS[slot] && SLOTS[slot].field) || 0;
 // From a slot's own drawing frame to the main field's coordinates.
-export function slotToMain(slot) {
+// (site: the airport's index, as each lays its airfields out differently)
+export function slotToMain(slot, site) {
   const s = SLOTS[slot];
   const m = s.xf || ID;
-  return s.field && FIELD_XF[s.field] ? xfMul(FIELD_XF[s.field], m) : m;
+  const X = xfsOf(site);
+  return s.field && X[s.field] ? xfMul(X[s.field], m) : m;
 }
-export function slotCenterM(slot) { return xfApply(slotToMain(slot), slotCenter(slot)); }
+export function slotCenterM(slot, site) { return xfApply(slotToMain(slot, site), slotCenter(slot)); }
 
 export function slotCenter(slotId) {
   const s = SLOTS[slotId];
@@ -238,11 +244,11 @@ function dedupe(pts) {
 
 // ------------------------------------------------------------- connectors
 // Route geometry from the main terminal to a satellite, per connector type.
-export function connectorRoute(type, slotId) {
+export function connectorRoute(type, slotId, site) {
   const s = SLOTS[slotId];
   const c = slotCenter(slotId);
   const west = c.x < 1000;
-  if (s.field) return farRoute(type, slotId);
+  if (s.field) return farRoute(type, slotId, site);
   if (type === 'walkway') {
     return [{ x: MAIN_CENTER.x, y: MAIN_CENTER.y }, { x: west ? 860 : 1140, y: MAIN_CENTER.y }, { x: west ? s.x1 : s.x0, y: MAIN_CENTER.y }, { x: c.x, y: MAIN_CENTER.y }];
   }
@@ -264,8 +270,8 @@ export function connectorRoute(type, slotId) {
 
 // To another airfield: only an underground tunnel or an elevated people
 // mover can get there across the runways.
-function farRoute(type, slotId) {
-  const c = slotCenterM(slotId);
+function farRoute(type, slotId, site) {
+  const c = slotCenterM(slotId, site);
   if (type === 'monorail') return [{ x: MAIN_CENTER.x, y: 660 }, { x: MAIN_CENTER.x, y: 600 }, { x: c.x, y: c.y }];
   return [{ x: MAIN_CENTER.x, y: 688 }, { x: c.x, y: c.y }];
 }

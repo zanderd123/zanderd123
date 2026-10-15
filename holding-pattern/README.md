@@ -81,6 +81,15 @@ With several airports, the All tab runs them together: each airport's money,
 on-time and top recommendation, every open offer to sign or decline, and a
 station manager to hire who signs offers that fit and declines the rest.
 
+**Room to grow.** Every airport but the island starts as one airfield.
+Once three of its terminals are built out to every gate, it can grow to
+the hub's size: new airfields go on sale around it, each the usual plan
+turned to face out, with its own runway, tower, holding stack and six
+terminal sites reached by tunnel or monorail. Each airport has its own
+arrangement (north and east at Pinewood, east and west at Northgate, three
+at Meridian), and coastal airports never grow out to sea. The checkpoint
+gets room for twice the lanes, and terminal prices climb per airfield.
+
 **The hub and the long game.** The eighth airport, Mid-Continent
 International (MCI), sits in the middle of the map. It costs the most and
 gets the most demand, with widebodies and superjumbos earlier than

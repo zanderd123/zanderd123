@@ -5,7 +5,7 @@
 
 import { AIRCRAFT, CONNECTORS, UPGRADES, STAFFING, TERMINAL, PAX, COSTS, CONTRACTS } from './config.js';
 import { SLOTS, PLOTS, TERMINAL_CODES, PARKING_SITES } from './layout.js';
-import { FIELD_NAMES } from './hub.js';
+import { fieldName, siteFields, EXPAND_TERMINALS } from './hub.js';
 import * as S from './sim.js';
 
 let AP = null; // the airport being advised, for place names
@@ -62,9 +62,9 @@ export function advise(game, ap) {
     // the hub: open another of its airfields
     const next = ['n.core', 'e.core', 'w.core'].find((id) => S.plotAvailable(ap, id) && !ap.plots[id]);
     if (next) fixes.push({ ...fix(`Buy the ${PLOTS[next].name.toLowerCase()}`, 'plot', { id: next }, S.plotCost(ap, next)), why: 'another runway, with its own tower and terminals' });
-    const what = many ? `The ${FIELD_NAMES[rw.field || ''].toLowerCase()}'s runway${rw.field === 'X' ? 's are' : ' is'}` : 'The runway is';
+    const what = many ? `The ${fieldName(ap.siteIndex, rw.field || '').toLowerCase()}'s runway${rw.field === 'X' ? 's are' : ' is'}` : 'The runway is';
     add(rwU >= 1 ? 3 : 2, 'runway', rwU >= 1 ? `${what} overbooked` : `${what} nearly full`,
-      `Your routes ${many ? `at the ${FIELD_NAMES[rw.field || ''].toLowerCase()}'s terminals ` : ''}need ${rw.demand.toFixed(1)} landings and take-offs a minute; you can handle ${rw.cap.toFixed(1)}. ` +
+      `Your routes ${many ? `at the ${fieldName(ap.siteIndex, rw.field || '').toLowerCase()}'s terminals ` : ''}need ${rw.demand.toFixed(1)} landings and take-offs a minute; you can handle ${rw.cap.toFixed(1)}. ` +
       `The limit right now is ${atcLimited ? 'your control tower: each terminal and runway adds a controller, and upgrades make each one faster' : 'the runway itself'}. ` +
       'Arrivals that cannot land circle in the holding stack, and every flight behind them runs late.',
       fixes, rwU >= 1 ? 'Until it is fixed, decline new routes: every extra flight makes all of them later.' : '');
@@ -267,6 +267,11 @@ export function advise(game, ap) {
     const main = S.terminalBySlot(ap, 'main');
     if (main.retail < 2 && S.retailCost(ap, main) != null) ideas.push({ ...fix(`Better shops in ${TERMINAL_CODES.main}`, 'retail', { slot: 'main' }, S.retailCost(ap, main)), why: `waiting passengers spend ×${TERMINAL.retailLevels[main.retail + 1].mult}` });
     if (ap.terminals.length >= 2) ideas.push(upgradeFix(ap, 'hvac', 'cuts climate bills 35%'));
+    // room to grow: what's left before the new airfields open up
+    if (S.canGrow(ap) && !S.grown(ap) && ap.terminals.length >= 2) {
+      const left = EXPAND_TERMINALS - S.growProgress(ap);
+      ideas.push({ ...fix(`Build out ${left} more terminal${left === 1 ? '' : 's'} to grow ${ap.name}`, 'tab', { tab: 'build' }, 0), why: `${siteFields(ap.siteIndex).length} new airfields open up` });
+    }
     if (!ap.terminals.some((T) => T.heavy) && ap.level >= 3 && !S.site(ap).smallOnly) {
       const T = ap.terminals.find((x) => S.isOpen(x));
       ideas.push({ ...fix(`Heavy gates for ${TERMINAL_CODES[T.slot]}`, 'heavy', { slot: T.slot }, S.heavyCost(ap, T)), why: 'unlocks widebody routes, which pay the most per flight' });
