@@ -35,7 +35,7 @@ export const MILESTONES = [
   ['hub', 'The hub', 'Own Mid-Continent International', (g) => anyAp(g, (a) => SITES[a.siteIndex].hub), null],
   ['southField', 'Hub of hubs', 'Open a second airfield at Mid-Continent', (g) => anyAp(g, (a) => a.plots['n.core'] || a.plots['e.core'] || a.plots['w.core']), null],
   ['island', 'You made it', 'Own Sunset Cay', (g) => anyAp(g, (a) => SITES[a.siteIndex].island), null],
-  ['lvl10', 'Top of the table', `Take an airport to level ${LEVELS.length - 1}`, (g) => anyAp(g, (a) => a.level >= LEVELS.length - 1), (g) => [Math.max(...g.airports.map((a) => a.level)), LEVELS.length - 1]],
+  ['lvl10', 'Top of the table', `Take an airport to level ${LEVELS.length}, the top`, (g) => anyAp(g, (a) => a.level >= LEVELS.length), (g) => [Math.max(...g.airports.map((a) => a.level)), LEVELS.length]],
   ['net1k', 'Money machine', 'Earn $1,000 a second across the company', (g) => net(g) >= 1000, (g) => [Math.max(0, net(g)), 1000]],
   ['net100k', 'Printing money', 'Earn $100,000 a second', (g) => net(g) >= 1e5, (g) => [Math.max(0, net(g)), 1e5]],
   ['rev1b', 'Billionaire', '$1 billion earned in all', (g) => revenue(g) >= 1e9, (g) => [revenue(g), 1e9]],

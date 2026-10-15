@@ -3,7 +3,7 @@
 // cheapest thing that fixes it. Each fix carries the same action the
 // matching button elsewhere in the panel would send.
 
-import { AIRCRAFT, CONNECTORS, UPGRADES, STAFFING, TERMINAL, PAX, COSTS, CONTRACTS, SECURITY as SECCFG } from './config.js';
+import { AIRCRAFT, CONNECTORS, UPGRADES, STAFFING, TERMINAL, PAX, COSTS, CONTRACTS } from './config.js';
 import { SLOTS, PLOTS, TERMINAL_CODES, PARKING_SITES } from './layout.js';
 import { FIELD_NAMES } from './hub.js';
 import * as S from './sim.js';
@@ -21,7 +21,10 @@ function upgradeFix(ap, key, why) {
   if (blocked === 'Owned' || blocked === 'Not at this airport') return null;
   const U = UPGRADES[key];
   if (blocked && U.needsPlot && !ap.plots[U.needsPlot]) {
-    return fix(`Buy the ${S.nm(ap, PLOTS[U.needsPlot].name)} (needed for ${U.name.toLowerCase()})`, 'plot', { id: U.needsPlot }, S.plotCost(ap, U.needsPlot));
+    // the land, or first the land it needs
+    let id = U.needsPlot;
+    while (PLOTS[id].needs && !ap.plots[PLOTS[id].needs]) id = PLOTS[id].needs;
+    return fix(`Buy the ${S.nm(ap, PLOTS[id].name)} (needed for ${U.name.toLowerCase()})`, 'plot', { id }, S.plotCost(ap, id));
   }
   if (blocked) return null;
   return { ...fix(U.name, 'upgrade', { id: key }, S.upgradeCost(ap, key)), why };
@@ -92,7 +95,7 @@ export function advise(game, ap) {
   if (secU > 0.85 || snap.secWait > 30) {
     const perLane = rep.security.cap / ap.securityLanes;
     const need = Math.max(0, Math.ceil(rep.security.demand / (perLane * 0.85)) - ap.securityLanes);
-    const room = SECCFG.maxLanes - ap.securityLanes;
+    const room = S.maxLanes(ap) - ap.securityLanes;
     const fixes = [];
     if (need > 0 && room > 0) fixes.push(fix(`Open a lane (${Math.min(need, room)} more needed)`, 'lane+', {}, S.laneCost(ap)));
     fixes.push(upgradeFix(ap, 'ctScanners', '+40% per lane'));
@@ -173,7 +176,7 @@ export function advise(game, ap) {
       if (ap.staffing.ground !== 'surge') fixes.push(fix('Surge ground crews', 'staff', { dept: 'ground', level: 'surge' }, 0));
     } else if (top === 'pax') {
       cause = 'waited at the gate for passengers still stuck in security or on a connector';
-      if (ap.securityLanes < SECCFG.maxLanes) fixes.push(fix('Open a security lane', 'lane+', {}, S.laneCost(ap)));
+      if (ap.securityLanes < S.maxLanes(ap)) fixes.push(fix('Open a security lane', 'lane+', {}, S.laneCost(ap)));
       fixes.push(upgradeFix(ap, 'ctScanners', '+40% per lane'));
     } else {
       cause = 'were slowed by traffic on the taxiways (far terminals take longest)';
@@ -259,7 +262,7 @@ export function advise(game, ap) {
     const main = S.terminalBySlot(ap, 'main');
     if (main.retail < 2 && S.retailCost(ap, main) != null) ideas.push({ ...fix(`Better shops in ${TERMINAL_CODES.main}`, 'retail', { slot: 'main' }, S.retailCost(ap, main)), why: `waiting passengers spend ×${TERMINAL.retailLevels[main.retail + 1].mult}` });
     if (ap.terminals.length >= 2) ideas.push(upgradeFix(ap, 'hvac', 'cuts climate bills 35%'));
-    if (!ap.terminals.some((T) => T.heavy) && ap.level >= 3) {
+    if (!ap.terminals.some((T) => T.heavy) && ap.level >= 3 && !S.site(ap).smallOnly) {
       const T = ap.terminals.find((x) => S.isOpen(x));
       ideas.push({ ...fix(`Heavy gates for ${TERMINAL_CODES[T.slot]}`, 'heavy', { slot: T.slot }, S.heavyCost(ap, T)), why: 'unlocks widebody routes, which pay the most per flight' });
     }
@@ -296,7 +299,7 @@ export function parkingFixes(ap, short = 1) {
   for (const id of S.parkingList(ap)) {
     const P = PARKING_SITES[id];
     const next = S.parkingNext(ap, id);
-    if (!next) continue;
+    if (!next || !S.parkingAvailable(ap, id) || !S.plotAvailable(ap, P.plot)) continue;
     const add = S.parkingSiteCap(id, next) - S.parkingSiteCap(id, ap.parking[id]);
     if (ap.plots[P.plot]) {
       const cost = S.parkingCost(ap, id);

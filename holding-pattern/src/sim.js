@@ -226,6 +226,11 @@ export function restoreAirport(data) {
   if (ap.upgrades.garage2) ap.parking.southeast = 'garage';
   delete ap.upgrades.garage1; delete ap.upgrades.garage2;
   if (site.hub && ap.hubV !== 2) migrateHub(ap);
+  // land and runways the hub can't have (an advisor bug once sold them)
+  if (site.hub) {
+    for (const id of Object.keys(ap.plots)) if (!plotAvailable(ap, id)) delete ap.plots[id];
+    delete ap.upgrades.runway2; delete ap.upgrades.crosswind;
+  }
   // (after the hub's move: older hub saves had sites that no longer exist)
   ap.terminals = ap.terminals.filter((T) => SLOTS[T.slot]);
   for (const T of ap.terminals) T.gates = Math.min(T.gates, maxGates(ap, T.slot)); // older saves allowed 5
@@ -307,6 +312,8 @@ export function isOpen(T) {
 // field the airport has.
 export function runwayCount(ap) { return isStar(ap) ? 3 : ap.upgrades.runway2 ? 2 : 1; }
 export function totalRunways(ap) { return fields(ap).reduce((n, F) => n + runwayCount(F), 0); }
+// Runways to maintain: the crosswind (departures only) too.
+const runwaysKept = (ap) => totalRunways(ap) + (ap.upgrades.crosswind ? 1 : 0);
 
 export function staffing(ap, dept) { return STAFFING[ap.staffing[dept]]; }
 
@@ -321,8 +328,11 @@ function fieldControllers(F) {
   return runwayCount(F) + F.terminals.filter((T) => T.buildLeft <= 0 && slotField(T.slot) === f).length;
 }
 
+// (loadReport plans for clear skies: a storm passes in a minute or so, and
+// the ops board shows it while it lasts)
+let clearSkies = false;
 export function stormFactor(ap) {
-  if (ap.t >= ap.weather.stormUntil) return 1;
+  if (clearSkies || ap.t >= ap.weather.stormUntil) return 1;
   return ap.upgrades.cat3 ? WEATHER.stormRunwayCat3 : WEATHER.stormRunway;
 }
 
@@ -409,10 +419,18 @@ export function connectorAllowed(type, slot) {
   return !(def.adjacentOnly && !SLOTS[slot].adjacent);
 }
 
-export function terminalCost(ap) {
-  const n = ap.terminals.length; // main counts as the first
-  return Math.round(TERMINAL.baseCost * Math.pow(TERMINAL.costGrowth, n - 1) * site(ap).cost);
+// Each terminal costs more than the last. At the hub the climb is per
+// airfield (each has its own land, taxiways and tower), so all thirty
+// sites stay within reach; the first on a new field costs the base price.
+export function terminalCost(ap, slot = null) {
+  const f = slot && site(ap).hub ? slotField(slot) : null;
+  const n = f == null ? ap.terminals.length - 1 // main counts as the first
+    : ap.terminals.filter((T) => slotField(T.slot) === f).length - (f ? 0 : 1);
+  return Math.round(TERMINAL.baseCost * Math.pow(TERMINAL.costGrowth, n) * site(ap).cost);
 }
+// Security lanes the main terminal has room for (the hub's checkpoint
+// screens every airfield's passengers, so it is twice the size).
+export const maxLanes = (ap) => SEC.maxLanes * (site(ap).hub ? 2 : 1);
 
 export function gateCost(ap, T) {
   // A gate added to a heavy terminal is built heavy: it pays its share of
@@ -547,7 +565,7 @@ export function computeCosts(ap) {
     { key: 'ground', label: `Ground crews (${gates} gates)`, v: gates * COSTS.groundCrewPerGate * staffing(ap, 'ground').cost },
     { key: 'hvac', label: 'Heating, cooling & power', v: built.reduce((s, T) => s + COSTS.hvacBase + COSTS.hvacPerGate * T.gates, 0) * hvacMult },
     { key: 'cleaning', label: 'Cleaning & upkeep', v: built.length * COSTS.cleaningBase + (ap.rolling ? ap.rolling.flowPerMin : 0) * COSTS.cleaningPerPaxMin },
-    { key: 'runway', label: `Runway maintenance (${totalRunways(ap)})`, v: totalRunways(ap) * COSTS.runwayMaint },
+    { key: 'runway', label: `Runway maintenance (${runwaysKept(ap)})`, v: runwaysKept(ap) * COSTS.runwayMaint },
     { key: 'connectors', label: 'Connector operations', v: ap.terminals.reduce((s, T) => s + (T.connector && T.connector.buildLeft <= 0 ? connectorUpkeep(T.connector) : 0), 0) },
     { key: 'parking', label: 'Car parks, hotels & landside', v: parkingUpkeep(ap) },
     { key: 'hangars', label: `Maintenance hangars (${hangarCount(ap)})`, v: hangarCount(ap) * HANGAR.upkeep },
@@ -592,6 +610,10 @@ function gateMinutes(ap, cls) {
 }
 
 export function loadReport(ap, extra = null) {
+  clearSkies = true;
+  try { return planReport(ap, extra); } finally { clearSkies = false; }
+}
+function planReport(ap, extra) {
   const contracts = extra ? ap.contracts.concat([extra]) : ap.contracts;
   const r = {};
   let depPax = 0;
@@ -656,6 +678,8 @@ export function suggestTerminal(ap, cls) {
     const tr = rep.terminals.find((x) => x.slot === T.slot);
     let u = tr.gateDemand / T.gates;
     if (tr.connCap != null) u = Math.max(u, tr.pax / Math.max(1, tr.connCap));
+    // at the hub, a quiet airfield's runway counts too
+    if (rep.runways.length > 1) { const rw = runwayFor(rep, T.slot); u = Math.max(u, rw.demand / Math.max(0.1, rw.cap)); }
     if (u < bestU) { bestU = u; best = T.slot; }
   }
   return best;
@@ -842,6 +866,7 @@ function spend(game, amount) {
 export function buyPlot(game, ap, plot) {
   const P = PLOTS[plot];
   if (ap.plots[plot]) return 'Already owned';
+  if (!plotAvailable(ap, plot)) return noRoom(ap);
   if (P.needs && !ap.plots[P.needs]) return `Buy the ${nm(ap, PLOTS[P.needs].name)} first`;
   if (!spend(game, plotCost(ap, plot))) return 'Not enough cash';
   ap.plots[plot] = true;
@@ -855,7 +880,7 @@ export function buildTerminal(game, ap, slot, connectorType, buses = 2) {
   if (ap.hangars[slot]) return 'A hangar stands there';
   if (!ap.plots[SLOTS[slot].plot]) return 'Buy the land first';
   if (!connectorAllowed(connectorType, slot)) return 'That connector cannot reach this site';
-  const cost = terminalCost(ap) + connectorBuildCost(connectorType, slot, ap);
+  const cost = terminalCost(ap, slot) + connectorBuildCost(connectorType, slot, ap);
   if (!spend(game, cost)) return 'Not enough cash';
   const T = newTerminal(slot, false);
   T.waiting = new Map();
@@ -935,7 +960,7 @@ export function buyRetail(game, ap, slot) {
 }
 
 export function addLane(game, ap) {
-  if (ap.securityLanes >= SEC.maxLanes) return 'The checkpoint is full';
+  if (ap.securityLanes >= maxLanes(ap)) return 'The checkpoint is full';
   if (!spend(game, laneCost(ap))) return 'Not enough cash';
   ap.securityLanes++;
   ap.costLines = computeCosts(ap);
@@ -952,7 +977,7 @@ export function removeLane(ap) {
 export function upgradeBlocked(ap, key) {
   const U = UPGRADES[key];
   if (U.onlyAt && !site(ap)[U.onlyAt]) return 'Not at this airport';
-  if (site(ap).island && U.needsPlot) return 'Not at this airport'; // no land for it
+  if (U.needsPlot && !plotAvailable(ap, U.needsPlot)) return 'Not at this airport'; // no land for it
   if (ap.upgrades[key]) return 'Owned';
   if (key === 'crosswind' && ap.hangars.fareast) return 'The hangar on the far east field is in the way: tear it down first';
   if (key === 'crosswind' && terminalBySlot(ap, 'fareast')) return `The ${nm(ap, SLOTS.fareast.name)} terminal is in the way: tear it down first`;

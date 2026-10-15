@@ -5,7 +5,7 @@
 
 import {
   AIRCRAFT, CONNECTORS, CONNECTOR_ORDER, UPGRADES, UPGRADE_ORDER, STAFFING,
-  TERMINAL, LEVELS, SITES, PAX, CONTRACTS, SECURITY as SECCFG, PARKING, LANDSIDE, HANGAR, DEMOLISH_REFUND, MANAGER,
+  TERMINAL, LEVELS, SITES, PAX, CONTRACTS, PARKING, LANDSIDE, HANGAR, DEMOLISH_REFUND, MANAGER,
 } from './config.js';
 import { SLOTS, SLOT_ORDER, PLOTS, PLOT_ORDER, TERMINAL_CODES, PARKING_SITES, PARKING_ORDER, connectorRoute } from './layout.js';
 import { FIELD_NAMES } from './hub.js';
@@ -369,7 +369,7 @@ function renderBuild(game, ap) {
   const free = S.slotList(ap).filter((s) => !S.terminalBySlot(ap, s) && !ap.hangars[s] && ap.plots[SLOTS[s].plot] && S.slotAvailable(ap, s));
   if (free.length) {
     h += `<h3 class="sec">Open sites</h3><ul class="list">`;
-    for (const s of free) h += `<li><div class="what"><b>${S.nm(ap, SLOTS[s].name)}</b><span>${SLOTS[s].field ? `${FIELD_NAMES[SLOTS[s].field]}: reached by tunnel or monorail` : SLOTS[s].row === 'mid' ? 'Midfield: across the apron from the main terminal' : SLOTS[s].adjacent ? 'Next to the main terminal: a walkway can reach it' : 'Main row, further out'}</span></div><button type="button" class="btn go" data-act="detail" data-kind="slot" data-id="${s}">Plan · ${money(S.terminalCost(ap))}+</button></li>`;
+    for (const s of free) h += `<li><div class="what"><b>${S.nm(ap, SLOTS[s].name)}</b><span>${SLOTS[s].field ? `${FIELD_NAMES[SLOTS[s].field]}: reached by tunnel or monorail` : SLOTS[s].row === 'mid' ? 'Midfield: across the apron from the main terminal' : SLOTS[s].adjacent ? 'Next to the main terminal: a walkway can reach it' : 'Main row, further out'}</span></div><button type="button" class="btn go" data-act="detail" data-kind="slot" data-id="${s}">Plan · ${money(S.terminalCost(ap, s))}+</button></li>`;
     h += `</ul>`;
   } else {
     h += `<p class="note">Buy more land to open new terminal sites.</p>`;
@@ -422,7 +422,7 @@ function connectorCard(ap, type, slot, chosen, current = null) {
 function renderSlotDetail(game, ap, slot) {
   const S0 = SLOTS[slot];
   const chosen = ui.buildChoice[slot] || (S0.field ? 'tunnel' : S0.adjacent ? 'walkway' : 'shuttle');
-  const tcost = S.terminalCost(ap);
+  const tcost = S.terminalCost(ap, slot);
   const ccost = S.connectorBuildCost(chosen, slot, ap);
   let h = `<button type="button" class="back" data-act="back">◂ Back</button>
   <div class="title" style="font-size:24px">${S.nm(ap, S0.name)}</div>
@@ -524,7 +524,7 @@ function securityBlock(ap) {
   return `<table class="fc"><tr><td>Load</td><td>${barHtml(rep.security.demand / rep.security.cap)}</td><td class="num">${pct(rep.security.demand / rep.security.cap)}</td></tr></table>
   <p class="note">${ap.securityLanes} lanes screen ${num(rep.security.cap)} passengers a minute against ${num(rep.security.demand)} booked. ${num(ap.secQueue || 0)} in line now.</p>
   ${recTag({ act: 'lane+', data: {} })}
-  <div class="btns">${ap.securityLanes < SECCFG.maxLanes ? priceBtn('Open a lane', 'lane+', S.laneCost(ap)) : ''}<button type="button" class="btn" data-act="lane-" ${ap.securityLanes > 1 ? '' : 'disabled'}>Close a lane</button></div>`;
+  <div class="btns">${ap.securityLanes < S.maxLanes(ap) ? priceBtn('Open a lane', 'lane+', S.laneCost(ap)) : ''}<button type="button" class="btn" data-act="lane-" ${ap.securityLanes > 1 ? '' : 'disabled'}>Close a lane</button></div>`;
 }
 
 // Landside sites: what stands there, what it could become, and what each
