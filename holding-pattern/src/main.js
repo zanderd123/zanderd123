@@ -49,16 +49,7 @@ function start(hotData) {
       }
     }
   } else if (!restored) {
-    showDialog(`<h2>Holding Pattern</h2>${loadFailed() ? `
-      <p><b>Your saved game could not be read</b>, so a new one has started. A copy of the old save was kept in this browser.</p>` : ''}
-      <p>You run Pinewood Regional: one runway, one small terminal, one airline. Sign airline routes to grow, and keep planes and passengers moving.</p>
-      <ul>
-        <li>Planes and passengers arrive on their own. Every terminal, lane and controller costs money every second.</li>
-        <li>Overbook the airport and planes circle, passengers miss flights, and airlines walk away.</li>
-        <li>There is no restart: grow big enough and the network map opens your next airport.</li>
-      </ul>
-      <div class="legend"><span><i style="background:#1f6fd1"></i>departing passengers</span><span><i style="background:#e0861c"></i>arriving passengers</span></div>
-      <div class="btns"><button type="button" class="btn go" data-close="dialog" data-start-tut>Show me how (1 minute)</button><button type="button" class="btn" data-close="dialog">I'll figure it out</button></div>`);
+    showIntro(loadFailed());
   }
   tut = makeTutorial(game, {
     openTab(tab) { ui.tab = tab; ui.detail = null; openPanel(); renderPanel(true); },
@@ -404,7 +395,7 @@ body.addEventListener('click', (e) => {
       } catch { err = 'That save code could not be read'; }
       break;
     }
-    case 'wipe': wipe(); replaceGame(newGame()); ui.armed = null; ok = 'New game'; break;
+    case 'wipe': wipe(); replaceGame(newGame()); ui.armed = null; ui.tab = 'advisor'; ok = 'New game started'; showIntro(); break;
   }
   if (err) toast(err, 'bad'); else if (ok) toast(ok, 'good');
   renderTop(game);
@@ -439,6 +430,20 @@ function watchGrowth() {
   cam.zoom = cam.minZoom;
   cam.x = M.x0 + M.w / 2 + (W / 2 - (F.x0 + F.x1) / 2) / cam.zoom;
   cam.y = M.y0 + M.h / 2 + (H / 2 - (F.y0 + F.y1) / 2) / cam.zoom;
+}
+
+// The welcome card, for a first visit and after a reset.
+function showIntro(failed = false) {
+  showDialog(`<h2>Holding Pattern</h2>${failed ? `
+    <p><b>Your saved game could not be read</b>, so a new one has started. A copy of the old save was kept in this browser.</p>` : ''}
+    <p>You run Pinewood Regional: one runway, one small terminal, one airline. Sign airline routes to grow, and keep planes and passengers moving.</p>
+    <ul>
+      <li>Planes and passengers arrive on their own. Every terminal, lane and controller costs money every second.</li>
+      <li>Overbook the airport and planes circle, passengers miss flights, and airlines walk away.</li>
+      <li>There is no game over: grow big enough and the network map opens your next airport.</li>
+    </ul>
+    <div class="legend"><span><i style="background:#1f6fd1"></i>departing passengers</span><span><i style="background:#e0861c"></i>arriving passengers</span></div>
+    <div class="btns"><button type="button" class="btn go" data-close="dialog" data-start-tut>Show me how (1 minute)</button><button type="button" class="btn" data-close="dialog">I'll figure it out</button></div>`);
 }
 
 function replaceGame(g) {

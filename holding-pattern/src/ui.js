@@ -51,6 +51,12 @@ function armBtn(key, label, armedLabel, act, extra = '') {
   const armed = ui.armed === key && performance.now() < ui.armedUntil;
   return `<button type="button" class="btn danger ${armed ? 'arm' : ''}" data-act="${armed ? act : 'arm'}" data-key="${key}" ${extra}>${armed ? armedLabel : label}</button>`;
 }
+// Reset: erase the saved game and start again at Pinewood. Two taps, so
+// it can't happen by accident.
+const resetBtn = () => armBtn('wipe', 'Reset game', 'Tap again to erase everything', 'wipe');
+function resetBlock() {
+  return `<h3 class="sec">Reset game</h3><p class="note">Start again from the beginning: one runway at Pinewood and $50,000. This erases every airport, all your money and your milestones, and can't be undone. To keep a copy first, use <b>Copy save code</b> in the Money tab.</p><div class="btns">${resetBtn()}</div>`;
+}
 function stars(rep) {
   const n = rep / 20;
   return `${n.toFixed(1)}★`;
@@ -143,7 +149,7 @@ export function renderPanel(force = false) {
   if (ui.detail) html = renderDetail(game, ap, ui.detail);
   else if (ui.tab === 'advisor') html = renderAdvisor(game, ap);
   else if (ui.tab === 'network') html = renderNetwork(game);
-  else if (ui.tab === 'help') html = helpHtml();
+  else if (ui.tab === 'help') html = helpHtml() + resetBlock();
   else if (ui.tab === 'contracts') html = renderContracts(game, ap);
   else if (ui.tab === 'build') html = renderBuild(game, ap);
   else if (ui.tab === 'ops') html = renderOperations(game, ap);
@@ -740,7 +746,7 @@ function renderFinance(game, ap) {
   if (nextL) h += `<p class="note">Level ${ap.level + 1} at ${num(nextL)} passengers served (${num(ap.paxServed)} so far). Levels bring bigger aircraft and, at level 4, the next airport.</p>`;
   h += `<h3 class="sec">Save</h3>
   <p class="note">The game saves itself in this browser every few seconds. Copy a save code to move it elsewhere.</p>
-  <div class="btns"><button type="button" class="btn" data-act="export">Copy save code</button><button type="button" class="btn" data-act="import-open">Load a save code</button>${armBtn('wipe', 'Start over', 'Confirm: erase everything', 'wipe')}</div>
+  <div class="btns"><button type="button" class="btn" data-act="export">Copy save code</button><button type="button" class="btn" data-act="import-open">Load a save code</button>${resetBtn()}</div>
   ${ui.importOpen ? `<div style="margin-top:10px"><label class="sub" for="importBox">Paste a save code</label><textarea id="importBox"></textarea><div class="btns"><button type="button" class="btn go" data-act="import">Load</button></div></div>` : ''}
   ${ui.exported ? `<div style="margin-top:10px"><label class="sub" for="exportBox">Save code</label><textarea id="exportBox" readonly>${esc(ui.exported)}</textarea></div>` : ''}`;
   return h;

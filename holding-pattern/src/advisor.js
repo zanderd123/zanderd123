@@ -283,7 +283,7 @@ export function advise(game, ap) {
   // The best next step is the first fix for the most urgent problem that
   // can be afforded now (opening a tab counts: sometimes the fix is a choice).
   let best = null;
-  for (const i of issues) { best = i.fixes.find((f) => f.cost <= game.cash) || null; if (best) { best = { ...best, problem: i.sev >= 1 ? i.title : 'Room to grow' }; break; } }
+  for (const i of issues) { best = i.fixes.find((f) => f.cost <= game.cash) || null; if (best) { best = { ...best, problem: i.sev >= 1 ? i.title : 'Ready for more' }; break; } }
   const recommended = new Set(issues.filter((i) => i.sev >= 1).flatMap((i) => i.fixes).map((f) => key(f)));
   return { issues, best, recommended, money, delayed };
 }
