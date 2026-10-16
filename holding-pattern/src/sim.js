@@ -141,12 +141,32 @@ function makeField(ap, key) {
   const k = key.toLowerCase();
   // effects carry the field they happened in, for the renderer to place
   const fx = (type, e) => { if (ap.fx) ap.fx(type, { ...e, field: key }); };
+  // The field's land, upgrades and terminals are read many times a step:
+  // each view is kept until what it is made from changes. (Land and
+  // upgrades are only ever added; terminals are added or the list replaced.)
+  const memo = { plots: null, pk: '', up: null, uk: null, un: -1, terms: null, tk: null, tn: -1 };
+  const plotsOf = (t) => {
+    if (key === 'X') return memo.plots || (memo.plots = { core: true });
+    const P = t.plots, pk = `${!!P[k + '.core']}${!!P[k + '.west']}${!!P[k + '.east']}${!!P[k + '.farwest']}`;
+    if (pk !== memo.pk) { memo.pk = pk; memo.plots = { core: !!P[k + '.core'], west: !!P[k + '.west'], east: !!P[k + '.east'], farwest: !!P[k + '.farwest'] }; }
+    return memo.plots;
+  };
+  const upgradesOf = (t) => {
+    const U = t.upgrades, n = Object.keys(U).length;
+    if (U !== memo.uk || n !== memo.un) { memo.uk = U; memo.un = n; memo.up = { ...U, runway2: false, crosswind: false, longRunway: false }; }
+    return memo.up;
+  };
+  const terminalsOf = (t) => {
+    const L = t.terminals;
+    if (L !== memo.tk || L.length !== memo.tn) { memo.tk = L; memo.tn = L.length; memo.terms = L.filter((T) => slotField(T.slot) === key); }
+    return memo.terms;
+  };
   return new Proxy(ap, {
     get(t, prop) {
       if (FIELD_KEYS.has(prop)) return S[prop];
-      if (prop === 'plots') return key === 'X' ? { core: true } : { core: !!t.plots[k + '.core'], west: !!t.plots[k + '.west'], east: !!t.plots[k + '.east'], farwest: !!t.plots[k + '.farwest'] };
-      if (prop === 'upgrades') return { ...t.upgrades, runway2: false, crosswind: false, longRunway: false };
-      if (prop === 'terminals') return t.terminals.filter((T) => slotField(T.slot) === key);
+      if (prop === 'plots') return plotsOf(t);
+      if (prop === 'upgrades') return upgradesOf(t);
+      if (prop === 'terminals') return terminalsOf(t);
       if (prop === 'fx') return t.fx ? fx : null;
       return t[prop];
     },
@@ -1265,7 +1285,16 @@ function scheduleFlights(game, ap) {
   }
 }
 
+// (kept for a few seconds per route: it only sets how early flights are
+// scheduled, and works out a whole route to do it)
 function inboundEstimate(ap, c) {
+  const m = c._ie;
+  if (m && m.slot === c.terminal && ap.t - m.t < 5 && ap.t >= m.t) return m.v;
+  const v = inboundEstimateNow(ap, c);
+  Object.defineProperty(c, '_ie', { value: { slot: c.terminal, t: ap.t, v }, enumerable: false, configurable: true, writable: true });
+  return v;
+}
+function inboundEstimateNow(ap, c) {
   const F = fieldFor(ap, c.terminal);
   if (isStar(F)) { const r = starArrivalRoute(c.terminal, gateStand(c.terminal, 0)); return 8 + (pathLength(r.route) - r.rollEnd) / FLIGHT.taxiSpeed * (1 + FLIGHT.taxiPad); }
   const r = arrivalRoute(F, arrRunway(F), c.cls, gateStand(c.terminal, 0));
@@ -1339,8 +1368,7 @@ function canClearArrival(ap, p, eta) {
   const own = AIRCRAFT[p.cls].exitIndex;
   p.exitIdx = -1;
   for (let i = own; i < (p.rw === 1 ? EXITS.length : own + 1) && p.exitIdx < 0; i++) {
-    const ex = EXITS[i];
-    if (!ap.planes.some((o) => o !== p && o.alt <= 0.5 && o.state !== 'gate' && Math.abs(o.x - ex) < 55 && o.y > RW[p.rw].y + 5 && o.y < jy + (p.rw === 1 ? 75 : 30))) p.exitIdx = i;
+    if (!exitBusy(ap, p.rw, i, jy)) p.exitIdx = i;
   }
   if (p.exitIdx < 0) { p.holdReason = 'taxi'; return false; }
   // Ground control meters arrivals too, so the taxiways never fill up.
@@ -1371,6 +1399,22 @@ function canClearArrival(ap, p, eta) {
   return true;
 }
 
+// Is anything on the ground at a runway's turn-off? Every holding aircraft
+// asks each step, so the answer is kept until the field's next step or
+// the next clearance. (Holding aircraft are in the air, so never count.)
+let exitMemo = { planes: null, t: -1, m: new Map() };
+function exitBusy(ap, rw, i, jy) {
+  if (exitMemo.planes !== ap.planes || exitMemo.t !== ap.t) exitMemo = { planes: ap.planes, t: ap.t, m: new Map() };
+  const k = rw * 16 + i;
+  let v = exitMemo.m.get(k);
+  if (v === undefined) {
+    const ex = EXITS[i];
+    v = ap.planes.some((o) => o.alt <= 0.5 && o.state !== 'gate' && Math.abs(o.x - ex) < 55 && o.y > RW[rw].y + 5 && o.y < jy + (rw === 1 ? 75 : 30));
+    exitMemo.m.set(k, v);
+  }
+  return v;
+}
+
 function tryClearArrival(ap, p) {
   const rw = RW[p.rw];
   const eta = dist(p.x, p.y, IAF.x, rw.y) / FLIGHT.cruiseSpeed + (rw.x0 - IAF.x) / FLIGHT.approachSpeed;
@@ -1380,6 +1424,7 @@ function tryClearArrival(ap, p) {
 }
 
 function clearArrival(ap, p, pts) {
+  exitMemo.t = -1;
   if (p.rw === 0) ap.lastMove = 'arr';
   const g = findGate(ap, p);
   if (g < 0) return false;
@@ -1417,6 +1462,10 @@ function updatePlanes(game, ap, dt) {
   const t = ap.t;
   ap.holdPhase += HOLD_OMEGA * dt;
 
+  // each holding aircraft's place in the stack, worked out once a step
+  const holdIdx = new Map();
+  ap.holdQueue.forEach((q, i) => holdIdx.set(q, i));
+
   // Clear whoever in the stack can land now, first come first served.
   ap.arrGround = 0;
   for (const o of ap.planes) if (o.state === 'rollout' || o.state === 'taxiIn' || o.state === 'final') ap.arrGround++;
@@ -1452,7 +1501,7 @@ function updatePlanes(game, ap, dt) {
         // No terminal left in this field that can take it (one was torn
         // down): after half a minute it diverts elsewhere.
         if (diverts(game, ap, p, dt)) break;
-        const slot = holdSlot(ap, ap.holdQueue.indexOf(p));
+        const slot = holdSlot(ap, holdIdx.has(p) ? holdIdx.get(p) : ap.holdQueue.indexOf(p));
         // Circle with the stack, sliding gently into this aircraft's own slot.
         p.holdA += HOLD_OMEGA * dt + clamp(wrapAngle(slot.a - p.holdA), -0.7 * dt, 0.7 * dt);
         p.holdR += (slot.R - p.holdR) * Math.min(1, dt);
@@ -1744,6 +1793,9 @@ function tryClearStarArrival(F, p) {
 }
 
 function updateStarPlanes(game, F, dt) {
+  // each holding aircraft's place in its line's stack, once a step
+  const starIdx = new Map(), perLine = [0, 0, 0];
+  for (const q of F.holdQueue) starIdx.set(q, perLine[q.rw]++);
   const t = F.t;
   F.holdPhase += HOLD_OMEGA * dt;
   F.arrGround = 0;
@@ -1773,8 +1825,7 @@ function updateStarPlanes(game, F, dt) {
         p.heldFor = (p.heldFor || 0) + dt;
         if (diverts(game, F, p, dt)) break;
         const c = starHoldCentre(p.rw);
-        const same = F.holdQueue.filter((o) => o.rw === p.rw);
-        const slot = holdSlot(F, same.indexOf(p));
+        const slot = holdSlot(F, starIdx.has(p) ? starIdx.get(p) : 0);
         p.holdA += HOLD_OMEGA * dt + clamp(wrapAngle(slot.a - p.holdA), -0.7 * dt, 0.7 * dt);
         p.holdR += (slot.R - p.holdR) * Math.min(1, dt);
         p.x = c.x + p.holdR * Math.cos(p.holdA);
@@ -2075,6 +2126,9 @@ function groundTraffic(game, ap, dt) {
       const ka = hit[0] - A.m.blockedFor * 4 - (offRunway(A.m) ? 1000 : 0);
       const kb = hit[1] - B.m.blockedFor * 4 - (offRunway(B.m) ? 1000 : 0);
       let aWins = ka < kb - 0.5 || (Math.abs(ka - kb) <= 0.5 && A.m.id < B.m.id);
+      // One just towed back to break a standoff gives way for a while, or
+      // it would drive straight back into the same one.
+      const towedA = !A.pseudo && t - (A.m.towT || -1e9) < 15, towedB = !B.pseudo && t - (B.m.towT || -1e9) < 15;
       const onRoute = (X, Y) => !X.pseudo && Y.pts.some((q) => (q.x - X.m.x) ** 2 + (q.y - X.m.y) ** 2 < rr * rr);
       const aOn = onRoute(A, B), bOn = onRoute(B, A);
       const aIn = !A.pseudo && boxAt(zones, A.m.x, A.m.y) >= 0;
@@ -2085,6 +2139,7 @@ function groundTraffic(game, ap, dt) {
       else if (bIn && !aIn) aWins = false;
       if (aWins && A.m.blockBy === B.m && B.m.blockBy !== A.m) aWins = false;
       else if (!aWins && B.m.blockBy === A.m && A.m.blockBy !== B.m) aWins = true;
+      if (towedA !== towedB) aWins = towedB;
       // A claim from an aircraft still on the runway can't be made to wait.
       if ((aWins ? B : A).pseudo) continue;
       const loser = aWins ? B.m : A.m;
@@ -2132,6 +2187,8 @@ function groundTraffic(game, ap, dt) {
     // exempt only until it reaches the taxiway it turns onto: it must get
     // off the runway, but not barge into the junctions beyond.
     {
+      // (each look-ahead point's boxes, worked out once: they are asked again and again)
+      const bxAt = (q) => q.bx || (q.bx = boxesAt(zones, q.x, q.y));
       const mine = new Set(boxesAt(zones, m.x, m.y));
       for (const k of mine) {
         const Z = zones[k];
@@ -2141,13 +2198,13 @@ function groundTraffic(game, ap, dt) {
       for (let i = 0; i < m.look.length; i++) {
         const q = m.look[i];
         if (q.s > allowed) break;
-        const fresh = boxesAt(zones, q.x, q.y).filter((k) => !mine.has(k));
+        const fresh = bxAt(q).filter((k) => !mine.has(k));
         if (!fresh.length) continue;
         if (q.s < skip) { for (const k of fresh) mine.add(k); continue; }
         const taken = fresh.some((k) => zones[k].owner && zones[k].owner !== m && t - zones[k].ownerT <= 0.2);
         let exitS = m.d + LOOK >= m.len ? 0 : Infinity;
         for (let j = i + 1; j < m.look.length; j++) {
-          const here = boxesAt(zones, m.look[j].x, m.look[j].y);
+          const here = bxAt(m.look[j]);
           if (!fresh.some((k) => here.includes(k))) { exitS = m.look[j].s; break; }
         }
         // An aircraft halfway across the main runway may always pull into
@@ -2216,9 +2273,17 @@ function groundTraffic(game, ap, dt) {
         const ring = [m];
         let x = m.blockBy;
         while (x && !ring.includes(x) && ring.length < 8) { ring.push(x); x = x.blockBy; }
-        // the newest of them that is not still turning off a runway
-        const towable = ring.filter((r) => r.state !== 'rollout');
-        if (x === m && Math.max(...towable.map((r) => r.id)) === m.id) towBack(m, bodies, dt);
+        // the newest of them that is not still turning off a runway, and
+        // can move back; failing that (someone close behind, or towed as
+        // far as it goes), the next newest; after 20 seconds, even one
+        // turning off (backing up keeps it on the runway it holds anyway)
+        if (x === m) {
+          const order = (a, b) => b.id - a.id;
+          const cands = ring.filter((r) => r.state !== 'rollout').sort(order);
+          if (m.blockedFor > 20) cands.push(...ring.filter((r) => r.state === 'rollout').sort(order));
+          const pick = cands.find((r) => canTow(r, bodies));
+          if (pick && pick.towT !== t) { pick.towT = t; towBack(pick, bodies, dt); }
+        }
       }
       if (m.blockedFor > 60) ap.gridlocks = (ap.gridlocks || 0) + 1;
     } else {
@@ -2273,14 +2338,19 @@ function groundTraffic(game, ap, dt) {
 
 // Move an aircraft back along its route, only while that takes it further
 // from everything around it; at most 45 px in all.
-function towBack(m, bodies, dt) {
-  if ((m.towed || 0) > 45 || m.d < 2) return;
+// Can an aircraft be towed back a little without backing into anyone?
+function canTow(m, bodies) {
+  if ((m.towed || 0) > 45 || m.d < 2) return false;
   const back = pointAlong(m.path, Math.max(0, m.d - 3));
   for (const o of bodies) {
     if (o.p === m) continue;
     const now = Math.hypot(m.x - o.x, m.y - o.y), then = Math.hypot(back.x - o.x, back.y - o.y);
-    if (then < now && then < m.r + o.r + 2) return;
+    if (then < now && then < m.r + o.r + 2) return false;
   }
+  return true;
+}
+function towBack(m, bodies, dt) {
+  if (!canTow(m, bodies)) return;
   const step = Math.min(10 * dt, m.d);
   m.d -= step;
   m.towed = (m.towed || 0) + step;

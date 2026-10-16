@@ -11,6 +11,8 @@ import { createAirport, step, acceptOffer } from '../src/sim.js';
 import * as S from '../src/sim.js';
 
 const minutes = Number(process.argv[2] || 15);
+// the step size (the game steps airports off screen in bigger ones)
+const DT = Number(process.env.DT || 0.05);
 
 function scenario(name, seed, setup, siteIndex = 0, routes = 20, classes = ['regional', 'narrow', 'narrow', 'wide']) {
   if (only && only !== name) return true;
@@ -28,8 +30,8 @@ function scenario(name, seed, setup, siteIndex = 0, routes = 20, classes = ['reg
   }
   let overlaps = 0, worst = Infinity, landings = 0, takeoffs = 0;
   const seen = new Set();
-  for (let t = 0; t < minutes * 60; t += 0.05) {
-    step(game, ap, 0.05);
+  for (let t = 0; t < minutes * 60; t += DT) {
+    step(game, ap, DT);
     // each airfield on its own: the hub's south field shares coordinates
     for (const F of S.fields(ap)) {
     const g = F.planes.filter((p) => p.alt <= 0.5 && p.state !== 'gate');

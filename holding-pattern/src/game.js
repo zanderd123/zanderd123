@@ -22,8 +22,10 @@ export function newGame() {
 export function activeAirport(game) { return game.airports[game.active]; }
 
 // The airport on screen steps every frame so it animates smoothly; the
-// others step in fixed 0.05s chunks, which is all their numbers need.
-const BG_STEP = 0.05;
+// others step in fixed 0.1s chunks, which is all their numbers need
+// (ground traffic stays clear and moving at that step: tools/traffic.mjs
+// with DT=0.1). With every airport grown, they are most of the work.
+const BG_STEP = 0.1;
 export function stepGame(game, dt, onScreen = null) {
   for (const ap of game.airports) {
     if (!onScreen || ap === onScreen) { step(game, ap, dt); continue; }

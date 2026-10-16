@@ -74,6 +74,7 @@ button:focus-visible, select:focus-visible { outline: 2px solid var(--sign); out
 .speed button { background: #2c3139; border: 0; padding: 6px 9px; font: 600 13px/1 var(--mono); color: #dedad0; }
 .speed button + button { border-left: 1px solid #4a505a; }
 .speed button.on { background: var(--sign); color: var(--ink); }
+.speed.slowed button.on { background: var(--amber); }
 
 /* ---------------------------------------------------------------- ops board */
 #ops {

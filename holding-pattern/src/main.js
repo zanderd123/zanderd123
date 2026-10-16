@@ -118,6 +118,21 @@ window.addEventListener('resize', resize);
 
 let last = 0, uiAcc = 0, hidden = false;
 let frameFailed = false;
+// A device that can't simulate a big network at full speed (a phone at 4x
+// with every airport grown) runs the game a little slower instead: a slow
+// frame would only bring a longer step next time, and the next frame
+// would be slower still. It catches back up when there is room.
+let simScale = 1;
+function keepUp(ms) {
+  if (ms > 11) simScale = Math.max(0.15, simScale * 0.85);
+  else if (ms < 6) simScale = Math.min(1, simScale * 1.04 + 0.005);
+  const slow = simScale < 0.9 && game.speed > 1;
+  const sp = document.querySelector('.speed');
+  if (sp && sp.classList.contains('slowed') !== slow) {
+    sp.classList.toggle('slowed', slow);
+    sp.title = slow ? 'Running a little slower so this device can keep up' : '';
+  }
+}
 function frame(now) {
   try { frameBody(now); } catch (e) {
     if (!frameFailed) { frameFailed = true; console.error(e); toast('Something went wrong; the game carries on. Reloading the page may help.', 'bad'); }
@@ -129,11 +144,13 @@ function frameBody(now) {
   let dt = Math.min(0.25, (now - last) / 1000);
   last = now;
   if (hidden) dt = 0;
-  const simDt = dt * game.speed;
+  const simDt = dt * game.speed * simScale;
   // fixed-ish substeps keep fast speeds stable
   const n = Math.ceil(simDt / 0.05);
   const ap = activeAirport(game);
+  const s0 = performance.now();
   for (let i = 0; i < n; i++) stepGame(game, simDt / n, ap);
+  keepUp(performance.now() - s0);
 
   view.dt = simDt;
   watchGrowth();

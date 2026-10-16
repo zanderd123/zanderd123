@@ -63,25 +63,34 @@ export function duration(sec) {
   return `${h}h ${m % 60}m`;
 }
 
-// Polyline helpers for anything that follows a path.
+// Polyline helpers for anything that follows a path. A path's running
+// lengths are worked out once and kept with it (paths are built, then
+// only read), so finding a point along one is a quick search: aircraft
+// look along their paths dozens of times a step.
+const CUM = new WeakMap();
+function cumOf(pts) {
+  let c = CUM.get(pts);
+  if (c && c.length === pts.length) return c;
+  c = new Float64Array(pts.length);
+  for (let i = 1; i < pts.length; i++) c[i] = c[i - 1] + dist(pts[i - 1].x, pts[i - 1].y, pts[i].x, pts[i].y);
+  CUM.set(pts, c);
+  return c;
+}
 export function pathLength(pts) {
-  let L = 0;
-  for (let i = 1; i < pts.length; i++) L += dist(pts[i - 1].x, pts[i - 1].y, pts[i].x, pts[i].y);
-  return L;
+  return pts.length < 2 ? 0 : cumOf(pts)[pts.length - 1];
 }
 
 export function pointAlong(pts, d) {
-  for (let i = 1; i < pts.length; i++) {
-    const a = pts[i - 1], b = pts[i];
-    const seg = dist(a.x, a.y, b.x, b.y);
-    if (d <= seg || i === pts.length - 1) {
-      const t = seg > 0 ? clamp(d / seg, 0, 1) : 1;
-      return { x: lerp(a.x, b.x, t), y: lerp(a.y, b.y, t), ang: Math.atan2(b.y - a.y, b.x - a.x) };
-    }
-    d -= seg;
-  }
-  const p = pts[pts.length - 1];
-  return { x: p.x, y: p.y, ang: 0 };
+  const n = pts.length;
+  if (n < 2) { const p = pts[n - 1]; return { x: p.x, y: p.y, ang: 0 }; }
+  const c = cumOf(pts);
+  // the first segment that reaches d (or the last one)
+  let lo = 1, hi = n - 1;
+  while (lo < hi) { const mid = (lo + hi) >> 1; if (d <= c[mid]) hi = mid; else lo = mid + 1; }
+  const a = pts[lo - 1], b = pts[lo];
+  const seg = c[lo] - c[lo - 1];
+  const t = seg > 0 ? clamp((d - c[lo - 1]) / seg, 0, 1) : 1;
+  return { x: lerp(a.x, b.x, t), y: lerp(a.y, b.y, t), ang: Math.atan2(b.y - a.y, b.x - a.x) };
 }
 
 // Exponential moving average helper for "per minute" rates.
