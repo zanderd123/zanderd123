@@ -326,7 +326,7 @@ ul.plain li { margin: 6px 0; font-size: 13.5px; }
 @media (max-width: 860px) and (orientation: landscape) and (max-height: 520px) {
   .stats { order: 0; flex-basis: auto; }
   #panel { top: var(--top, 56px); bottom: 0; left: auto; right: 0; width: 46%; height: auto; border-top: 0; border-left: 1px solid #000; }
-  #panel.min { height: auto; width: auto; }
+  #panel.min { height: auto; width: auto; bottom: auto; }
 }
 
 @media (prefers-reduced-motion: reduce) {

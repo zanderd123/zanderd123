@@ -2273,16 +2273,21 @@ function groundTraffic(game, ap, dt) {
         const ring = [m];
         let x = m.blockBy;
         while (x && !ring.includes(x) && ring.length < 8) { ring.push(x); x = x.blockBy; }
-        // the newest of them that is not still turning off a runway, and
-        // can move back; failing that (someone close behind, or towed as
-        // far as it goes), the next newest; after 20 seconds, even one
-        // turning off (backing up keeps it on the runway it holds anyway)
-        if (x === m) {
+        // Only a real standoff: every one of them stopped (an aircraft
+        // that blocks another from far ahead may just be creeping along).
+        // Tow the newest that is not still turning off a runway and can
+        // move back; failing that (someone close behind, or towed as far
+        // as it goes), the next newest; after 20 seconds, even one turning
+        // off, if backing up keeps it off any runway it doesn't hold.
+        if (x === m && ring.every((r) => r.blockedFor > 5)) {
           const order = (a, b) => b.id - a.id;
           const cands = ring.filter((r) => r.state !== 'rollout').sort(order);
-          if (m.blockedFor > 20) cands.push(...ring.filter((r) => r.state === 'rollout').sort(order));
-          const pick = cands.find((r) => canTow(r, bodies));
-          if (pick && pick.towT !== t) { pick.towT = t; towBack(pick, bodies, dt); }
+          if (m.blockedFor > 20 && cands.length) cands.push(...ring.filter((r) => r.state === 'rollout').sort(order));
+          const pick = cands.find((r) => canTow(r, bodies, ap));
+          if (pick && pick.towStep !== t) {
+            pick.towStep = t; // once a step, however many of the ring ask
+            if (towBack(pick, bodies, dt, ap)) pick.towT = t; // and it gives way for a while
+          }
         }
       }
       if (m.blockedFor > 60) ap.gridlocks = (ap.gridlocks || 0) + 1;
@@ -2339,9 +2344,18 @@ function groundTraffic(game, ap, dt) {
 // Move an aircraft back along its route, only while that takes it further
 // from everything around it; at most 45 px in all.
 // Can an aircraft be towed back a little without backing into anyone?
-function canTow(m, bodies) {
+function canTow(m, bodies, ap) {
   if ((m.towed || 0) > 45 || m.d < 2) return false;
   const back = pointAlong(m.path, Math.max(0, m.d - 3));
+  // never back onto a runway it doesn't hold (one it has turned off, or
+  // finished crossing): a take-off there would run into it
+  if (ap && !isStar(ap)) {
+    for (const rw of RW) {
+      if (rw.id === 1 && !ap.upgrades.runway2) continue;
+      const R = ap.runways[rw.id];
+      if (R.occupant !== m && !R.crossers.has(m) && Math.abs(back.y - rw.y) < RUNWAY_HALF + m.r + 3 && Math.abs(back.y - rw.y) < Math.abs(m.y - rw.y)) return false;
+    }
+  }
   for (const o of bodies) {
     if (o.p === m) continue;
     const now = Math.hypot(m.x - o.x, m.y - o.y), then = Math.hypot(back.x - o.x, back.y - o.y);
@@ -2349,12 +2363,15 @@ function canTow(m, bodies) {
   }
   return true;
 }
-function towBack(m, bodies, dt) {
-  if (!canTow(m, bodies)) return;
+function towBack(m, bodies, dt, ap) {
+  if (!canTow(m, bodies, ap)) return false;
   const step = Math.min(10 * dt, m.d);
   m.d -= step;
   m.towed = (m.towed || 0) + step;
   m.tow = true;
+  const q = pointAlong(m.path, m.d); // where it is now, for everyone else's checks
+  m.x = q.x; m.y = q.y;
+  return step > 0;
 }
 
 function startPushback(ap, p) {

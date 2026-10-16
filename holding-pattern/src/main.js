@@ -113,13 +113,16 @@ let frameFailed = false;
 // with every airport grown) runs the game a little slower instead: a slow
 // frame would only bring a longer step next time, and the next frame
 // would be slower still. It catches back up when there is room.
-let simScale = 1;
+let simScale = 1, simAvg = 1;
 function keepUp(ms) {
   if (ms > 11) simScale = Math.max(0.15, simScale * 0.85);
   else if (ms < 6) simScale = Math.min(1, simScale * 1.04 + 0.005);
-  const slow = simScale < 0.9 && game.speed > 1;
+  // the amber light follows the average, so it doesn't flicker
+  simAvg += (simScale - simAvg) * 0.03;
   const sp = document.querySelector('.speed');
-  if (sp && sp.classList.contains('slowed') !== slow) {
+  const was = !!(sp && sp.classList.contains('slowed'));
+  const slow = was ? simAvg < 0.95 : simAvg < 0.8;
+  if (sp && was !== slow) {
     sp.classList.toggle('slowed', slow);
     sp.title = slow ? 'Running a little slower so this device can keep up' : '';
   }
@@ -282,9 +285,11 @@ function zoomAt(sx, sy, factor) {
 }
 
 function clampCam() {
-  const W = worldSize(activeAirport(game));
-  cam.x = clamp(cam.x, W.x0 - 100, W.x0 + W.w + 100);
-  cam.y = clamp(cam.y, W.y0 - 100, W.y0 + W.h + 100);
+  const M = worldSize(activeAirport(game)), F = freeRect();
+  // (the camera centres the screen, the map sits in the part the panels leave free)
+  const ox = (W / 2 - (F.x0 + F.x1) / 2) / cam.zoom, oy = (H / 2 - (F.y0 + F.y1) / 2) / cam.zoom;
+  cam.x = clamp(cam.x, M.x0 - 100 + Math.min(0, ox), M.x0 + M.w + 100 + Math.max(0, ox));
+  cam.y = clamp(cam.y, M.y0 - 100 + Math.min(0, oy), M.y0 + M.h + 100 + Math.max(0, oy));
 }
 
 function select(hit) {

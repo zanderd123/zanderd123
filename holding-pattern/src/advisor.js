@@ -55,8 +55,11 @@ export function advise(game, ap) {
       if (ap.staffing.atc !== 'surge') fixes.push(fix('Surge tower staffing', 'staff', { dept: 'atc', level: 'surge' }, 0));
     } else {
       fixes.push(upgradeFix(ap, 'rapidExits', 'planes leave the runway sooner'));
-      fixes.push(upgradeFix(ap, 'runway2', 'about 30% more movements'));
-      fixes.push(upgradeFix(ap, 'crosswind', 'main-terminal departures take off from it'));
+      // (a second runway and the crosswind are the main field's only)
+      if (!rw.field) {
+        fixes.push(upgradeFix(ap, 'runway2', 'about 30% more movements'));
+        fixes.push(upgradeFix(ap, 'crosswind', 'main-terminal departures take off from it'));
+      }
     }
     if (many) fixes.push(fix('Move routes to a quieter airfield (Contracts tab)', 'tab', { tab: 'contracts' }, 0));
     // the hub: open another of its airfields

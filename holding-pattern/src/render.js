@@ -1136,6 +1136,8 @@ export function render(g, w, h, dpr, cam, ap, view) {
   if (want > staticRes || ap.siteIndex !== staticSite) { staticRes = want; staticSite = ap.siteIndex; lowFor = 0; }
   else if (want < staticRes) { lowFor += 1; if (lowFor > 45) { staticRes = want; lowFor = 0; } }
   else lowFor = 0;
+  // (the map just grew: never draw it bigger than the cap, not even once)
+  if (staticRes > resCap) { staticRes = resCap; lowFor = 0; }
   const res = staticRes;
   const key = layoutKey(ap, res);
   if (key !== staticKey) { drawStatic(ap, res); staticKey = key; }

@@ -379,6 +379,7 @@ function growBlock(ap) {
 function renderBuild(game, ap) {
   let h = `<h3 class="sec">Terminals</h3>`;
   for (const T of ap.terminals) h += terminalSummary(ap, T);
+  if (S.canGrow(ap)) h += growBlock(ap);
   const hangars = S.slotList(ap).filter((s) => ap.hangars[s]);
   if (hangars.length) {
     h += `<h3 class="sec">Hangars</h3><ul class="list">`;
@@ -394,7 +395,6 @@ function renderBuild(game, ap) {
     h += `<p class="note">Buy more land to open new terminal sites.</p>`;
   }
   h += `<h3 class="sec">Landside: car parks, hotels, rentals, solar</h3>${parkingBlock(ap)}`;
-  if (S.canGrow(ap)) h += growBlock(ap);
   h += `<h3 class="sec">Land</h3><ul class="list">`;
   for (const id of S.plotList(ap)) {
     const P = PLOTS[id];
