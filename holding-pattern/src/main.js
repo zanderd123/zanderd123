@@ -66,7 +66,7 @@ function start(hotData) {
   setInterval(saveNow, 5000);
   document.addEventListener('visibilitychange', () => { if (document.hidden) saveNow(); });
   window.addEventListener('pagehide', saveNow);
-  window.__hp = { game: () => game, cam, sim: S, switchTo: (i) => switchTo(i) };
+  window.__hp = { game: () => game, cam, sim: S, switchTo: (i) => switchTo(i), mapRect: () => worldSize(activeAirport(game)), freeRect: () => freeRect(), clampCam: () => clampCam() };
   if (window.claude && window.claude.hot && window.claude.hot.snapshot) {
     window.claude.hot.snapshot(() => ({ save: serialize(game) }));
   }
@@ -99,6 +99,8 @@ function resize() {
   // layout: frame the field again for the new shape
   const shape = `${W > H}${window.innerWidth <= 860}`;
   if (lastShape && shape !== lastShape && game) fitView();
+  // on a small screen the open ops board would cover much of the field
+  if (shape !== lastShape && window.innerWidth > 860) $('ops').classList.toggle('collapsed', window.innerHeight < 900 || window.innerWidth < 1160);
   lastShape = shape;
   canvas.width = Math.round(W * DPR); canvas.height = Math.round(H * DPR);
   document.documentElement.style.setProperty('--top', `${topHeight()}px`);
@@ -286,10 +288,15 @@ function zoomAt(sx, sy, factor) {
 
 function clampCam() {
   const M = worldSize(activeAirport(game)), F = freeRect();
-  // (the camera centres the screen, the map sits in the part the panels leave free)
+  // The camera centres the screen, the map sits in the part the panels leave
+  // free: clamp that part's centre. A map smaller than the view stays centred
+  // in it; a bigger one drags until its edge (and a strip of sea) meets the
+  // view's edge, so it can never be pushed off screen.
   const ox = (W / 2 - (F.x0 + F.x1) / 2) / cam.zoom, oy = (H / 2 - (F.y0 + F.y1) / 2) / cam.zoom;
-  cam.x = clamp(cam.x, M.x0 - 100 + Math.min(0, ox), M.x0 + M.w + 100 + Math.max(0, ox));
-  cam.y = clamp(cam.y, M.y0 - 100 + Math.min(0, oy), M.y0 + M.h + 100 + Math.max(0, oy));
+  const hw = (F.x1 - F.x0) / 2 / cam.zoom, hh = (F.y1 - F.y0) / 2 / cam.zoom, pad = 80;
+  const fit = (c, lo, len, half) => len + 2 * pad <= 2 * half ? lo + len / 2 : clamp(c, lo - pad + half, lo + len + pad - half);
+  cam.x = fit(cam.x - ox, M.x0, M.w, hw) + ox;
+  cam.y = fit(cam.y - oy, M.y0, M.h, hh) + oy;
 }
 
 function select(hit) {
@@ -413,11 +420,17 @@ body.addEventListener('click', (e) => {
 // The part of the screen the panels leave free.
 function freeRect() {
   const pw = panelWidth(), below = window.innerWidth <= 860 && pw === 0; // panel along the bottom
-  return { x0: 0, x1: W - pw, y0: topHeight(), y1: below ? H * 0.54 : H };
+  // (on a phone the panel along the bottom may be folded down to its tabs)
+  return { x0: 0, x1: W - pw, y0: topHeight(), y1: below ? Math.min(H, Math.max(H * 0.5, $('panel').getBoundingClientRect().top)) : H };
 }
 function fitView() {
   const island = SITES[activeAirport(game).siteIndex].island;
-  fitCamera(cam, W, H, freeRect(), island ? ISLAND_FOCUS : undefined);
+  const F = freeRect(), M = worldSize(activeAirport(game));
+  fitCamera(cam, W, H, F, island ? ISLAND_FOCUS : undefined);
+  // the zoom-out limit shows the whole map, a grown one included
+  cam.minZoom = Math.min((F.x1 - F.x0) / (M.w * 1.05), (F.y1 - F.y0) / (M.h * 1.05));
+  cam.zoom = Math.max(cam.zoom, cam.minZoom);
+  clampCam();
   lastMap = mapKey();
 }
 // When the airport on show grows, zoom out over the whole new map.

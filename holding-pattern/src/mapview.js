@@ -8,8 +8,11 @@ const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
 
 const $ = (id) => document.getElementById(id);
 
+// Each site's card is updated in place, and only when it changed: rewriting
+// the whole list twice a second made it jump while being scrolled.
 export function renderMapSide(game) {
-  let h = '';
+  const side = $('mapSide');
+  if (side.children.length !== SITES.length) side.innerHTML = SITES.map(() => '<div class="site"></div>').join('');
   SITES.forEach((s, i) => {
     const st = siteStatus(game, i);
     const ap = st.state === 'owned' ? game.airports[st.index] : null;
@@ -25,9 +28,10 @@ export function renderMapSide(game) {
     } else {
       body = `<div class="stats-line">Unlocks after the previous site · ×${s.rev.toFixed(1)} revenue</div>`;
     }
-    h += `<div class="site ${cur ? 'cur' : ''}"><div class="row"><span class="code">${s.id}</span><span>${s.name}</span></div>${body}</div>`;
+    const card = side.children[i], h = `<div class="row"><span class="code">${s.id}</span><span>${s.name}</span></div>${body}`;
+    card.classList.toggle('cur', !!cur);
+    if (card._h !== h) { card._h = h; card.innerHTML = h; }
   });
-  $('mapSide').innerHTML = h;
 }
 
 let mapT = 0;
