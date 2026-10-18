@@ -140,6 +140,16 @@ can't reach airfields on the right or at the back of the map (they would
 stand in the departures' climb-out); departures fade out as they climb, well
 before they would cross a neighbouring field.
 
+**Midfield taxiway.** At a grown airport with its north field, a two-lane
+taxiway can be built through the gap between the fields. When the main
+stack is the busier, main-terminal regional and narrowbody arrivals are sent
+to the north runway; they turn off toward the main field, the main field's
+ground control takes them over on the lane, and they cross the north strip
+(and its runway, which holds a landing gap for them) and the main runway at
+x=1100, clear of every turn-off. `tools/midfield.mjs` stress-tests it
+against the same airport without it. (Departures the other way and the
+east and west fields come next.)
+
 **Who goes first.** On one runway, landings and take-offs take turns. In the
 holding stack, routes marked priority (up to three per airport, in the Routes
 tab) land first, then airlines that are unhappy and about to leave, then
