@@ -3,7 +3,7 @@
 // cheapest thing that fixes it. Each fix carries the same action the
 // matching button elsewhere in the panel would send.
 
-import { AIRCRAFT, CONNECTORS, UPGRADES, STAFFING, TERMINAL, PAX, COSTS, CONTRACTS } from './config.js';
+import { AIRCRAFT, CONNECTORS, UPGRADES, STAFFING, TERMINAL, PAX, COSTS, CONTRACTS, TOWER } from './config.js';
 import { SLOTS, PLOTS, TERMINAL_CODES, PARKING_SITES } from './layout.js';
 import { fieldName, siteFields, EXPAND_TERMINALS } from './hub.js';
 import * as S from './sim.js';
@@ -61,6 +61,7 @@ export function advise(game, ap) {
     if (atcLimited) {
       fixes.push(upgradeFix(ap, 'radar', '+25% movements per controller'));
       if (ap.upgrades.radar) fixes.push(upgradeFix(ap, 'automation', '+30% movements per controller'));
+      if (S.towerLevel(ap) < TOWER.levels.length) fixes.push({ ...fix(`Raise the tower to level ${S.towerLevel(ap) + 1}`, 'tower', {}, S.towerCost(ap)), why: TOWER.levels[S.towerLevel(ap)].desc });
       if (ap.staffing.atc !== 'surge') fixes.push(fix('Surge tower staffing', 'staff', { dept: 'atc', level: 'surge' }, 0));
     } else {
       fixes.push(upgradeFix(ap, 'rapidExits', 'planes leave the runway sooner'));
@@ -73,7 +74,8 @@ export function advise(game, ap) {
     if (many) fixes.push(fix('Move routes to a quieter airfield (Contracts tab)', 'tab', { tab: 'contracts' }, 0));
     // the hub: open another of its airfields
     const next = ['n.core', 'e.core', 'w.core'].find((id) => S.plotAvailable(ap, id) && !ap.plots[id]);
-    if (next) fixes.push({ ...fix(`Buy the ${PLOTS[next].name.toLowerCase()}`, 'plot', { id: next }, S.plotCost(ap, next)), why: 'another runway, with its own tower and terminals' });
+    if (next && S.towerNeeded(ap, next) > S.towerLevel(ap)) fixes.push({ ...fix(`Raise the tower to level ${S.towerLevel(ap) + 1} (needed for the ${PLOTS[next].name.toLowerCase()})`, 'tower', {}, S.towerCost(ap)), why: 'each new airfield needs a bigger control tower' });
+    else if (next) fixes.push({ ...fix(`Buy the ${PLOTS[next].name.toLowerCase()}`, 'plot', { id: next }, S.plotCost(ap, next)), why: 'another runway, with its own tower and terminals' });
     const what = many ? `The ${fieldName(ap.siteIndex, rw.field || '').toLowerCase()}'s runway${rw.field === 'X' ? 's are' : ' is'}` : 'The runway is';
     add(rwU >= 1 ? 3 : 2, 'runway', rwU >= 1 ? `${what} overbooked` : `${what} nearly full`,
       `Your routes ${many ? `at the ${fieldName(ap.siteIndex, rw.field || '').toLowerCase()}'s terminals ` : ''}need ${rw.demand.toFixed(1)} landings and take-offs a minute; you can handle ${rw.cap.toFixed(1)}. ` +

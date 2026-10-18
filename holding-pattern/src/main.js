@@ -393,6 +393,7 @@ body.addEventListener('click', (e) => {
     case 'manager': S.setManager(ap, d.on === '1'); ok = d.on === '1' ? `Station manager hired at ${ap.id}` : `Station manager let go at ${ap.id}`; break;
     case 'accept': err = S.acceptOffer(game, ap, d.id, d.slot); ok = 'Contract signed'; break;
     case 'bug': openBugReport(game); return;
+    case 'tower': err = S.upgradeTower(game, ap); break;
     case 'priority': err = S.setPriority(ap, d.id, d.on === '1'); break;
     case 'repair': err = S.repairBreakdown(game, ap, d.id); ok = 'Repaired'; break;
     case 'decline': S.declineOffer(ap, d.id); break;

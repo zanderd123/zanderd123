@@ -13,7 +13,7 @@ import { STAR, STAR_LINES, STAR_SLOTS, siteFields, siteRect, plotRects } from '.
 import { mulberry32, pointAlong, pathLength, clamp, money } from './util.js';
 import { drawShore, drawLand, islandAttach, islandArrive, islandFrame, rentalPoint } from './island.js';
 import { FLIGHT } from './config.js';
-import { isOpen, terminalBySlot, slotAvailable, parkingAvailable, hasField, allPlanes, slotList, plotList, parkingList, starHoldStacks, starTaxiLines } from './sim.js';
+import { isOpen, terminalBySlot, slotAvailable, parkingAvailable, hasField, allPlanes, slotList, plotList, parkingList, starHoldStacks, starTaxiLines, CLIMB_OUT } from './sim.js';
 
 const C = {
   grass: '#7f9f63', grassB: '#86a76a', farmA: '#b5a46b', farmB: '#a7ad6c', farmEdge: '#8a8455',
@@ -162,7 +162,7 @@ function textAt(g, s, x, y) {
 }
 
 function layoutKey(ap, res) {
-  return JSON.stringify([ap.siteIndex, !!ap.expandReady, ap.plots, ap.parking, ap.hangars, ap.terminals.map((T) => [T.slot, T.gates, T.heavy, T.retail, T.buildLeft > 0, !!T.demolishing, T.connector && [T.connector.type, T.connector.level, T.connector.buildLeft > 0]]), ap.securityLanes, ap.upgrades, res]);
+  return JSON.stringify([ap.siteIndex, !!ap.expandReady, ap.plots, ap.parking, ap.hangars, ap.terminals.map((T) => [T.slot, T.gates, T.heavy, T.retail, T.buildLeft > 0, !!T.demolishing, T.connector && [T.connector.type, T.connector.level, T.connector.buildLeft > 0]]), ap.securityLanes, ap.upgrades, ap.tower || 1, res]);
 }
 
 function drawStatic(ap, res) {
@@ -312,7 +312,7 @@ function drawStatic(ap, res) {
     else parkingLot(g, P.x, P.y, P.w, P.h, R);
   }
   if (ap.upgrades.rail) railStation(g);
-  tower(g, 1166, 905);
+  tower(g, TOWER_AT.x, TOWER_AT.y, ap.tower || 1);
 
   const FS = fieldsOf(ap);
   for (const F of FS) {
@@ -724,12 +724,32 @@ function railStation(g) {
   g.fillStyle = '#2c3037'; g.fillRect(940, 1106, 120, 6);
 }
 
-function tower(g, x, y) {
-  g.fillStyle = 'rgba(0,0,0,0.3)'; g.beginPath(); g.arc(x + 9, y + 9, 15, 0, Math.PI * 2); g.fill();
-  g.fillStyle = '#d6d2c8'; g.fillRect(x - 12, y - 12, 24, 24);
-  g.fillStyle = '#2b3a46'; g.beginPath(); g.arc(x, y, 13, 0, Math.PI * 2); g.fill();
-  g.strokeStyle = '#9fc7dc'; g.lineWidth = 2; g.beginPath(); g.arc(x, y, 11, -2.4, -0.6); g.stroke();
-  g.fillStyle = '#e8e4da'; g.beginPath(); g.arc(x, y, 5, 0, Math.PI * 2); g.fill();
+// The control tower grows with its level: a taller cab (bigger from above,
+// with a longer shadow), then an approach centre at its foot, then a
+// control centre with a radar dome.
+export const TOWER_AT = { x: 1166, y: 905 };
+function tower(g, x, y, lv = 1) {
+  // (the annexes go north of the tower, in the strip between the road and
+  // the land for sale)
+  if (lv >= 3) { // the approach centre
+    g.fillStyle = 'rgba(0,0,0,0.22)'; g.fillRect(x - 17 + 4, y - 66 + 4, 34, 34);
+    g.fillStyle = '#cfcabe'; g.fillRect(x - 17, y - 66, 34, 34);
+    g.fillStyle = '#b9b3a5'; for (let i = 0; i < 3; i++) g.fillRect(x - 13 + i * 10, y - 62, 6, 26);
+  }
+  if (lv >= 4) { // the control centre's radar dome
+    g.fillStyle = 'rgba(0,0,0,0.22)'; g.beginPath(); g.arc(x + 4, y - 92, 14, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#f2f0ea'; g.beginPath(); g.arc(x, y - 96, 14, 0, Math.PI * 2); g.fill();
+    g.strokeStyle = '#a9b0b6'; g.lineWidth = 1; g.stroke();
+    g.strokeStyle = 'rgba(0,0,0,0.12)'; g.beginPath(); g.moveTo(x - 14, y - 96); g.lineTo(x + 14, y - 96); g.moveTo(x, y - 110); g.lineTo(x, y - 82); g.stroke();
+  }
+  const r = 13 + (lv - 1) * 2.5, sh = 9 + (lv - 1) * 7; // a taller tower casts a longer shadow
+  g.fillStyle = 'rgba(0,0,0,0.3)'; g.beginPath(); g.arc(x + sh, y + sh, r + 1, 0, Math.PI * 2); g.fill();
+  g.fillStyle = '#d6d2c8'; g.fillRect(x - r + 1, y - r + 1, (r - 1) * 2, (r - 1) * 2);
+  g.fillStyle = '#2b3a46'; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
+  g.strokeStyle = '#9fc7dc'; g.lineWidth = 2; g.beginPath(); g.arc(x, y, r - 2, -2.4, -0.6); g.stroke();
+  if (lv >= 2) { g.beginPath(); g.arc(x, y, r - 2, 0.7, 2.4); g.stroke(); }
+  g.fillStyle = '#e8e4da'; g.beginPath(); g.arc(x, y, 5 + lv, 0, Math.PI * 2); g.fill();
+  g.fillStyle = '#c8102e'; g.beginPath(); g.arc(x, y, 1.6, 0, Math.PI * 2); g.fill(); // the beacon on top
 }
 
 function terminal(g, ap, T) {
@@ -913,13 +933,18 @@ export function drawPlaneShape(g, cls, livery, shadow, paint = null) {
 
 function drawPlane(g, p, t, night, selected) {
   const alt = p.alt || 0;
-  const k = 1 + alt / 500;
+  // grows a little as it climbs, but a departure fades into the haze rather
+  // than looming over the next airfield
+  const k = 1 + Math.min(alt, 140) / 500;
+  const fade = p.state === 'takeoff' ? clamp((CLIMB_OUT - alt) / (CLIMB_OUT - 150), 0, 1) : 1;
+  if (fade <= 0) return;
+  g.globalAlpha = fade;
   // shadow on the ground
   g.save();
   g.translate(p.x + alt * 0.32 + 2, p.y + alt * 0.42 + 2);
   g.rotate(p.ang);
   g.scale(Math.max(0.7, 1 - alt / 900), Math.max(0.7, 1 - alt / 900));
-  g.globalAlpha = Math.max(0.25, 1 - alt / 260);
+  g.globalAlpha = Math.max(0.25, 1 - alt / 260) * fade;
   const gs = p.gold ? 1.2 : 1; // a golden plane is a little bigger
   if (gs !== 1) g.scale(gs, gs);
   drawPlaneShape(g, p.cls, p.color, true);
@@ -962,6 +987,7 @@ function drawPlane(g, p, t, night, selected) {
     g.strokeStyle = '#ffc20e'; g.lineWidth = 2; g.setLineDash([4, 3]);
     g.beginPath(); g.arc(p.x, p.y, 34 * AIRCRAFT[p.cls].scale + 8, 0, Math.PI * 2); g.stroke(); g.setLineDash([]);
   }
+  g.globalAlpha = 1;
 }
 
 // ------------------------------------------------------------------ people
@@ -1588,6 +1614,8 @@ export function pick(ap, wx, wy) {
     if (d < r && d < bd) { bd = d; best = { kind: 'plane', plane: p }; }
   }
   if (best) return best;
+  // the control tower opens the runway & tower panel
+  if (!SITES[ap.siteIndex].island && Math.hypot(wx - TOWER_AT.x, wy - TOWER_AT.y) < 24 + ((ap.tower || 1) - 1) * 3) return { kind: 'runway' };
   // a breakdown's sign opens its terminal (where the repair button is)
   for (const b of ap.breakdowns || []) {
     if (!SLOTS[b.slot]) continue;

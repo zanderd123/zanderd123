@@ -170,6 +170,19 @@ export const HANGAR = {
 // every bar under fits, declines the rest. salary is $/min.
 export const MANAGER = { salary: 40, fits: { runway: 0.8, gates: 0.8, security: 0.9, connector: 0.85, parking: 99 } };
 
+// The control tower. Every airport starts with level 1; each level makes
+// every controller sequence more movements, and each new airfield needs one
+// more level (the first extra field level 2, the second level 3, the
+// third level 4). cost is multiplied by the site's cost scale; upkeep is $/min.
+export const TOWER = {
+  levels: [
+    { name: 'Control tower', atc: 1, cost: 0, upkeep: 0, desc: 'A small tower cab over the landside.' },
+    { name: 'Taller tower', atc: 1.15, cost: 45000, upkeep: 30, desc: 'A taller cab that sees the whole field: +15% movements per controller.' },
+    { name: 'Tower and approach centre', atc: 1.3, cost: 320000, upkeep: 90, desc: 'An approach centre under the cab sequences arrivals further out: +30% per controller.' },
+    { name: 'Regional control centre', atc: 1.45, cost: 1500000, upkeep: 220, desc: 'A control centre for every airfield at once: +45% per controller.' },
+  ],
+};
+
 // Golden planes: one arrival in every 30 to 50 is golden. Tapping it pays
 // this many minutes of the network's running income (never under min).
 export const GOLD = { every: [30, 50], minutes: 2.5, min: 1500 };

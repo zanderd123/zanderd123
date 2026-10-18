@@ -6,7 +6,7 @@ import {
   AIRCRAFT, AIRCRAFT_ORDER, FLIGHT, PAX, STAFFING, COSTS, TERMINAL, CONNECTORS,
   UPGRADES, SECURITY as SEC, PARKING, LEVELS, UNLOCKS, SITES, NETWORK, CONTRACTS,
   LANDSIDE, LANDSIDE_ORDER, HANGAR, DEMOLISH_REFUND, MANAGER,
-  AIRLINES, CITIES, WEATHER, GOLD, BREAKDOWNS,
+  AIRLINES, CITIES, WEATHER, GOLD, BREAKDOWNS, TOWER,
 } from './config.js';
 import {
   RW, RUNWAY_HALF, TWY_A, TWY_B, LANE2, EXITS, HOLD_POINT, IAF, PLOTS, SLOTS, LONG_RUNWAY_X1,
@@ -222,6 +222,7 @@ export function serializeAirport(ap) {
     nextOfferAt: ap.t + 10,
     hubV: ap.hubV,
     expandReady: ap.expandReady || undefined,
+    tower: ap.tower > 1 ? ap.tower : undefined,
     breakdowns: ap.breakdowns && ap.breakdowns.length ? ap.breakdowns.map((b) => ({ ...b, mgrAt: undefined, t0: 0 })) : undefined,
   };
 }
@@ -232,7 +233,9 @@ export function restoreAirport(data) {
   if (ap.breakdowns) ap.breakdowns = Array.isArray(ap.breakdowns) ? ap.breakdowns.filter((b) => b && BD_KIND[b.kind] && Number.isFinite(b.cost)) : undefined;
   for (const T of ap.terminals) {
     if (T.connector) T.connector = { ...T.connector };
-    if (T.pendingConnector) T.pendingConnector = { ...T.pendingConnector };
+    // monorails that would stand in the climb-out become tunnels, free
+    if (T.connector && T.connector.type === 'monorail' && SLOTS[T.slot] && !connectorAllowed('monorail', T.slot, data.siteIndex)) T.connector = { ...T.connector, type: 'tunnel', level: 0 };
+    if (T.pendingConnector) T.pendingConnector = { ...T.pendingConnector, ...(T.pendingConnector.type === 'monorail' && SLOTS[T.slot] && !connectorAllowed('monorail', T.slot, data.siteIndex) ? { type: 'tunnel', level: 0 } : {}) };
     else delete T.pendingConnector;
   }
   // a shared save code goes into the page's HTML: keep what it says plain
@@ -257,6 +260,8 @@ export function restoreAirport(data) {
   }
   // (after the hub's move: older hub saves had sites that no longer exist)
   ap.terminals = ap.terminals.filter((T) => SLOTS[T.slot]);
+  // airfields bought before the tower had levels keep the tower they need
+  ap.tower = Math.min(TOWER.levels.length, Math.max(Number(ap.tower) || 1, 1 + fieldsOwned(ap)));
   for (const T of ap.terminals) T.gates = Math.min(T.gates, maxGates(ap, T.slot)); // older saves allowed 5
   hydrate(ap);
   return ap;
@@ -372,8 +377,29 @@ export function stormFactor(ap) {
   return ap.upgrades.cat3 ? WEATHER.stormRunwayCat3 : WEATHER.stormRunway;
 }
 
+// ---- the control tower
+export const towerLevel = (ap) => clamp(ap.tower || 1, 1, TOWER.levels.length);
+// extra airfields bought (the hub's star doesn't count: it comes with it)
+export const fieldsOwned = (ap) => siteFields(ap.siteIndex).filter((k) => ap.plots[k.toLowerCase() + '.core']).length;
+// The tower level an airfield's land needs: one more than the fields owned.
+export function towerNeeded(ap, plot) {
+  return PLOTS[plot] && PLOTS[plot].field && plot.endsWith('.core') ? fieldsOwned(ap) + 2 : 0;
+}
+export function towerCost(ap) {
+  const next = TOWER.levels[towerLevel(ap)];
+  return next ? Math.round(next.cost * site(ap).cost) : 0;
+}
+export function upgradeTower(game, ap) {
+  if (towerLevel(ap) >= TOWER.levels.length) return 'The tower is as big as it gets';
+  if (!spend(game, towerCost(ap))) return 'Not enough cash';
+  ap.tower = towerLevel(ap) + 1;
+  ap.costLines = computeCosts(ap);
+  notify(ap, 'built', `${TOWER.levels[ap.tower - 1].name} is open: controllers handle more movements`);
+  return null;
+}
+
 export function atcCapacity(ap) {
-  let per = COSTS.movementsPerController;
+  let per = COSTS.movementsPerController * TOWER.levels[towerLevel(ap) - 1].atc;
   if (ap.upgrades.radar) per *= UPGRADES.radar.atc;
   if (ap.upgrades.automation) per *= UPGRADES.automation.atc;
   return fieldControllers(ap) * per * staffing(ap, 'atc').capacity * stormFactor(ap);
@@ -448,11 +474,17 @@ export function connectorBuildCost(type, slot, ap) {
   return Math.round(cost * site(ap).cost);
 }
 
-export function connectorAllowed(type, slot) {
+export function connectorAllowed(type, slot, siteIndex = null) {
   const def = CONNECTORS[type];
-  // the hub's other airfields lie across runways: under them or over them
-  if (SLOTS[slot].field) return type === 'tunnel' || type === 'monorail';
+  // Other airfields lie across runways: under them or over them. Not over
+  // them to a field on the right or at the back of the map: the monorail
+  // would stand in the departures' climb-out.
+  if (SLOTS[slot].field) return type === 'tunnel' || (type === 'monorail' && !inClimbOut(slot, siteIndex));
   return !(def.adjacentOnly && !SLOTS[slot].adjacent);
+}
+function inClimbOut(slot, siteIndex) {
+  const f = SLOTS[slot].field, mirror = siteIndex != null && !!SITES[siteIndex].mirror;
+  return f === 'N' || (f === 'E' && !mirror) || (f === 'W' && mirror);
 }
 
 // Each terminal costs more than the last. At the hub the climb is per
@@ -608,6 +640,7 @@ export function computeCosts(ap) {
     { key: 'parking', label: 'Car parks, hotels & landside', v: parkingUpkeep(ap) },
     { key: 'hangars', label: `Maintenance hangars (${hangarCount(ap)})`, v: hangarCount(ap) * HANGAR.upkeep },
     { key: 'manager', label: 'Station manager', v: ap.manager ? MANAGER.salary : 0 },
+    { key: 'tower', label: `Control tower (level ${towerLevel(ap)})`, v: TOWER.levels[towerLevel(ap) - 1].upkeep },
     { key: 'land', label: 'Property tax', v: (Object.keys(ap.plots).length - 1) * COSTS.plotTax },
   ];
   for (const l of lines) l.v *= m;
@@ -919,6 +952,7 @@ export function buyPlot(game, ap, plot) {
   if (ap.plots[plot]) return 'Already owned';
   if (!plotAvailable(ap, plot)) return noRoom(ap);
   if (P.needs && !ap.plots[P.needs]) return `Buy the ${nm(ap, PLOTS[P.needs].name)} first`;
+  if (towerNeeded(ap, plot) > towerLevel(ap)) return `Needs control tower level ${towerNeeded(ap, plot)}`;
   if (!spend(game, plotCost(ap, plot))) return 'Not enough cash';
   ap.plots[plot] = true;
   ap.costLines = computeCosts(ap);
@@ -930,7 +964,7 @@ export function buildTerminal(game, ap, slot, connectorType, buses = 2) {
   if (!slotAvailable(ap, slot)) return noRoom(ap);
   if (ap.hangars[slot]) return 'A hangar stands there';
   if (!ap.plots[SLOTS[slot].plot]) return 'Buy the land first';
-  if (!connectorAllowed(connectorType, slot)) return 'That connector cannot reach this site';
+  if (!connectorAllowed(connectorType, slot, ap.siteIndex)) return 'That connector cannot reach this site';
   const cost = terminalCost(ap, slot) + connectorBuildCost(connectorType, slot, ap);
   if (!spend(game, cost)) return 'Not enough cash';
   const T = newTerminal(slot, false, Math.min(TERMINAL.startGates, maxGates(ap, slot)));
@@ -947,7 +981,7 @@ export function replaceConnector(game, ap, slot, type) {
   const T = terminalBySlot(ap, slot);
   if (T && T.demolishing) return 'Being torn down';
   if (!T || slot === 'main') return 'No connector here';
-  if (!connectorAllowed(type, slot)) return 'That connector cannot reach this site';
+  if (!connectorAllowed(type, slot, ap.siteIndex)) return 'That connector cannot reach this site';
   if (T.connector.type === type) return 'Already uses that';
   const cost = connectorBuildCost(type, slot, ap);
   if (!spend(game, cost)) return 'Not enough cash';
@@ -1477,6 +1511,10 @@ const DEP_OCCUPANCY = 4.2; // seconds a departure needs the runway
 
 // Landing needs both a runway slot and a free gate: an aircraft with nowhere
 // to park stays in the holding stack rather than clogging the taxiways.
+// A departure is gone from view at this height (well before it would cross
+// a neighbouring airfield on a grown map).
+export const CLIMB_OUT = 250;
+
 // Why a plane is circling, in detail (holdReason keeps the broad kind:
 // gate, taxi or runway). The first thing that stops it is the one shown.
 function why(p, reason, detail) { p.holdReason = reason; p.holdWhy = detail; return false; }
@@ -1683,8 +1721,9 @@ function updatePlanes(game, ap, dt) {
         if (p.speed > FLIGHT.liftoffSpeed) p.alt += (p.speed - FLIGHT.liftoffSpeed + 30) * 0.35 * dt;
         const R = ap.runways[p.depRw || 0];
         if (R.occupant === p && p.speed > FLIGHT.liftoffSpeed + 20) R.occupant = null; // airborne
-        // off the map, or at the end of a path that stays on it (the crosswind's)
-        if (p.x > 2250 || p.y > 1800 || p.d >= p.len) p.state = 'gone';
+        // climbed out of sight (it fades as it climbs, see the renderer), off
+        // the map, or at the end of a path that stays on it (the crosswind's)
+        if (p.alt >= CLIMB_OUT || p.x > 2250 || p.y > 1800 || p.d >= p.len) p.state = 'gone';
         break;
       }
       case 'holdShort': {
@@ -2001,7 +2040,7 @@ function updateStarPlanes(game, F, dt) {
         if (p.speed > FLIGHT.liftoffSpeed) p.alt += (p.speed - FLIGHT.liftoffSpeed + 30) * 0.35 * dt;
         const R = F.runways[p.depRw];
         if (R.occupant === p && p.speed > FLIGHT.liftoffSpeed + 20) R.occupant = null;
-        if (dist(p.x, p.y, STAR.C.x, STAR.C.y) > 1500) p.state = 'gone';
+        if (p.alt >= CLIMB_OUT || dist(p.x, p.y, STAR.C.x, STAR.C.y) > 1500) p.state = 'gone';
         break;
       }
       case 'holdShort': {

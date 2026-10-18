@@ -5,7 +5,7 @@
 
 import {
   AIRCRAFT, CONNECTORS, CONNECTOR_ORDER, UPGRADES, UPGRADE_ORDER, STAFFING,
-  TERMINAL, LEVELS, SITES, PAX, CONTRACTS, PARKING, LANDSIDE, HANGAR, DEMOLISH_REFUND, MANAGER,
+  TERMINAL, LEVELS, SITES, PAX, CONTRACTS, PARKING, LANDSIDE, HANGAR, DEMOLISH_REFUND, MANAGER, TOWER,
 } from './config.js';
 import { SLOTS, SLOT_ORDER, PLOTS, PLOT_ORDER, TERMINAL_CODES, PARKING_SITES, PARKING_ORDER, connectorRoute } from './layout.js';
 import { fieldName, siteFields, EXPAND_TERMINALS } from './hub.js';
@@ -43,6 +43,14 @@ function barHtml(before, after = null) {
   if (after != null && after > before) html += `<i class="after" style="left:${b.toFixed(1)}%;width:${((clamp(after, 0, 1.2) - clamp(before, 0, 1.2)) / 1.2 * 100).toFixed(1)}%"></i>`;
   return html + '<b style="left:' + (100 / 1.2).toFixed(1) + '%"></b></div>';
 }
+// Why the contract desk thinks flights are running late (the bars only
+// show capacity, so say which it is).
+function lateWhy(ap) {
+  const unhappy = ap.contracts.filter((c) => c.unhappyFor > 0);
+  if (unhappy.length) return `${unhappy.map((c) => esc(c.airline)).join(', ')} ${unhappy.length > 1 ? 'are' : 'is'} unhappy with delays (overall ${pct(ap.rolling.otp)} on time).`;
+  const recent = (ap.lateLog || []).filter((e) => ap.t - e.t < 240).length;
+  return `${recent} flights left late in the last four minutes (${pct(ap.rolling.otp)} on time).`;
+}
 function canAfford(cost) { return ui.game.cash >= cost; }
 function priceBtn(label, act, cost, extra = '', cls = '') {
   return `<button type="button" class="btn ${cls}" data-act="${act}" ${extra} ${canAfford(cost) ? '' : 'disabled'}>${label}<span class="price">${money(cost)}</span></button>`;
@@ -55,7 +63,7 @@ function armBtn(key, label, armedLabel, act, extra = '') {
 // it can't happen by accident.
 const resetBtn = () => armBtn('wipe', 'Reset game', 'Tap again to erase everything', 'wipe');
 function resetBlock() {
-  return `<h3 class="sec">Found a bug?</h3><p class="note">Tell us what happened: the report includes the game details that help fix it.</p><div class="btns"><button type="button" class="btn" data-act="bug">Report a bug</button></div>
+  return `<h3 class="sec">Found a bug?</h3><p class="note">Tell us what happened and send it straight to the game's maker. The report includes the game details that help fix it.</p><div class="btns"><button type="button" class="btn" data-act="bug">Report a bug</button></div>
   <h3 class="sec">Reset game</h3><p class="note">Start again from the beginning: one runway at Pinewood and $50,000. This erases every airport, all your money and your milestones, and can't be undone. To keep a copy first, use <b>Copy save code</b> in the Money tab.</p><div class="btns">${resetBtn()}</div>`;
 }
 function stars(rep) {
@@ -317,7 +325,7 @@ function renderContracts(game, ap) {
         <label class="sub" for="os-${o.id}">Terminal</label>
         <select id="os-${o.id}" data-offer-slot="${o.id}">${terminalOptions(ap, o.cls, slot)}</select>
       </div>
-      ${ui.lastOverload.length ? `<p class="note neg">Signing puts ${esc(ui.lastOverload.join(', '))} over capacity: flights will run late and passengers will miss them.</p>` : late ? `<p class="note neg">Flights are already running late (${pct(ap.rolling.otp)} on time). Another route makes every flight later; the Advisor says what is causing it.</p>` : ''}
+      ${ui.lastOverload.length ? `<p class="note neg">Signing puts ${esc(ui.lastOverload.join(', '))} over capacity: flights will run late and passengers will miss them.</p>` : late ? `<p class="note neg">${lateWhy(ap)} Another route makes every flight later, so signing asks you to confirm; the Advisor says what is causing it.</p>` : ''}
       <div class="btns">${ui.lastOverload.length || late
         ? armBtn('sign-' + o.id, `Sign anyway · bonus ${money(o.bonus)}`, ui.lastOverload.length ? 'Confirm: overload it' : 'Confirm: sign it anyway', 'accept', `data-id="${o.id}" data-slot="${slot}"`)
         : `<button type="button" class="btn go" data-act="accept" data-id="${o.id}" data-slot="${slot}">Sign · bonus <span class="price">${money(o.bonus)}</span></button>`}<button type="button" class="btn" data-act="decline" data-id="${o.id}">Decline</button></div>`}
@@ -370,6 +378,16 @@ function terminalSummary(ap, T) {
 
 // Room to grow: how close the airport is to adding its new airfields, or
 // what it has added.
+// The control tower: its level, what the next one gives and what it opens.
+function towerBlock(ap) {
+  const lv = S.towerLevel(ap), L = TOWER.levels, next = L[lv];
+  const fieldsLeft = siteFields(ap.siteIndex).length - S.fieldsOwned(ap);
+  let h = `<h3 class="sec">Control tower · level ${lv} of ${L.length}</h3><ul class="list">`;
+  h += `<li><div class="what"><b>${L[lv - 1].name} ${recTag({ act: 'tower', data: {} })}</b><span>${lv > 1 ? `Controllers handle ${Math.round((L[lv - 1].atc - 1) * 100)}% more movements.` : 'Where your controllers work.'}${fieldsLeft > 0 && (S.canGrow(ap) || S.site(ap).hub) ? ` Your next airfield needs level ${S.fieldsOwned(ap) + 2}.` : ''}</span></div>${next ? '' : '<span class="tag green">Top level</span>'}</li>`;
+  if (next) h += `<li><div class="what"><b>Level ${lv + 1}: ${next.name}</b><span>${next.desc}${fieldsLeft > 0 && (S.canGrow(ap) || S.site(ap).hub) ? ` Opens airfield number ${lv}.` : ''} Upkeep ${rate(next.upkeep * S.site(ap).cost)}.</span></div>${priceBtn('Build', 'tower', S.towerCost(ap))}</li>`;
+  return h + '</ul>';
+}
+
 function growBlock(ap) {
   const n = siteFields(ap.siteIndex).length;
   if (S.grown(ap)) {
@@ -393,7 +411,7 @@ function renderBuild(game, ap) {
   const free = S.slotList(ap).filter((s) => !S.terminalBySlot(ap, s) && !ap.hangars[s] && ap.plots[SLOTS[s].plot] && S.slotAvailable(ap, s));
   if (free.length) {
     h += `<h3 class="sec">Open sites</h3><ul class="list">`;
-    for (const s of free) h += `<li><div class="what"><b>${S.nm(ap, SLOTS[s].name)}</b><span>${SLOTS[s].field ? `${fieldName(ap.siteIndex, SLOTS[s].field)}: reached by tunnel or monorail` : SLOTS[s].row === 'mid' ? 'Midfield: across the apron from the main terminal' : SLOTS[s].adjacent ? 'Next to the main terminal: a walkway can reach it' : 'Main row, further out'}</span></div><button type="button" class="btn go" data-act="detail" data-kind="slot" data-id="${s}">Plan · ${money(S.terminalCost(ap, s))}+</button></li>`;
+    for (const s of free) h += `<li><div class="what"><b>${S.nm(ap, SLOTS[s].name)}</b><span>${SLOTS[s].field ? `${fieldName(ap.siteIndex, SLOTS[s].field)}: reached by ${S.connectorAllowed('monorail', s, ap.siteIndex) ? 'tunnel or monorail' : 'tunnel'}` : SLOTS[s].row === 'mid' ? 'Midfield: across the apron from the main terminal' : SLOTS[s].adjacent ? 'Next to the main terminal: a walkway can reach it' : 'Main row, further out'}</span></div><button type="button" class="btn go" data-act="detail" data-kind="slot" data-id="${s}">Plan · ${money(S.terminalCost(ap, s))}+</button></li>`;
     h += `</ul>`;
   } else {
     h += `<p class="note">Buy more land to open new terminal sites.</p>`;
@@ -404,10 +422,11 @@ function renderBuild(game, ap) {
     const P = PLOTS[id];
     const owned = ap.plots[id];
     const what = plotOpens(ap, id).join(', ');
-    const needs = P.needs && !ap.plots[P.needs] ? `Buy the ${S.nm(ap, PLOTS[P.needs].name)} first` : null;
+    const needs = P.needs && !ap.plots[P.needs] ? `Buy the ${S.nm(ap, PLOTS[P.needs].name)} first` : S.towerNeeded(ap, id) > S.towerLevel(ap) ? `Needs tower level ${S.towerNeeded(ap, id)}` : null;
     h += `<li><div class="what"><b>${S.nm(ap, P.name)} ${recTag({ act: 'plot', data: { id } })}</b><span>${owned ? 'Owned' : `Opens: ${what}`}${owned ? '' : ` · tax ${rate(14 * S.site(ap).cost)}`}</span></div>${owned ? '<span class="tag green">Owned</span>' : needs ? `<span class="tag">${needs}</span>` : priceBtn('Buy', `plot" data-id="${id}`, S.plotCost(ap, id))}</li>`;
   }
   h += `</ul>`;
+  h += towerBlock(ap);
   h += `<h3 class="sec">Airfield & landside</h3><ul class="list">`;
   for (const k of UPGRADE_ORDER) {
     const U = UPGRADES[k];
@@ -421,7 +440,7 @@ function renderBuild(game, ap) {
 
 function connectorCard(ap, type, slot, chosen, current = null) {
   const def = CONNECTORS[type];
-  const allowed = S.connectorAllowed(type, slot);
+  const allowed = S.connectorAllowed(type, slot, ap.siteIndex);
   const route = connectorRoute(type, slot, ap.siteIndex);
   const len = pathLength(route);
   const fake = { type, level: 0, buses: type === 'shuttle' ? 2 : 0, buildLeft: 0, len, route };
@@ -440,7 +459,7 @@ function connectorCard(ap, type, slot, chosen, current = null) {
       <dt>Build time</dt><dd>${duration(def.buildTime)}</dd>
       <dt>Parking lost</dt><dd>${def.land ? `${def.land}/min` : 'none'}</dd>
     </dl>
-    <p>${allowed ? def.blurb : SLOTS[slot].field ? 'Cannot cross the runways to reach this site.' : 'Only reaches the piers next to the main terminal.'}${crosses ? ' <b style="color:var(--amber)">Crosses the apron lane here.</b>' : ''}${type === 'shuttle' ? ' *with 2 buses; add more later.' : ''}</p>
+    <p>${allowed ? def.blurb : SLOTS[slot].field ? (type === 'monorail' ? 'Not to this field: the pylons would stand in the departures\u2019 climb-out. Use a tunnel.' : 'Cannot cross the runways to reach this site.') : 'Only reaches the piers next to the main terminal.'}${crosses ? ' <b style="color:var(--amber)">Crosses the apron lane here.</b>' : ''}${type === 'shuttle' ? ' *with 2 buses; add more later.' : ''}</p>
   </button>`;
 }
 
@@ -630,12 +649,14 @@ function renderPlotDetail(game, ap, id) {
   const P = PLOTS[id];
   const { opens, ups, lots } = plotParts(ap, id);
   const needs = P.needs && !ap.plots[P.needs] ? S.nm(ap, PLOTS[P.needs].name) : null;
+  const tower = !needs && S.towerNeeded(ap, id) > S.towerLevel(ap) ? S.towerNeeded(ap, id) : 0;
   return `<button type="button" class="back" data-act="back">◂ Back</button>
   <div class="title" style="font-size:24px">${S.nm(ap, P.name)}</div>
   <p class="note">Farmland for now. Owning it opens:</p>
   <ul class="list">${P.opens ? `<li><div class="what"><b>${P.opens}</b><span>A third runway with its own tower, holding stack and taxiways</span></div></li>` : ''}${[...opens.map((o) => `<li><div class="what"><b>${o}</b><span>Terminal site</span></div></li>`), ...ups.map((u) => `<li><div class="what"><b>${u}</b><span>Upgrade</span></div></li>`), ...lots.map((u) => `<li><div class="what"><b>${u}</b><span>Room for a surface lot, later a garage</span></div></li>`)].join('')}${id === 'west' || id === 'east' ? `<li><div class="what"><b>Taxilane</b><span>A second route for aircraft between the runway and the main apron</span></div></li>` : ''}</ul>
   <p class="note">Land carries property tax of ${rate(14 * S.site(ap).cost)} once bought.</p>
-  <div class="btns">${ap.plots[id] ? '<span class="tag green">Owned</span>' : needs ? `<span class="tag">Buy the ${needs} first</span>` : priceBtn('Buy land', `plot" data-id="${id}`, S.plotCost(ap, id), '', 'go')}</div>`;
+  ${tower ? `<p class="note">A new airfield needs a bigger control tower: level ${tower} (you have level ${S.towerLevel(ap)}).</p>` : ''}
+  <div class="btns">${ap.plots[id] ? '<span class="tag green">Owned</span>' : needs ? `<span class="tag">Buy the ${needs} first</span>` : tower ? priceBtn(`Raise the tower to level ${S.towerLevel(ap) + 1}`, 'tower', S.towerCost(ap), '', 'go') : priceBtn('Buy land', `plot" data-id="${id}`, S.plotCost(ap, id), '', 'go')}</div>`;
 }
 
 function renderRunwayDetail(game, ap) {
@@ -643,6 +664,7 @@ function renderRunwayDetail(game, ap) {
   const snap = S.opsSnapshot(ap);
   return `<button type="button" class="back" data-act="back">◂ Back</button>
   <div class="title" style="font-size:24px">Runway & tower</div>
+  <p class="note">Control tower level ${S.towerLevel(ap)} of ${TOWER.levels.length}: ${TOWER.levels[S.towerLevel(ap) - 1].name}.${S.towerLevel(ap) < TOWER.levels.length ? ` <a href="#" class="quiet" data-act="tab" data-tab="build">Raise it in the Build tab</a>.` : ''}</p>
   <dl class="board">
     <div><dt>Demand</dt><dd>${rep.runway.demand.toFixed(1)}/m</dd></div>
     <div><dt>Runway</dt><dd>${rep.runway.physical.toFixed(1)}/m</dd></div>

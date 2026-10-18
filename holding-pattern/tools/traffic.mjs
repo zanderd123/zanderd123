@@ -19,6 +19,7 @@ function scenario(name, seed, setup, siteIndex = 0, routes = 20, classes = ['reg
   const game = { cash: 1e9, airports: [] };
   const ap = createAirport(siteIndex, seed + Number(process.env.SEED || 0) * 100);
   game.airports.push(ap);
+  ap.tower = 4; // every airfield may be bought
   const slots = setup(game, ap);
   for (const T of ap.terminals) { T.buildLeft = 0; if (T.connector) T.connector.buildLeft = 0; T.gates = 4; T.heavy = true; }
   ap.securityLanes = 14; ap.staffing.atc = 'surge'; ap.upgrades.radar = true; ap.upgrades.automation = true;

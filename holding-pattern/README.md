@@ -130,6 +130,16 @@ repairs it himself if it costs under half the cash in hand. A third of the
 airlines fly painted fuselages (blue, red, green, purple); the rest fly white
 with a coloured tail.
 
+**The control tower** has four levels, bought in the Build tab (or by tapping
+the tower on the map). Each one makes every controller handle more movements
+(+15%, +30%, +45%), costs a little upkeep and grows on the map (a taller cab,
+then an approach centre, then a control centre with a radar dome). Each new
+airfield needs the next level: the first extra field level 2, the second
+level 3, a third (Meridian and Mid-Continent) level 4. Elevated monorails
+can't reach airfields on the right or at the back of the map (they would
+stand in the departures' climb-out); departures fade out as they climb, well
+before they would cross a neighbouring field.
+
 **Who goes first.** On one runway, landings and take-offs take turns. In the
 holding stack, routes marked priority (up to three per airport, in the Routes
 tab) land first, then airlines that are unhappy and about to leave, then
@@ -137,9 +147,9 @@ anyone who has circled over two minutes, then first come first served;
 pushbacks go in the same order. The stack's sign says why planes are
 circling (waiting for gates, tower at capacity, runway busy, take-offs'
 turn...), and hovering or tapping a plane explains it with what helps.
-Help has a **Report a bug** button: the player describes the problem and it
-opens a GitHub issue (or copies the report) with the build, screen and a
-summary of the airports attached.
+Help has a **Report a bug** form: the player describes the problem and it is
+emailed (through the FormSubmit relay) with the build, screen and a summary of
+the airports attached; if it can't be sent, the player's mail app opens.
 
 **Everyone is accounted for.** Cars drop departing passengers at the curb and
 pick arrivals up; shuttle buses load at one stop and unload at the other;

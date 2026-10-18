@@ -229,6 +229,7 @@ a.quiet:hover { color: var(--text); }
 .back { background: none; border: 0; color: var(--sign); font: 700 13px/1 var(--display); letter-spacing: 0.08em; text-transform: uppercase; padding: 0; margin-bottom: 12px; }
 
 textarea { width: 100%; min-height: 80px; background: var(--ink); color: var(--text); border: 1px solid var(--line); font: 12px var(--mono); padding: 8px; }
+input[type="email"] { width: 100%; background: var(--ink); color: var(--text); border: 1px solid var(--line); font: 13px var(--body); padding: 8px; border-radius: 2px; }
 
 /* ---------------------------------------------------------------- toasts */
 #toasts { position: absolute; top: calc(var(--top, 58px) + 12px); left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; gap: 6px; z-index: 8; pointer-events: none; width: min(460px, calc(100% - 32px)); margin-left: -200px; }
