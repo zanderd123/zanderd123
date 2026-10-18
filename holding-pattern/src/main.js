@@ -9,7 +9,7 @@ import { acceptAlliance, declineAlliance } from './network.js';
 import { checkMilestones } from './milestones.js';
 import { renderMapSide, drawMap, siteAt } from './mapview.js';
 import { money, duration, clamp } from './util.js';
-import { SITES } from './config.js';
+import { SITES, BREAKDOWNS } from './config.js';
 import { ISLAND_FOCUS } from './island.js';
 
 const $ = (id) => document.getElementById(id);
@@ -147,6 +147,8 @@ function frameBody(now) {
   const s0 = performance.now();
   for (let i = 0; i < n; i++) stepGame(game, simDt / n, ap);
   keepUp(performance.now() - s0);
+  // breakdowns run on real time, slower when nobody is playing
+  S.tickBreakdowns(game, dt, now - lastInput > BREAKDOWNS.idleAfter * 1000);
 
   view.dt = simDt;
   watchGrowth();
@@ -207,8 +209,8 @@ function drainEvents() {
       if (active) {
         const kind = e.kind === 'level' || e.kind === 'built' ? 'good' : ['left', 'unhappy', 'storm', 'breakdown', 'missed'].includes(e.kind) ? 'bad' : '';
         if (e.kind !== 'offer' || !(ui.tab === 'contracts' && !ui.detail)) toast(e.text, kind);
-      } else if (e.kind === 'level' || e.kind === 'left') {
-        toast(`${ap.id}: ${e.text}`, e.kind === 'left' ? 'bad' : 'good');
+      } else if (e.kind === 'level' || e.kind === 'left' || e.kind === 'breakdown') {
+        toast(`${ap.id}: ${e.text}`, e.kind === 'level' ? 'good' : 'bad');
       }
     }
     if (evs.length) seenEvents.set(ap, evs[evs.length - 1].t);
@@ -216,6 +218,10 @@ function drainEvents() {
 }
 
 // ------------------------------------------------------------------ input
+
+// the last time anyone touched the game, for the idle breakdown clock
+let lastInput = performance.now();
+for (const ev of ['pointerdown', 'keydown', 'wheel']) window.addEventListener(ev, () => { lastInput = performance.now(); }, { capture: true, passive: true });
 
 const pointers = new Map();
 let drag = null, pinch = null;
@@ -302,6 +308,11 @@ function clampCam() {
 function select(hit) {
   view.selected = null;
   if (!hit) { return; }
+  // a golden plane: the tap collects it
+  if (hit.kind === 'plane' && hit.plane.gold) {
+    const v = S.claimGold(game, activeAirport(game), hit.plane);
+    if (v) { toast(`Golden plane! +${money(v)}`, 'good'); renderTop(game); return; }
+  }
   if (hit.kind === 'plane') { view.selected = hit.plane; ui.detail = { kind: 'plane', plane: hit.plane }; }
   else ui.detail = { kind: hit.kind, id: hit.id };
   openPanel();
@@ -365,6 +376,7 @@ body.addEventListener('click', (e) => {
     case 'alliance-decline': declineAlliance(game, d.id); break;
     case 'manager': S.setManager(ap, d.on === '1'); ok = d.on === '1' ? `Station manager hired at ${ap.id}` : `Station manager let go at ${ap.id}`; break;
     case 'accept': err = S.acceptOffer(game, ap, d.id, d.slot); ok = 'Contract signed'; break;
+    case 'repair': err = S.repairBreakdown(game, ap, d.id); ok = 'Repaired'; break;
     case 'decline': S.declineOffer(ap, d.id); break;
     case 'arm': ui.armed = d.key; ui.armedUntil = performance.now() + 4000; break;
     case 'cancel': S.cancelContract(game, ap, d.id); ui.armed = null; ok = 'Contract ended'; break;

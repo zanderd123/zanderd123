@@ -37,6 +37,15 @@ export function advise(game, ap) {
   const snap = S.opsSnapshot(ap);
   const add = (sev, area, title, detail, fixes = [], tip = '') => issues.push({ sev, area, title, detail, fixes: fixes.filter(Boolean), tip });
 
+  // ------------------------------------------------------------ breakdowns
+  // (added first, so they head the most urgent: only a click fixes them)
+  for (const b of ap.breakdowns || []) {
+    const K = S.breakdownKind(b);
+    const hits = [K.happy >= 5 ? 'reputation' : '', K.turn > 1.08 ? 'on-time departures' : ''].filter(Boolean).join(' and ') || 'reputation';
+    const mgr = ap.manager ? (b.mgrAt != null ? ' Your station manager has a crew on it.' : ' It costs more than your station manager may spend on his own (half your cash).') : '';
+    add(3, 'repair', S.breakdownTitle(ap, b), `${K.what} Until it is repaired it hurts ${hits}.${mgr}`, [fix('Repair it', 'repair', { id: b.id }, b.cost)]);
+  }
+
   // ------------------------------------------------------------ runway
   // (the hub has a second airfield, with its own runway and tower; the
   // later advice goes by the busier one)

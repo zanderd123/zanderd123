@@ -245,6 +245,8 @@ textarea { width: 100%; min-height: 80px; background: var(--ink); color: var(--t
 #tut .tut-wait { font: 700 13px/2.2 var(--display); text-transform: uppercase; letter-spacing: 0.05em; }
 #mapModal { z-index: 31; } /* over the tutorial while it is open */
 #tutRing { position: fixed; z-index: 29; border: 3px solid var(--sign); border-radius: 4px; pointer-events: none; box-shadow: 0 0 0 4000px rgba(5,7,10,0.35); animation: ring 1.4s ease-in-out infinite; }
+#tutRing.point::after { content: "▼"; position: absolute; left: 50%; top: -30px; transform: translateX(-50%); color: var(--sign); font-size: 24px; line-height: 1; text-shadow: 0 2px 6px rgba(0,0,0,0.6); animation: bob 0.7s ease-in-out infinite alternate; }
+@keyframes bob { to { top: -20px; } }
 @keyframes ring { 50% { border-color: #fff; } }
 
 .why { display: flex; align-items: center; }

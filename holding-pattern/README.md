@@ -119,6 +119,17 @@ one large bonus, signed or declined as a whole from the All tab. Nothing is
 "won"; milestones (a quiet link in the Money tab) mark the way, from the
 first thousand passengers to a hundred million.
 
+**Something to tap.** About one arrival in 40 is a golden plane, a little
+bigger and shining: tap it before it leaves for a couple of minutes of the
+network's income. Once two airports reach level 4, something breaks now and
+then (restrooms, air conditioning, a jet bridge, a baggage belt), about once
+every ten minutes of play and half as often when nobody is at the controls.
+A red sign marks the terminal; until it is repaired (a minute or so of that
+airport's income) reputation and turnarounds suffer. A station manager
+repairs it himself if it costs under half the cash in hand. A third of the
+airlines fly painted fuselages (blue, red, green, purple); the rest fly white
+with a coloured tail.
+
 **Everyone is accounted for.** Cars drop departing passengers at the curb and
 pick arrivals up; shuttle buses load at one stop and unload at the other;
 passengers wait in the hall until their aircraft has a gate, then gather at
@@ -130,7 +141,8 @@ junctions are locks that nobody enters without room to get out the other
 side; at merges the aircraft nearer the meeting point goes first; ground
 control limits how many aircraft taxi at once; and a plane lands only when
 its gate is free. If two aircraft ever end up nose to nose, the newer one
-is towed back a few metres.
+is towed back a few metres (or, if a queue is tight behind it, the first
+aircraft in that queue with room to move).
 
 ## Development
 

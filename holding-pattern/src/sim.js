@@ -6,7 +6,7 @@ import {
   AIRCRAFT, AIRCRAFT_ORDER, FLIGHT, PAX, STAFFING, COSTS, TERMINAL, CONNECTORS,
   UPGRADES, SECURITY as SEC, PARKING, LEVELS, UNLOCKS, SITES, NETWORK, CONTRACTS,
   LANDSIDE, LANDSIDE_ORDER, HANGAR, DEMOLISH_REFUND, MANAGER,
-  AIRLINES, CITIES, WEATHER,
+  AIRLINES, CITIES, WEATHER, GOLD, BREAKDOWNS,
 } from './config.js';
 import {
   RW, RUNWAY_HALF, TWY_A, TWY_B, LANE2, EXITS, HOLD_POINT, IAF, PLOTS, SLOTS, LONG_RUNWAY_X1,
@@ -18,7 +18,7 @@ import {
   HUB_SLOT_ORDER, HUB_PLOT_ORDER, HUB_NO_PLOTS, HUB_NO_SLOTS, POCKETS, STAR, STAR_LINES, STAR_THRESHOLD, STAR_EXIT, STAR_LANE,
   WEDGES, starPoint, siteFields, EXPAND_TERMINALS,
 } from './hub.js';
-import { mulberry32, clamp, dist, pick, pathLength, pointAlong } from './util.js';
+import { mulberry32, clamp, dist, pick, pathLength, pointAlong, money } from './util.js';
 
 const DEG = Math.PI / 180;
 
@@ -222,12 +222,14 @@ export function serializeAirport(ap) {
     nextOfferAt: ap.t + 10,
     hubV: ap.hubV,
     expandReady: ap.expandReady || undefined,
+    breakdowns: ap.breakdowns && ap.breakdowns.length ? ap.breakdowns.map((b) => ({ ...b, mgrAt: undefined, t0: 0 })) : undefined,
   };
 }
 
 export function restoreAirport(data) {
   const site = SITES[data.siteIndex];
   const ap = { ...data, id: site.id, name: site.name };
+  if (ap.breakdowns) ap.breakdowns = Array.isArray(ap.breakdowns) ? ap.breakdowns.filter((b) => b && BD_KIND[b.kind] && Number.isFinite(b.cost)) : undefined;
   for (const T of ap.terminals) {
     if (T.connector) T.connector = { ...T.connector };
     if (T.pendingConnector) T.pendingConnector = { ...T.pendingConnector };
@@ -617,7 +619,7 @@ export function computeCosts(ap) {
 // ======================================================================
 
 function turnTime(ap, cls) {
-  return AIRCRAFT[cls].turn * staffing(ap, 'ground').turn * Math.pow(HANGAR.turn, Math.min(2, hangarCount(ap)));
+  return AIRCRAFT[cls].turn * staffing(ap, 'ground').turn * Math.pow(HANGAR.turn, Math.min(2, hangarCount(ap))) * breakdownTurn(ap);
 }
 
 export function terminalSupports(ap, T, cls) {
@@ -1231,10 +1233,94 @@ export function step(game, ap, dt) {
     notify(ap, 'level', `${ap.name} can grow: ${siteFields(ap.siteIndex).length} new airfields are for sale around it. Zoom out to see them.`);
   }
 
+  if (ap.breakdowns && ap.breakdowns.length) {
+    // (a terminal torn down takes its breakdown with it)
+    if (ap.breakdowns.some((b) => !BD_KIND[b.kind] || !terminalBySlot(ap, b.slot))) ap.breakdowns = ap.breakdowns.filter((b) => BD_KIND[b.kind] && terminalBySlot(ap, b.slot));
+    managerRepairs(game, ap);
+  }
+
   // levels
   while (ap.level < LEVELS.length && ap.paxServed >= LEVELS[ap.level]) {
     ap.level++;
     notify(ap, 'level', `${ap.name} reached level ${ap.level}`);
+  }
+}
+
+// ---------------------------------------------------------------- breakdowns
+
+const BD_KIND = Object.fromEntries(BREAKDOWNS.kinds.map((k) => [k.id, k]));
+export const breakdownKind = (b) => BD_KIND[b.kind];
+
+export function breakdownsUnlocked(game) {
+  const U = BREAKDOWNS.unlock;
+  return game.airports.filter((a) => a.level >= U.level).length >= U.airports;
+}
+
+// Called with real seconds of play (not game seconds: at 4x speed things
+// don't break four times as often). `idle`: nobody has touched the game.
+export function tickBreakdowns(game, dt, idle) {
+  if (!(dt > 0) || !breakdownsUnlocked(game)) return null;
+  const B = BREAKDOWNS;
+  if (!(game.breakIn > 0)) game.breakIn = B.every[0] + Math.random() * (B.every[1] - B.every[0]);
+  game.breakIn -= dt * (idle ? B.idleRate : 1);
+  if (game.breakIn > 0) return null;
+  game.breakIn = 0;
+  const open = game.airports.reduce((n, a) => n + ((a.breakdowns && a.breakdowns.length) || 0), 0);
+  if (open >= B.maxOpen) { game.breakIn = 60; return null; } // try again in a minute
+  const where = game.airports.filter((a) => a.level >= 2 && !(a.breakdowns && a.breakdowns.length) && a.terminals.some(isOpen));
+  if (!where.length) { game.breakIn = 60; return null; }
+  const ap = where[Math.floor(Math.random() * where.length)];
+  const terms = ap.terminals.filter(isOpen);
+  const T = terms[Math.floor(Math.random() * terms.length)];
+  const K = B.kinds[Math.floor(Math.random() * B.kinds.length)];
+  const b = { id: `b${Math.floor(ap.t)}${Math.floor(Math.random() * 1000)}`, kind: K.id, slot: T.slot, cost: repairCost(ap, K), t0: ap.t };
+  (ap.breakdowns || (ap.breakdowns = [])).push(b);
+  game.breakIn = B.every[0] + Math.random() * (B.every[1] - B.every[0]);
+  notify(ap, 'breakdown', `${breakdownTitle(ap, b)}. ${ap.manager ? 'Your station manager is on it.' : 'Tap its red sign or the Advisor to repair it.'}`);
+  return { ap, b };
+}
+
+function repairCost(ap, K) {
+  const run = Math.max(0, (ap.perMin && ap.perMin.operating) || 0) * BREAKDOWNS.costMinutes;
+  const c = Math.max(BREAKDOWNS.costMin * site(ap).cost, run) * K.cost;
+  const unit = c > 20000 ? 1000 : c > 2000 ? 100 : 10;
+  return Math.round(c / unit) * unit;
+}
+
+export function breakdownTitle(ap, b) {
+  return `${breakdownKind(b).name} in ${nm(ap, SLOTS[b.slot] ? SLOTS[b.slot].name : 'the terminal')}`;
+}
+
+// The effects: the worst slowdown applies (everything goes through one
+// ramp crew), the reputation hits add up.
+export function breakdownTurn(ap) {
+  let k = 1;
+  if (ap.breakdowns) for (const b of ap.breakdowns) k = Math.max(k, breakdownKind(b).turn);
+  return k;
+}
+export function breakdownHappy(ap) {
+  let h = 0;
+  if (ap.breakdowns) for (const b of ap.breakdowns) h += breakdownKind(b).happy;
+  return h;
+}
+
+export function repairBreakdown(game, ap, id) {
+  const b = (ap.breakdowns || []).find((x) => x.id === id);
+  if (!b) return 'Already fixed';
+  if (game.cash < b.cost) return 'Not enough cash';
+  spend(game, b.cost);
+  ap.bucket.repairs = (ap.bucket.repairs || 0) - b.cost;
+  ap.breakdowns = ap.breakdowns.filter((x) => x !== b);
+  return null;
+}
+
+// The station manager deals with it, if it costs under half the cash.
+function managerRepairs(game, ap) {
+  if (!ap.manager) return;
+  for (const b of [...ap.breakdowns]) {
+    if (b.cost >= BREAKDOWNS.managerShare * game.cash) { b.mgrAt = undefined; continue; }
+    if (b.mgrAt == null) { b.mgrAt = ap.t + BREAKDOWNS.managerDelay; continue; }
+    if (ap.t >= b.mgrAt && !repairBreakdown(game, ap, b.id)) notify(ap, 'built', `Station manager paid ${money(b.cost)} to repair: ${breakdownTitle(ap, b)}`);
   }
 }
 
@@ -1341,9 +1427,33 @@ function spawnPlane(ap, f) {
     gate: -1, turnLeft: 0, turnTotal: 0, deplaned: 0,
     rw: arrRunway(ap),
     field: ap.field || 0,
+    gold: rollGold(ap) || undefined,
   };
   f.plane = p;
   ap.planes.push(p);
+}
+
+// One plane in every 30 to 50 arrives golden: tap it for a bonus. (The
+// count is kept per airport, its airfields share it.)
+function rollGold(ap) {
+  if (!(ap.goldIn > 0)) ap.goldIn = GOLD.every[0] + Math.floor(ap.rand() * (GOLD.every[1] - GOLD.every[0] + 1));
+  return --ap.goldIn === 0;
+}
+
+// What a golden plane pays: a couple of minutes of what the whole network
+// makes from running, so it is worth a tap at every stage of the game.
+export function goldBonus(game) {
+  const perMin = game.airports.reduce((s, a) => s + Math.max(0, (a.perMin && a.perMin.operating) || 0), 0);
+  return Math.round(Math.max(GOLD.min, perMin * GOLD.minutes));
+}
+
+export function claimGold(game, ap, p) {
+  if (!p.gold) return 0;
+  p.gold = undefined;
+  const amount = goldBonus(game);
+  earn(game, ap, 'bonus', amount);
+  if (ap.fx) ap.fx('gold', { x: p.x, y: p.y - 30, v: amount, field: p.field || 0 });
+  return amount;
 }
 
 function setPath(p, pts) {
@@ -1732,7 +1842,7 @@ function spawnStarPlane(F, f) {
     id: F.nextPlaneId++, f, cls: f.cls, color: f.color, scale: A.scale, r: R_PLANE * A.scale,
     state: 'inbound', x, y, ang: Math.atan2(I.y - y, I.x - x), alt: 160, speed: FLIGHT.cruiseSpeed,
     path: null, d: 0, blockedFor: 0, gate: -1, turnLeft: 0, turnTotal: 0, deplaned: 0,
-    rw: line, field: 'X',
+    rw: line, field: 'X', gold: rollGold(F) || undefined,
   };
   f.plane = p;
   F.planes.push(p);
@@ -2283,7 +2393,20 @@ function groundTraffic(game, ap, dt) {
           const order = (a, b) => b.id - a.id;
           const cands = ring.filter((r) => r.state !== 'rollout').sort(order);
           if (m.blockedFor > 20 && cands.length) cands.push(...ring.filter((r) => r.state === 'rollout').sort(order));
-          const pick = cands.find((r) => canTow(r, bodies, ap));
+          let pick = cands.find((r) => canTow(r, bodies, ap));
+          // nobody can back up: make room behind one of them instead (a
+          // queue nose to tail behind the junction)
+          if (!pick) {
+            for (const r of cands) {
+              const seen = new Set(ring);
+              for (let b = behind(r, bodies); b && !seen.has(b) && seen.size < ring.length + 6; b = behind(b, bodies)) {
+                seen.add(b);
+                if (b.blockedFor <= 5 || b.state === 'rollout') break;
+                if (canTow(b, bodies, ap)) { pick = b; break; }
+              }
+              if (pick) break;
+            }
+          }
           if (pick && pick.towStep !== t) {
             pick.towStep = t; // once a step, however many of the ring ask
             if (towBack(pick, bodies, dt, ap)) pick.towT = t; // and it gives way for a while
@@ -2362,6 +2485,17 @@ function canTow(m, bodies, ap) {
     if (then < now && then < m.r + o.r + 2) return false;
   }
   return true;
+}
+// The aircraft right behind m that stops it backing up, if any.
+function behind(m, bodies) {
+  if (m.d < 2) return null;
+  const back = pointAlong(m.path, Math.max(0, m.d - 3));
+  for (const o of bodies) {
+    if (o.p === m || !o.p || !o.p.path) continue;
+    const now = Math.hypot(m.x - o.x, m.y - o.y), then = Math.hypot(back.x - o.x, back.y - o.y);
+    if (then < now && then < m.r + o.r + 2) return o.p;
+  }
+  return null;
 }
 function towBack(m, bodies, dt, ap) {
   if (!canTow(m, bodies, ap)) return false;
@@ -2809,7 +2943,7 @@ function updateRep(ap, dt) {
     0.25 * (1 - Math.min(1, r.missed * 6)) +
     0.15 * (1 - Math.min(1, r.crowd)) +
     0.10 * (1 - Math.min(1, r.secWait / 60))
-  );
+  ) - breakdownHappy(ap);
   ap.rep += (target - ap.rep) * Math.min(1, dt / 60);
   ap.rep = clamp(ap.rep, 0, 100);
 }

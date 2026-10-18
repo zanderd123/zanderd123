@@ -126,6 +126,8 @@ export function renderOps(game, clockText) {
   rows.push({ k: 'On time', s: ap.rolling.otp < 0.6 ? 'bad' : ap.rolling.otp < 0.8 ? 'warn' : '', v: pct(ap.rolling.otp), sub: `${ap.contracts.filter((c) => c.unhappyFor > 0).length} unhappy airlines` });
   const net = ap.perMin.operating || 0;
   rows.push({ k: 'Money', s: net < -6 && ap.t > 30 ? 'bad' : '', v: rate(net, true), sub: net < -6 ? 'tap for why' : 'after all running costs' });
+  const bd = ap.breakdowns || [];
+  if (bd.length) rows.unshift({ k: 'Repairs', s: 'bad', v: bd.length === 1 ? S.breakdownKind(bd[0]).name : `${bd.length} things broken`, sub: ap.manager && bd.every((b) => b.mgrAt != null) ? 'station manager on it' : 'tap to fix' });
   if (ap.weather.stormUntil > ap.t) rows.push({ k: 'Weather', s: 'bad', v: 'Thunderstorm', sub: `runway slowed · clears in ${duration(ap.weather.stormUntil - ap.t)}` });
   const top = ui.advice && ui.advice.issues[0];
   const tip = top && top.sev >= 2 ? `<li class="tip" data-ops="advisor"><span class="dot ${top.sev >= 3 ? 'bad' : 'warn'}"></span><span class="k">Do next</span><span class="v">${esc(ui.advice.best ? ui.advice.best.label : top.title)}<small>open the Advisor</small></span></li>` : '';
@@ -487,6 +489,7 @@ function renderTerminalDetail(game, ap, slot) {
   let h = `<button type="button" class="back" data-act="back">◂ Back</button>
   <div class="row between"><div class="title" style="font-size:24px">${TERMINAL_CODES[slot]} · ${S.nm(ap, S0.name)}</div>${T.demolishing ? '<span class="tag red">Closing</span>' : T.buildLeft > 0 ? `<span class="tag amber">Building · ${duration(T.buildLeft)}</span>` : ''}</div>
   ${T.demolishing ? '<p class="note">Being torn down: its routes have moved to other terminals, and it goes as soon as the aircraft at its gates have left.</p>' : ''}
+  ${(ap.breakdowns || []).filter((b) => b.slot === slot).map((b) => `<div class="card sev3"><div class="row between"><div class="title">${esc(S.breakdownKind(b).name)}</div><span class="tag red">Broken</span></div><p>${esc(S.breakdownKind(b).what)}${b.mgrAt != null ? ' Your station manager has a crew on it.' : ''}</p><div class="btns">${fixButton({ label: 'Repair it', act: 'repair', data: { id: b.id }, cost: b.cost }, 'go')}</div></div>`).join('')}
   <dl class="board">
     <div><dt>Gates</dt><dd>${T.gates}${T.heavy ? ' heavy' : ''}</dd></div>
     <div><dt>Gate load</dt><dd>${rep ? pct(rep.gateDemand / rep.gates) : '—'}</dd></div>
@@ -726,12 +729,13 @@ function renderOperations(game, ap) {
 
 function renderFinance(game, ap) {
   const pm = ap.perMin;
-  const rev = [['landing', 'Landing fees'], ['paxFees', 'Passenger fees'], ['retail', 'Shops & dining'], ['parking', 'Parking'], ['hotel', 'Hotels'], ['rental', 'Rental cars'], ['maintenance', 'Hangar maintenance work'], ['bonus', 'Signing bonuses']].filter(([k]) => k === 'landing' || k === 'paxFees' || pm[k]);
+  const rev = [['landing', 'Landing fees'], ['paxFees', 'Passenger fees'], ['retail', 'Shops & dining'], ['parking', 'Parking'], ['hotel', 'Hotels'], ['rental', 'Rental cars'], ['maintenance', 'Hangar maintenance work'], ['bonus', 'Bonuses (signing, golden planes)']].filter(([k]) => k === 'landing' || k === 'paxFees' || pm[k]);
   const max = Math.max(1, ...rev.map(([k]) => pm[k] || 0), ...ap.costLines.map((l) => l.v));
   let h = `<h3 class="sec">${ap.name} · per second</h3><table class="ledger">`;
   for (const [k, label] of rev) h += `<tr><td>${label}</td><td class="lb"><div class="bar"><i style="width:${((pm[k] || 0) / max * 100).toFixed(1)}%"></i></div></td><td class="num pos">${rate(pm[k] || 0)}</td></tr>`;
   if (pm.refunds) h += `<tr><td>Missed-flight compensation</td><td class="lb"><div class="bar bad"><i style="width:${(-pm.refunds / max * 100).toFixed(1)}%"></i></div></td><td class="num neg">${rate(pm.refunds)}</td></tr>`;
   if (pm.penalties) h += `<tr><td>Contract penalties</td><td class="lb"></td><td class="num neg">${rate(pm.penalties)}</td></tr>`;
+  if (pm.repairs) h += `<tr><td>Repairs</td><td class="lb"></td><td class="num neg">${rate(pm.repairs)}</td></tr>`;
   for (const l of ap.costLines) if (l.v > 0) h += `<tr><td>${esc(l.label)}</td><td class="lb"><div class="bar warn"><i style="width:${(l.v / max * 100).toFixed(1)}%"></i></div></td><td class="num neg">${rate(-l.v)}</td></tr>`;
   h += `<tr class="total"><td>Net</td><td></td><td class="num ${pm.net >= 0 ? 'pos' : 'neg'}">${rate(pm.net || 0, true)}</td></tr></table>`;
   h += `<p class="note">Costs run every second whether planes fly or not. Revenue arrives with each landing, each boarded passenger and every minute people spend waiting airside.</p>`;

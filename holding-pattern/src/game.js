@@ -95,6 +95,7 @@ export function serialize(game, at) {
     tutorialDone: !!game.tutorialDone,
     milestones: game.milestones || {},
     alliancesSigned: game.alliancesSigned || 0,
+    breakIn: game.breakIn,
     savedAt: at || Date.now(),
     airports: game.airports.map(serializeAirport),
   };
@@ -113,6 +114,7 @@ export function deserialize(data) {
     tutorialDone: !!data.tutorialDone,
     milestones: data.milestones || {},
     alliancesSigned: data.alliancesSigned || 0,
+    breakIn: Number(data.breakIn) || undefined,
     airports: data.airports.map(restoreAirport),
     savedAt: data.savedAt,
   };

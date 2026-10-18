@@ -14,13 +14,16 @@ const STEPS = [
     text: 'Planes land on the runway, follow the one-way taxiways (yellow arrows) to a gate, turn around and take off again. <b>Blue dots</b> are departing passengers, <b>orange</b> are arriving. Drag to pan; scroll or pinch to zoom.',
   },
   {
-    target: '#tabs [data-tab="contracts"]',
+    // first the Routes tab, then (once it shows an offer) its Sign button
+    target: () => (document.querySelector('#tabs [data-tab="contracts"].on') && signButton() ? signButton() : '#tabs [data-tab="contracts"]'),
     tab: 'contracts',
-    text: 'Airlines offer <b>routes</b> here. Signing one brings more flights, and more money. <b>Sign one now.</b>',
+    text: 'Airlines offer <b>routes</b> in the <b>Routes</b> tab. Signing one brings more flights, and more money. <b>Tap the yellow Sign button</b> on an offer.',
+    textTab: 'Airlines offer <b>routes</b> in the <b>Routes</b> tab. Signing one brings more flights, and more money. <b>Tap Routes</b> to see the offers.',
+    point: true,
     needOffer: true,
     count: (g) => activeAirport(g).contracts.length,
     waitFor: (g, base) => activeAirport(g).contracts.length > base,
-    waitLabel: 'Waiting for you to sign a route…',
+    waitLabel: 'Sign a route to go on',
   },
   {
     target: '#panelBody',
@@ -47,6 +50,9 @@ const STEPS = [
   },
 ];
 
+// The first offer's Sign button in the open panel, if there is one.
+const signButton = () => document.querySelector('#panelBody [data-act="accept"], #panelBody [data-act="arm"][data-key^="sign-"]');
+
 export function makeTutorial(game, hooks) {
   const box = document.getElementById('tut');
   const ring = document.getElementById('tutRing');
@@ -62,8 +68,9 @@ export function makeTutorial(game, hooks) {
     // the ops board starts folded away on phones
     if (s.target === '#ops') { const o = document.getElementById('ops'); o.classList.remove('collapsed'); if (window.innerWidth <= 860) o.classList.add('open'); }
     state.base = s.count ? s.count(game) : 0;
+    state.onTab = null;
     box.innerHTML = `<div class="tut-count">${i + 1} / ${STEPS.length}</div><p>${s.text}</p>
-      <div class="btns">${s.waitFor ? `<span class="tut-wait">${s.waitLabel}</span>` : `<button type="button" class="btn go" data-tut="next">${s.last ? 'Start playing' : 'Next'}</button>`}
+      <div class="btns">${s.waitFor ? `<span class="tut-wait">${s.waitLabel}</span><button type="button" class="btn" data-tut="next">Skip this step</button>` : `<button type="button" class="btn go" data-tut="next">${s.last ? 'Start playing' : 'Next'}</button>`}
       <button type="button" class="btn" data-tut="skip">${s.last ? 'Close' : 'Skip tutorial'}</button></div>`;
     box.hidden = false;
     place();
@@ -77,9 +84,18 @@ export function makeTutorial(game, hooks) {
     box.style.visibility = mapOpen ? 'hidden' : '';
     ring.style.visibility = mapOpen ? 'hidden' : '';
     if (mapOpen) return;
-    const el = s.target && document.querySelector(s.target);
+    const target = typeof s.target === 'function' ? s.target() : s.target;
+    const el = target && (typeof target === 'string' ? document.querySelector(target) : target);
+    // a step that points two ways: say which part we are on
+    if (s.textTab) {
+      const onTab = typeof target === 'string';
+      if (onTab !== state.onTab) { state.onTab = onTab; box.querySelector('p').innerHTML = onTab ? s.textTab : s.text; }
+      // the Sign button may be below the fold of the panel
+      if (!onTab && el) { const pb = document.getElementById('panelBody').getBoundingClientRect(), r0 = el.getBoundingClientRect(); if (r0.bottom > pb.bottom || r0.top < pb.top) el.scrollIntoView({ block: 'nearest' }); }
+    }
+    ring.classList.toggle('point', !!s.point);
     const vw = window.innerWidth, vh = window.innerHeight;
-    if (!el || s.target === '#field') {
+    if (!el || target === '#field') {
       ring.hidden = true;
       box.style.left = `${Math.max(16, (vw - box.offsetWidth) / 2 - (vw > 860 ? 200 : 0))}px`;
       box.style.top = `${Math.max(80, vh * 0.32)}px`;
@@ -96,6 +112,9 @@ export function makeTutorial(game, hooks) {
     // still on top of the target (a narrow screen): above or below it instead
     if (x < r.right && x + bw > r.left) { x = Math.max(16, Math.min(vw - bw - 16, r.left)); y = r.top - bh - 12 >= 16 ? r.top - bh - 12 : r.bottom + 12; }
     if (y + bh > vh - 16) y = Math.max(16, r.top - bh - 12);
+    // a phone, pointing into the panel: the bubble goes over the map so the
+    // offer (and the arrow) stay in view
+    if (vw <= 860 && el.closest && el.closest('#panelBody')) { x = (vw - bw) / 2; y = document.getElementById('topbar').getBoundingClientRect().bottom + 8; }
     box.style.left = `${Math.max(16, x)}px`;
     box.style.top = `${Math.max(16, y)}px`;
   }

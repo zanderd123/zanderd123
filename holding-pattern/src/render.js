@@ -1,7 +1,7 @@
 // Top-down drawing of the active airport. The airfield is drawn as a floor
 // plan: terminal roofs are left off so you can see the crowds inside.
 
-import { WORLD, AIRCRAFT, CONNECTORS, TERMINAL, SITES } from './config.js';
+import { WORLD, AIRCRAFT, CONNECTORS, TERMINAL, SITES, AIRLINES } from './config.js';
 import {
   RW, TWY_A, TWY_B, LANE2, RUNWAY_HALF, EXITS, LONG_RUNWAY_X1, HOLD_POINT, IAF,
   TAXILANES, PLOTS, SLOTS, SLOT_ORDER, MAIN_BLDG, MID_BLDG, SERVICE_Y, CURB_Y,
@@ -853,13 +853,21 @@ function walkway(g, T) {
 
 // ------------------------------------------------------------------ planes
 
-export function drawPlaneShape(g, cls, livery, shadow) {
+const BREAKDOWN_SHORT = { toilets: 'RESTROOMS DOWN', hvac: 'NO AIR CON', jetbridge: 'JET BRIDGE STUCK', baggage: 'BELT JAMMED', escalator: 'ESCALATOR DOWN', roof: 'ROOF LEAK' };
+
+// Airlines with a painted fuselage, by their colour (what a flight carries).
+const BODY = new Map(AIRLINES.filter((a) => a.body).map((a) => [a.color, a.body]));
+const GOLD = { body: '#d9a514', livery: '#fff1b8' };
+
+// paint: a fuselage colour (the livery then goes white), or none for white
+export function drawPlaneShape(g, cls, livery, shadow, paint = null) {
   const A = AIRCRAFT[cls];
   const L = 60 * A.scale;
   const W = L * (cls === 'regional' ? 0.88 : 1.0);
   const fw = L * (cls === 'jumbo' ? 0.15 : cls === 'wide' ? 0.13 : 0.11);
-  const body = shadow ? C.shadow : '#f7f8fa';
-  const wing = shadow ? C.shadow : '#d9dee4';
+  if (paint && !shadow) livery = paint === GOLD.body ? GOLD.livery : '#f7f8fa';
+  const body = shadow ? C.shadow : paint || '#f7f8fa';
+  const wing = shadow ? C.shadow : paint === GOLD.body ? '#ebc75c' : '#d9dee4';
   const liv = shadow ? C.shadow : livery;
   // wings
   g.fillStyle = wing;
@@ -912,13 +920,28 @@ function drawPlane(g, p, t, night, selected) {
   g.rotate(p.ang);
   g.scale(Math.max(0.7, 1 - alt / 900), Math.max(0.7, 1 - alt / 900));
   g.globalAlpha = Math.max(0.25, 1 - alt / 260);
+  const gs = p.gold ? 1.2 : 1; // a golden plane is a little bigger
+  if (gs !== 1) g.scale(gs, gs);
   drawPlaneShape(g, p.cls, p.color, true);
   g.restore();
   g.save();
   g.translate(p.x, p.y);
   g.rotate(p.ang);
-  g.scale(k, k);
-  drawPlaneShape(g, p.cls, p.color, false);
+  g.scale(k * gs, k * gs);
+  if (p.gold) { // a soft glow and a glint, so it is spotted
+    const L0 = 60 * AIRCRAFT[p.cls].scale, pulse = 0.75 + 0.25 * Math.sin(t * 4 + p.id);
+    const grd = g.createRadialGradient(0, 0, L0 * 0.1, 0, 0, L0 * 0.85);
+    grd.addColorStop(0, `rgba(255,214,90,${0.55 * pulse})`); grd.addColorStop(1, 'rgba(255,214,90,0)');
+    g.fillStyle = grd; g.beginPath(); g.arc(0, 0, L0 * 0.85, 0, Math.PI * 2); g.fill();
+  }
+  drawPlaneShape(g, p.cls, p.color, false, p.gold ? GOLD.body : BODY.get(p.color));
+  if (p.gold) {
+    const L0 = 60 * AIRCRAFT[p.cls].scale, ph = (t * 0.8 + p.id * 0.13) % 1;
+    g.fillStyle = `rgba(255,255,255,${Math.sin(ph * Math.PI) * 0.9})`;
+    const sx = L0 * (0.35 - ph * 0.8), sz = L0 * 0.07;
+    g.beginPath(); g.moveTo(sx, -sz * 2); g.lineTo(sx + sz * 0.4, 0); g.lineTo(sx, sz * 2); g.lineTo(sx - sz * 0.4, 0); g.closePath(); g.fill();
+    g.beginPath(); g.moveTo(sx - sz * 2, 0); g.lineTo(sx, sz * 0.4); g.lineTo(sx + sz * 2, 0); g.lineTo(sx, -sz * 0.4); g.closePath(); g.fill();
+  }
   // beacon and nav lights
   const L = 60 * AIRCRAFT[p.cls].scale;
   if (Math.floor(t * 1.4 + p.id * 0.37) % 2 === 0) {
@@ -1004,6 +1027,7 @@ export function attach(ap) {
   dotAcc = {}; dotKeys = 0;
   ap.fx = (type, e) => {
     if (type === 'money') { const q = fieldPt(e.field, e); floaters.push({ x: q.x, y: q.y, text: '+' + money(e.v), life: 1.6 }); return; }
+    if (type === 'gold') { const q = fieldPt(e.field, e); floaters.push({ x: q.x, y: q.y, text: `+${money(e.v)} golden plane!`, life: 3, big: true }); return; }
     if (type === 'curb') {
       // departing passengers arrive by car: one car per few of them
       dropAcc += e.n / ppd;
@@ -1340,7 +1364,7 @@ export function render(g, w, h, dpr, cam, ap, view) {
     f.life -= dt; f.y -= 14 * dt;
     if (f.life <= 0) { floaters.splice(i, 1); continue; }
     g.globalAlpha = Math.min(1, f.life);
-    g.font = '700 12px "IBM Plex Mono", monospace'; g.textAlign = 'center';
+    g.font = f.big ? `700 ${Math.round(16 / Math.max(0.5, cam.zoom))}px "IBM Plex Mono", monospace` : '700 12px "IBM Plex Mono", monospace'; g.textAlign = 'center';
     g.fillStyle = 'rgba(0,0,0,0.5)'; textAt(g, f.text, f.x + (MIRROR ? -1 : 1), f.y + 1);
     g.fillStyle = '#ffe58a'; textAt(g, f.text, f.x, f.y);
   }
@@ -1353,6 +1377,16 @@ export function render(g, w, h, dpr, cam, ap, view) {
     const r = plotRects(SITE, id)[0];
     const hot = view.hover && view.hover.kind === 'plot' && view.hover.id === id;
     signLabel(g, r.x + r.w / 2, r.y + r.h / 2, `${hot ? '▸ ' : ''}FOR SALE · ${placeName(MIRROR, P.name).toUpperCase()}`, hot ? 'yellow' : 'black', cam.zoom);
+  }
+
+  // something broken: a red sign on the terminal, tap it to repair
+  for (const b of ap.breakdowns || []) {
+    if (!SLOTS[b.slot]) continue;
+    const r = slotBox(b.slot), x = r.x + r.w / 2, y = r.y + r.h / 2;
+    const k = 1 / Math.max(0.45, cam.zoom), pulse = (t * 0.9) % 1;
+    g.strokeStyle = `rgba(200,16,46,${1 - pulse})`; g.lineWidth = 3 * k;
+    g.beginPath(); g.arc(x, y, (14 + pulse * 26) * k, 0, Math.PI * 2); g.stroke();
+    signLabel(g, x, y, `⚠ ${BREAKDOWN_SHORT[b.kind] || 'REPAIR'} · TAP TO FIX`, 'red', cam.zoom);
   }
 
   // night and weather
@@ -1550,10 +1584,16 @@ export function pick(ap, wx, wy) {
   for (const p of allPlanes(ap)) {
     const q = inWorld(p);
     const d = Math.hypot(q.x - wx, q.y - wy);
-    const r = 34 * AIRCRAFT[p.cls].scale + 6;
+    const r = (34 * AIRCRAFT[p.cls].scale + 6) * (p.gold ? 1.5 : 1); // easy to catch
     if (d < r && d < bd) { bd = d; best = { kind: 'plane', plane: p }; }
   }
   if (best) return best;
+  // a breakdown's sign opens its terminal (where the repair button is)
+  for (const b of ap.breakdowns || []) {
+    if (!SLOTS[b.slot]) continue;
+    const r = slotBox(b.slot);
+    if (Math.abs(wx - (r.x + r.w / 2)) < 90 && Math.abs(wy - (r.y + r.h / 2)) < 30) return { kind: 'terminal', id: b.slot };
+  }
   // the jet bridges, on the airside face, count as the terminal
   for (const T of ap.terminals) if (onSlot(T.slot, wx, wy, 20)) return { kind: 'terminal', id: T.slot };
   for (const id of slotIds(ap)) {

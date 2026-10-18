@@ -170,6 +170,36 @@ export const HANGAR = {
 // every bar under fits, declines the rest. salary is $/min.
 export const MANAGER = { salary: 40, fits: { runway: 0.8, gates: 0.8, security: 0.9, connector: 0.85, parking: 99 } };
 
+// Golden planes: one arrival in every 30 to 50 is golden. Tapping it pays
+// this many minutes of the network's running income (never under min).
+export const GOLD = { every: [30, 50], minutes: 2.5, min: 1500 };
+
+// Things break now and then, once the network is established (two airports
+// at level 4). About every 10 minutes of play, at a random airport; half as
+// often when nobody has touched the game for a while. A breakdown costs
+// reputation (happy: points off its target) and slows turnarounds (turn), so
+// flights run late, until it is repaired. A station manager pays for the
+// repair himself if it costs under half the cash in hand.
+export const BREAKDOWNS = {
+  every: [480, 720],   // seconds of real play between breakdowns
+  idleAfter: 180,      // no input for this long counts as idle...
+  idleRate: 0.5,       // ...and the clock then runs at half speed
+  unlock: { airports: 2, level: 4 },
+  maxOpen: 3,          // across the network, so an idle game doesn't pile them up
+  costMinutes: 1,      // a repair costs about a minute of the airport's running income...
+  costMin: 600,        // ...and never less than this (times the site's cost scale)
+  managerShare: 0.5,
+  managerDelay: 25,    // game seconds for the manager to get it fixed
+  kinds: [
+    { id: 'toilets', name: 'Restrooms out of order', what: 'Passengers are not impressed.', happy: 7, turn: 1, cost: 0.6 },
+    { id: 'hvac', name: 'Air conditioning failed', what: 'The terminal is sweltering.', happy: 8, turn: 1.05, cost: 1.1 },
+    { id: 'jetbridge', name: 'Jet bridge stuck', what: 'Boarding is slow at its gates.', happy: 3, turn: 1.3, cost: 0.9 },
+    { id: 'baggage', name: 'Baggage belt jammed', what: 'Bags are late, so turnarounds are too.', happy: 4, turn: 1.25, cost: 0.8 },
+    { id: 'escalator', name: 'Escalator broken', what: 'Passengers are slogging up the stairs.', happy: 5, turn: 1.1, cost: 0.5 },
+    { id: 'roof', name: 'Roof leaking', what: 'Buckets in the departure lounge.', happy: 6, turn: 1.05, cost: 1.2 },
+  ],
+};
+
 // Tearing something down returns this share of what it cost.
 export const DEMOLISH_REFUND = 0.25;
 
@@ -230,15 +260,16 @@ export const CONTRACTS = {
   cancelPenaltyMins: 3, // breaking a contract costs this many minutes of its revenue
 };
 
+// body: a painted fuselage (the rest fly white with a coloured tail)
 export const AIRLINES = [
-  { name: 'Cedar Air', code: 'CD', color: '#2f8f5b' },
-  { name: 'Polaris', code: 'PL', color: '#2c5fb8' },
+  { name: 'Cedar Air', code: 'CD', color: '#2f8f5b', body: '#2f8f5b' },
+  { name: 'Polaris', code: 'PL', color: '#2c5fb8', body: '#2c5fb8' },
   { name: 'Bluefin Airways', code: 'BF', color: '#1d8fb0' },
   { name: 'Kestrel', code: 'KS', color: '#c4572b' },
-  { name: 'Atlas Pacific', code: 'AP', color: '#7a3fb0' },
+  { name: 'Atlas Pacific', code: 'AP', color: '#7a3fb0', body: '#6d3aa6' },
   { name: 'Sundial', code: 'SD', color: '#e0a21b' },
   { name: 'Northwind', code: 'NW', color: '#4a6b82' },
-  { name: 'Crimson Jet', code: 'CJ', color: '#c22f45' },
+  { name: 'Crimson Jet', code: 'CJ', color: '#c22f45', body: '#c22f45' },
   { name: 'Tern Express', code: 'TX', color: '#d97a9a' },
   { name: 'Aurora International', code: 'AU', color: '#159e8f' },
   { name: 'Lumen Air', code: 'LA', color: '#a58c2a' },
