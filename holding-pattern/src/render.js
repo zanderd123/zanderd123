@@ -13,7 +13,7 @@ import { STAR, STAR_LINES, STAR_SLOTS, siteFields, siteRect, plotRects } from '.
 import { mulberry32, pointAlong, pathLength, clamp, money } from './util.js';
 import { drawShore, drawLand, islandAttach, islandArrive, islandFrame, rentalPoint } from './island.js';
 import { FLIGHT } from './config.js';
-import { isOpen, terminalBySlot, slotAvailable, parkingAvailable, hasField, allPlanes, slotList, plotList, parkingList, starHoldStacks, starTaxiLines, CLIMB_OUT } from './sim.js';
+import { isOpen, terminalBySlot, slotAvailable, parkingAvailable, hasField, allPlanes, slotList, plotList, parkingList, starHoldStacks, starTaxiLines, CLIMB_OUT, midfieldOn, MID } from './sim.js';
 
 const C = {
   grass: '#7f9f63', grassB: '#86a76a', farmA: '#b5a46b', farmB: '#a7ad6c', farmEdge: '#8a8455',
@@ -319,6 +319,7 @@ function drawStatic(ap, res) {
     if (F.star) drawStarGround(g, ap, R);
     else inField(g, F.key, () => drawFieldGround(g, ap, F));
   }
+  if (midfieldOn(ap)) drawMidfield(g, ap);
 
   // terminals and connectors
   for (const T of ap.terminals) {
@@ -423,6 +424,35 @@ function drawFieldGround(g, ap, F) {
   // hold-short bars at the departure hold point
   g.strokeStyle = C.yellow; g.lineWidth = 2;
   for (const dy of [0, 4]) line(g, [[HOLD_POINT.x - 14, RW[0].y + RUNWAY_HALF + 16 + dy], [HOLD_POINT.x + 14, RW[0].y + RUNWAY_HALF + 16 + dy]]);
+}
+
+// The midfield taxiway, in main coordinates: two lanes along the gap below
+// the north field's runway, its three turn-offs onto them, and the link
+// south across the north strip to the main field's turn-off. (Drawn after
+// the fields, so it stops short of each runway rather than painting over.)
+function drawMidfield(g, ap) {
+  const xN = EXITS.slice(0, 2).map((x) => 2000 - x); // the north field's turn-offs it uses, here
+  const top = 110 - RW[0].y + RUNWAY_HALF; // the north runway's near edge
+  const x = MID.joinX, x1 = Math.max(...xN) + 20;
+  const r2 = !!ap.upgrades.runway2;
+  const down = r2 ? [[MID.laneY2, RW[1].y - RUNWAY_HALF], [RW[1].y + RUNWAY_HALF, RW[0].y - RUNWAY_HALF]] : [[MID.laneY2, RW[0].y - RUNWAY_HALF]];
+  g.fillStyle = C.asphalt;
+  g.fillRect(x - 14, MID.laneY - 14, x1 - x + 14, MID.laneY2 - MID.laneY + 28); // the two lanes
+  for (const ex of xN) g.fillRect(ex - 14, top, 28, MID.laneY - top);
+  for (const [y0, y1] of down) g.fillRect(x - 14, y0, 28, y1 - y0);
+  g.fillRect(x - 14, RW[0].y + RUNWAY_HALF, 28, TWY_B - RW[0].y - RUNWAY_HALF); // on across both taxiways
+  g.fillStyle = C.asphaltB; g.fillRect(x, MID.laneY + 14, x1 - x - 14, MID.laneY2 - MID.laneY - 28); // the median
+  g.strokeStyle = C.yellow; g.lineWidth = 1.6;
+  line(g, [[x1, MID.laneY], [x, MID.laneY], [x, RW[0].y - RUNWAY_HALF - 6]]);
+  line(g, [[x, RW[0].y + RUNWAY_HALF + 6], [x, TWY_B]]);
+  line(g, [[x1, MID.laneY2], [x, MID.laneY2]]);
+  for (const ex of xN) line(g, [[ex, top + 6], [ex, MID.laneY]]);
+  g.fillStyle = C.yellow;
+  for (let ax = x1 - 60; ax > x + 60; ax -= 180) arrow(g, ax, MID.laneY, Math.PI);
+  arrow(g, x, (MID.laneY2 + (r2 ? RW[1].y - RUNWAY_HALF : RW[0].y - RUNWAY_HALF)) / 2, Math.PI / 2);
+  // hold-short bars before each runway it crosses
+  g.strokeStyle = C.yellow; g.lineWidth = 2;
+  for (const y of r2 ? [RW[1].y, RW[0].y] : [RW[0].y]) for (const dy of [0, 4]) line(g, [[x - 14, y - RUNWAY_HALF - 16 - dy], [x + 14, y - RUNWAY_HALF - 16 - dy]]);
 }
 
 // The hub's frame runways run on through the corner beyond their end, so
