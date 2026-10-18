@@ -25,7 +25,7 @@ for (const runway2 of (process.env.RUNWAY2 ? [process.env.RUNWAY2 === '1'] : [fa
     S.acceptOffer(game, ap, 'x' + i, i % 6 === 5 ? 'n.main' : mainSlots[i % 4]);
   }
   const N = ap.fieldViews.N;
-  let overlaps = 0, worst = Infinity, xferSeen = new Set(), xferGate = 0, landings = 0, gated = 0;
+  let overlaps = 0, worst = Infinity, xferSeen = new Set(), xferGate = 0, landings = 0, gated = 0, depSeen = new Set(), depOut = 0, takeoffs = 0;
   const seen = new Set();
   for (let t = 0; t < minutes * 60; t += DT) {
     S.step(game, ap, DT);
@@ -38,6 +38,8 @@ for (const runway2 of (process.env.RUNWAY2 ? [process.env.RUNWAY2 === '1'] : [fa
       }
     }
     for (const p of N.planes) if (p.xfer) xferSeen.add(p);
+    for (const p of ap.planes) if (p.xferDep) depSeen.add(p);
+    for (const p of depSeen) if (p.state === 'takeoff' && !seen.has('d' + p.id)) { seen.add('d' + p.id); depOut++; }
     if (process.env.DEBUG && !ap.dumped) {
       for (const F of S.fields(ap)) {
         const st = F.planes.find((p) => p.blockedFor > 58 && p.alt <= 0.5);
@@ -53,12 +55,13 @@ for (const runway2 of (process.env.RUNWAY2 ? [process.env.RUNWAY2 === '1'] : [fa
     for (const p of xferSeen) if (p.state === 'gate' && !seen.has(p)) { seen.add(p); xferGate++; }
     for (const p of S.allPlanes(ap)) {
       if (p.state === 'rollout' && !seen.has('l' + p.id)) { seen.add('l' + p.id); landings++; }
+      if (p.state === 'takeoff' && !seen.has('t' + p.id)) { seen.add('t' + p.id); takeoffs++; }
       if (p.state === 'gate' && !seen.has('g' + p.id)) { seen.add('g' + p.id); gated++; }
     }
   }
-  const stuck = [...xferSeen].filter((p) => p.state !== 'gate' && p.state !== 'gone' && p.blockedFor > 60);
-  const ok = overlaps === 0 && !(ap.gridlocks > 0) && (control || xferGate > 0) && !stuck.length;
+  const stuck = [...xferSeen, ...depSeen].filter((p) => p.state !== 'gate' && p.state !== 'gone' && p.blockedFor > 60);
+  const ok = overlaps === 0 && !(ap.gridlocks > 0) && (control || (xferGate > 0 && depOut > 0)) && !stuck.length;
   pass &&= ok;
-  console.log(`${ok ? 'ok  ' : 'FAIL'} ${control ? 'no midfield' : 'midfield'}${runway2 ? ' + second runway' : ''}: ${landings} landings, ${xferSeen.size} sent via the north runway, ${xferGate} reached their gate, ${gated} at gates in all, overlaps ${overlaps}, closest ${worst.toFixed(2)}x, gridlocks ${(ap.gridlocks || 0)}${stuck.length ? `, stuck ${stuck.map((p) => p.id + ':' + p.state + ' ' + p.why).join(' ')}` : ''}`);
+  console.log(`${ok ? 'ok  ' : 'FAIL'} ${control ? 'no midfield' : 'midfield'}${runway2 ? ' + second runway' : ''}: ${landings} landings, ${takeoffs} take-offs, ${xferSeen.size} landed north (${xferGate} at gate), ${depSeen.size} left north (${depOut} airborne), ${gated} at gates in all, overlaps ${overlaps}, closest ${worst.toFixed(2)}x, gridlocks ${(ap.gridlocks || 0)}${stuck.length ? `, stuck ${stuck.map((p) => p.id + ':' + p.state + ' ' + p.why).join(' ')}` : ''}`);
 }
 process.exit(pass ? 0 : 1);

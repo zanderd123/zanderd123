@@ -12,7 +12,7 @@ import {
   RW, RUNWAY_HALF, TWY_A, TWY_B, LANE2, EXITS, HOLD_POINT, IAF, PLOTS, SLOTS, LONG_RUNWAY_X1,
   gateStand, pathExitToGate, pathGateToHold, lanesFor, XW, XW_HOLD, pathGateToCrosswind, crosswindTakeoff,
   connectorRoute, apronCrossing, slotCenter, TERMINAL_CODES, PARKING_SITES, placeName,
-  slotField, SLOT_ORDER, PLOT_ORDER, PARKING_ORDER, xfsOf, xfApply, xfAngle,
+  slotField, SLOT_ORDER, PLOT_ORDER, PARKING_ORDER, xfsOf, xfApply, xfAngle, xfInv,
 } from './layout.js';
 import {
   HUB_SLOT_ORDER, HUB_PLOT_ORDER, HUB_NO_PLOTS, HUB_NO_SLOTS, POCKETS, STAR, STAR_LINES, STAR_THRESHOLD, STAR_EXIT, STAR_LANE,
@@ -708,7 +708,8 @@ function planReport(ap, extra) {
   // comfortably take land on the north field's runway, as far as it has room.
   const north = midfieldOn(ap) && r.runways.find((x) => x.field === 'N');
   if (north) {
-    const arrivals = contracts.reduce((s, c) => s + (!slotField(c.terminal) && AIRCRAFT[c.cls].exitIndex < MID_EXITS ? c.freq : 0), 0);
+    // (arrivals, and departures from the stands east of the link north)
+    const arrivals = contracts.reduce((s, c) => s + (!slotField(c.terminal) && AIRCRAFT[c.cls].exitIndex < MID_EXITS ? c.freq : 0) + (!slotField(c.terminal) && c.cls !== 'jumbo' && ['eastwing', 'mideast'].includes(c.terminal) ? c.freq : 0), 0);
     const moved = Math.max(0, Math.min(arrivals, r.runway.demand - 0.85 * r.runway.cap, 0.95 * north.cap - north.demand));
     r.runway.demand -= moved; north.demand += moved; r.runway.viaMidfield = moved;
   }
@@ -1596,7 +1597,11 @@ function canClearArrival(ap, p, eta) {
 // runways (as a second-runway arrival crosses) and on to their gate.
 // (it crosses the main runways at 1100: clear of every turn-off, where no
 // landing ever rolls and take-offs are already airborne)
-const MID = { laneY: -48, laneY2: -16, joinX: 1100 };
+// Departures the other way use the second lane, far enough south of the
+// first for two aircraft to pass: up taxiway B's link at depX, across the
+// runways, east along it and over to the north field at handX.
+const MID = { laneY: -48, laneY2: 2, joinX: 1100, depX: 1300, handX: 1700 };
+const MID_DEP_HOLD = 160; // the north field's new hold line, in its own coordinates (its runway is at 210)
 const MID_N_Y = 110 - MID.laneY; // the lane, in the north field's own coordinates
 export { MID };
 export const midfieldOn = (ap) => !!(ap.upgrades.midfield && ap.fieldViews && hasField(ap, 'N'));
@@ -1645,6 +1650,54 @@ function midRoute(ap, m) {
   m.crossAt = lane + (hs0 - MID.laneY);
   m.crossEnd = m.crossAt + (TWY_A - hs0);
   m.crossed = m.crossing = m.crossed1 = m.crossing1 = false;
+}
+
+// Departures: from the main field to the north runway, when the main field's
+// departure queue is the longer. Anything but a superjumbo, but only from stands that reach taxiway B east of the link north (everyone on
+// the route then heads the same way).
+function departViaMidfield(ap, p) {
+  if (ap.field || !midfieldOn(ap) || p.cls === 'jumbo') return false; // (the north runway is too short for superjumbos)
+  const via = p.stand.laneY === LANE2 ? laneOutX(p.stand.x, ap.plots) : p.stand.x;
+  if (via < MID.depX + 60) return false;
+  const N = ap.fieldViews.N;
+  // (waiting at the gate for a slot to push back counts: on a busy main
+  // field that is where departures queue)
+  const load = (F, mine) => F.depQueue.length + F.planes.filter((o) => ((o.state === 'taxiOut' || o.state === 'pushback') && !!o.xferDep === mine) || (!mine && o.state === 'gate' && o.ready)).length;
+  return load(ap, false) >= load(N, false) + load(ap, true) + 3;
+}
+function laneOutX(x, plots) {
+  let best = null;
+  for (const L of lanesFor(plots)) if (L.dir === 'N' && L.x > x && (best == null || L.x < best)) best = L.x;
+  return best == null ? 1175 : best;
+}
+function midDepRoute(ap, p) {
+  const base = pathGateToHold(p.stand, ap.plots);
+  const k = base.findIndex((q) => q.y === TWY_B);
+  const x = MID.depX, hs0 = RW[0].y + 34, hs1 = RW[1].y + 34;
+  const pts = [{ x: p.stand.x, y: p.stand.y }, ...base.slice(0, k + 1), { x, y: TWY_B }, { x, y: hs0 }];
+  if (ap.upgrades.runway2) pts.push({ x, y: hs1 });
+  pts.push({ x, y: MID.laneY2 }, { x: MID.handX, y: MID.laneY2 });
+  setPath(p, pts);
+  const at = (i) => pathLength(pts.slice(0, i + 1));
+  const i0 = pts.findIndex((q) => q.x === x && q.y === hs0);
+  p.crossAt = at(i0); p.crossEnd = p.crossAt + (hs0 - (RW[0].y - RUNWAY_HALF - p.r - 3));
+  if (ap.upgrades.runway2) { p.cross1At = at(i0 + 1); p.cross1End = p.cross1At + (hs1 - (RW[1].y - RUNWAY_HALF - p.r - 3)); }
+  p.crossN = true;
+  p.xferDep = true;
+}
+// At the east end of the second lane: over to the north field, if there is
+// room where it joins, to its new hold line by the near side of its runway.
+function handOffDep(ap, m) {
+  const N = ap.fieldViews.N, xf = xfsOf(ap.siteIndex).N;
+  const at = xfApply(xfInv(xf), { x: m.x, y: m.y });
+  for (const o of N.planes) if (o.alt <= 0.5 && o.state !== 'gate' && Math.hypot(o.x - at.x, o.y - at.y) < m.r + o.r + 6) { m.why = 'handoff'; return; }
+  ap.planes.splice(ap.planes.indexOf(m), 1);
+  m.x = at.x; m.y = at.y; m.ang = wrapAngle(m.ang - xfAngle(xf));
+  m.field = 'N'; m.blockedFor = 0; m.speed = Math.min(m.speed, 20);
+  m.crossAt = m.cross1At = null; m.crossN = false;
+  setPath(m, [{ x: at.x, y: at.y }, { x: HOLD_POINT.x, y: at.y }, { x: HOLD_POINT.x, y: MID_DEP_HOLD }]);
+  m.depRw = 0;
+  N.planes.push(m);
 }
 
 // Who in the stack gets the next landing: routes marked priority, then
@@ -1849,7 +1902,10 @@ function updatePlanes(game, ap, dt) {
           p.speed = 30;
           const rw = RW[0];
           const x1 = ap.upgrades.longRunway ? LONG_RUNWAY_X1 : rw.x1;
-          const path = [{ x: HOLD_POINT.x, y: HOLD_POINT.y }, { x: HOLD_POINT.x + 18, y: rw.y + 26 }, { x: rw.x0 + 10, y: rw.y }, { x: x1 + 600, y: rw.y }];
+          // (a main-field departure off the midfield taxiway lines up from the near side)
+          const path = p.xferDep
+            ? [{ x: HOLD_POINT.x, y: MID_DEP_HOLD }, { x: HOLD_POINT.x + 18, y: rw.y - 26 }, { x: rw.x0 + 10, y: rw.y }, { x: x1 + 600, y: rw.y }]
+            : [{ x: HOLD_POINT.x, y: HOLD_POINT.y }, { x: HOLD_POINT.x + 18, y: rw.y + 26 }, { x: rw.x0 + 10, y: rw.y }, { x: x1 + 600, y: rw.y }];
           setPath(p, path);
           p.lineup = pathLength(path.slice(0, 3)) - 5;
         }
@@ -2208,7 +2264,7 @@ function junctionBoxes(ap) {
   for (const ex of EXITS) { z.push({ x: ex, y: TWY_A }); z.push({ x: ex, y: TWY_B }); }
   for (const L of lanesFor(ap.plots)) { z.push({ x: L.x, y: TWY_B }); z.push({ x: L.x, y: LANE2 }); }
   if (ap.upgrades.crosswind) z.push({ x: XW_HOLD.x, y: LANE2 });
-  if (!ap.field && midfieldOn(ap)) { z.push({ x: MID.joinX, y: TWY_A }); z.push({ x: MID.joinX, y: TWY_B }); }
+  if (!ap.field && midfieldOn(ap)) for (const x of [MID.joinX, MID.depX]) { z.push({ x, y: TWY_A }); z.push({ x, y: TWY_B }); }
   for (const T of ap.terminals) {
     const crossing = apronCrossing(T.slot);
     if (T.connector && T.connector.type === 'shuttle' && crossing && crossing.field === (ap.field || 0)) z.push({ x: crossing.x, y: LANE2 });
@@ -2631,7 +2687,7 @@ function groundTraffic(game, ap, dt) {
       // the aircraft then has to stop short of the taxiway: holding the
       // runway there would stop the departures it may be waiting for.
       const R0 = ap.runways[0];
-      if (m.y >= RW[0].y + RUNWAY_HALF + m.r + 3) R0.crossers.delete(m);
+      if (m.crossN ? m.y <= RW[0].y - RUNWAY_HALF - m.r - 3 : m.y >= RW[0].y + RUNWAY_HALF + m.r + 3) R0.crossers.delete(m);
       if (m.d >= m.crossEnd) {
         R0.crossers.delete(m);
         m.crossing = false;
@@ -2640,7 +2696,7 @@ function groundTraffic(game, ap, dt) {
     }
     if (m.crossing1) {
       const R1 = ap.runways[1];
-      if (m.y >= RW[1].y + RUNWAY_HALF + m.r + 3 || m.d >= m.cross1End) { R1.crossers.delete(m); m.crossing1 = false; m.crossed1 = true; }
+      if ((m.crossN ? m.y <= RW[1].y - RUNWAY_HALF - m.r - 3 : m.y >= RW[1].y + RUNWAY_HALF + m.r + 3) || m.d >= m.cross1End) { R1.crossers.delete(m); m.crossing1 = false; m.crossed1 = true; }
     }
     if (m.state === 'pushback' && m.d >= m.pushLen) {
       const T = terminalBySlot(ap, m.f.terminal);
@@ -2650,6 +2706,7 @@ function groundTraffic(game, ap, dt) {
     }
     if (m.d >= m.len - 0.01) {
       if (m.state === 'taxiIn') { if (m.xfer) handOff(ap, m); else arriveAtGate(game, ap, m); }
+      else if (m.state === 'taxiOut' && m.xferDep && !ap.field) handOffDep(ap, m);
       else if (m.state === 'taxiOut') { m.state = 'holdShort'; m.holdSince = t; m.speed = 0; (isStar(ap) ? ap.depQueues[m.depRw] : m.depRw === 2 ? ap.depQueueX : ap.depQueue).push(m); }
     }
   }
@@ -2817,7 +2874,9 @@ function turnaround(game, ap, p, dt) {
     } else {
       // Main-row departures use the crosswind runway when there is one.
       p.depRw = ap.upgrades.crosswind && p.stand.laneY === LANE2 ? 2 : 0;
-      setPath(p, [{ x: p.stand.x, y: p.stand.y }].concat(p.depRw === 2 ? pathGateToCrosswind(p.stand) : pathGateToHold(p.stand, ap.plots)));
+      p.crossAt = p.cross1At = null; p.crossed = p.crossing = p.crossed1 = p.crossing1 = p.crossN = false; p.xferDep = false;
+      if (p.depRw === 0 && departViaMidfield(ap, p)) midDepRoute(ap, p);
+      else setPath(p, [{ x: p.stand.x, y: p.stand.y }].concat(p.depRw === 2 ? pathGateToCrosswind(p.stand) : pathGateToHold(p.stand, ap.plots)));
     }
     p.pushLen = Math.hypot(p.stand.x - p.stand.lane.x, p.stand.y - p.stand.lane.y);
   }

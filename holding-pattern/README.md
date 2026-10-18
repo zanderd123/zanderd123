@@ -146,9 +146,14 @@ stack is the busier, main-terminal regional and narrowbody arrivals are sent
 to the north runway; they turn off toward the main field, the main field's
 ground control takes them over on the lane, and they cross the north strip
 (and its runway, which holds a landing gap for them) and the main runway at
-x=1100, clear of every turn-off. `tools/midfield.mjs` stress-tests it
-against the same airport without it. (Departures the other way and the
-east and west fields come next.)
+x=1100, clear of every turn-off. The other way, when the main field's
+departures are queueing, flights from stands east of x=1300 (anything but a
+superjumbo) leave taxiway B there, cross the runways northbound at their own
+hold lines, run east along the second lane (50 px south of the first, so
+traffic passes in both directions), are handed to the north field and line up
+from a new hold line on its runway's near side. Every stretch of the route is
+one-way. `tools/midfield.mjs` stress-tests both directions against the same
+airport without it. (The east and west fields come next.)
 
 **Who goes first.** On one runway, landings and take-offs take turns. In the
 holding stack, routes marked priority (up to three per airport, in the Routes

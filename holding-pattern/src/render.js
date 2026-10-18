@@ -433,26 +433,45 @@ function drawFieldGround(g, ap, F) {
 function drawMidfield(g, ap) {
   const xN = EXITS.slice(0, 2).map((x) => 2000 - x); // the north field's turn-offs it uses, here
   const top = 110 - RW[0].y + RUNWAY_HALF; // the north runway's near edge
-  const x = MID.joinX, x1 = Math.max(...xN) + 20;
+  const x = MID.joinX, dx = MID.depX, hx = 2000 - HOLD_POINT.x; // links south and north; the new hold line
   const r2 = !!ap.upgrades.runway2;
-  const down = r2 ? [[MID.laneY2, RW[1].y - RUNWAY_HALF], [RW[1].y + RUNWAY_HALF, RW[0].y - RUNWAY_HALF]] : [[MID.laneY2, RW[0].y - RUNWAY_HALF]];
+  const L1 = MID.laneY, L2 = MID.laneY2, hold = 110 - 160;
+  // a column of taxiway from y0 to y1 at x, stopping short of each runway it crosses
+  const column = (cx, y0, y1) => {
+    const bands = [RW[0].y, ...(r2 ? [RW[1].y] : [])].map((y) => [y - RUNWAY_HALF, y + RUNWAY_HALF]);
+    let a = Math.min(y0, y1);
+    const b = Math.max(y0, y1);
+    for (const [s0, s1] of bands.sort((p, q) => p[0] - q[0])) { if (s1 < a || s0 > b) continue; if (s0 > a) g.fillRect(cx - 14, a, 28, s0 - a); a = Math.max(a, s1); }
+    if (b > a) g.fillRect(cx - 14, a, 28, b - a);
+  };
   g.fillStyle = C.asphalt;
-  g.fillRect(x - 14, MID.laneY - 14, x1 - x + 14, MID.laneY2 - MID.laneY + 28); // the two lanes
-  for (const ex of xN) g.fillRect(ex - 14, top, 28, MID.laneY - top);
-  for (const [y0, y1] of down) g.fillRect(x - 14, y0, 28, y1 - y0);
-  g.fillRect(x - 14, RW[0].y + RUNWAY_HALF, 28, TWY_B - RW[0].y - RUNWAY_HALF); // on across both taxiways
-  g.fillStyle = C.asphaltB; g.fillRect(x, MID.laneY + 14, x1 - x - 14, MID.laneY2 - MID.laneY - 28); // the median
+  g.fillRect(x - 14, L1 - 14, hx - x + 28, L2 - L1 + 28); // the two lanes, the whole way
+  for (const ex of xN) g.fillRect(ex - 14, top, 28, L1 - top);
+  column(x, L2, TWY_B);
+  column(dx, L2, TWY_A);
+  g.fillRect(hx - 14, hold, 28, L1 - hold); // up to the new hold line
+  g.beginPath(); g.moveTo(hx - 14, hold); g.lineTo(hx + 14, hold); g.lineTo(hx - 4, top); g.lineTo(hx - 40, top); g.closePath(); g.fill(); // line-up onto the north runway
+  g.fillStyle = C.asphaltB; g.fillRect(x + 14, L1 + 14, hx - x - 28, L2 - L1 - 28); // the median
   g.strokeStyle = C.yellow; g.lineWidth = 1.6;
-  line(g, [[x1, MID.laneY], [x, MID.laneY], [x, RW[0].y - RUNWAY_HALF - 6]]);
+  line(g, [[Math.max(...xN), L1], [x, L1], [x, RW[0].y - RUNWAY_HALF - 6]]);
   line(g, [[x, RW[0].y + RUNWAY_HALF + 6], [x, TWY_B]]);
-  line(g, [[x1, MID.laneY2], [x, MID.laneY2]]);
-  for (const ex of xN) line(g, [[ex, top + 6], [ex, MID.laneY]]);
+  line(g, [[dx, TWY_A], [dx, RW[0].y + RUNWAY_HALF + 6]]);
+  line(g, [[dx, RW[0].y - RUNWAY_HALF - 6], [dx, L2], [hx, L2], [hx, hold], [hx - 18, top + 4]]);
+  for (const ex of xN) line(g, [[ex, top + 6], [ex, L1]]);
   g.fillStyle = C.yellow;
-  for (let ax = x1 - 60; ax > x + 60; ax -= 180) arrow(g, ax, MID.laneY, Math.PI);
-  arrow(g, x, (MID.laneY2 + (r2 ? RW[1].y - RUNWAY_HALF : RW[0].y - RUNWAY_HALF)) / 2, Math.PI / 2);
-  // hold-short bars before each runway it crosses
+  for (let ax = Math.max(...xN) - 60; ax > x + 60; ax -= 180) arrow(g, ax, L1, Math.PI);
+  for (let ax = dx + 120; ax < hx - 40; ax += 180) arrow(g, ax, L2, 0);
+  arrow(g, x, (L2 + (r2 ? RW[1].y - RUNWAY_HALF : RW[0].y - RUNWAY_HALF)) / 2, Math.PI / 2);
+  arrow(g, dx, (L2 + (r2 ? RW[1].y - RUNWAY_HALF : RW[0].y - RUNWAY_HALF)) / 2, -Math.PI / 2);
+  // hold-short bars before each runway crossing, and the new hold line
   g.strokeStyle = C.yellow; g.lineWidth = 2;
-  for (const y of r2 ? [RW[1].y, RW[0].y] : [RW[0].y]) for (const dy of [0, 4]) line(g, [[x - 14, y - RUNWAY_HALF - 16 - dy], [x + 14, y - RUNWAY_HALF - 16 - dy]]);
+  for (const y of r2 ? [RW[1].y, RW[0].y] : [RW[0].y]) {
+    for (const d of [0, 4]) {
+      line(g, [[x - 14, y - RUNWAY_HALF - 16 - d], [x + 14, y - RUNWAY_HALF - 16 - d]]);
+      line(g, [[dx - 14, y + RUNWAY_HALF + 16 + d], [dx + 14, y + RUNWAY_HALF + 16 + d]]);
+    }
+  }
+  for (const d of [0, 4]) line(g, [[hx - 14, hold - d], [hx + 14, hold - d]]);
 }
 
 // The hub's frame runways run on through the corner beyond their end, so
