@@ -18,7 +18,7 @@ import { allianceFits } from './network.js';
 import { activeAirport } from './game.js';
 
 const $ = (id) => document.getElementById(id);
-const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+export const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 export const ui = {
   tab: 'advisor',
@@ -55,7 +55,8 @@ function armBtn(key, label, armedLabel, act, extra = '') {
 // it can't happen by accident.
 const resetBtn = () => armBtn('wipe', 'Reset game', 'Tap again to erase everything', 'wipe');
 function resetBlock() {
-  return `<h3 class="sec">Reset game</h3><p class="note">Start again from the beginning: one runway at Pinewood and $50,000. This erases every airport, all your money and your milestones, and can't be undone. To keep a copy first, use <b>Copy save code</b> in the Money tab.</p><div class="btns">${resetBtn()}</div>`;
+  return `<h3 class="sec">Found a bug?</h3><p class="note">Tell us what happened: the report includes the game details that help fix it.</p><div class="btns"><button type="button" class="btn" data-act="bug">Report a bug</button></div>
+  <h3 class="sec">Reset game</h3><p class="note">Start again from the beginning: one runway at Pinewood and $50,000. This erases every airport, all your money and your milestones, and can't be undone. To keep a copy first, use <b>Copy save code</b> in the Money tab.</p><div class="btns">${resetBtn()}</div>`;
 }
 function stars(rep) {
   const n = rep / 20;
@@ -325,6 +326,7 @@ function renderContracts(game, ap) {
   }
   h += `<h3 class="sec">Active routes · ${ap.contracts.length}</h3>`;
   if (!ap.contracts.length) h += `<p class="empty">No routes yet.</p>`;
+  else h += `<p class="note">When planes queue, <b>priority</b> routes land and push back first (up to ${S.MAX_PRIORITY} per airport), then airlines that are unhappy, then everyone else in turn. Mark the ones that pay most or are close to leaving.</p>`;
   for (const c of ap.contracts) {
     const A = AIRCRAFT[c.cls];
     const otp = c.otpHist.length ? c.otpHist.reduce((a, b) => a + b, 0) / c.otpHist.length : 1;
@@ -333,7 +335,7 @@ function renderContracts(game, ap) {
       ? `<span class="tag red">Unhappy · leaves in ${duration(CONTRACTS.leaveAfter - c.unhappyFor)}</span>`
       : otp < 0.75 ? `<span class="tag amber">Watching delays</span>` : `<span class="tag green">Happy</span>`;
     h += `<div class="card">
-      <div class="row between"><div class="row"><span class="chip" style="background:${c.color}"></span><div><div class="title">${esc(c.airline)}</div><div class="sub">${esc(c.city)} · ${A.name} · ${every(c.freq)}</div></div></div>${status}</div>
+      <div class="row between"><div class="row"><span class="chip" style="background:${c.color}"></span><div><div class="title">${c.priority ? '★ ' : ''}${esc(c.airline)}</div><div class="sub">${esc(c.city)} · ${A.name} · ${every(c.freq)}</div></div></div>${status}</div>
       <dl class="board">
         <div><dt>On time</dt><dd>${c.otpHist.length ? pct(otp) : '—'}</dd></div>
         <div><dt>Last delay</dt><dd>${c.lastDelay != null ? duration(c.lastDelay) : '—'}</dd></div>
@@ -344,7 +346,7 @@ function renderContracts(game, ap) {
         <label class="sub" for="cs-${c.id}">Terminal</label>
         <select id="cs-${c.id}" data-contract-slot="${c.id}">${terminalOptions(ap, c.cls, c.terminal)}</select>
       </div>
-      <div class="btns">${armBtn('cancel-' + c.id, 'End contract', `Confirm · pay ${money(S.cancelPenalty(ap, c, game))}`, 'cancel', `data-id="${c.id}"`)}</div>
+      <div class="btns"><button type="button" class="btn ${c.priority ? 'go' : ''}" data-act="priority" data-id="${c.id}" data-on="${c.priority ? '0' : '1'}">${c.priority ? '★ Priority' : '☆ Make priority'}</button>${armBtn('cancel-' + c.id, 'End contract', `Confirm · pay ${money(S.cancelPenalty(ap, c, game))}`, 'cancel', `data-id="${c.id}"`)}</div>
     </div>`;
   }
   return h;
@@ -664,13 +666,36 @@ function renderRunwayDetail(game, ap) {
   <ul class="list">${['radar', 'rapidExits', 'automation', 'cat3', 'longRunway', 'runway2', 'crosswind'].filter((k) => S.upgradeBlocked(ap, k) !== 'Not at this airport').map((k) => { const U = UPGRADES[k]; const why = S.upgradeBlocked(ap, k); return `<li><div class="what"><b>${U.name}</b><span>${U.desc}</span></div>${ap.upgrades[k] ? '<span class="tag green">Built</span>' : why ? `<span class="tag">${esc(why)}</span>` : priceBtn('Build', `upgrade" data-id="${k}`, S.upgradeCost(ap, k))}</li>`; }).join('')}</ul>`;
 }
 
+// Why a plane is circling, and what the player can do about it.
+export function holdText(ap, p) {
+  if (p.state !== 'holding' && p.state !== 'inbound') return null;
+  const k = p.holdWhy || p.holdReason;
+  if (!k) return null;
+  const T = S.terminalBySlot(ap, p.f.terminal);
+  const tn = T ? `${TERMINAL_CODES[T.slot]} · ${S.nm(ap, SLOTS[T.slot].name)}` : 'its terminal';
+  const W = {
+    gate: [`Waiting for a gate: all ${T ? T.gates : ''} gates at ${tn} are taken.`, 'Add gates or a terminal (Build), or move a route to a terminal with free gates (Routes).'],
+    exit: ['Waiting for the runway turn-off to clear.', 'Usually brief. Rapid-exit taxiways (Build) clear the runway sooner.'],
+    ground: ['Ground control is full: too many planes taxiing in.', 'Faster turnarounds (surge ground staff, hangars) free the taxiways sooner.'],
+    tower: ['The tower is at capacity: no controller is free.', 'Radar, automation or surge tower staffing (Staff tab) handle more movements.'],
+    sequence: ['In sequence: another plane is cleared to land first.', 'Normal: it lands next if nothing else is in the way.'],
+    runway: ['Runway busy: a plane is landing, taking off or turning off.', 'A second runway or rapid exits add capacity.'],
+    crossing: ['Planes are crossing the runway.', 'Normal with two runways: it lands once they are across.'],
+    turn: ['Take-offs\u2019 turn: landings and take-offs alternate on one runway.', 'A second runway lets landings and take-offs run side by side.'],
+  }[k];
+  if (!W) return null;
+  const c = ap.contracts.find((x) => x.id === p.f.contract);
+  const order = c && c.priority ? 'Priority route: lands first.' : c && c.unhappyFor > 0 ? 'Airline unhappy: lands before the others.' : '';
+  return { why: W[0], fix: W[1], order, held: p.heldFor || 0 };
+}
+
 function renderPlaneDetail(game, ap, p) {
   const f = p.f;
   const A = AIRCRAFT[p.cls];
   const states = {
-    inbound: 'Inbound to the approach fix', holding: 'Holding: waiting for a landing slot', final: 'On final approach',
+    inbound: 'Inbound to the approach fix', holding: 'Holding: circling until it can land', final: 'On final approach',
     rollout: 'Landing roll', crossHold: 'Holding short of the main runway', crossing: 'Crossing the main runway',
-    taxiIn: 'Taxiing to the gate', toWait: 'No gate free: heading to a waiting spot', waitGate: 'Waiting for a gate',
+    taxiIn: 'Taxiing to the gate',
     gate: 'At the gate: turnaround', pushback: 'Pushing back', taxiOut: 'Taxiing to the runway',
     holdShort: 'Waiting for take-off clearance', takeoff: 'Taking off',
   };
@@ -684,7 +709,8 @@ function renderPlaneDetail(game, ap, p) {
     <div><dt>Boarded</dt><dd>${Math.round(f.boarded)}/${f.expected}</dd></div>
     <div><dt>Turn</dt><dd>${p.state === 'gate' ? duration(Math.max(0, p.turnLeft)) : '—'}</dd></div>
   </dl>
-  ${p.busDelay ? `<p class="note">Stopped ${duration(p.busDelay)} for shuttle buses crossing the apron.</p>` : ''}`;
+  ${p.busDelay ? `<p class="note">Stopped ${duration(p.busDelay)} for shuttle buses crossing the apron.</p>` : ''}
+  ${(() => { const w = holdText(ap, p); return w ? `<div class="card sev2"><div class="title">Why it is circling</div><p>${esc(w.why)}${w.held > 5 ? ` For ${duration(w.held)} so far.` : ''}</p><p class="note">${esc(w.fix)}${w.order ? ` ${esc(w.order)}` : ''}</p></div>` : ''; })()}`;
 }
 
 function renderDetail(game, ap, d) {

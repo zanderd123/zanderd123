@@ -1347,12 +1347,12 @@ export function render(g, w, h, dpr, cam, ap, view) {
   }
 
   // holding stack ring
-  for (const { n: holders, c } of holdStacks(ap)) {
+  for (const { n: holders, c, q } of holdStacks(ap)) {
     if (!holders) continue;
     g.strokeStyle = 'rgba(255,255,255,0.55)'; g.lineWidth = 1.5; g.setLineDash([5, 6]);
     for (let ring = 0; ring * 7 < holders; ring++) { g.beginPath(); g.arc(c.x, c.y, FLIGHT.holdRadius + ring * 44, 0, Math.PI * 2); g.stroke(); }
     g.setLineDash([]);
-    signLabel(g, c.x, c.y, `HOLDING ${holders}`, holders > 2 ? 'red' : 'yellow', cam.zoom);
+    signLabel(g, c.x, c.y, `HOLDING ${holders}${holdSign(q)}`, holders > 2 ? 'red' : 'yellow', cam.zoom);
   }
 
   for (const p of air) { const q = inWorld(p); if (vis(q, 90)) drawPlane(g, q, t, night, view.selected === p); }
@@ -1637,12 +1637,21 @@ export function pick(ap, wx, wy) {
 
 // Each airfield's holding stack: how many are circling, and where.
 function holdStacks(ap) {
-  const out = [{ n: ap.holdQueue.length, c: { x: IAF.x, y: RW[ap.upgrades.runway2 ? 1 : 0].y + FLIGHT.holdRadius } }];
+  const out = [{ n: ap.holdQueue.length, q: ap.holdQueue, c: { x: IAF.x, y: RW[ap.upgrades.runway2 ? 1 : 0].y + FLIGHT.holdRadius } }];
   if (ap.fieldViews) {
-    for (const k of siteFields(ap.siteIndex)) if (hasField(ap, k)) out.push({ n: ap.fieldViews[k].holdQueue.length, c: fieldPt(k, { x: IAF.x, y: RW[0].y + FLIGHT.holdRadius }) });
-    if (ap.fieldViews.X) out.push(...starHoldStacks(ap.fieldViews.X));
+    for (const k of siteFields(ap.siteIndex)) if (hasField(ap, k)) { const F = ap.fieldViews[k]; out.push({ n: F.holdQueue.length, q: F.holdQueue, c: fieldPt(k, { x: IAF.x, y: RW[0].y + FLIGHT.holdRadius }) }); }
+    if (ap.fieldViews.X) { const X = ap.fieldViews.X; out.push(...starHoldStacks(X).map((st, i) => ({ ...st, q: X.holdQueue.filter((p) => p.rw === i) }))); }
   }
   return out;
+}
+
+// The main reason a stack is circling, for its sign.
+const HOLD_SHORT = { gate: 'WAITING FOR GATES', exit: 'TURN-OFF BUSY', ground: 'TAXIWAYS FULL', tower: 'TOWER AT CAPACITY', sequence: 'LANDING IN TURN', runway: 'RUNWAY BUSY', crossing: 'RUNWAY CROSSING', turn: 'TAKE-OFFS\u2019 TURN' };
+function holdSign(q) {
+  const n = {};
+  for (const p of q || []) { const k = p.holdWhy || p.holdReason; if (k) n[k] = (n[k] || 0) + 1; }
+  const top = Object.entries(n).sort((a, b) => b[1] - a[1])[0];
+  return top && HOLD_SHORT[top[0]] ? ` · ${top[1] === q.length ? '' : top[1] + ' '}${HOLD_SHORT[top[0]]}` : '';
 }
 
 export { isOpen };

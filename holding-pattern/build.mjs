@@ -18,6 +18,8 @@ const result = await build({
   entryPoints: [join(root, 'src/main.js')],
   bundle: true, format: 'iife', minify: true, write: false, target: 'es2020',
   logLevel: 'warning',
+  // which build a bug report came from
+  define: { __BUILD__: JSON.stringify(new Date().toISOString().slice(0, 16).replace('T', ' ')) },
 });
 const js = result.outputFiles[0].text.replace(/<\/script/gi, '<\\/script');
 const css = readFileSync(join(root, 'styles.css'), 'utf8');

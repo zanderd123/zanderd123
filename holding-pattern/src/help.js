@@ -20,7 +20,7 @@ export function helpHtml() {
 
   ${sec('A plane\'s trip')}
   <ol class="flow">
-    <li><b>Approach</b><span>A plane lands only when the runway has a slot, a controller is free, and a gate is free at its terminal. Otherwise it circles in the holding stack west of the field.</span></li>
+    <li><b>Approach</b><span>A plane lands only when the runway has a slot, a controller is free, and a gate is free at its terminal. Otherwise it circles in the holding stack west of the field; the stack's sign says why, and hovering or tapping a plane explains it and what helps. On one runway, landings and take-offs take turns. Who lands first: <b>priority</b> routes (mark up to 3 in the Routes tab), then airlines that are unhappy, then anyone who has circled over two minutes, then first come first served. Take-offs push back in the same order.</span></li>
     <li><b>Taxi in</b><span>Taxiways are one-way (the yellow arrows), and aircraft wait for each other at junctions.</span></li>
     <li><b>Turnaround</b><span>Passengers get off, the plane is serviced, passengers board. Ground crews set the pace.</span></li>
     <li><b>Push back & take off</b><span>It is on time if it pushes back within ${FLIGHT.onTimeSlack}s of schedule.</span></li>

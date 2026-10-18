@@ -3,7 +3,7 @@
 import { newGame, activeAirport, stepGame, save, load, wipe, exportCode, importCode, offlineEarnings, buySite, serialize, deserialize, loadFailed } from './game.js';
 import * as S from './sim.js';
 import { makeCamera, fitCamera, screenToWorld, render, attach, pick, dayPhase, worldSize } from './render.js';
-import { ui, renderTop, renderOps, renderPanel, toast, showDialog } from './ui.js';
+import { ui, renderTop, renderOps, renderPanel, toast, showDialog, holdText, esc } from './ui.js';
 import { makeTutorial } from './tutorial.js';
 import { acceptAlliance, declineAlliance } from './network.js';
 import { checkMilestones } from './milestones.js';
@@ -11,6 +11,7 @@ import { renderMapSide, drawMap, siteAt } from './mapview.js';
 import { money, duration, clamp } from './util.js';
 import { SITES, BREAKDOWNS } from './config.js';
 import { ISLAND_FOCUS } from './island.js';
+import { openBugReport, noteError } from './bugreport.js';
 
 const $ = (id) => document.getElementById(id);
 const canvas = $('field');
@@ -131,7 +132,8 @@ function keepUp(ms) {
 }
 function frame(now) {
   try { frameBody(now); } catch (e) {
-    if (!frameFailed) { frameFailed = true; console.error(e); toast('Something went wrong; the game carries on. Reloading the page may help.', 'bad'); }
+    noteError(e);
+    if (!frameFailed) { frameFailed = true; console.error(e); toast('Something went wrong; the game carries on. Reloading the page may help, and Help \u2192 Report a bug tells us about it.', 'bad'); }
     last = now;
   }
   requestAnimationFrame(frame);
@@ -261,7 +263,21 @@ canvas.addEventListener('pointermove', (e) => {
   const hit = pick(activeAirport(game), w.x, w.y);
   view.hover = hit && (hit.kind === 'slot' || hit.kind === 'plot' || hit.kind === 'parking' || hit.kind === 'runway') ? hit : null;
   canvas.classList.toggle('pointing', !!hit);
+  showTip(e.pointerType === 'mouse' && hit && hit.kind === 'plane' ? hit.plane : null, e.clientX, e.clientY);
 });
+canvas.addEventListener('pointerleave', () => showTip(null));
+
+// Hovering a plane: who it is, and if it is circling, why and what helps.
+function showTip(p, x, y) {
+  const tip = $('tip');
+  if (!p) { tip.hidden = true; return; }
+  const ap = activeAirport(game), f = p.f, w = holdText(ap, p);
+  tip.innerHTML = `<b>${p.gold ? 'Golden plane · tap it!' : esc(f.no)}</b> <span class="sub">${esc(f.city)}</span>${w ? `<div class="why">${esc(w.why)}${w.held > 5 ? ` (${duration(w.held)})` : ''}</div><div class="fix">${esc(w.fix)}${w.order ? ` ${esc(w.order)}` : ''}</div>` : ''}`;
+  tip.hidden = false;
+  const r = tip.getBoundingClientRect();
+  tip.style.left = `${Math.min(x + 16, window.innerWidth - r.width - 8)}px`;
+  tip.style.top = `${y + 16 + r.height > window.innerHeight ? y - r.height - 12 : y + 16}px`;
+}
 
 function endPointer(e) {
   pointers.delete(e.pointerId);
@@ -376,6 +392,8 @@ body.addEventListener('click', (e) => {
     case 'alliance-decline': declineAlliance(game, d.id); break;
     case 'manager': S.setManager(ap, d.on === '1'); ok = d.on === '1' ? `Station manager hired at ${ap.id}` : `Station manager let go at ${ap.id}`; break;
     case 'accept': err = S.acceptOffer(game, ap, d.id, d.slot); ok = 'Contract signed'; break;
+    case 'bug': openBugReport(game); return;
+    case 'priority': err = S.setPriority(ap, d.id, d.on === '1'); break;
     case 'repair': err = S.repairBreakdown(game, ap, d.id); ok = 'Repaired'; break;
     case 'decline': S.declineOffer(ap, d.id); break;
     case 'arm': ui.armed = d.key; ui.armedUntil = performance.now() + 4000; break;

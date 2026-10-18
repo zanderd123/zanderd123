@@ -807,6 +807,17 @@ export function cancelContract(game, ap, contractId, forced = false) {
   ap.contracts.splice(i, 1);
 }
 
+// A few routes can be marked priority: their planes land and push back
+// ahead of the rest.
+export const MAX_PRIORITY = 3;
+export function setPriority(ap, contractId, on) {
+  const c = ap.contracts.find((x) => x.id === contractId);
+  if (!c) return 'No such route';
+  if (on && !c.priority && ap.contracts.filter((x) => x.priority).length >= MAX_PRIORITY) return `Up to ${MAX_PRIORITY} priority routes per airport`;
+  c.priority = on || undefined;
+  return null;
+}
+
 export function reassignContract(ap, contractId, slot) {
   const c = ap.contracts.find((x) => x.id === contractId);
   const T = terminalBySlot(ap, slot);
@@ -1466,8 +1477,12 @@ const DEP_OCCUPANCY = 4.2; // seconds a departure needs the runway
 
 // Landing needs both a runway slot and a free gate: an aircraft with nowhere
 // to park stays in the holding stack rather than clogging the taxiways.
+// Why a plane is circling, in detail (holdReason keeps the broad kind:
+// gate, taxi or runway). The first thing that stops it is the one shown.
+function why(p, reason, detail) { p.holdReason = reason; p.holdWhy = detail; return false; }
+
 function canClearArrival(ap, p, eta) {
-  if (findGate(ap, p) < 0) { p.holdReason = 'gate'; return false; }
+  if (findGate(ap, p) < 0) return why(p, 'gate', 'gate');
   // Nor while the turn-off it will use is still occupied: an aircraft that
   // cannot leave the runway would block every departure behind it.
   // Off the north runway it takes the first turn-off it can make that is
@@ -1480,21 +1495,21 @@ function canClearArrival(ap, p, eta) {
   for (let i = own; i < (p.rw === 1 ? EXITS.length : own + 1) && p.exitIdx < 0; i++) {
     if (!exitBusy(ap, p.rw, i, jy)) p.exitIdx = i;
   }
-  if (p.exitIdx < 0) { p.holdReason = 'taxi'; return false; }
+  if (p.exitIdx < 0) return why(p, 'taxi', 'exit');
   // Ground control meters arrivals too, so the taxiways never fill up.
-  if (ap.arrGround >= MAX_ARR_GROUND * runwayCount(ap)) { p.holdReason = 'taxi'; return false; }
-  p.holdReason = 'runway';
+  if (ap.arrGround >= MAX_ARR_GROUND * runwayCount(ap)) return why(p, 'taxi', 'ground');
   const R = ap.runways[p.rw];
-  if (ap.atcTokens < 1 || R.reservedArr) return false;
+  if (ap.atcTokens < 1) return why(p, 'runway', 'tower');
+  if (R.reservedArr) return why(p, 'runway', 'sequence');
   // An occupant that should have cleared by now but has not (it is waiting
   // to turn off) still blocks the runway.
-  if (R.occupant && R.occupant.blockedFor > 0) return false;
+  if (R.occupant && R.occupant.blockedFor > 0) return why(p, 'runway', 'runway');
   let freeAt = R.occupant ? Math.max(R.clearEta, ap.t + 1) : ap.t;
   if (R.crossers.size) freeAt = Math.max(freeAt, ap.t + 3);
-  if (freeAt > ap.t + eta - 0.2) return false;
+  if (freeAt > ap.t + eta - 0.2) return why(p, 'runway', R.crossers.size ? 'crossing' : 'runway');
   // Mixed-mode runway with departures waiting: strictly alternate, one
   // landing then one take-off, so neither queue can starve the other.
-  if (p.rw === 0 && ap.depQueue.length && ap.lastMove === 'arr') return false;
+  if (p.rw === 0 && ap.depQueue.length && ap.lastMove === 'arr') return why(p, 'runway', 'turn');
   if (p.rw === 0 && ap.depQueue.length) {
     // Once a departure has waited a little,
     // an arrival only gets a slot if a take-off still fits in front of it,
@@ -1502,11 +1517,28 @@ function canClearArrival(ap, p, eta) {
     const head = ap.depQueue[0];
     const waited = ap.t - head.holdSince;
     if (waited > 3 || ap.depQueue.length > 1) {
-      if (freeAt + DEP_OCCUPANCY > ap.t + eta) return false;
-      if (ap.atcTokens < 2) return false;
+      if (freeAt + DEP_OCCUPANCY > ap.t + eta) return why(p, 'runway', 'turn');
+      if (ap.atcTokens < 2) return why(p, 'runway', 'tower');
     }
   }
+  p.holdWhy = null;
   return true;
+}
+
+// Who in the stack gets the next landing: routes marked priority, then
+// airlines already unhappy (they are about to leave), then anyone who has
+// circled over two minutes; within each, first come first served.
+function landingRank(p, byId) {
+  const c = byId.get(p.f.contract);
+  if (c && c.priority) return 0;
+  if (c && c.unhappyFor > 0) return 1;
+  if ((p.heldFor || 0) > 120) return 2;
+  return 3;
+}
+export function landingOrder(queue, ap) {
+  if (queue.length < 2) return queue;
+  const byId = new Map(ap.contracts.map((c) => [c.id, c]));
+  return queue.map((p, i) => ({ p, i, r: landingRank(p, byId) })).sort((a, b) => a.r - b.r || a.i - b.i).map((x) => x.p);
 }
 
 // Is anything on the ground at a runway's turn-off? Every holding aircraft
@@ -1579,7 +1611,7 @@ function updatePlanes(game, ap, dt) {
   // Clear whoever in the stack can land now, first come first served.
   ap.arrGround = 0;
   for (const o of ap.planes) if (o.state === 'rollout' || o.state === 'taxiIn' || o.state === 'final') ap.arrGround++;
-  for (const p of ap.holdQueue) if (tryClearArrival(ap, p)) break;
+  for (const p of landingOrder(ap.holdQueue, ap)) if (tryClearArrival(ap, p)) break;
 
   for (const p of ap.planes) {
     switch (p.state) {
@@ -1850,7 +1882,7 @@ function spawnStarPlane(F, f) {
 
 function canClearStarArrival(F, p, eta) {
   const g = findGate(F, p);
-  if (g < 0) { p.holdReason = 'gate'; return false; }
+  if (g < 0) return why(p, 'gate', 'gate');
   // its terminal may have moved to a corner served by another runway
   const W = WEDGES[p.f.terminal];
   if (W && W.line !== p.rw) {
@@ -1862,21 +1894,22 @@ function canClearStarArrival(F, p, eta) {
   }
   // the turn-off and the start of the corner's lane must be clear
   const ex = starP(p.f.terminal, STAR_EXIT - 40, 40);
-  if (F.planes.some((o) => o !== p && o.alt <= 0.5 && o.state !== 'gate' && Math.hypot(o.x - ex.x, o.y - ex.y) < 75)) { p.holdReason = 'taxi'; return false; }
-  if (F.arrGround >= MAX_ARR_GROUND * 3) { p.holdReason = 'taxi'; return false; }
-  p.holdReason = 'runway';
+  if (F.planes.some((o) => o !== p && o.alt <= 0.5 && o.state !== 'gate' && Math.hypot(o.x - ex.x, o.y - ex.y) < 75)) return why(p, 'taxi', 'exit');
+  if (F.arrGround >= MAX_ARR_GROUND * 3) return why(p, 'taxi', 'ground');
   const R = F.runways[p.rw];
-  if (F.atcTokens < 1 || R.reservedArr) return false;
-  if (R.occupant && R.occupant.blockedFor > 0) return false;
+  if (F.atcTokens < 1) return why(p, 'runway', 'tower');
+  if (R.reservedArr) return why(p, 'runway', 'sequence');
+  if (R.occupant && R.occupant.blockedFor > 0) return why(p, 'runway', 'runway');
   let freeAt = R.occupant ? Math.max(R.clearEta, F.t + 1) : F.t;
-  if (freeAt > F.t + eta - 0.2) return false;
+  if (freeAt > F.t + eta - 0.2) return why(p, 'runway', 'runway');
   // one landing then one take-off while departures wait
   const q = F.depQueues[p.rw];
-  if (q.length && F.lastMoves[p.rw] === 'arr') return false;
+  if (q.length && F.lastMoves[p.rw] === 'arr') return why(p, 'runway', 'turn');
   if (q.length && (F.t - q[0].holdSince > 3 || q.length > 1)) {
-    if (freeAt + DEP_OCCUPANCY > F.t + eta) return false;
-    if (F.atcTokens < 2) return false;
+    if (freeAt + DEP_OCCUPANCY > F.t + eta) return why(p, 'runway', 'turn');
+    if (F.atcTokens < 2) return why(p, 'runway', 'tower');
   }
+  p.holdWhy = null;
   return true;
 }
 function tryClearStarArrival(F, p) {
@@ -1910,9 +1943,10 @@ function updateStarPlanes(game, F, dt) {
   F.holdPhase += HOLD_OMEGA * dt;
   F.arrGround = 0;
   for (const o of F.planes) if (o.state === 'rollout' || o.state === 'taxiIn' || o.state === 'final') F.arrGround++;
-  // first come first served, one clearance per runway at a time
-  const tried = new Set();
-  for (const p of [...F.holdQueue]) { if (tried.has(p.rw)) continue; tried.add(p.rw); tryClearStarArrival(F, p); }
+  // One clearance per runway at a time, in landing order. A plane that
+  // can't land (its gate is taken) doesn't hold up the ones behind it.
+  const cleared = new Set();
+  for (const p of landingOrder([...F.holdQueue], F)) { if (cleared.has(p.rw)) continue; if (tryClearStarArrival(F, p)) cleared.add(p.rw); }
 
   for (const p of F.planes) {
     switch (p.state) {
@@ -2266,8 +2300,9 @@ function groundTraffic(game, ap, dt) {
     }
   }
 
-  // 3. pushback: only into a gap nobody is heading for
-  for (const m of pending) {
+  // 3. pushback: only into a gap nobody is heading for (priority routes
+  // and unhappy airlines first, as for landings)
+  for (const m of landingOrder(pending, ap)) {
     const need = (m.pushLen || 0) + 45;
     if (m.free < need) continue;
     let conflict = false;

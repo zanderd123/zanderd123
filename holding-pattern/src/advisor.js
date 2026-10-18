@@ -225,8 +225,8 @@ export function advise(game, ap) {
   for (const c of ap.contracts) {
     if (c.unhappyFor > 0) {
       add(3, 'airline', `${c.airline} may leave`,
-        `Its ${c.city} flights are on time ${Math.round((c.otp || 0) * 100)}% of the time. Below ${Math.round(CONTRACTS.unhappyOtp * 100)}% for ${CONTRACTS.leaveAfter}s and it pulls the route. The delays card above says what is making flights late; moving this route to a quieter terminal can also help.`,
-        [fix('Open Contracts', 'tab', { tab: 'contracts' }, 0)]);
+        `Its ${c.city} flights are on time ${Math.round((c.otp || 0) * 100)}% of the time. Below ${Math.round(CONTRACTS.unhappyOtp * 100)}% for ${CONTRACTS.leaveAfter}s and it pulls the route. Its planes already land and push back ahead of the others; marking it priority keeps that up once it is happy again. The delays card above says what is making flights late; moving this route to a quieter terminal can also help.`,
+        [c.priority || ap.contracts.filter((x) => x.priority).length >= S.MAX_PRIORITY ? null : fix(`Make ${c.airline} priority`, 'priority', { id: c.id, on: '1' }, 0), fix('Open Routes', 'tab', { tab: 'contracts' }, 0)]);
     }
   }
 
