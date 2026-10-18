@@ -1561,8 +1561,11 @@ function canClearArrival(ap, p, eta) {
   // get a gap between landings, as crossers of the main one get between take-offs
   if (p.rw === 1 && ap.planes.some((o) => o.crossWait1 && ap.t - o.crossWait1 > 2)) return why(p, 'runway', 'crossing');
   // An occupant that should have cleared by now but has not (it is waiting
-  // to turn off) still blocks the runway.
+  // to turn off) still blocks the runway; so does any earlier arrival still
+  // on it (a queue backed up from the turn-offs), not only the latest.
   if (R.occupant && R.occupant.blockedFor > 0) return why(p, 'runway', 'runway');
+  const rwy = RW[p.rw].y;
+  if (ap.planes.some((o) => o !== p && o.state === 'rollout' && o.rw === p.rw && Math.abs(o.y - rwy) < RUNWAY_HALF + o.r && o.speed < 60)) return why(p, 'runway', 'runway');
   let freeAt = R.occupant ? Math.max(R.clearEta, ap.t + 1) : ap.t;
   if (R.crossers.size) freeAt = Math.max(freeAt, ap.t + 3);
   if (freeAt > ap.t + eta - 0.2) return why(p, 'runway', R.crossers.size ? 'crossing' : 'runway');
@@ -2410,13 +2413,14 @@ function groundTraffic(game, ap, dt) {
       else if (bIn && !aIn) aWins = false;
       if (aWins && A.m.blockBy === B.m && B.m.blockBy !== A.m) aWins = false;
       else if (!aWins && B.m.blockBy === A.m && A.m.blockBy !== B.m) aWins = true;
-      // Someone waiting to cross a runway gives way to anyone turning off it,
-      // whatever else: the one on the runway has nowhere to wait.
+      // Someone waiting to cross a runway gives way to anyone turning off it
+      // who is in its way, whatever else: the one on the runway has nowhere
+      // to wait.
       // (taxiing to the hold line: one still rolling down a runway is the one
       // turning off, not one waiting)
       const waits = (X) => !X.pseudo && X.m.state === 'taxiIn' && ((X.m.crossAt != null && !X.m.crossing && !X.m.crossed) || (X.m.cross1At != null && !X.m.crossing1 && !X.m.crossed1));
-      if (offRunway(A.m) && waits(B)) aWins = true;
-      else if (offRunway(B.m) && waits(A)) aWins = false;
+      if (offRunway(A.m) && waits(B) && B.m.blockBy === A.m) aWins = true;
+      else if (offRunway(B.m) && waits(A) && A.m.blockBy === B.m) aWins = false;
       if (towedA !== towedB) aWins = towedB;
       // A claim from an aircraft still on the runway can't be made to wait.
       if ((aWins ? B : A).pseudo) continue;
