@@ -180,7 +180,7 @@ export function lanesFor(plots) {
 
 // The southbound lane nearest to the west of x, and the northbound one
 // nearest to the east of x.
-function laneIn(x, plots) {
+export function laneIn(x, plots) {
   let best = null;
   for (const L of lanesFor(plots)) if (L.dir === 'S' && L.x < x && (!best || L.x > best.x)) best = L;
   return best ? best.x : 825;

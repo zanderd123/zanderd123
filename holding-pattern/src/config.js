@@ -132,10 +132,11 @@ export const UPGRADES = {
   longRunway: { name: 'Runway extension',      cost: 110000, desc: 'Lets superjumbos land and take off.', needsPlot: 'east' },
   runway2:    { name: 'Second runway',         cost: 260000, desc: 'A north runway for arrivals; departures keep the main one. Arrivals must cross the main runway.', needsPlot: 'north' },
   crosswind:  { name: 'Crosswind runway',      cost: 220000, desc: 'A short north–south runway on the far east field, for departures only. Flights from the main-terminal row take off from it, leaving the main runway freer for everyone else.', needsPlot: 'fareast', onlyAt: 'crosswind' },
-  midfield:   { name: 'Midfield taxiway',      cost: 600000, desc: 'Two taxiway lanes through the gap to the north field. When the main runway is the busier, main-terminal arrivals land on the north field\u2019s runway and taxi across to their gates.', needsPlot: 'north', midfield: true },
+  midfield:   { name: 'Midfield taxiway',      cost: 600000, desc: 'Two taxiway lanes through the gap to the north field. When the main runway is the busier, main-terminal arrivals land on the north field\u2019s runway and taxi across to their gates.', needsPlot: 'north', link: 'N' },
+  eastLink:   { name: 'East field taxiway',    cost: 450000, desc: 'A taxiway through the gap to the east field. When the main runway is the busier, main-terminal arrivals land on the east field\u2019s runway and taxi in along taxiway B, and main-row departures taxi out to take off from it. No runway crossings.', needsPlot: 'fareast', link: 'E' },
   rail:       { name: 'Rail link',             cost: 220000, desc: 'A train station: +12% passenger fees and less driving.', paxFee: 1.12, needsPlot: 'south' },
 };
-export const UPGRADE_ORDER = ['radar', 'rapidExits', 'hvac', 'ctScanners', 'solar', 'cat3', 'automation', 'longRunway', 'rail', 'runway2', 'crosswind', 'midfield'];
+export const UPGRADE_ORDER = ['radar', 'rapidExits', 'hvac', 'ctScanners', 'solar', 'cat3', 'automation', 'longRunway', 'rail', 'runway2', 'crosswind', 'midfield', 'eastLink'];
 
 export const SECURITY = { laneCost: 3000, laneGrowth: 1.18, maxLanes: 14, startLanes: 2 };
 // Car parks. Every parcel of land has room for one, next to or in front of

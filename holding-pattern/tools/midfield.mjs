@@ -1,8 +1,10 @@
 // Midfield taxiway stress test: a grown airport with its north field and the
 // midfield taxiway. Main-terminal arrivals divert to the north runway and
 // taxi across: none may collide or get stuck, and they must reach their gates.
-//   node tools/midfield.mjs            (DT=0.05, SEED=0, RUNWAY2=0|1, MINUTES=20)
+//   node tools/midfield.mjs            (DT=0.05, SEED=0, RUNWAY2=0|1, MINUTES=20, LINK=N|E|NE)
+// LINK picks the taxiways: N the midfield one, E the east field's, NE both.
 import * as S from '../src/sim.js';
+const LINK = process.env.LINK || 'N', links = [...LINK];
 const DT = Number(process.env.DT || 0.05), minutes = Number(process.env.MINUTES || 20);
 let pass = true;
 for (const runway2 of (process.env.RUNWAY2 ? [process.env.RUNWAY2 === '1'] : [false, true])) {
@@ -10,21 +12,24 @@ for (const runway2 of (process.env.RUNWAY2 ? [process.env.RUNWAY2 === '1'] : [fa
   const ap = S.createAirport(0, 11 + Number(process.env.SEED || 0) * 100);
   game.airports.push(ap);
   ap.tower = 4; ap.level = 8; ap.expandReady = true;
-  for (const p of ['west', 'east', 'north', 'n.core', 'n.west', 'n.east']) S.buyPlot(game, ap, p);
+  for (const p of ['west', 'east', 'north', 'fareast', ...links.flatMap((k) => [k.toLowerCase() + '.core', k.toLowerCase() + '.west', k.toLowerCase() + '.east'])]) S.buyPlot(game, ap, p);
   if (runway2) S.buyUpgrade(game, ap, 'runway2');
   const control = process.env.NOMID === '1'; // the same airport without it, to compare
-  const err = control ? null : S.buyUpgrade(game, ap, 'midfield');
-  if (err) { console.log('could not build midfield:', err); process.exit(1); }
-  for (const s of ['midcenter', 'westwing', 'eastwing', 'n.main', 'n.midcenter']) S.buildTerminal(game, ap, s, s.includes('.') ? 'tunnel' : s === 'midcenter' ? 'shuttle' : 'walkway');
+  for (const k of control ? [] : links) {
+    const err = S.buyUpgrade(game, ap, k === 'N' ? 'midfield' : 'eastLink');
+    if (err) { console.log('could not build the', k, 'link:', err); process.exit(1); }
+  }
+  const away = links.flatMap((k) => [k.toLowerCase() + '.main', k.toLowerCase() + '.midcenter']);
+  for (const s of ['midcenter', 'westwing', 'eastwing', 'fareast', ...away]) S.buildTerminal(game, ap, s, s.includes('.') ? 'tunnel' : s === 'midcenter' ? 'shuttle' : 'walkway');
   for (const T of ap.terminals) { T.buildLeft = 0; if (T.connector) T.connector.buildLeft = 0; T.gates = S.maxGates(ap, T.slot); T.heavy = true; }
   ap.securityLanes = 14; ap.staffing.atc = 'surge'; ap.upgrades.radar = true; ap.upgrades.automation = true;
   ap.contracts = [];
-  const mainSlots = ['main', 'midcenter', 'westwing', 'eastwing'];
+  const mainSlots = ['main', 'midcenter', 'westwing', 'eastwing', 'fareast'];
   for (let i = 0; i < 22; i++) {
     ap.offers = [{ id: 'x' + i, airline: 'A', code: 'AA', color: '#fff', city: 'X', cls: ['regional', 'narrow', 'narrow', 'wide'][i % 4], freq: 0.9, paxFee: 10, load: 0.8, expires: 1e9, bonus: 0 }];
-    S.acceptOffer(game, ap, 'x' + i, i % 6 === 5 ? 'n.main' : mainSlots[i % 4]);
+    S.acceptOffer(game, ap, 'x' + i, i % 6 === 5 ? away[(i / 6 | 0) % links.length * 2] : mainSlots[i % 5]);
   }
-  const N = ap.fieldViews.N;
+  const LF = links.map((k) => ap.fieldViews[k]);
   let overlaps = 0, worst = Infinity, xferSeen = new Set(), xferGate = 0, landings = 0, gated = 0, depSeen = new Set(), depOut = 0, takeoffs = 0;
   const seen = new Set();
   for (let t = 0; t < minutes * 60; t += DT) {
@@ -37,7 +42,7 @@ for (const runway2 of (process.env.RUNWAY2 ? [process.env.RUNWAY2 === '1'] : [fa
         if (d < 0.97) { overlaps++; if (overlaps <= 3) console.log('overlap', F.field || 'main', t.toFixed(1), g[i].id, g[i].state, g[j].id, g[j].state, Math.round(g[i].x), Math.round(g[i].y)); }
       }
     }
-    for (const p of N.planes) if (p.xfer) xferSeen.add(p);
+    for (const F of LF) for (const p of F.planes) if (p.xfer) xferSeen.add(p);
     for (const p of ap.planes) if (p.xferDep) depSeen.add(p);
     for (const p of depSeen) if (p.state === 'takeoff' && !seen.has('d' + p.id)) { seen.add('d' + p.id); depOut++; }
     if (process.env.DEBUG && !ap.dumped) {
@@ -62,6 +67,6 @@ for (const runway2 of (process.env.RUNWAY2 ? [process.env.RUNWAY2 === '1'] : [fa
   const stuck = [...xferSeen, ...depSeen].filter((p) => p.state !== 'gate' && p.state !== 'gone' && p.blockedFor > 60);
   const ok = overlaps === 0 && !(ap.gridlocks > 0) && (control || (xferGate > 0 && depOut > 0)) && !stuck.length;
   pass &&= ok;
-  console.log(`${ok ? 'ok  ' : 'FAIL'} ${control ? 'no midfield' : 'midfield'}${runway2 ? ' + second runway' : ''}: ${landings} landings, ${takeoffs} take-offs, ${xferSeen.size} landed north (${xferGate} at gate), ${depSeen.size} left north (${depOut} airborne), ${gated} at gates in all, overlaps ${overlaps}, closest ${worst.toFixed(2)}x, gridlocks ${(ap.gridlocks || 0)}${stuck.length ? `, stuck ${stuck.map((p) => p.id + ':' + p.state + ' ' + p.why).join(' ')}` : ''}`);
+  console.log(`${ok ? 'ok  ' : 'FAIL'} ${control ? 'no link' : 'link ' + LINK}${runway2 ? ' + second runway' : ''}: ${landings} landings, ${takeoffs} take-offs, ${xferSeen.size} landed away (${xferGate} at gate), ${depSeen.size} left away (${depOut} airborne), ${gated} at gates in all, overlaps ${overlaps}, closest ${worst.toFixed(2)}x, gridlocks ${(ap.gridlocks || 0)}${stuck.length ? `, stuck ${stuck.map((p) => p.id + ':' + p.state + ' ' + p.why).join(' ')}` : ''}`);
 }
 process.exit(pass ? 0 : 1);

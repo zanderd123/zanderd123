@@ -153,7 +153,20 @@ hold lines, run east along the second lane (50 px south of the first, so
 traffic passes in both directions), are handed to the north field and line up
 from a new hold line on its runway's near side. Every stretch of the route is
 one-way. `tools/midfield.mjs` stress-tests both directions against the same
-airport without it. (The east and west fields come next.)
+airport without it.
+
+**East field taxiway.** At a grown airport with its east field (and the far
+east site), a taxiway through the gap does the same for the east runway, with
+no runway crossings at all. Arrivals that stop by its second turn-off turn off
+toward the main field and are handed over at (2028, 390), then taxi north to
+the end of taxiway B and in along B, the way it already runs (main-row gates
+via the southbound lane west of them). Main-row departures (not superjumbos,
+and not with the crosswind runway, which cuts the apron lane) run east along
+the apron lane past its end to x=2018, down the gap, and are handed to the
+east field at its (550, 108); they wait at a hold line at (240, 158) and line
+up from the runway's near side. With both taxiways built, arrivals go to the
+least busy field and departures try the north field first. `LINK=E` (or `NE`)
+runs `tools/midfield.mjs` against it.
 
 **Who goes first.** On one runway, landings and take-offs take turns. In the
 holding stack, routes marked priority (up to three per airport, in the Routes

@@ -13,7 +13,7 @@ import { STAR, STAR_LINES, STAR_SLOTS, siteFields, siteRect, plotRects } from '.
 import { mulberry32, pointAlong, pathLength, clamp, money } from './util.js';
 import { drawShore, drawLand, islandAttach, islandArrive, islandFrame, rentalPoint } from './island.js';
 import { FLIGHT } from './config.js';
-import { isOpen, terminalBySlot, slotAvailable, parkingAvailable, hasField, allPlanes, slotList, plotList, parkingList, starHoldStacks, starTaxiLines, CLIMB_OUT, midfieldOn, MID } from './sim.js';
+import { isOpen, terminalBySlot, slotAvailable, parkingAvailable, hasField, allPlanes, slotList, plotList, parkingList, starHoldStacks, starTaxiLines, CLIMB_OUT, midfieldOn, MID, linkOn, eastLinkPoints } from './sim.js';
 
 const C = {
   grass: '#7f9f63', grassB: '#86a76a', farmA: '#b5a46b', farmB: '#a7ad6c', farmEdge: '#8a8455',
@@ -320,6 +320,7 @@ function drawStatic(ap, res) {
     else inField(g, F.key, () => drawFieldGround(g, ap, F));
   }
   if (midfieldOn(ap)) drawMidfield(g, ap);
+  if (linkOn(ap, 'E')) drawEastLink(g, ap);
 
   // terminals and connectors
   for (const T of ap.terminals) {
@@ -472,6 +473,49 @@ function drawMidfield(g, ap) {
     }
   }
   for (const d of [0, 4]) line(g, [[hx - 14, hold - d], [hx + 14, hold - d]]);
+}
+
+// The east field taxiway: the east runway's second turn-off over to the
+// end of taxiway B, and (unless the crosswind runway is in the way) the
+// apron lane on past its end and down the gap to a hold line by the east
+// runway's threshold. The turn-off and hold line are drawn in the east
+// field's own coordinates, the rest in the main field's.
+function drawEastLink(g, ap) {
+  const E = eastLinkPoints(ap), bx = Math.min(twyBSpan(ap.plots)[1], 1820), deps = !ap.upgrades.crosswind;
+  const ex = EXITS[1], ly = 118, hy = 158, oy = 108, edge = RW[0].y - RUNWAY_HALF;
+  g.fillStyle = C.asphalt;
+  g.fillRect(bx, TWY_B - 14, E.in.x + 14 - bx, 28);
+  g.fillRect(E.in.x - 14, TWY_B, 28, E.in.y - TWY_B);
+  if (deps) { g.fillRect(1940, LANE2 - 14, E.out.x + 14 - 1940, 28); g.fillRect(E.out.x - 14, LANE2, 28, E.out.y - LANE2); }
+  inField(g, 'E', () => {
+    g.fillStyle = C.asphalt;
+    g.fillRect(ex - 14, ly - 14, 28, 28);
+    g.beginPath(); g.moveTo(ex - 80, edge); g.lineTo(ex - 30, edge); g.lineTo(ex + 14, ly + 14); g.lineTo(ex - 22, ly + 14); g.closePath(); g.fill();
+    if (deps) {
+      g.fillRect(HOLD_POINT.x - 14, oy - 14, 550 - HOLD_POINT.x + 28, 28);
+      g.fillRect(HOLD_POINT.x - 14, oy, 28, hy - oy);
+      g.beginPath(); g.moveTo(HOLD_POINT.x - 14, hy); g.lineTo(HOLD_POINT.x + 14, hy); g.lineTo(RW[0].x0 + 30, edge); g.lineTo(HOLD_POINT.x - 14, edge); g.closePath(); g.fill();
+    }
+    g.strokeStyle = C.yellow; g.lineWidth = 1.6;
+    curveLine(g, ex - 60, RW[0].y, ex, ly);
+    if (deps) {
+      line(g, [[550, oy], [HOLD_POINT.x, oy], [HOLD_POINT.x, hy], [HOLD_POINT.x + 18, RW[0].y - 26], [RW[0].x0 + 10, RW[0].y]]);
+      g.fillStyle = C.yellow;
+      for (let ax = 480; ax > HOLD_POINT.x + 60; ax -= 180) arrow(g, ax, oy, Math.PI);
+      g.lineWidth = 2;
+      for (const d of [0, 4]) line(g, [[HOLD_POINT.x - 14, hy + 16 + d], [HOLD_POINT.x + 14, hy + 16 + d]]);
+    }
+  });
+  g.strokeStyle = C.yellow; g.lineWidth = 1.6;
+  line(g, [[E.in.x, E.in.y], [E.in.x, TWY_B], [bx, TWY_B]]);
+  g.fillStyle = C.yellow;
+  arrow(g, E.in.x, (TWY_B + E.in.y) / 2, -Math.PI / 2);
+  arrow(g, (E.in.x + bx) / 2, TWY_B, Math.PI);
+  if (deps) {
+    line(g, [[1940, LANE2], [E.out.x, LANE2], [E.out.x, E.out.y]]);
+    arrow(g, (1940 + E.out.x) / 2, LANE2, 0);
+    arrow(g, E.out.x, (LANE2 + E.out.y) / 2, Math.PI / 2);
+  }
 }
 
 // The hub's frame runways run on through the corner beyond their end, so

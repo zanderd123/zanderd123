@@ -432,7 +432,7 @@ function renderBuild(game, ap) {
     const U = UPGRADES[k];
     const why = S.upgradeBlocked(ap, k);
     if (why === 'Not at this airport') continue;
-    h += `<li><div class="what"><b>${U.name} ${recTag({ act: 'upgrade', data: { id: k } })}</b><span>${U.desc}</span></div>${ap.upgrades[k] ? '<span class="tag green">Built</span>' : why ? `<span class="tag">${esc(why)}</span>` : priceBtn('Build', `upgrade" data-id="${k}`, S.upgradeCost(ap, k))}</li>`;
+    h += `<li><div class="what"><b>${S.nm(ap, U.name)} ${recTag({ act: 'upgrade', data: { id: k } })}</b><span>${S.nm(ap, U.desc)}</span></div>${ap.upgrades[k] ? '<span class="tag green">Built</span>' : why ? `<span class="tag">${esc(why)}</span>` : priceBtn('Build', `upgrade" data-id="${k}`, S.upgradeCost(ap, k))}</li>`;
   }
   h += `</ul>`;
   return h;
@@ -636,7 +636,7 @@ const LANDSIDE_LIST = ['lot', 'hotel', 'rental', 'solar'];
 function plotParts(ap, id) {
   return {
     opens: S.slotList(ap).filter((s) => SLOTS[s].plot === id && S.slotAvailable(ap, s)).map((s) => S.nm(ap, SLOTS[s].name)),
-    ups: Object.entries(UPGRADES).filter(([k, u]) => u.needsPlot === id && S.upgradeBlocked(ap, k) !== 'Not at this airport').map(([, u]) => u.name),
+    ups: Object.entries(UPGRADES).filter(([k, u]) => u.needsPlot === id && S.upgradeBlocked(ap, k) !== 'Not at this airport').map(([, u]) => S.nm(ap, u.name)),
     lots: S.parkingList(ap).filter((p) => PARKING_SITES[p].plot === id && S.parkingAvailable(ap, p)).map((p) => S.nm(ap, PARKING_SITES[p].name)),
   };
 }
