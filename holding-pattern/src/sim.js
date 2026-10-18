@@ -264,6 +264,9 @@ export function restoreAirport(data) {
   // airfields bought before the tower had levels keep the tower they need
   ap.tower = Math.min(TOWER.levels.length, Math.max(Number(ap.tower) || 1, 1 + fieldsOwned(ap)));
   for (const T of ap.terminals) T.gates = Math.min(T.gates, maxGates(ap, T.slot)); // older saves allowed 5
+  // (a shared code could name a staffing level that doesn't exist)
+  ap.staffing = { ...(ap.staffing || {}) };
+  for (const d of ['atc', 'security', 'ground']) if (!STAFFING[ap.staffing[d]]) ap.staffing[d] = 'standard';
   hydrate(ap);
   return ap;
 }
@@ -1154,6 +1157,7 @@ function runManager(game, ap) {
 export function setManager(ap, on) { ap.manager = !!on; ap.costLines = computeCosts(ap); }
 
 export function setStaffing(ap, dept, level) {
+  if (!STAFFING[level] || !(dept in ap.staffing)) return 'No such staffing level';
   ap.staffing[dept] = level;
   ap.costLines = computeCosts(ap);
 }
@@ -2590,7 +2594,9 @@ function groundTraffic(game, ap, dt) {
         const Z = zones[k];
         if (!Z.owner || Z.owner === m || t - Z.ownerT > 0.2) { Z.owner = m; Z.ownerT = t; }
       }
-      const skip = m.state === 'rollout' ? m.rollEnd - m.d : -1;
+      // (nor may a pushback be stopped halfway out onto the lane: it would
+      // block the lane while it waits for a box whose owner waits for it)
+      const skip = m.state === 'rollout' ? m.rollEnd - m.d : m.state === 'pushback' ? m.pushLen - m.d : -1;
       for (let i = 0; i < m.look.length; i++) {
         const q = m.look[i];
         if (q.s > allowed) break;
