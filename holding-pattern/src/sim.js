@@ -224,6 +224,7 @@ export function serializeAirport(ap) {
     hubV: ap.hubV,
     expandReady: ap.expandReady || undefined,
     tower: ap.tower > 1 ? ap.tower : undefined,
+    goldIn: ap.goldIn > 0 ? ap.goldIn : undefined,
     breakdowns: ap.breakdowns && ap.breakdowns.length ? ap.breakdowns.map((b) => ({ ...b, mgrAt: undefined, t0: 0 })) : undefined,
   };
 }
@@ -239,16 +240,47 @@ export function restoreAirport(data) {
     if (T.pendingConnector) T.pendingConnector = { ...T.pendingConnector, ...(T.pendingConnector.type === 'monorail' && SLOTS[T.slot] && !connectorAllowed('monorail', T.slot, data.siteIndex) ? { type: 'tunnel', level: 0 } : {}) };
     else delete T.pendingConnector;
   }
-  // a shared save code goes into the page's HTML: keep what it says plain
-  for (const c of ap.contracts || []) {
-    if (!/^#[0-9a-fA-F]{3,8}$/.test(String(c.color))) c.color = '#9aa0a6';
-    if (typeof c.id === 'string') c.id = c.id.replace(/[^\w.-]/g, '');
+  // A shared save code goes into the page's HTML, and anything it says the
+  // game will trust: keep text plain and numbers numbers, and drop what
+  // names an aircraft that doesn't exist.
+  const num = (v, d = 0, lo = -Infinity, hi = Infinity) => { const n = typeof v === 'number' ? v : typeof v === 'string' && v.trim() ? Number(v) : NaN; return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : d; };
+  const plain = (v) => String(v ?? '').replace(/[<>&"'`]/g, '').slice(0, 60);
+  const TEXT = new Set(['id', 'airline', 'code', 'color', 'city', 'cls', 'terminal', 'network', 'alliance']);
+  ap.contracts = (Array.isArray(ap.contracts) ? ap.contracts : []).filter((c) => c && AIRCRAFT[c.cls]).map((c0) => {
+    const c = { ...c0 };
+    for (const k of Object.keys(c)) {
+      if (TEXT.has(k)) c[k] = plain(c[k]);
+      else if (k === 'otpHist') c[k] = Array.isArray(c[k]) ? c[k].map((x) => num(x, 0, 0, 1)) : [];
+      else if (k === 'priority') c[k] = c[k] ? true : undefined;
+      else if (typeof c[k] !== 'boolean' && c[k] != null) c[k] = num(c[k]);
+    }
+    if (!/^#[0-9a-fA-F]{3,8}$/.test(c.color)) c.color = '#9aa0a6';
+    c.id = c.id.replace(/[^\w.-]/g, '');
+    if (!/^[A-Z0-9]{1,3}$/.test(c.code)) c.code = 'XX';
+    return c;
+  });
+  ap.level = Math.round(num(ap.level, 1, 1, LEVELS.length));
+  ap.rep = num(ap.rep, 50, 0, 100);
+  ap.t = num(ap.t, 0, 0);
+  ap.paxServed = num(ap.paxServed, 0, 0);
+  ap.flightCounter = Math.round(num(ap.flightCounter, 0, 0));
+  ap.securityLanes = Math.round(num(ap.securityLanes, SEC.startLanes, 1, SEC.maxLanes * 2));
+  for (const T of ap.terminals) {
+    T.gates = Math.round(num(T.gates, 1, 1, 8));
+    T.retail = Math.round(num(T.retail, 0, 0, TERMINAL.retailLevels.length - 1));
+    T.buildLeft = num(T.buildLeft, 0, 0);
+    T.heavy = !!T.heavy;
+    if (T.connector) { T.connector.level = T.connector.level ? 1 : 0; if ('buses' in T.connector) T.connector.buses = Math.round(num(T.connector.buses, 0, 0, CONNECTORS.shuttle.bus.max)); }
   }
+  if (ap.lifetime && typeof ap.lifetime === 'object') for (const k of Object.keys(ap.lifetime)) ap.lifetime[k] = num(ap.lifetime[k]);
   ap.upgrades = { ...ap.upgrades };
   if (site.longRunway) ap.upgrades.longRunway = true;
   if (!ap.perMin || !Object.values(ap.perMin).every(Number.isFinite)) ap.perMin = { net: 0, operating: 0 };
+  ap.perMinSaved = { net: ap.perMin.net, operating: ap.perMin.operating ?? ap.perMin.net };
+  ap.goldIn = Math.round(num(ap.goldIn, 0, 0, 100)) || undefined;
   // Older saves had two garage upgrades instead of car park sites.
   ap.parking = data.parking ? { ...data.parking } : { front: 'lot' };
+  for (const [id, u] of Object.entries(ap.parking)) if (!(u === 'lot' || u === 'garage' || LANDSIDE[u])) { if (id === 'front') ap.parking.front = 'lot'; else delete ap.parking[id]; }
   ap.hangars = { ...(ap.hangars || {}) };
   if (ap.upgrades.garage1) ap.parking.southwest = 'garage';
   if (ap.upgrades.garage2) ap.parking.southeast = 'garage';
@@ -261,6 +293,9 @@ export function restoreAirport(data) {
   }
   // (after the hub's move: older hub saves had sites that no longer exist)
   ap.terminals = ap.terminals.filter((T) => SLOTS[T.slot]);
+  // (routes on a terminal that is gone go to the main one)
+  const home = (ap.terminals.find((T) => T.slot === 'main') || ap.terminals[0] || {}).slot;
+  for (const c of ap.contracts) if (!ap.terminals.some((T) => T.slot === c.terminal) && home) c.terminal = home;
   // airfields bought before the tower had levels keep the tower they need
   ap.tower = Math.min(TOWER.levels.length, Math.max(Number(ap.tower) || 1, 1 + fieldsOwned(ap)));
   for (const T of ap.terminals) T.gates = Math.min(T.gates, maxGates(ap, T.slot)); // older saves allowed 5
@@ -715,7 +750,8 @@ function planReport(ap, extra) {
     if (!other) continue;
     // (arrivals that stop in time for its turn-off, and departures from the
     // stands its lane reaches)
-    const deps = (c) => c.cls !== 'jumbo' && (k === 'N' ? ['eastwing', 'mideast'].includes(c.terminal) : SLOTS[c.terminal].row === 'main');
+    // (with the crosswind runway, main-row departures take that instead)
+    const deps = (c) => c.cls !== 'jumbo' && !(ap.upgrades.crosswind && SLOTS[c.terminal].row === 'main') && (k === 'N' ? ['eastwing', 'mideast'].includes(c.terminal) : SLOTS[c.terminal].row === 'main');
     const eligible = contracts.reduce((s, c) => s + (slotField(c.terminal) ? 0 : (AIRCRAFT[c.cls].exitIndex <= LINKS[k].exits[1] ? c.freq : 0) + (deps(c) ? c.freq : 0)), 0);
     const moved = Math.max(0, Math.min(eligible - r.runway.viaMidfield, r.runway.demand - 0.85 * r.runway.cap, 0.95 * other.cap - other.demand));
     r.runway.demand -= moved; other.demand += moved; r.runway.viaMidfield += moved;
@@ -851,7 +887,7 @@ export function cancelPenalty(ap, c, game) {
 
 export function cancelContract(game, ap, contractId, forced = false) {
   const i = ap.contracts.findIndex((c) => c.id === contractId);
-  if (i < 0) return;
+  if (i < 0) return 'That route has already ended';
   const c = ap.contracts[i];
   if (!forced) earn(game, ap, 'penalties', -cancelPenalty(ap, c, game));
   ap.contracts.splice(i, 1);
@@ -904,7 +940,8 @@ export function demolishBlocked(ap, slot) {
   return null;
 }
 export function terminalRefund(ap, T) {
-  const conn = T.connector ? connectorBuildCost(T.connector.type, T.slot, ap) : 0;
+  // (a replacement already paid for counts too)
+  const conn = (T.connector ? connectorBuildCost(T.connector.type, T.slot, ap) : 0) + (T.pendingConnector ? connectorBuildCost(T.pendingConnector.type, T.slot, ap) : 0);
   return Math.round((TERMINAL.baseCost * site(ap).cost + conn) * DEMOLISH_REFUND);
 }
 // Its routes move to the other terminals at once; it closes for good when
@@ -922,9 +959,11 @@ export function demolishTerminal(game, ap, slot) {
     if (f.plane && f.plane.gate >= 0 && f.plane.state !== 'holding' && f.plane.state !== 'inbound') continue; // already coming in here
     const c = ap.contracts.find((x) => x.id === f.contract);
     let to = (c && c.terminal) || suggestTerminal(ap, f.cls);
-    // an aircraft already on its way stays on its own airfield
-    if (f.plane && slotField(to) !== (f.plane.field || 0)) {
-      const same = ap.terminals.find((o) => o !== T && isOpen(o) && terminalSupports(ap, o, f.cls) && slotField(o.slot) === (f.plane.field || 0));
+    // an aircraft already on its way stays bound for its own airfield (one
+    // landing on another field for this one, by its taxiway, is bound here)
+    const bound = f.plane ? (f.plane.xfer ? 0 : f.plane.field || 0) : 0;
+    if (f.plane && slotField(to) !== bound) {
+      const same = ap.terminals.find((o) => o !== T && isOpen(o) && terminalSupports(ap, o, f.cls) && slotField(o.slot) === bound);
       if (same) to = same.slot;
     }
     moveFlightPax(ap, f.id, T, terminalBySlot(ap, to));
@@ -1000,6 +1039,7 @@ export function replaceConnector(game, ap, slot, type) {
   if (!T || slot === 'main') return 'No connector here';
   if (!connectorAllowed(type, slot, ap.siteIndex)) return 'That connector cannot reach this site';
   if (T.connector.type === type) return 'Already uses that';
+  if (T.pendingConnector) return 'A replacement is already being built';
   const cost = connectorBuildCost(type, slot, ap);
   if (!spend(game, cost)) return 'Not enough cash';
   // The old line keeps running until the new one opens.
@@ -1012,6 +1052,7 @@ export function upgradeConnector(game, ap, slot) {
   if (T && T.demolishing) return 'Being torn down';
   const C = T && T.connector;
   const def = C && CONNECTORS[C.type];
+  if (T && T.pendingConnector) return 'Being replaced';
   if (!def || !def.upgrade || C.level) return 'Nothing to upgrade';
   if (!spend(game, Math.round(def.upgrade.cost * site(ap).cost))) return 'Not enough cash';
   C.level = 1;
@@ -1186,7 +1227,15 @@ function rollLedger(ap) {
   sum.net = net;
   // What the airport makes from running, without one-off signing bonuses
   // and penalties: the number to judge it by.
-  sum.operating = net - (sum.bonus || 0) - (sum.penalties || 0);
+  // (repairs are one-off too)
+  sum.operating = net - (sum.bonus || 0) - (sum.penalties || 0) - (sum.repairs || 0);
+  // Its first seconds after a load or a new airport are mostly noise
+  // (fees come in lumps): ease in from the figure it had.
+  const prev = ap.perMinSaved;
+  if (prev && ap.ledger.length < 20) {
+    const w = ap.ledger.length / 20;
+    for (const key of ['net', 'operating']) if (Number.isFinite(prev[key])) sum[key] = prev[key] * (1 - w) + sum[key] * w;
+  }
   ap.perMin = sum;
 }
 
@@ -1563,6 +1612,8 @@ function canClearArrival(ap, p, eta) {
   if (p.exitIdx < 0) return why(p, 'taxi', 'exit');
   // Ground control meters arrivals too, so the taxiways never fill up.
   if (ap.arrGround >= MAX_ARR_GROUND * runwayCount(ap)) return why(p, 'taxi', 'ground');
+  // (bound across to the main field: its ground has to have room too)
+  if (p.xfer) { const M = rootOf(ap); if (M.arrGround >= MAX_ARR_GROUND * runwayCount(M)) return why(p, 'taxi', 'ground'); }
   const R = ap.runways[p.rw];
   if (ap.atcTokens < 1) return why(p, 'runway', 'tower');
   if (R.reservedArr) return why(p, 'runway', 'sequence');
@@ -1713,7 +1764,9 @@ function departViaMidfield(ap, p) {
   // field that is where departures queue)
   const load = (F, mine) => F.depQueue.length + F.planes.filter((o) => ((o.state === 'taxiOut' || o.state === 'pushback') && (o.xferDep || false) === mine) || (!mine && o.state === 'gate' && o.ready)).length;
   const here = load(ap, false);
-  const busier = (k) => here >= load(ap.fieldViews[k], false) + load(ap, k) + 3;
+  // (already on their way to field k: the main queue is counted in here once)
+  const going = (k) => ap.planes.filter((o) => (o.state === 'taxiOut' || o.state === 'pushback') && o.xferDep === k).length;
+  const busier = (k) => here >= load(ap.fieldViews[k], false) + going(k) + 3;
   const via = p.stand.laneY === LANE2 ? laneOutX(p.stand.x, ap.plots) : p.stand.x;
   if (linkOn(ap, 'N') && via >= MID.depX + 60 && busier('N')) return 'N';
   if (linkOn(ap, 'E') && p.stand.laneY === LANE2 && !ap.upgrades.crosswind && busier('E')) return 'E';
@@ -2206,7 +2259,8 @@ function updateStarPlanes(game, F, dt) {
           p.state = 'holding';
           const c = starHoldCentre(p.rw);
           p.holdA = Math.atan2(p.y - c.y, p.x - c.x);
-          p.holdR = FLIGHT.holdRadius;
+          // (from where it is: its line may have changed on the way in)
+          p.holdR = Math.hypot(p.x - c.x, p.y - c.y) || FLIGHT.holdRadius;
           F.holdQueue.push(p);
         } else { p.x += (I.x - p.x) / d * step; p.y += (I.y - p.y) / d * step; }
         break;
@@ -2636,7 +2690,7 @@ function groundTraffic(game, ap, dt) {
         m.crossWait1 = toHold < 1 && room ? m.crossWait1 || t : 0;
         if (toHold < 1 && !R1.occupant && !landing && room) { m.crossing1 = true; m.crossWait1 = 0; R1.crossers.add(m); }
         else allowed = Math.max(0, toHold);
-      }
+      } else m.crossWait1 = 0;
     }
     // North-runway arrivals cross the main runway only when it is free and
     // there is room to get all the way across.
@@ -2667,7 +2721,7 @@ function groundTraffic(game, ap, dt) {
         } else {
           allowed = Math.max(0, toHold);
         }
-      }
+      } else m.crossWait = 0; // (not at the line yet: it asks for no gap)
     }
 
     let vmax = m.state === 'pushback' ? PUSH_SPEED : FLIGHT.taxiSpeed;
@@ -2856,7 +2910,7 @@ function findGate(ap, p) {
   // (a terminal on another of the hub's airfields is out of reach)
   if (!T || !isOpen(T) || !terminalSupports(ap, T, p.cls) || slotField(T.slot) !== (ap.field || 0)) {
     // Contract moved or terminal closed: fall back to any terminal that fits.
-    const was = T;
+    const was = T || terminalBySlot(rootOf(ap), p.f.terminal);
     const f = ap.field || 0;
     T = ap.terminals.find((x) => isOpen(x) && terminalSupports(ap, x, p.cls) && slotField(x.slot) === f);
     if (!T) return -2;
@@ -2926,6 +2980,7 @@ function turnaround(game, ap, p, dt) {
     if (f.gateInLate > 12) p.lateWhy = (p.heldFor || 0) > 5 ? (p.holdReason || 'runway') : 'traffic';
     else if (p.paxWait && ap.t - p.paxWait > 3) p.lateWhy = 'pax';
     else p.lateWhy = 'traffic';
+    p.heldFor = 0; // (its circling counted for the arrival, not for its pushback turn)
     closeFlight(game, ap, f);
     p.ready = true;
     p.readyAt = ap.t;
@@ -2960,7 +3015,8 @@ function closeFlight(game, ap, f) {
   // lines either way.
   const sec = ap.secQ.drop(f.id);
   let conn = 0;
-  const C = terminalBySlot(ap, f.terminal) && terminalBySlot(ap, f.terminal).connector;
+  // (from another field's view, a main-field terminal is the airport's)
+  const TT = terminalBySlot(ap, f.terminal) || terminalBySlot(rootOf(ap), f.terminal), C = TT && TT.connector;
   if (C) {
     conn += C.outQ.drop(f.id);
     for (const x of C.transit) if (x.f === f.id && x.dir === 'out') conn += x.n;
@@ -3222,7 +3278,8 @@ function updateBuses(ap, dt) {
         let nd = b.d + b.dir * def.speed * dt;
         if (sX != null && Math.abs(b.d - sX) >= 30 && Math.abs(nd - sX) < 30) {
           // Wait at the line if an aircraft is in the crossing.
-          const busy = ap.planes.some((p) => p.alt <= 0.5 && p.state !== 'gate' && Math.hypot(p.x - X.x, p.y - X.ly) < p.r + 40);
+          // (one queued just outside the crossing, as taxiing aircraft stop, doesn't count)
+          const busy = ap.planes.some((p) => p.alt <= 0.5 && p.state !== 'gate' && Math.abs(p.y - X.ly) < p.r + 12 && Math.abs(p.x - X.x) < p.r + 24);
           if (busy) nd = b.d;
         }
         b.d = nd;

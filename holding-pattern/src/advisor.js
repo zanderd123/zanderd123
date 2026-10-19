@@ -170,7 +170,7 @@ export function advise(game, ap) {
       const slot = Object.entries(per).sort((a, b) => b[1] - a[1])[0][0];
       const T = S.terminalBySlot(ap, slot);
       cause = `circled because no gate was free at ${name(slot)}`;
-      if (T && T.gates < S.maxGates(ap, slot)) fixes.push(fix(`Add a gate to ${TERMINAL_CODES[slot]}`, 'gate', { slot }, S.gateCost(ap, T)));
+      if (T && S.isOpen(T) && T.gates < S.maxGates(ap, slot)) fixes.push(fix(`Add a gate to ${TERMINAL_CODES[slot]}`, 'gate', { slot }, S.gateCost(ap, T)));
       fixes.push(fix('Move some of its routes (Contracts tab)', 'tab', { tab: 'contracts' }, 0));
       fixes.push(fix('Plan another terminal (Build tab)', 'tab', { tab: 'build' }, 0));
     } else if (top === 'runway') {

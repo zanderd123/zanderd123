@@ -108,12 +108,12 @@ export function deserialize(data) {
     cash: recoverCash(data),
     cashRecovered: !Number.isFinite(data.cash),
     active: Math.max(0, Math.min(Number(data.active) || 0, data.airports.length - 1)),
-    speed: data.speed || 1,
+    speed: [1, 2, 4].includes(data.speed) ? data.speed : 1,
     started: data.started || Date.now(),
-    tutorial: data.tutorial || 0,
+    tutorial: Math.max(0, Math.round(Number(data.tutorial) || 0)),
     tutorialDone: !!data.tutorialDone,
-    milestones: data.milestones || {},
-    alliancesSigned: data.alliancesSigned || 0,
+    milestones: Object.fromEntries(Object.entries(data.milestones && typeof data.milestones === 'object' ? data.milestones : {}).filter(([k, v]) => /^\w+$/.test(k) && Number.isFinite(Number(v))).map(([k, v]) => [k, Number(v)])),
+    alliancesSigned: Math.max(0, Math.round(Number(data.alliancesSigned) || 0)),
     breakIn: Number(data.breakIn) || undefined,
     airports: data.airports.map(restoreAirport),
     savedAt: data.savedAt,
@@ -126,6 +126,11 @@ export function save(game, at) {
     localStorage.setItem(SAVE_KEY, JSON.stringify(serialize(game, at)));
     return true;
   } catch { return false; }
+}
+
+// The game a loaded save code replaces, kept aside in case it was a mistake.
+export function backupSave(game) {
+  try { localStorage.setItem(SAVE_KEY + '-before-import', JSON.stringify(serialize(game))); } catch { /* storage full */ }
 }
 
 // A save that exists but can't be read is kept aside (not overwritten by

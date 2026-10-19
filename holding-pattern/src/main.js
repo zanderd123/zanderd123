@@ -1,6 +1,6 @@
 // Boot, the frame loop, input and the action dispatcher.
 
-import { newGame, activeAirport, stepGame, save, load, wipe, exportCode, importCode, offlineEarnings, buySite, serialize, deserialize, loadFailed } from './game.js';
+import { newGame, activeAirport, stepGame, save, load, wipe, exportCode, importCode, backupSave, offlineEarnings, buySite, serialize, deserialize, loadFailed } from './game.js';
 import * as S from './sim.js';
 import { makeCamera, fitCamera, screenToWorld, render, attach, pick, dayPhase, worldSize } from './render.js';
 import { ui, renderTop, renderOps, renderPanel, toast, showDialog, holdText, esc } from './ui.js';
@@ -57,7 +57,9 @@ function start(hotData) {
     onDone() { toast('Tutorial done. Help has the rest.', 'good'); },
   });
   checkMilestones(game); // what an existing save has already earned, quietly
-  renderPanel(true);
+  // (whatever happens, the game loop starts: a panel that fails to draw
+  // must not leave the page dead with no way to reset)
+  try { renderPanel(true); } catch (e) { noteError(e); }
   if (game.cashRecovered) {
     delete game.cashRecovered;
     toast(`A bug wiped your balance. It has been restored to ${money(game.cash)}.`, 'good');
@@ -190,11 +192,15 @@ document.addEventListener('visibilitychange', () => {
   // that have already left.
   const ap = activeAirport(game), fx = ap.fx;
   ap.fx = null;
-  for (let t = 0; t < sim; t += 0.05) stepGame(game, 0.05);
+  for (let t = 0; t < sim; t += 0.05) stepGame(game, 0.05, ap);
   ap.fx = fx;
-  if (away > CATCH_UP + 30) {
-    const off = offlineEarnings(game, away - sim / game.speed);
-    if (off.total > 0) { game.cash += off.total; toast(`While you were away: +${money(off.total)}`, 'good'); }
+  // the rest of the time away is paid as offline earnings (a toast only
+  // when it is worth mentioning)
+  const rest = away - sim / game.speed;
+  if (rest > 1) {
+    const off = offlineEarnings(game, rest);
+    if (off.total > 0) game.cash += off.total;
+    if (off.total > 0 && rest > 30) toast(`While you were away: +${money(off.total)}`, 'good');
   }
   last = performance.now();
 });
@@ -398,7 +404,7 @@ body.addEventListener('click', (e) => {
     case 'repair': err = S.repairBreakdown(game, ap, d.id); ok = 'Repaired'; break;
     case 'decline': S.declineOffer(ap, d.id); break;
     case 'arm': ui.armed = d.key; ui.armedUntil = performance.now() + 4000; break;
-    case 'cancel': S.cancelContract(game, ap, d.id); ui.armed = null; ok = 'Contract ended'; break;
+    case 'cancel': err = S.cancelContract(game, ap, d.id); ui.armed = null; ok = 'Contract ended'; break;
     case 'detail': ui.detail = { kind: d.kind, id: d.id }; body.scrollTop = 0; break;
     case 'tab': ui.tab = d.tab; ui.detail = null; body.scrollTop = 0; break;
     case 'tutorial': tut.start(); break;
@@ -411,8 +417,8 @@ body.addEventListener('click', (e) => {
     case 'hangar': err = S.buildHangar(game, ap, d.slot); ok = 'Hangar built'; if (!err) ui.detail = { kind: 'slot', id: d.slot }; break;
     case 'demolish-hangar': err = S.demolishHangar(game, ap, d.slot); ui.armed = null; ok = 'Hangar torn down'; break;
     case 'demolish': err = S.demolishTerminal(game, ap, d.slot); ui.armed = null; ok = 'Closing: routes moved to your other terminals'; break;
-    case 'pick-conn': ui.buildChoice[d.slot] = d.type; break;
-    case 'pick-reconn': ui.buildChoice['re-' + d.slot] = d.type; break;
+    case 'pick-conn': ui.buildChoice[`${ap.id}:${d.slot}`] = d.type; break;
+    case 'pick-reconn': ui.buildChoice[`${ap.id}:re-${d.slot}`] = d.type; break;
     case 'build': err = S.buildTerminal(game, ap, d.slot, d.type); ok = 'Construction started'; if (!err) ui.detail = { kind: 'terminal', id: d.slot }; break;
     case 'reconn': err = S.replaceConnector(game, ap, d.slot, d.type); ok = 'Replacement under way'; break;
     case 'connup': err = S.upgradeConnector(game, ap, d.slot); ok = 'Upgraded'; break;
@@ -433,8 +439,12 @@ body.addEventListener('click', (e) => {
     case 'import': {
       try {
         const g = importCode($('importBox').value);
+        // try it before it replaces anything: a code that can't run is refused
+        for (const a of g.airports) { S.loadReport(a); a.fx = null; }
+        stepGame(g, 0.01);
+        backupSave(game);
         replaceGame(g);
-        ok = 'Save loaded';
+        ok = 'Save loaded (your previous game is kept as a backup)';
       } catch { err = 'That save code could not be read'; }
       break;
     }
@@ -540,7 +550,11 @@ document.addEventListener('click', (e) => {
   if (c) $(c.dataset.close).hidden = true;
   if (e.target.closest('[data-start-tut]')) tut.start();
 });
-$('dialog').addEventListener('click', (e) => { if (e.target === $('dialog')) $('dialog').hidden = true; });
+// (only a click that starts and ends on the backdrop: selecting text in a
+// form and letting go outside it must not close it)
+let downOnBackdrop = false;
+$('dialog').addEventListener('pointerdown', (e) => { downOnBackdrop = e.target === $('dialog'); });
+$('dialog').addEventListener('click', (e) => { if (e.target === $('dialog') && downOnBackdrop) $('dialog').hidden = true; downOnBackdrop = false; });
 
 // ------------------------------------------------------------------ map
 

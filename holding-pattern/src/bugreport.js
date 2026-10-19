@@ -39,6 +39,7 @@ function details(game) {
 let current = null;
 export function openBugReport(game) {
   current = game;
+  sending = false; // (a send still pending from an earlier form can't block this one)
   showDialog(`<h2>Report a bug</h2>
     <p>What happened, and what were you doing just before? The more detail, the easier it is to fix.</p>
     <textarea id="bugText" rows="5" placeholder="e.g. Planes circled at Bayside for five minutes while the runway was empty"></textarea>
@@ -72,7 +73,10 @@ document.addEventListener('click', (e) => {
   sending = true; b.disabled = true; note.textContent = 'Sending…';
   const data = { _subject: `Holding Pattern bug: ${r.what.split('\n')[0].slice(0, 70)}`, _template: 'box', _captcha: 'false', report: r.what, details: r.info || '(not included)' };
   if (/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(r.from)) { data.email = r.from; data._replyto = r.from; }
-  fetch(RELAY, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify(data) })
+  // (no answer in 15 s counts as a failure, so the email button appears)
+  const ac = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  const timer = ac && setTimeout(() => ac.abort(), 15000);
+  fetch(RELAY, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify(data), signal: ac ? ac.signal : undefined })
     .then((res) => res.json().catch(() => ({})).then((j) => { if (!res.ok || String(j.success) !== 'true') throw new Error(j.message || res.status); }))
     .then(() => {
       document.getElementById('dialogCard').innerHTML = '<h2>Thank you!</h2><p>Your report was sent. It helps make the game better.</p><div class="btns"><button type="button" class="btn go" data-close="dialog">Back to the game</button></div>';
@@ -81,5 +85,5 @@ document.addEventListener('click', (e) => {
       b.disabled = false;
       note.innerHTML = `It couldn't be sent from here (no connection, or the page blocks it). <button type="button" class="btn" data-bug="mail" style="margin-top:6px">Email it instead</button>`;
     })
-    .finally(() => { sending = false; });
+    .finally(() => { sending = false; clearTimeout(timer); });
 });

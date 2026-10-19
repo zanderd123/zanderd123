@@ -166,10 +166,20 @@ export function renderPanel(force = false) {
   else if (ui.tab === 'ops') html = renderOperations(game, ap);
   else html = renderFinance(game, ap);
   if (html !== ui.lastHtml) {
-    $('panelBody').innerHTML = html;
+    // Keyboard users keep their place: the control they were on gets the
+    // focus back after the redraw (matched by what it does).
+    const body = $('panelBody'), had = document.activeElement;
+    const key = had && body.contains(had) && had.matches(':focus-visible') ? focusKey(had) : null;
+    body.innerHTML = html;
     ui.lastHtml = html;
+    if (key) { const el = [...body.querySelectorAll('button, a, [data-act]')].find((e) => focusKey(e) === key); if (el) el.focus({ preventScroll: true }); }
   }
   for (const b of document.querySelectorAll('#tabs button')) b.classList.toggle('on', !ui.detail && b.dataset.tab === ui.tab);
+}
+
+function focusKey(el) {
+  const d = el.dataset || {};
+  return [el.tagName, d.act, d.id, d.slot, d.tab, d.kind, d.type, d.dept, d.level].join('|');
 }
 
 // ------------------------------------------------------------------ contracts
@@ -465,7 +475,9 @@ function connectorCard(ap, type, slot, chosen, current = null) {
 
 function renderSlotDetail(game, ap, slot) {
   const S0 = SLOTS[slot];
-  const chosen = ui.buildChoice[slot] || (S0.field ? 'tunnel' : S0.adjacent ? 'walkway' : 'shuttle');
+  // (choices are per airport: the same site elsewhere may not allow it)
+  const pickd = ui.buildChoice[`${ap.id}:${slot}`];
+  const chosen = pickd && S.connectorAllowed(pickd, slot, ap.siteIndex) ? pickd : (S0.field ? 'tunnel' : S0.adjacent ? 'walkway' : 'shuttle');
   const tcost = S.terminalCost(ap, slot);
   const ccost = S.connectorBuildCost(chosen, slot, ap);
   let h = `<button type="button" class="back" data-act="back">◂ Back</button>
@@ -537,7 +549,7 @@ function renderTerminalDetail(game, ap, slot) {
     <div class="btns">`;
     if (C.type === 'shuttle') {
       const b = def.bus;
-      h += priceBtn(`Add bus (${C.buses}/${b.max})`, `bus+" data-slot="${slot}`, Math.round(b.cost * S.site(ap).cost));
+      h += C.buses >= b.max ? `<span class="tag">Full fleet (${C.buses}/${b.max})</span>` : priceBtn(`Add bus (${C.buses}/${b.max})`, `bus+" data-slot="${slot}`, Math.round(b.cost * S.site(ap).cost));
       h += `<button type="button" class="btn" data-act="bus-" data-slot="${slot}" ${C.buses > 1 ? '' : 'disabled'}>Sell a bus</button>`;
     } else if (def.upgrade && !C.level) {
       h += priceBtn(def.upgrade.name, `connup" data-slot="${slot}`, Math.round(def.upgrade.cost * S.site(ap).cost));
@@ -548,7 +560,7 @@ function renderTerminalDetail(game, ap, slot) {
     if (T.pendingConnector) {
       h += `<p class="note">Replacing with a ${CONNECTORS[T.pendingConnector.type].name.toLowerCase()}: ${duration(T.pendingConnector.buildLeft)} to go. The current one keeps running until then.</p>`;
     } else {
-      const chosen = ui.buildChoice['re-' + slot];
+      const chosen = ui.buildChoice[`${ap.id}:re-${slot}`];
       h += `<h3 class="sec">Replace connector</h3><div class="conn-grid">${CONNECTOR_ORDER.map((t) => connectorCard(ap, t, slot, t === chosen, C.type).replace('data-act="pick-conn"', 'data-act="pick-reconn"')).join('')}</div>`;
       if (chosen && chosen !== C.type) h += `<div class="btns">${priceBtn(`Switch to ${CONNECTORS[chosen].name.toLowerCase()}`, `reconn" data-slot="${slot}" data-type="${chosen}`, S.connectorBuildCost(chosen, slot, ap), '', 'go')}</div>`;
     }
@@ -723,7 +735,7 @@ function renderPlaneDetail(game, ap, p) {
   };
   const late = ap.t - f.std;
   return `<button type="button" class="back" data-act="back">◂ Back</button>
-  <div class="row"><span class="chip" style="background:${p.color}"></span><div><div class="title" style="font-size:24px">${f.no}</div><div class="sub">${esc(f.city)} · ${A.name}</div></div></div>
+  <div class="row"><span class="chip" style="background:${p.color}"></span><div><div class="title" style="font-size:24px">${esc(f.no)}</div><div class="sub">${esc(f.city)} · ${A.name}</div></div></div>
   <p class="sign loc" style="margin:12px 0">${states[p.state] || p.state}</p>
   <dl class="board">
     <div><dt>Terminal</dt><dd>${TERMINAL_CODES[f.terminal]}${p.gate >= 0 ? p.gate + 1 : ''}</dd></div>
