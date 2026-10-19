@@ -143,7 +143,7 @@ body {
       <li>One point for every satellite that crosses to the opposite edge.</li>
       <li class="warn">A red ring means two satellites are on a collision course.</li>
       <li class="burn">Steer clear of the atmosphere. Anything that dips in burns up.</li>
-      <li>Every 25 points, traffic gets a little faster and busier.</li>
+      <li>Every 25 points, traffic gets a little faster and busier, and bigger satellites start to appear.</li>
       <li>Too slow? Press 2× (or F) to run traffic at double speed.</li>
     </ul>
     <div class="btn-row"><button class="btn" id="startBtn" type="button">Start tracking</button></div>
@@ -198,11 +198,18 @@ body {
   const reduceMotion = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   // size is in layout units (scaled by G.U); mult scales the base drift speed.
+  // Smaller craft are quicker; bigger ones are slow but take up more room. Larger kinds unlock with level.
   const TYPES = {
-    cube:    { size: 8,  mult: 1.25, label: 'CUBE',    minLevel: 1, weight: 3 },
-    comsat:  { size: 12, mult: 1.0,  label: 'COMSAT',  minLevel: 1, weight: 4 },
-    station: { size: 17, mult: 0.72, label: 'STATION', minLevel: 2, weight: 1.4 },
+    pico:    { size: 5.5, mult: 1.4,  label: 'PICO',    minLevel: 1, weight: 2 },
+    cube:    { size: 8,   mult: 1.25, label: 'CUBE',    minLevel: 1, weight: 3 },
+    comsat:  { size: 12,  mult: 1.0,  label: 'COMSAT',  minLevel: 1, weight: 4 },
+    scope:   { size: 14,  mult: 0.88, label: 'SCOPE',   minLevel: 2, weight: 1.8 },
+    station: { size: 17,  mult: 0.72, label: 'STATION', minLevel: 3, weight: 1.4 },
+    array:   { size: 22,  mult: 0.6,  label: 'ARRAY',   minLevel: 4, weight: 0.9 },
   };
+  // Shown when a level unlocks a new kind of satellite.
+  const UNLOCKS = { 2: 'Space telescopes join the traffic', 3: 'Stations join the traffic', 4: 'Huge power arrays join the traffic' };
+  const freshSerials = () => Object.fromEntries(Object.keys(TYPES).map((k) => [k, 0]));
   const COLORS = ['#63e2d9', '#f3b545', '#c792ff', '#7ee081', '#ff8fb1', '#7fb4ff'];
 
   // ---------- geometry ----------
@@ -325,7 +332,7 @@ body {
     mode: 'title', sats: [], pending: [], fx: [], floaters: [],
     score: 0, level: 1, spawnT: 0.6, clock: 0, crashT: 0, shake: 0,
     best: store.get('orbit-control-best', 0), muted: store.get('orbit-control-muted', false),
-    serial: { cube: 0, comsat: 0, station: 0 }, warnBeep: 0, fast: false,
+    serial: freshSerials(), spawned: 0, warnBeep: 0, fast: false,
   };
 
   function difficulty(level) {
@@ -357,14 +364,45 @@ body {
     return S.sats.concat(S.pending).every((o) => Math.hypot(o.x - x, o.y - y) > (size + (o.size || 0)) * 5 + 40 * G.U);
   }
 
+  // Where everything already in flight will be every PRED_STEP seconds, assuming nobody touches it.
+  function trafficTracks(seconds) {
+    const out = [];
+    for (const s of S.sats) {
+      const c = { ...s, path: s.path.map((p) => ({ ...p })) };
+      const track = [{ x: c.x, y: c.y }];
+      for (let k = 1; k * PRED_STEP <= seconds; k++) { moveSat(c, PRED_STEP); track.push({ x: c.x, y: c.y }); }
+      out.push({ size: s.size, track });
+    }
+    for (const p of S.pending) out.push({ size: p.size, track: predict({ ...p, dir: p.side === 'L' ? 1 : -1 }, seconds, p.t) });
+    return out;
+  }
+
+  // An arrival must not run into anything while it waits at the edge or during its first moments
+  // on screen, before the player has had a chance to steer it. Without this, a satellite leaving
+  // through an edge could meet one arriving there.
+  const ENTRY_GRACE = 2.5;
+  function safeEntry(plan, vel, delay, size, traffic) {
+    const o = { x: plan.x, y: plan.y, r: plan.r, dir: plan.side === 'L' ? 1 : -1, vel, climb: plan.climb };
+    const end = Math.round((delay + ENTRY_GRACE) / PRED_STEP);
+    for (let k = 1; k <= end; k++) {
+      if (k * PRED_STEP > delay) orbitStep(o, PRED_STEP);
+      for (const t of traffic) {
+        const p = t.track[Math.min(k, t.track.length - 1)];
+        if (Math.hypot(p.x - o.x, p.y - o.y) < (size + t.size) * 2) return false;
+      }
+    }
+    return true;
+  }
+
   // A random entry at a random altitude, drifting gently up or down.
-  function planFree(size, vel) {
+  function planFree(size, vel, delay, traffic) {
     for (let tries = 0; tries < 12; tries++) {
       const side = Math.random() < 0.5 ? 'L' : 'R';
       const r = rand(G.rMin, G.rMax);
       const e = entryPoint(side, r, size);
       if (!e || !clearOfTraffic(e.x, e.y, size)) continue;
-      return { side, r, climb: rand(-0.22, 0.22) * vel, x: e.x, y: e.y };
+      const plan = { side, r, climb: rand(-0.22, 0.22) * vel, x: e.x, y: e.y };
+      if (safeEntry(plan, vel, delay, size, traffic)) return plan;
     }
     return null;
   }
@@ -373,7 +411,7 @@ body {
   // A's future track is simulated with the same orbit step the game uses. For each candidate
   // spot P on that track, solve for the entry altitude's climb rate that brings the arrival to P,
   // and keep the spot where the arrival gets there at the same moment A does.
-  function planConflict(size, vel, delay) {
+  function planConflict(size, vel, delay, traffic) {
     const HORIZON = 13, MIN_LEAD = 3;
     // satellites still waiting to enter count too: on a narrow screen they are often the only ones with time left
     const targets = S.sats.filter((a) => a.mode === 'orbit' && !a.drawing)
@@ -415,7 +453,7 @@ body {
         }
         if (!best || best.err > 0.12) continue;
         const plan = { side, r: rs, climb: best.climb, x: e.x, y: e.y };
-        if (meets(plan, vel, delay, a, track, size)) return plan;
+        if (meets(plan, vel, delay, a, track, size) && safeEntry(plan, vel, delay, size, traffic)) return plan;
       }
     }
     return null;
@@ -438,10 +476,11 @@ body {
     const type = pickType();
     const size = TYPES[type].size * G.U;
     const vel = G.v * TYPES[type].mult * (S.mode === 'play' ? difficulty(S.level).speed : 0.8);
-    const aimed = aim ? planConflict(size, vel, delay) : null;
-    const spot = aimed || (aim === 'only' ? null : planFree(size, vel));
+    const traffic = trafficTracks(delay + ENTRY_GRACE + PRED_STEP);
+    const aimed = aim ? planConflict(size, vel, delay, traffic) : null;
+    const spot = aimed || (aim === 'only' ? null : planFree(size, vel, delay, traffic));
     if (!spot) return null;
-    const color = COLORS[(S.serial.cube + S.serial.comsat + S.serial.station) % COLORS.length];
+    const color = COLORS[S.spawned++ % COLORS.length];
     S.serial[type]++;
     S.pending.push({ ...spot, type, size, vel, color, aimed: !!aimed, name: `${TYPES[type].label}-${String(S.serial[type]).padStart(2, '0')}`, t: delay });
     return aimed ? 'aimed' : 'free';
@@ -619,7 +658,7 @@ body {
     const lvl = 1 + Math.floor(S.score / POINTS_PER_LEVEL);
     if (lvl > S.level) {
       S.level = lvl;
-      showToast(`Traffic level ${lvl}`, lvl === 2 ? 'Faster, busier, and stations join the mix' : 'Faster and busier');
+      showToast(`Traffic level ${lvl}`, UNLOCKS[lvl] ? `Faster, busier. ${UNLOCKS[lvl]}` : 'Faster and busier');
       sfx.level();
     }
     updateHud();
@@ -733,6 +772,34 @@ body {
       ctx.fillStyle = '#c9d1dc'; ctx.fillRect(-0.55 * z, -0.55 * z, 1.1 * z, 1.1 * z);
       ctx.strokeStyle = '#6b7687'; ctx.lineWidth = 1; ctx.strokeRect(-0.55 * z, -0.55 * z, 1.1 * z, 1.1 * z);
       ctx.beginPath(); ctx.moveTo(-0.55 * z, 0); ctx.lineTo(0.55 * z, 0); ctx.stroke();
+    } else if (s.type === 'pico') {
+      // a single-unit picosat with two whip antennas
+      ctx.strokeStyle = '#c9d1dc'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(0.5 * z, -0.3 * z); ctx.lineTo(1.5 * z, -0.7 * z); ctx.moveTo(0.5 * z, 0.3 * z); ctx.lineTo(1.5 * z, 0.7 * z); ctx.stroke();
+      panel(-0.25 * z, -1.35 * z, 0.5 * z, 0.75 * z);
+      panel(-0.25 * z, 0.6 * z, 0.5 * z, 0.75 * z);
+      ctx.fillStyle = '#e0b04f'; ctx.fillRect(-0.6 * z, -0.6 * z, 1.2 * z, 1.2 * z);
+      ctx.strokeStyle = '#7a5617'; ctx.strokeRect(-0.6 * z, -0.6 * z, 1.2 * z, 1.2 * z);
+    } else if (s.type === 'scope') {
+      // a space telescope: long tube, open aperture forward, wings amidships
+      panel(-0.85 * z, -1.75 * z, 0.9 * z, 1.25 * z);
+      panel(-0.85 * z, 0.5 * z, 0.9 * z, 1.25 * z);
+      ctx.fillStyle = '#e4e8ee'; ctx.strokeStyle = '#7d8796'; ctx.lineWidth = 1;
+      ctx.fillRect(-1.35 * z, -0.42 * z, 2.35 * z, 0.84 * z);
+      ctx.strokeRect(-1.35 * z, -0.42 * z, 2.35 * z, 0.84 * z);
+      ctx.fillStyle = '#b9c1cc'; ctx.fillRect(-0.15 * z, -0.42 * z, 0.12 * z, 0.84 * z);
+      ctx.fillStyle = '#141b2b';
+      ctx.beginPath(); ctx.ellipse(1.0 * z, 0, 0.16 * z, 0.38 * z, 0, 0, TAU); ctx.fill();
+    } else if (s.type === 'array') {
+      // a power platform: small bus between two wide wings on a truss
+      ctx.strokeStyle = '#b8c2d1'; ctx.lineWidth = Math.max(1.5, 0.08 * z);
+      ctx.beginPath(); ctx.moveTo(0, -2.6 * z); ctx.lineTo(0, 2.6 * z); ctx.stroke();
+      for (const sy of [-2.6, -1.55]) { panel(-0.6 * z, sy * z, 1.2 * z, 0.95 * z); panel(-0.6 * z, (-sy - 0.95) * z, 1.2 * z, 0.95 * z); }
+      ctx.fillStyle = '#d9a441'; ctx.strokeStyle = '#7a5617'; ctx.lineWidth = 1;
+      ctx.fillRect(-0.5 * z, -0.5 * z, 1.0 * z, 1.0 * z);
+      ctx.strokeRect(-0.5 * z, -0.5 * z, 1.0 * z, 1.0 * z);
+      ctx.fillStyle = '#eef2f7';
+      ctx.beginPath(); ctx.arc(0.6 * z, 0, 0.22 * z, 0, TAU); ctx.fill();
     } else {
       ctx.strokeStyle = '#b8c2d1'; ctx.lineWidth = Math.max(1.5, 0.12 * z);
       ctx.beginPath(); ctx.moveTo(0, -2.3 * z); ctx.lineTo(0, 2.3 * z); ctx.stroke();
@@ -984,7 +1051,8 @@ body {
     audio();
     S.sats = []; S.pending = []; S.fx = []; S.floaters = [];
     S.score = 0; S.level = 1; S.spawnT = 0.5; S.shake = 0;
-    S.serial = { cube: 0, comsat: 0, station: 0 };
+    S.serial = freshSerials();
+    S.spawned = 0;
     drags.clear();
     S.mode = 'play';
     $('titleCard').hidden = true; $('overCard').hidden = true; $('pauseCard').hidden = true;
