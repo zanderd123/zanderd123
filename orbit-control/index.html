@@ -228,8 +228,8 @@ body {
       // keep everything in the same place relative to Earth
       const k = G.R / oR;
       const map = (p) => { p.x = G.cx + (p.x - ocx) * k; p.y = G.cy + (p.y - ocy) * k; };
-      for (const s of S.sats) { map(s); s.r *= k; s.vel *= k; s.climb *= k; s.size = TYPES[s.type].size * G.U; s.path.forEach(map); }
-      for (const p of S.pending) { map(p); p.r *= k; p.vel *= k; p.climb *= k; }
+      for (const s of S.sats) { map(s); s.r *= k; s.vel *= k; s.climb *= k; s.size = TYPES[s.type].size * G.U; s.path.forEach(map); if (s.anchor && !s.path.includes(s.anchor)) map(s.anchor); }
+      for (const p of S.pending) { map(p); p.r *= k; p.vel *= k; p.climb *= k; p.size = TYPES[p.type].size * G.U; }
     }
     buildBackground();
   }
@@ -472,7 +472,9 @@ body {
   // Arrivals drift up or down at a steady rate (climb, px/s) so their courses cross.
   // A satellite you redirect settles into a level orbit (climb 0).
   function orbitStep(o, dt) {
-    o.r = clamp(o.r + o.climb * dt, G.rFloor, G.rCeil);
+    // the drift stops at the floor and ceiling, but never pulls a satellite you placed outside them
+    const r = o.r + o.climb * dt;
+    o.r = o.climb < 0 ? Math.max(r, Math.min(o.r, G.rFloor)) : Math.min(r, Math.max(o.r, G.rCeil));
     const th = Math.atan2(o.y - G.cy, o.x - G.cx) + o.dir * o.vel / o.r * dt;
     o.x = G.cx + o.r * Math.cos(th);
     o.y = G.cy + o.r * Math.sin(th);
@@ -872,7 +874,7 @@ body {
     const busy = new Set(drags.values());
     let best = null, bd = Infinity;
     for (const s of S.sats) {
-      if (busy.has(s)) continue;
+      if (busy.has(s) || !s.entered) continue;
       const d = Math.hypot(s.x - p.x, s.y - p.y);
       if (d < Math.max(s.size * 2.3, 30) && d < bd) { best = s; bd = d; }
     }
@@ -887,7 +889,7 @@ body {
   });
   cvs.addEventListener('pointermove', (e) => {
     const s = drags.get(e.pointerId);
-    if (!s) return;
+    if (!s || S.mode !== 'play') return;
     if (!S.sats.includes(s)) { drags.delete(e.pointerId); return; }
     const p = toLocal(e);
     const last = s.path.length ? s.path[s.path.length - 1] : s.anchor;
@@ -912,7 +914,7 @@ body {
   let AC = null;
   function audio() {
     if (!AC) { try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { AC = null; } }
-    if (AC && AC.state === 'suspended') AC.resume().catch(() => {});
+    if (AC && AC.state === 'suspended') { const p = AC.resume(); if (p && p.catch) p.catch(() => {}); }
   }
   function tone(freq, dur, type, vol, slideTo, delay) {
     if (S.muted || !AC) return;
@@ -1049,6 +1051,7 @@ body {
     } else if (S.mode === 'over') {
       S.shake = 0;
       for (let i = S.fx.length - 1; i >= 0; i--) { const p = S.fx[i]; p.life -= real; p.x += p.vx * real * 0.3; p.y += p.vy * real * 0.3; if (p.life <= 0) S.fx.splice(i, 1); }
+      for (let i = S.floaters.length - 1; i >= 0; i--) { S.floaters[i].t -= real; if (S.floaters[i].t <= 0) S.floaters.splice(i, 1); }
     } else if (S.mode !== 'paused') {
       update(real);
       // 2x runs the simulation twice per frame so collisions are still checked every step
