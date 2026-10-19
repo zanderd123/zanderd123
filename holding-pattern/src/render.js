@@ -100,6 +100,8 @@ function onSlot(slot, wx, wy, reach) {
   return q.x >= b.x && q.x <= b.x + b.w && q.y >= b.y - reach && q.y <= b.y + b.h;
 }
 // Runway numbers from the direction aircraft land in a field.
+// Each breakdown sign's tap area, as last drawn.
+const SIGN_HIT = new WeakMap();
 function rwNumbers(key) {
   const deg = ((xfAngle(key && XF[key] ? XF[key] : ID) * 180 / Math.PI + 90) % 360 + 360) % 360;
   const n = Math.round(deg / 10) || 36, o = ((n + 17) % 36) + 1;
@@ -398,7 +400,9 @@ function drawFieldGround(g, ap, F) {
 
   // runways
   // Facing the other way the numbers swap ends: planes land on runway 27.
-  const ends = (a) => (MIRROR ? [a[1], a[0]] : a);
+  // (only east-west runways: the flip leaves a north-south one's heading)
+  const ew = Math.abs(Math.cos(xfAngle(F.key && XF[F.key] ? XF[F.key] : ID))) > 0.5;
+  const ends = (a) => (MIRROR && ew ? [a[1], a[0]] : a);
   const nums = rwNumbers(F.key);
   runway(g, RW[0], F.upgrades.longRunway && !F.frame ? LONG_RUNWAY_X1 : RW[0].x1, ends(F.upgrades.runway2 ? [nums[0] + 'R', nums[1] + 'L'] : nums));
   if (F.frame) frameEnd(g);
@@ -536,7 +540,7 @@ function drawStarGround(g, ap, R) {
     g.beginPath(); L.apron.forEach((q, i) => (i ? g.lineTo(q.x, q.y) : g.moveTo(q.x, q.y))); g.closePath(); g.fill();
     g.strokeStyle = C.asphalt; g.lineWidth = 28; g.lineCap = 'round'; g.lineJoin = 'round';
     for (const pl of [L.exit, L.lane, L.lineup]) line(g, pl.map((q) => [q.x, q.y]));
-    g.lineCap = 'butt';
+    g.lineCap = 'butt'; g.lineJoin = 'miter';
   }
   STAR_LINES.forEach((Ln, i) => {
     g.save(); g.translate(STAR.C.x, STAR.C.y); g.rotate(Math.atan2(-Ln.ea.y, -Ln.ea.x));
@@ -1505,7 +1509,10 @@ export function render(g, w, h, dpr, cam, ap, view) {
     const k = 1 / Math.max(0.45, cam.zoom), pulse = (t * 0.9) % 1;
     g.strokeStyle = `rgba(200,16,46,${1 - pulse})`; g.lineWidth = 3 * k;
     g.beginPath(); g.arc(x, y, (14 + pulse * 26) * k, 0, Math.PI * 2); g.stroke();
-    signLabel(g, x, y, `⚠ ${BREAKDOWN_SHORT[b.kind] || 'REPAIR'} · TAP TO FIX`, 'red', cam.zoom);
+    const label = `⚠ ${BREAKDOWN_SHORT[b.kind] || 'REPAIR'} · TAP TO FIX`;
+    signLabel(g, x, y, label, 'red', cam.zoom);
+    // (the sign keeps its size on screen: where to tap, at this zoom)
+    SIGN_HIT.set(b, { x, y, hw: Math.max(90, label.length * 3.6 * k), hh: Math.max(30, 14 * k) });
   }
 
   // night and weather
@@ -1652,9 +1659,10 @@ function drawCars(g, ap, dt) {
     const stopX = clamp(job.x, RAMP_IN_X + 20, RAMP_OUT_X - 20);
     // cars come and go off the map's edges (at the hub, the east end
     // turns south: there they keep to the right, x+6 northbound)
-    const hx = hwEastX(ap), bend = hx < WORLD.x0 + WORLD.w, west = WORLD.x0 - 20, bot = WORLD.y0 + WORLD.h + 20;
-    const eastIn = bend ? [{ x: hx + 6, y: bot }, { x: hx + 6, y: HIGHWAY_Y - 6 }] : [{ x: WORLD.x0 + WORLD.w + 20, y: HIGHWAY_Y - 6 }];
-    const eastOut = bend ? [{ x: hx - 6, y: HIGHWAY_Y + 6 }, { x: hx - 6, y: bot }] : [{ x: WORLD.x0 + WORLD.w + 20, y: HIGHWAY_Y + 6 }];
+    // (the map as drawn: WORLD on its own is only the main field's size)
+    const W = WN, hx = hwEastX(ap), bend = hx < W.x0 + W.w, west = W.x0 - 20, bot = W.y0 + W.h + 20;
+    const eastIn = bend ? [{ x: hx + 6, y: bot }, { x: hx + 6, y: HIGHWAY_Y - 6 }] : [{ x: W.x0 + W.w + 20, y: HIGHWAY_Y - 6 }];
+    const eastOut = bend ? [{ x: hx - 6, y: HIGHWAY_Y + 6 }, { x: hx - 6, y: bot }] : [{ x: W.x0 + W.w + 20, y: HIGHWAY_Y + 6 }];
     const pts = [
       ...(fromWest ? [{ x: west, y: HIGHWAY_Y + 6 }] : eastIn),
       { x: RAMP_IN_X, y: HIGHWAY_Y + (fromWest ? 6 : -6) },
@@ -1712,8 +1720,8 @@ export function pick(ap, wx, wy) {
   // a breakdown's sign opens its terminal (where the repair button is)
   for (const b of ap.breakdowns || []) {
     if (!SLOTS[b.slot]) continue;
-    const r = slotBox(b.slot);
-    if (Math.abs(wx - (r.x + r.w / 2)) < 90 && Math.abs(wy - (r.y + r.h / 2)) < 30) return { kind: 'terminal', id: b.slot };
+    const r = slotBox(b.slot), H = SIGN_HIT.get(b) || { x: r.x + r.w / 2, y: r.y + r.h / 2, hw: 90, hh: 30 };
+    if (Math.abs(wx - H.x) < H.hw && Math.abs(wy - H.y) < H.hh) return { kind: 'terminal', id: b.slot };
   }
   // the jet bridges, on the airside face, count as the terminal
   for (const T of ap.terminals) if (onSlot(T.slot, wx, wy, 20)) return { kind: 'terminal', id: T.slot };
@@ -1733,7 +1741,8 @@ export function pick(ap, wx, wy) {
   // runway is part of the land it sells)
   for (const rw of RW) {
     if (rw.id === 1 && !ap.upgrades.runway2) continue;
-    if (wy > rw.y - 24 && wy < rw.y + 24 && wx > rw.x0 - 30 && wx < rw.x1 + 30) return { kind: 'runway' };
+    const x1 = rw.id === 0 && ap.upgrades.longRunway && !hubSite(ap) ? LONG_RUNWAY_X1 : rw.x1;
+    if (wy > rw.y - 24 && wy < rw.y + 24 && wx > rw.x0 - 30 && wx < x1 + 30) return { kind: 'runway' };
   }
   // the other airfields' runways
   if (ap.fieldViews) {

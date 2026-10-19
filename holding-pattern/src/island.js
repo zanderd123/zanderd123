@@ -86,7 +86,7 @@ export function drawLand(g, R, deps) {
   // the ring road and the two ramps down to it from the terminal curb
   g.lineJoin = 'round';
   g.strokeStyle = roadCol; g.lineWidth = 20; path(g, ISL.road); g.stroke();
-  g.strokeStyle = 'rgba(255,255,255,0.55)'; g.lineWidth = 1.4; g.setLineDash([14, 12]); path(g, ISL.road); g.stroke(); g.setLineDash([]);
+  g.strokeStyle = 'rgba(255,255,255,0.55)'; g.lineWidth = 1.4; g.setLineDash([14, 12]); path(g, ISL.road); g.stroke(); g.setLineDash([]); g.lineJoin = 'miter';
   g.fillStyle = roadCol;
   g.fillRect(RAMP_IN_X - 8, CURB_Y, 16, RAMP_END.in - CURB_Y);
   g.fillRect(RAMP_OUT_X - 8, CURB_Y, 16, RAMP_END.out - CURB_Y);
