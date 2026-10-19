@@ -43,7 +43,7 @@ body {
 .readout { display: grid; gap: 4px; }
 .label { font-family: var(--mono); font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); }
 .score { font-size: 40px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; text-shadow: 0 0 18px rgba(99, 226, 217, 0.35); }
-.level-row { display: flex; align-items: center; gap: 8px; font-family: var(--mono); font-size: 11px; color: var(--signal); letter-spacing: 0.08em; }
+.level-row { display: flex; align-items: center; gap: 8px; font-family: var(--mono); font-size: 11px; color: var(--signal); letter-spacing: 0.08em; white-space: nowrap; }
 .bar { width: 92px; height: 4px; background: var(--line); border-radius: 2px; overflow: hidden; }
 .bar > i { display: block; height: 100%; width: 0; background: var(--signal); transition: width 0.25s ease; }
 .controls { display: flex; gap: 8px; pointer-events: auto; }
@@ -109,6 +109,11 @@ body {
 
 @media (max-width: 420px) {
   .score { font-size: 34px; }
+  .bar { width: 48px; }
+  .lvl-word { display: none; }
+  .controls { gap: 6px; }
+  .icon-btn { width: 36px; height: 36px; font-size: 12px; }
+  .level-row { gap: 6px; letter-spacing: 0.04em; }
   .card h1 { font-size: 36px; }
   .card { padding: 22px 18px 18px; }
 }
@@ -123,7 +128,7 @@ body {
   <div class="readout">
     <span class="label">Clear passes</span>
     <span class="score" id="score">0</span>
-    <div class="level-row"><span id="levelText">TRAFFIC LVL 1</span><span class="bar"><i id="levelBar"></i></span><span id="levelNext">0/25</span></div>
+    <div class="level-row"><span><span class="lvl-word">TRAFFIC </span><span id="levelText">LVL 1</span></span><span class="bar"><i id="levelBar"></i></span><span id="levelNext">0/25</span></div>
   </div>
   <div class="controls">
     <button class="icon-btn" id="fastBtn" type="button" aria-pressed="false" aria-label="Double speed">1×</button>
@@ -138,9 +143,10 @@ body {
   <div class="card">
     <span class="eyebrow">Low Earth orbit · traffic desk</span>
     <h1>Orbit Control</h1>
-    <p>Satellites drift in from the edges of your sector. Press on one and drag to plot a new course. Keep them apart until they clear the far side.</p>
+    <p>Satellites drift in from the edges of your sector. Press on one, drag to aim, and let go: it flies straight that way. Keep them apart until they clear the far side.</p>
     <ul class="rules">
-      <li>One point for every satellite that crosses to the opposite edge.</li>
+      <li>One point for every satellite that crosses to the opposite edge. Off the top is lost to deep space.</li>
+      <li>A countdown at the edge shows where and when the next satellite arrives, with a preview of its course.</li>
       <li class="warn">A red ring means two satellites are on a collision course.</li>
       <li class="burn">Steer clear of the atmosphere. Anything that dips in burns up.</li>
       <li>Every 25 points, traffic gets a little faster and busier, and bigger satellites start to appear.</li>
@@ -235,7 +241,7 @@ body {
       // keep everything in the same place relative to Earth
       const k = G.R / oR;
       const map = (p) => { p.x = G.cx + (p.x - ocx) * k; p.y = G.cy + (p.y - ocy) * k; };
-      for (const s of S.sats) { map(s); s.r *= k; s.vel *= k; s.climb *= k; s.size = TYPES[s.type].size * G.U; s.path.forEach(map); if (s.anchor && !s.path.includes(s.anchor)) map(s.anchor); }
+      for (const s of S.sats) { map(s); s.r *= k; s.vel *= k; s.climb *= k; s.size = TYPES[s.type].size * G.U; if (s.aim) map(s.aim); }
       for (const p of S.pending) { map(p); p.r *= k; p.vel *= k; p.climb *= k; p.size = TYPES[p.type].size * G.U; }
     }
     buildBackground();
@@ -368,7 +374,7 @@ body {
   function trafficTracks(seconds) {
     const out = [];
     for (const s of S.sats) {
-      const c = { ...s, path: s.path.map((p) => ({ ...p })) };
+      const c = { ...s };
       const track = [{ x: c.x, y: c.y }];
       for (let k = 1; k * PRED_STEP <= seconds; k++) { moveSat(c, PRED_STEP); track.push({ x: c.x, y: c.y }); }
       out.push({ size: s.size, track });
@@ -482,19 +488,22 @@ body {
     if (!spot) return null;
     const color = COLORS[S.spawned++ % COLORS.length];
     S.serial[type]++;
-    S.pending.push({ ...spot, type, size, vel, color, aimed: !!aimed, name: `${TYPES[type].label}-${String(S.serial[type]).padStart(2, '0')}`, t: delay });
+    S.pending.push({ ...spot, type, size, vel, color, aimed: !!aimed, name: `${TYPES[type].label}-${String(S.serial[type]).padStart(2, '0')}`, t: delay, warnFor: delay });
     return aimed ? 'aimed' : 'free';
   }
+
+  // Seconds of warning before an arrival enters: a marker counts down where it will appear.
+  const WARNING = 4;
 
   // Returns how many arrivals were queued.
   function schedule(room) {
     if (S.mode !== 'play') return arrive(false, 0) ? 1 : 0;
-    if (Math.random() >= conflictShare()) return arrive(false, 1.6) ? 1 : 0;
-    const one = arrive(true, 1.6);
+    if (Math.random() >= conflictShare()) return arrive(false, WARNING) ? 1 : 0;
+    const one = arrive(true, WARNING);
     if (one === 'aimed' || room < 2) return one ? 1 : 0;
     // Nothing on screen had time left to be aimed at (common on narrow screens), so the
     // arrival just queued enters unaimed; send a second one, a little later, aimed at it.
-    return arrive('only', 1.6 + rand(0.4, 1.4)) ? 2 : 1;
+    return arrive('only', WARNING + rand(0.4, 1.4)) ? 2 : 1;
   }
 
   function launch(p) {
@@ -502,7 +511,7 @@ body {
       type: p.type, size: p.size, side: p.side, color: p.color, name: p.name,
       x: p.x, y: p.y, r: p.r, dir: p.side === 'L' ? 1 : -1, vel: p.vel, climb: p.climb,
       aimed: p.aimed,
-      mode: 'orbit', path: [], drawing: false, entered: false, warn: false, age: 0,
+      mode: 'orbit', aim: null, drawing: false, entered: false, warn: false, age: 0,
       heading: 0, ang: null, blink: Math.random() * TAU,
     });
   }
@@ -530,29 +539,14 @@ body {
     return out;
   }
 
-  function resumeOrbit(s) {
-    const rx = s.x - G.cx, ry = s.y - G.cy;
-    s.r = Math.hypot(rx, ry);
-    const cross = rx * Math.sin(s.heading) - ry * Math.cos(s.heading);
-    s.dir = cross >= 0 ? 1 : -1;
-    s.climb = 0;
-    s.mode = 'orbit';
-  }
-
+  // A satellite you aim and release flies straight at its own speed until it leaves the screen.
   function moveSat(s, dt) {
     s.age += dt;
-    if (s.mode === 'path' && s.path.length) {
-      let budget = s.vel * dt;
-      while (budget > 0 && s.path.length) {
-        const p = s.path[0];
-        const dx = p.x - s.x, dy = p.y - s.y, d = Math.hypot(dx, dy);
-        if (d > 0.01) s.heading = Math.atan2(dy, dx);
-        if (d <= budget) { s.x = p.x; s.y = p.y; budget -= d; s.path.shift(); }
-        else { s.x += dx / d * budget; s.y += dy / d * budget; budget = 0; }
-      }
-      if (!s.path.length) resumeOrbit(s);
+    if (s.mode === 'straight') {
+      s.x += Math.cos(s.heading) * s.vel * dt;
+      s.y += Math.sin(s.heading) * s.vel * dt;
+      s.r = Math.hypot(s.x - G.cx, s.y - G.cy);
     } else {
-      if (s.mode !== 'orbit') resumeOrbit(s);
       const th = orbitStep(s, dt);
       const vt = s.dir * s.vel;
       s.heading = Math.atan2(Math.cos(th) * vt + Math.sin(th) * s.climb, -Math.sin(th) * vt + Math.cos(th) * s.climb);
@@ -631,7 +625,8 @@ body {
   }
 
   function checkHazards(dt) {
-    const live = S.sats.filter((s) => s.entered);
+    // once a satellite's centre is past an edge it has left; it can no longer be seen or steered
+    const live = S.sats.filter((s) => s.entered && s.x >= 0 && s.x <= W && s.y >= 0 && s.y <= H);
     let newWarn = false;
     for (const s of live) s.wasWarn = s.warn, s.warn = false;
     for (let i = 0; i < live.length; i++) {
@@ -676,7 +671,7 @@ body {
     S.mode = 'crash';
     S.crashT = 1.4;
     S.shake = reduceMotion ? 0 : 1;
-    for (const d of drags.values()) d.drawing = false;
+    for (const d of drags.values()) { d.drawing = false; d.aim = null; }
     drags.clear();
     if (b) {
       const x = (a.x + b.x) / 2, y = (a.y + b.y) / 2;
@@ -852,18 +847,49 @@ body {
     ctx.globalAlpha = 1;
   }
 
+  // Where a straight line from (x, y) at angle a leaves the screen, or meets the atmosphere first.
+  function rayEnd(x, y, a) {
+    const dx = Math.cos(a), dy = Math.sin(a);
+    let t = Infinity;
+    if (dx > 1e-6) t = Math.min(t, (W - x) / dx); else if (dx < -1e-6) t = Math.min(t, -x / dx);
+    if (dy > 1e-6) t = Math.min(t, (H - y) / dy); else if (dy < -1e-6) t = Math.min(t, -y / dy);
+    const ox = x - G.cx, oy = y - G.cy, rb = G.R * 1.012;
+    const b = ox * dx + oy * dy, disc = b * b - (ox * ox + oy * oy - rb * rb);
+    if (disc > 0) { const hit = -b - Math.sqrt(disc); if (hit > 0 && hit < t) return { x: x + dx * hit, y: y + dy * hit, burns: true }; }
+    return { x: x + dx * t, y: y + dy * t, burns: false };
+  }
+
   function drawGuides(s) {
-    if (s.path.length) {
-      ctx.strokeStyle = s.color;
+    const aiming = s.drawing && s.aim && Math.hypot(s.aim.x - s.x, s.aim.y - s.y) >= AIM_MIN * G.U;
+    if (aiming) {
+      // the course it will fly when you let go, all the way out
+      const a = Math.atan2(s.aim.y - s.y, s.aim.x - s.x);
+      const end = rayEnd(s.x, s.y, a);
+      ctx.strokeStyle = end.burns ? '#ff5b4f' : s.color;
       ctx.globalAlpha = 0.85;
       ctx.lineWidth = 2;
       ctx.setLineDash([7 * G.U, 6 * G.U]);
-      ctx.beginPath(); ctx.moveTo(s.x, s.y);
-      for (const p of s.path) ctx.lineTo(p.x, p.y);
-      ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(s.x, s.y); ctx.lineTo(end.x, end.y); ctx.stroke();
       ctx.setLineDash([]);
-      const end = s.path[s.path.length - 1];
-      ctx.beginPath(); ctx.arc(end.x, end.y, 3.5, 0, TAU); ctx.fillStyle = s.color; ctx.fill();
+      // arrowhead at the finger
+      ctx.fillStyle = ctx.strokeStyle;
+      ctx.save(); ctx.translate(s.aim.x, s.aim.y); ctx.rotate(a);
+      ctx.beginPath(); ctx.moveTo(8, 0); ctx.lineTo(-6, -6); ctx.lineTo(-6, 6); ctx.closePath(); ctx.fill();
+      ctx.restore();
+      if (end.burns) {
+        ctx.font = '600 11px "JetBrains Mono", monospace';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+        ctx.fillText('BURN UP', end.x, end.y - 6);
+      }
+      ctx.globalAlpha = 1;
+    } else if (s.mode === 'straight') {
+      const ahead = s.vel * 3.5;
+      ctx.strokeStyle = s.color;
+      ctx.globalAlpha = 0.25;
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([2, 7]);
+      ctx.beginPath(); ctx.moveTo(s.x, s.y); ctx.lineTo(s.x + Math.cos(s.heading) * ahead, s.y + Math.sin(s.heading) * ahead); ctx.stroke();
+      ctx.setLineDash([]);
       ctx.globalAlpha = 1;
     } else if (s.entered || S.mode !== 'title') {
       // where the current orbit carries it over the next few seconds
@@ -880,21 +906,56 @@ body {
     }
   }
 
+  // An arrival's warning: a countdown at the edge where it will enter, and a preview of its course.
   function drawIncoming(p, t) {
-    const x = p.side === 'L' ? 14 : W - 14;
-    const y = clamp(p.y, 70, H - 20);
     const dir = p.side === 'L' ? 1 : -1;
+    const frac = clamp(p.t / p.warnFor, 0, 1);
+    const urgent = p.t < 1.5;
+
+    const o = { x: p.x, y: p.y, r: p.r, dir, vel: p.vel, climb: p.climb };
     ctx.strokeStyle = p.color;
+    ctx.globalAlpha = 0.5;
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([3, 6]);
+    ctx.beginPath(); ctx.moveTo(o.x, o.y);
+    for (let k = 0; k < 30; k++) { orbitStep(o, 0.1); ctx.lineTo(o.x, o.y); }
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    const rad = 14;
+    const x = p.side === 'L' ? rad + 8 : W - rad - 8;
+    const y = clamp(p.y, 90, H - 30);
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = 'rgba(9, 15, 30, 0.85)';
+    ctx.beginPath(); ctx.arc(x, y, rad, 0, TAU); ctx.fill();
+    ctx.strokeStyle = p.color;
+    ctx.globalAlpha = 0.3;
+    ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(x, y, rad, 0, TAU); ctx.stroke();
+    ctx.globalAlpha = urgent ? 0.6 + 0.4 * Math.sin(t * 16) : 1;
+    ctx.beginPath(); ctx.arc(x, y, rad, -Math.PI / 2, -Math.PI / 2 + frac * TAU); ctx.stroke();
+
+    ctx.fillStyle = p.color;
+    ctx.font = '700 13px "Chakra Petch", system-ui, sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(String(Math.ceil(p.t)), x, y + 1);
+
     ctx.lineWidth = 2.5;
     ctx.lineCap = 'round';
-    for (let k = 0; k < 3; k++) {
+    for (let k = 0; k < 2; k++) {
       const phase = (t * 2.5 - k * 0.3) % 1;
-      ctx.globalAlpha = 0.25 + 0.75 * Math.max(0, Math.sin(phase * Math.PI));
-      const ox = x + dir * k * 8;
-      ctx.beginPath(); ctx.moveTo(ox - dir * 5, y - 7); ctx.lineTo(ox + dir * 2, y); ctx.lineTo(ox - dir * 5, y + 7); ctx.stroke();
+      ctx.globalAlpha = 0.3 + 0.7 * Math.max(0, Math.sin(phase * Math.PI));
+      const cx = x + dir * (rad + 8 + k * 8);
+      ctx.beginPath(); ctx.moveTo(cx - dir * 4, y - 6); ctx.lineTo(cx + dir * 2, y); ctx.lineTo(cx - dir * 4, y + 6); ctx.stroke();
     }
-    ctx.globalAlpha = 1;
     ctx.lineCap = 'butt';
+
+    ctx.globalAlpha = 0.9;
+    ctx.font = '600 10px "JetBrains Mono", monospace';
+    ctx.textAlign = p.side === 'L' ? 'left' : 'right';
+    ctx.textBaseline = 'top';
+    ctx.fillText(p.name, x - dir * rad, y + rad + 5);
+    ctx.globalAlpha = 1;
   }
 
   function render() {
@@ -935,6 +996,8 @@ body {
     const r = cvs.getBoundingClientRect();
     return { x: clamp(e.clientX - r.left, 6, W - 6), y: clamp(e.clientY - r.top, 6, H - 6) };
   }
+  // Press on a satellite, drag to aim, let go: it flies straight that way. A short drag changes nothing.
+  const AIM_MIN = 14;
   cvs.addEventListener('pointerdown', (e) => {
     if (S.mode !== 'play') return;
     const p = toLocal(e);
@@ -949,30 +1012,31 @@ body {
     e.preventDefault();
     try { cvs.setPointerCapture(e.pointerId); } catch (err) { /* not capturable */ }
     drags.set(e.pointerId, best);
-    best.path = [];
     best.drawing = true;
-    best.anchor = p;
+    best.aim = null;
     audio();
   });
   cvs.addEventListener('pointermove', (e) => {
     const s = drags.get(e.pointerId);
     if (!s || S.mode !== 'play') return;
     if (!S.sats.includes(s)) { drags.delete(e.pointerId); return; }
-    const p = toLocal(e);
-    const last = s.path.length ? s.path[s.path.length - 1] : s.anchor;
-    const step = 9 * G.U;
-    const d = Math.hypot(p.x - last.x, p.y - last.y);
-    if (d < step) return;
-    // fill long jumps so the course stays smooth
-    const n = Math.floor(d / step);
-    for (let k = 1; k <= n; k++) s.path.push({ x: last.x + (p.x - last.x) * k / n, y: last.y + (p.y - last.y) * k / n });
-    s.anchor = s.path[s.path.length - 1];
-    s.mode = 'path';
+    s.aim = toLocal(e);
   });
   const release = (e) => {
     const s = drags.get(e.pointerId);
-    if (s) s.drawing = false;
     drags.delete(e.pointerId);
+    if (!s) return;
+    if (e.type === 'pointerup' && S.mode === 'play' && S.sats.includes(s) && s.aim) {
+      const p = toLocal(e);
+      if (Math.hypot(p.x - s.x, p.y - s.y) >= AIM_MIN * G.U) {
+        s.mode = 'straight';
+        s.heading = Math.atan2(p.y - s.y, p.x - s.x);
+        s.climb = 0;
+        sfx.aim();
+      }
+    }
+    s.drawing = false;
+    s.aim = null;
   };
   cvs.addEventListener('pointerup', release);
   cvs.addEventListener('pointercancel', release);
@@ -1012,13 +1076,14 @@ body {
     level: () => { tone(523, 0.14, 'triangle', 0.07, null, 0); tone(659, 0.14, 'triangle', 0.07, null, 0.12); tone(988, 0.24, 'triangle', 0.07, null, 0.24); },
     warn: () => { tone(620, 0.08, 'square', 0.03); tone(620, 0.08, 'square', 0.03, null, 0.12); },
     lost: () => tone(300, 0.2, 'sine', 0.04, 180),
+    aim: () => tone(520, 0.07, 'sine', 0.035, 700),
     crash: () => { noiseBurst(1.1, 0.5); tone(140, 0.7, 'sawtooth', 0.06, 40); },
   };
 
   // ---------- UI ----------
   function updateHud() {
     $('score').textContent = S.score;
-    $('levelText').textContent = `TRAFFIC LVL ${S.level}`;
+    $('levelText').textContent = `LVL ${S.level}`;
     const into = S.score % POINTS_PER_LEVEL;
     $('levelNext').textContent = `${into}/${POINTS_PER_LEVEL}`;
     $('levelBar').style.width = `${into / POINTS_PER_LEVEL * 100}%`;
@@ -1085,7 +1150,7 @@ body {
   function toTitle() {
     S.mode = 'title';
     S.sats = []; S.pending = []; S.spawnT = 0.3;
-    for (const d of drags.values()) d.drawing = false;
+    for (const d of drags.values()) { d.drawing = false; d.aim = null; }
     drags.clear();
     $('pauseCard').hidden = true; $('overCard').hidden = true; $('titleCard').hidden = false;
     updateHud();
