@@ -54,6 +54,7 @@ body {
   display: grid; place-items: center;
 }
 .icon-btn:hover { border-color: var(--signal); }
+.icon-btn[aria-pressed="true"] { border-color: var(--signal); color: var(--signal); background: rgba(99, 226, 217, 0.14); }
 .icon-btn:focus-visible, .btn:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
 
 .overlay {
@@ -125,6 +126,7 @@ body {
     <div class="level-row"><span id="levelText">TRAFFIC LVL 1</span><span class="bar"><i id="levelBar"></i></span><span id="levelNext">0/25</span></div>
   </div>
   <div class="controls">
+    <button class="icon-btn" id="fastBtn" type="button" aria-pressed="false" aria-label="Double speed">1×</button>
     <button class="icon-btn" id="muteBtn" type="button" aria-label="Mute sound">SND</button>
     <button class="icon-btn" id="pauseBtn" type="button" aria-label="Pause">II</button>
   </div>
@@ -142,6 +144,7 @@ body {
       <li class="warn">A red ring means two satellites are on a collision course.</li>
       <li class="burn">Steer clear of the atmosphere. Anything that dips in burns up.</li>
       <li>Every 25 points, traffic gets a little faster and busier.</li>
+      <li>Too slow? Press 2× (or F) to run traffic at double speed.</li>
     </ul>
     <div class="btn-row"><button class="btn" id="startBtn" type="button">Start tracking</button></div>
     <span class="fine" id="bestTitle">Best: 0 clear passes</span>
@@ -218,13 +221,15 @@ body {
     G.v = clamp(W / 13, 42, 110);
     G.rMin = G.R * 1.04 + 22 * G.U;
     G.rMax = Math.max(G.rMin + 40, G.cy - Math.max(70, H * 0.1));
+    G.rFloor = G.R * 1.03 + 14 * G.U;
+    G.rCeil = G.rMax * 1.08;
 
     if (oR > 0) {
       // keep everything in the same place relative to Earth
       const k = G.R / oR;
       const map = (p) => { p.x = G.cx + (p.x - ocx) * k; p.y = G.cy + (p.y - ocy) * k; };
-      for (const s of S.sats) { map(s); s.r *= k; s.vel *= k; s.size = TYPES[s.type].size * G.U; s.path.forEach(map); }
-      for (const p of S.pending) { map(p); p.r *= k; }
+      for (const s of S.sats) { map(s); s.r *= k; s.vel *= k; s.climb *= k; s.size = TYPES[s.type].size * G.U; s.path.forEach(map); }
+      for (const p of S.pending) { map(p); p.r *= k; p.vel *= k; p.climb *= k; }
     }
     buildBackground();
   }
@@ -320,7 +325,7 @@ body {
     mode: 'title', sats: [], pending: [], fx: [], floaters: [],
     score: 0, level: 1, spawnT: 0.6, clock: 0, crashT: 0, shake: 0,
     best: store.get('orbit-control-best', 0), muted: store.get('orbit-control-muted', false),
-    serial: { cube: 0, comsat: 0, station: 0 }, warnBeep: 0,
+    serial: { cube: 0, comsat: 0, station: 0 }, warnBeep: 0, fast: false,
   };
 
   function difficulty(level) {
@@ -338,42 +343,158 @@ body {
     return pool[0][0];
   }
 
-  function schedule() {
-    const type = pickType();
-    const size = TYPES[type].size * G.U;
+  // Share of arrivals aimed at an existing satellite, rising slowly with the level.
+  const conflictShare = () => Math.min(0.85, 0.65 + 0.04 * (S.level - 1));
+
+  function entryPoint(side, r, size) {
+    const x = side === 'L' ? -size * 2.5 : W + size * 2.5;
+    const dx = G.cx - x;
+    if (r <= Math.abs(dx)) return null;
+    return { x, y: G.cy - Math.sqrt(r * r - dx * dx) };
+  }
+
+  function clearOfTraffic(x, y, size) {
+    return S.sats.concat(S.pending).every((o) => Math.hypot(o.x - x, o.y - y) > (size + (o.size || 0)) * 5 + 40 * G.U);
+  }
+
+  // A random entry at a random altitude, drifting gently up or down.
+  function planFree(size, vel) {
     for (let tries = 0; tries < 12; tries++) {
       const side = Math.random() < 0.5 ? 'L' : 'R';
       const r = rand(G.rMin, G.rMax);
-      const x = side === 'L' ? -size * 2.5 : W + size * 2.5;
-      const dx = G.cx - x;
-      if (r <= Math.abs(dx)) continue;
-      const y = G.cy - Math.sqrt(r * r - dx * dx);
-      const clear = S.sats.concat(S.pending).every((o) => Math.hypot(o.x - x, o.y - y) > (size + (o.size || 0)) * 5 + 40 * G.U);
-      if (!clear) continue;
-      const color = COLORS[(S.serial.cube + S.serial.comsat + S.serial.station) % COLORS.length];
-      S.serial[type]++;
-      S.pending.push({ type, size, side, r, x, y, color, name: `${TYPES[type].label}-${String(S.serial[type]).padStart(2, '0')}`, t: S.mode === 'play' ? 1.6 : 0 });
-      return;
+      const e = entryPoint(side, r, size);
+      if (!e || !clearOfTraffic(e.x, e.y, size)) continue;
+      return { side, r, climb: rand(-0.22, 0.22) * vel, x: e.x, y: e.y };
     }
+    return null;
+  }
+
+  // Aim a new arrival so that, if nobody steps in, it meets satellite A on screen.
+  // A's future track is simulated with the same orbit step the game uses. For each candidate
+  // spot P on that track, solve for the entry altitude's climb rate that brings the arrival to P,
+  // and keep the spot where the arrival gets there at the same moment A does.
+  function planConflict(size, vel, delay) {
+    const HORIZON = 13, MIN_LEAD = 3;
+    // satellites still waiting to enter count too: on a narrow screen they are often the only ones with time left
+    const targets = S.sats.filter((a) => a.mode === 'orbit' && !a.drawing)
+      .concat(S.pending.map((p) => ({ ...p, dir: p.side === 'L' ? 1 : -1, wait: p.t })))
+      .sort(() => Math.random() - 0.5).slice(0, 4);
+    for (const a of targets) {
+      const track = predict(a, HORIZON, a.wait || 0);
+      // try a spread of entry altitudes on both sides, in random order
+      const entries = [];
+      for (let i = 0; i < 12; i++) for (const side of ['L', 'R']) entries.push({ side, rs: lerp(G.rMin, G.rMax, (i + Math.random()) / 12) });
+      // plus altitudes close to A's own, which a narrow screen needs: there is little room to climb
+      const onScreen = track.filter((P) => P.x > 60 && P.x < W - 60);
+      for (let i = 0; i < 8 && onScreen.length; i++) {
+        const P = onScreen[Math.floor(Math.random() * onScreen.length)];
+        const rs = clamp(Math.hypot(P.x - G.cx, P.y - G.cy) + rand(-1, 1) * vel, G.rMin, G.rMax);
+        entries.push({ side: Math.random() < 0.5 ? 'L' : 'R', rs });
+      }
+      entries.sort(() => Math.random() - 0.5);
+      for (const { side, rs } of entries) {
+        const dir = side === 'L' ? 1 : -1;
+        const e = entryPoint(side, rs, size);
+        if (!e || !clearOfTraffic(e.x, e.y, size)) continue;
+        const ths = Math.atan2(e.y - G.cy, e.x - G.cx);
+        let best = null;
+        for (let k = Math.ceil((delay + MIN_LEAD) / PRED_STEP); k < track.length; k++) {
+          const P = track[k];
+          if (P.x < 60 || P.x > W - 60 || P.y < 100 || P.y > H - 40) continue;
+          const rP = Math.hypot(P.x - G.cx, P.y - G.cy);
+          if (rP < G.rMin || rP > G.rMax) continue;
+          const dth = dir * (Math.atan2(P.y - G.cy, P.x - G.cx) - ths);
+          if (dth <= 0) continue;
+          // With r rising linearly, the time to sweep dth is dth * logmean(rs, rP) / vel.
+          const lm = Math.abs(rP - rs) < 1 ? rs : (rP - rs) / Math.log(rP / rs);
+          const T = dth * lm / vel;
+          const climb = (rP - rs) / T;
+          if (Math.abs(climb) > vel * 0.3) continue;
+          const err = Math.abs(delay + T - k * PRED_STEP);
+          if (!best || err < best.err) best = { err, climb };
+        }
+        if (!best || best.err > 0.12) continue;
+        const plan = { side, r: rs, climb: best.climb, x: e.x, y: e.y };
+        if (meets(plan, vel, delay, a, track, size)) return plan;
+      }
+    }
+    return null;
+  }
+
+  // Confirm by simulation that the planned arrival really reaches A, and not too soon.
+  function meets(plan, vel, delay, a, track, size) {
+    const o = { x: plan.x, y: plan.y, r: plan.r, dir: plan.side === 'L' ? 1 : -1, vel, climb: plan.climb };
+    let k = Math.round(delay / PRED_STEP);
+    for (; k < track.length; k++) {
+      const d = Math.hypot(o.x - track[k].x, o.y - track[k].y);
+      if (d < (size + a.size) * 0.7) return k * PRED_STEP >= delay + 2.5;
+      orbitStep(o, PRED_STEP);
+    }
+    return false;
+  }
+
+  // Queue one arrival; aim says whether to look for a collision course. Returns whether it was aimed.
+  function arrive(aim, delay) {
+    const type = pickType();
+    const size = TYPES[type].size * G.U;
+    const vel = G.v * TYPES[type].mult * (S.mode === 'play' ? difficulty(S.level).speed : 0.8);
+    const aimed = aim ? planConflict(size, vel, delay) : null;
+    const spot = aimed || (aim === 'only' ? null : planFree(size, vel));
+    if (!spot) return null;
+    const color = COLORS[(S.serial.cube + S.serial.comsat + S.serial.station) % COLORS.length];
+    S.serial[type]++;
+    S.pending.push({ ...spot, type, size, vel, color, aimed: !!aimed, name: `${TYPES[type].label}-${String(S.serial[type]).padStart(2, '0')}`, t: delay });
+    return aimed ? 'aimed' : 'free';
+  }
+
+  // Returns how many arrivals were queued.
+  function schedule(room) {
+    if (S.mode !== 'play') return arrive(false, 0) ? 1 : 0;
+    if (Math.random() >= conflictShare()) return arrive(false, 1.6) ? 1 : 0;
+    const one = arrive(true, 1.6);
+    if (one === 'aimed' || room < 2) return one ? 1 : 0;
+    // Nothing on screen had time left to be aimed at (common on narrow screens), so the
+    // arrival just queued enters unaimed; send a second one, a little later, aimed at it.
+    return arrive('only', 1.6 + rand(0.4, 1.4)) ? 2 : 1;
   }
 
   function launch(p) {
-    const speed = S.mode === 'play' ? difficulty(S.level).speed : 0.8;
     S.sats.push({
       type: p.type, size: p.size, side: p.side, color: p.color, name: p.name,
-      x: p.x, y: p.y, r: p.r, dir: p.side === 'L' ? 1 : -1,
-      vel: G.v * TYPES[p.type].mult * speed,
+      x: p.x, y: p.y, r: p.r, dir: p.side === 'L' ? 1 : -1, vel: p.vel, climb: p.climb,
+      aimed: p.aimed,
       mode: 'orbit', path: [], drawing: false, entered: false, warn: false, age: 0,
       heading: 0, ang: null, blink: Math.random() * TAU,
     });
   }
 
   // ---------- motion ----------
+  // Arrivals drift up or down at a steady rate (climb, px/s) so their courses cross.
+  // A satellite you redirect settles into a level orbit (climb 0).
+  function orbitStep(o, dt) {
+    o.r = clamp(o.r + o.climb * dt, G.rFloor, G.rCeil);
+    const th = Math.atan2(o.y - G.cy, o.x - G.cx) + o.dir * o.vel / o.r * dt;
+    o.x = G.cx + o.r * Math.cos(th);
+    o.y = G.cy + o.r * Math.sin(th);
+    return th;
+  }
+
+  // Where an orbiting satellite will be every PRED_STEP seconds if nobody touches it.
+  const PRED_STEP = 0.05;
+  // A satellite still waiting to enter (wait > 0) holds its entry spot until it launches.
+  function predict(s, seconds, wait = 0) {
+    const o = { x: s.x, y: s.y, r: s.r, dir: s.dir, vel: s.vel, climb: s.climb };
+    const out = [{ x: o.x, y: o.y }];
+    for (let k = 1; k * PRED_STEP <= seconds; k++) { if (k * PRED_STEP > wait) orbitStep(o, PRED_STEP); out.push({ x: o.x, y: o.y }); }
+    return out;
+  }
+
   function resumeOrbit(s) {
     const rx = s.x - G.cx, ry = s.y - G.cy;
     s.r = Math.hypot(rx, ry);
     const cross = rx * Math.sin(s.heading) - ry * Math.cos(s.heading);
     s.dir = cross >= 0 ? 1 : -1;
+    s.climb = 0;
     s.mode = 'orbit';
   }
 
@@ -391,11 +512,9 @@ body {
       if (!s.path.length) resumeOrbit(s);
     } else {
       if (s.mode !== 'orbit') resumeOrbit(s);
-      let th = Math.atan2(s.y - G.cy, s.x - G.cx);
-      th += s.dir * s.vel / s.r * dt;
-      s.x = G.cx + s.r * Math.cos(th);
-      s.y = G.cy + s.r * Math.sin(th);
-      s.heading = th + s.dir * Math.PI / 2;
+      const th = orbitStep(s, dt);
+      const vt = s.dir * s.vel;
+      s.heading = Math.atan2(Math.cos(th) * vt + Math.sin(th) * s.climb, -Math.sin(th) * vt + Math.cos(th) * s.climb);
     }
     if (s.ang === null) s.ang = s.heading;
     let da = s.heading - s.ang;
@@ -410,10 +529,12 @@ body {
       if (S.spawnT <= 0) {
         if (playing) {
           const D = difficulty(S.level);
-          if (S.sats.length + S.pending.length < D.maxSats) schedule();
-          S.spawnT = D.interval * rand(0.8, 1.2);
+          const room = D.maxSats - S.sats.length - S.pending.length;
+          const queued = room > 0 ? schedule(room) : 0;
+          // a matched pair counts as most of two turns
+          S.spawnT = D.interval * rand(0.8, 1.2) * (queued === 2 ? 1.7 : 1);
         } else {
-          if (S.sats.length + S.pending.length < 3) schedule();
+          if (S.sats.length + S.pending.length < 3) schedule(1);
           S.spawnT = 3.2;
         }
       }
@@ -677,13 +798,14 @@ body {
       ctx.globalAlpha = 1;
     } else if (s.entered || S.mode !== 'title') {
       // where the current orbit carries it over the next few seconds
-      const th = Math.atan2(s.y - G.cy, s.x - G.cx);
-      const span = s.vel * 3.5 / s.r;
+      const o = { x: s.x, y: s.y, r: s.r, dir: s.dir, vel: s.vel, climb: s.climb };
       ctx.strokeStyle = s.color;
       ctx.globalAlpha = 0.25;
       ctx.lineWidth = 1.5;
       ctx.setLineDash([2, 7]);
-      ctx.beginPath(); ctx.arc(G.cx, G.cy, s.r, th, th + s.dir * span, s.dir < 0); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(o.x, o.y);
+      for (let k = 0; k < 35; k++) { orbitStep(o, 0.1); ctx.lineTo(o.x, o.y); }
+      ctx.stroke();
       ctx.setLineDash([]);
       ctx.globalAlpha = 1;
     }
@@ -849,6 +971,13 @@ body {
     $('muteBtn').setAttribute('aria-label', m ? 'Turn sound on' : 'Mute sound');
   }
 
+  function setFast(f) {
+    S.fast = f;
+    $('fastBtn').textContent = f ? '2×' : '1×';
+    $('fastBtn').setAttribute('aria-pressed', String(f));
+    $('fastBtn').setAttribute('aria-label', f ? 'Back to normal speed' : 'Double speed');
+  }
+
   function startGame() {
     audio();
     S.sats = []; S.pending = []; S.fx = []; S.floaters = [];
@@ -897,9 +1026,11 @@ body {
   $('resumeBtn').addEventListener('click', () => setPaused(false));
   $('quitBtn').addEventListener('click', toTitle);
   $('pauseBtn').addEventListener('click', () => setPaused(S.mode === 'play'));
+  $('fastBtn').addEventListener('click', () => setFast(!S.fast));
   $('muteBtn').addEventListener('click', () => { audio(); setMuted(!S.muted); });
   window.addEventListener('keydown', (e) => {
     if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') setPaused(S.mode === 'play');
+    if (e.key === 'f' || e.key === 'F') setFast(!S.fast);
   });
   document.addEventListener('visibilitychange', () => { if (document.hidden) setPaused(true); });
   window.addEventListener('resize', layout);
@@ -920,6 +1051,8 @@ body {
       for (let i = S.fx.length - 1; i >= 0; i--) { const p = S.fx[i]; p.life -= real; p.x += p.vx * real * 0.3; p.y += p.vy * real * 0.3; if (p.life <= 0) S.fx.splice(i, 1); }
     } else if (S.mode !== 'paused') {
       update(real);
+      // 2x runs the simulation twice per frame so collisions are still checked every step
+      if (S.fast && S.mode === 'play') update(real);
     }
     render();
     requestAnimationFrame(frame);
