@@ -38,6 +38,15 @@
   --c-logic: #e5487f;
   --c-letters: #8b5cf6;
   --c-verbal: #1fa67a;
+  --c-spatial: #b45309;
+  --c-memory: #c026d3;
+  --c-speed: #dc2626;
+  --c-focus: #4d7c0f;
+  /* Focus game inks: the four colour names it asks about */
+  --ink-red: #e0342f;
+  --ink-blue: #2563eb;
+  --ink-green: #16a34a;
+  --ink-yellow: #e5a800;
 
   --display: "Fredoka", "Baloo 2", "Avenir Next Rounded", "Arial Rounded MT Bold", system-ui, sans-serif;
   --body: "Nunito", "Avenir Next", "Segoe UI", system-ui, sans-serif;
@@ -165,6 +174,7 @@ button { font: inherit; color: inherit; }
 .chip { border-radius: 999px; padding: 5px 14px 5px 10px; font-weight: 800; font-size: 0.92rem; display: inline-flex; align-items: center; gap: 7px; box-shadow: 0 3px 0 var(--ink); }
 .chip .dot { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--ink); }
 .chip[aria-pressed="true"] { background: var(--ink); color: var(--card); }
+.chips .ctl-label { flex-basis: 100%; margin-top: 4px; }
 .chip[aria-pressed="true"] .dot { border-color: var(--card); }
 
 /* Question card */
@@ -207,6 +217,8 @@ button { font: inherit; color: inherit; }
 .options { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .options.visual { grid-template-columns: repeat(3, 1fr); }
 .options.long { grid-template-columns: 1fr; }
+.options.visual.poly4 { grid-template-columns: repeat(4, 1fr); }
+.options.visual.poly5 { grid-template-columns: repeat(5, 1fr); }
 .opt { display: flex; align-items: center; gap: 10px; text-align: left; padding: 11px 12px; min-width: 0; }
 .opt .key { flex: none; width: 28px; height: 28px; border-radius: 9px; display: grid; place-items: center; font-family: var(--display); font-weight: 600; font-size: 0.9rem; background: var(--soft); border: 2px solid var(--ink); }
 .opt .txt { min-width: 0; font-size: 1.05rem; font-weight: 700; overflow-wrap: anywhere; }
@@ -299,6 +311,60 @@ details.numbers summary { cursor: pointer; color: var(--muted); font-weight: 800
 .wotd .note { margin-top: -6px; }
 .verdict .ex { font-style: italic; }
 
+/* Spatial shapes */
+.poly-cell { fill: var(--c-spatial); stroke: var(--ink); stroke-width: 3; stroke-linejoin: round; }
+.stem-poly { width: 150px; max-width: 100%; aspect-ratio: 1; background: var(--soft); border: 2px solid var(--line); border-radius: 14px; padding: 10px; }
+.stem-poly svg { width: 100%; height: 100%; display: block; }
+
+/* Workout */
+.workout-card { background: var(--ink); color: var(--card); border: 2.5px solid var(--ink); border-radius: 24px; box-shadow: 0 6px 0 var(--accent); padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+.workout-card h2 { margin: 0; font-family: var(--display); font-weight: 600; font-size: 1.5rem; line-height: 1.2; }
+.workout-card p { margin: 0; color: var(--line); font-weight: 700; }
+.workout-card .btn.primary { align-self: flex-start; font-size: 1.15rem; padding: 11px 22px; }
+.workout-card .btn.quiet { color: var(--line); }
+.steps { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.steps li { display: inline-flex; align-items: center; gap: 7px; background: rgba(255,255,255,.1); border: 2px solid rgba(255,255,255,.25); border-radius: 999px; padding: 4px 12px 4px 6px; font-weight: 800; font-size: 0.88rem; }
+.steps li b { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; background: var(--card); color: var(--ink); font-family: var(--display); font-size: 0.8rem; }
+.steps li.done b { background: var(--good); color: var(--card); }
+.wk-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: space-between; }
+.wk-bar .lbl { font-family: var(--display); font-weight: 600; font-size: 1.1rem; flex-basis: 100%; }
+.wk-dots { display: flex; gap: 6px; flex: 1; min-width: 120px; max-width: 320px; }
+.wk-dots i { flex: 1; height: 10px; border-radius: 5px; background: var(--card); border: 2px solid var(--ink); }
+.wk-dots i.done { background: var(--good); }
+.wk-dots i.now { background: var(--gold); }
+.summary-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; }
+.summary-list li { display: flex; justify-content: space-between; gap: 10px; padding: 10px 12px; background: var(--soft); border-radius: 12px; font-weight: 800; flex-wrap: wrap; }
+.summary-list li span:last-child { font-family: var(--display); font-weight: 600; }
+
+/* Games */
+.countdown { height: 12px; border-radius: 6px; background: var(--soft); border: 2px solid var(--ink); overflow: hidden; }
+.countdown i { display: block; height: 100%; width: 100%; background: var(--accent); transform-origin: left; }
+.game-center { display: flex; flex-direction: column; align-items: center; gap: 14px; text-align: center; }
+.big-count { font-family: var(--display); font-weight: 700; font-size: 4rem; line-height: 1; color: var(--accent); animation: pop .35s cubic-bezier(.3,1.6,.5,1); }
+.scoreline { display: flex; gap: 16px; justify-content: center; font-weight: 800; color: var(--muted); flex-wrap: wrap; }
+.scoreline b { font-family: var(--display); color: var(--ink); font-size: 1.2rem; }
+.problem { font-family: var(--display); font-weight: 600; font-size: 2.6rem; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.answer-box { min-width: 150px; min-height: 58px; padding: 6px 16px; border: 3px solid var(--ink); border-radius: 14px; background: var(--soft); font-family: var(--display); font-weight: 600; font-size: 2rem; font-variant-numeric: tabular-nums; display: grid; place-items: center; }
+.answer-box.good { background: var(--good-soft); border-color: var(--good); }
+.answer-box.bad { background: var(--bad-soft); border-color: var(--bad); animation: shake .4s; }
+.keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; width: 100%; max-width: 300px; }
+.keypad button { padding: 12px 0; font-family: var(--display); font-weight: 600; font-size: 1.4rem; }
+.mem-grid { display: grid; gap: 8px; width: 100%; max-width: 320px; }
+.mem-grid button { aspect-ratio: 1; border-radius: 12px; padding: 0; }
+.mem-grid button.lit { background: var(--c-memory); }
+.mem-grid button.found { background: var(--good); }
+.mem-grid button.miss { background: var(--bad); }
+.mem-grid button.missed { background: var(--c-memory); opacity: .45; }
+.mem-grid.showing button { cursor: default; }
+.stroop-word { font-family: var(--display); font-weight: 700; font-size: 3.4rem; letter-spacing: .02em; line-height: 1.1; }
+.stroop-rule { font-weight: 800; padding: 4px 12px; border-radius: 999px; background: var(--soft); border: 2px solid var(--ink); }
+.stroop-rule.word { background: var(--gold); }
+.stroop-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; max-width: 360px; }
+.stroop-btns button { padding: 12px; font-family: var(--display); font-weight: 600; font-size: 1.1rem; display: flex; align-items: center; justify-content: center; gap: 8px; }
+.stroop-btns i { width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--ink); }
+.flash-good { animation: yay .3s; }
+.bests { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+
 #confetti { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 20; }
 
 @media (max-width: 560px) {
@@ -307,10 +373,14 @@ details.numbers summary { cursor: pointer; color: var(--muted); font-weight: 800
   .prompt { font-size: 1.25rem; }
   .sheet { padding: 16px 14px 18px; }
   .skill { grid-template-columns: 92px 1fr 78px; }
+  .bests { grid-template-columns: 1fr; }
+  .problem { font-size: 2.2rem; }
+  .stroop-word { font-size: 2.8rem; }
   .stem-seq span { min-width: 46px; font-size: 1.2rem; padding: 7px 9px; }
   .brand h1 { font-size: 1.9rem; }
 }
 @media (max-width: 380px) { .options { grid-template-columns: 1fr; } }
+@media (max-width: 560px) { .options.visual.poly4 { grid-template-columns: repeat(2, 1fr); } .options.visual.poly5 { grid-template-columns: repeat(3, 1fr); } }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
@@ -448,6 +518,11 @@ details.numbers summary { cursor: pointer; color: var(--muted); font-weight: 800
     { id: 'logic', name: 'Logic', short: 'Logic' },
     { id: 'letters', name: 'Letter series', short: 'Letters' },
     { id: 'verbal', name: 'Verbal reasoning', short: 'Verbal' },
+    { id: 'spatial', name: 'Spatial reasoning', short: 'Spatial' },
+    // Timed games, played in the page rather than generated here.
+    { id: 'memory', name: 'Memory', short: 'Memory', game: true },
+    { id: 'speed', name: 'Speed maths', short: 'Speed', game: true },
+    { id: 'focus', name: 'Focus', short: 'Focus', game: true },
   ];
   const DIFFS = ['easy', 'medium', 'hard'];
   const TARGET = { easy: '~1 min', medium: '~2–3 min', hard: '~5 min' };
@@ -1061,7 +1136,71 @@ details.numbers summary { cursor: pointer; color: var(--muted); font-weight: 800
     return finalize(r, q, ans, ds, 4);
   }
 
-  const GEN = { sequences: genSequences, letters: genLetters, arithmetic: genArithmetic, logic: genLogic, matrices: genMatrices, verbal: genVerbal };
+  /* ---------- Spatial: turned or flipped? ---------- */
+  const normP = cells => {
+    const mr = Math.min(...cells.map(c => c[0])), mc = Math.min(...cells.map(c => c[1]));
+    return cells.map(([a, b]) => [a - mr, b - mc]).sort((x, y) => x[0] - y[0] || x[1] - y[1]);
+  };
+  const keyP = cells => JSON.stringify(normP(cells));
+  const rotP = cells => cells.map(([a, b]) => [b, -a]); // a quarter turn clockwise on screen
+  const flipP = cells => cells.map(([a, b]) => [a, -b]);
+  const turns = (cells, k) => { let c = cells; for (let i = 0; i < k; i++) c = rotP(c); return normP(c); };
+  const NB = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+  function connected(cells) {
+    const set = new Set(cells.map(c => c.join())), seen = new Set([cells[0].join()]), stack = [cells[0]];
+    while (stack.length) {
+      const [a, b] = stack.pop();
+      for (const [da, db] of NB) { const k = [a + da, b + db].join(); if (set.has(k) && !seen.has(k)) { seen.add(k); stack.push([a + da, b + db]); } }
+    }
+    return seen.size === cells.length;
+  }
+  function polyomino(r, n, size) {
+    const cells = [[0, 0]];
+    while (cells.length < n) {
+      const [a, b] = r.pick(cells), [da, db] = r.pick(NB), c = [a + da, b + db];
+      if (cells.some(x => x[0] === c[0] && x[1] === c[1])) continue;
+      const t = normP(cells.concat([c]));
+      if (Math.max(...t.map(x => x[0])) >= size || Math.max(...t.map(x => x[1])) >= size) continue;
+      cells.push(c);
+    }
+    return normP(cells);
+  }
+  function genSpatial(r, diff) {
+    const n = { easy: 5, medium: 6, hard: 8 }[diff], nOpts = diff === 'hard' ? 5 : 4;
+    for (let tries = 0; ; tries++) {
+      const shape = polyomino(r, n, diff === 'hard' ? 4 : 3 + (n > 5 ? 1 : 0));
+      const rots = [0, 1, 2, 3].map(k => keyP(turns(shape, k)));
+      const mirrors = [0, 1, 2, 3].map(k => turns(flipP(shape), k));
+      // Needs no symmetry, so a turn always looks different and a flip can never be undone by turning.
+      if (new Set(rots).size < 4 || mirrors.some(m => rots.includes(keyP(m)))) { if (tries < 400) continue; }
+      const k = r.int(1, 3), ans = turns(shape, k);
+      const ds = r.shuffle(mirrors);
+      if (diff === 'hard') {
+        // Near misses: the right turn with one square moved.
+        for (let i = 0; i < 40 && ds.length < 8; i++) {
+          const c = ans.slice(), drop = r.int(0, c.length - 1);
+          const rest = c.filter((_, j) => j !== drop);
+          const [a, b] = r.pick(rest), [da, db] = r.pick(NB), add = [a + da, b + db];
+          if (rest.some(x => x[0] === add[0] && x[1] === add[1])) continue;
+          const moved = normP(rest.concat([add]));
+          if (!connected(moved) || rots.includes(keyP(moved)) || mirrors.some(m => keyP(m) === keyP(moved))) continue;
+          ds.splice(r.int(1, 3), 0, moved);
+        }
+      }
+      const q = {
+        prompt: 'Which option is the first shape turned, not flipped over?',
+        stem: { kind: 'poly', cells: shape },
+        hint: 'Pick one corner of the shape that stands out, then follow it as you turn the shape a quarter at a time.',
+        visual: true, render: 'poly',
+      };
+      finalize(r, q, ans, ds, nOpts, keyP);
+      const deg = { 1: '90° clockwise', 2: '180°', 3: '90° anticlockwise' }[k];
+      q.why = `${'ABCDEF'[q.answer]} is the shape turned ${deg}. The others are mirror images${diff === 'hard' ? ' or have one square moved' : ''}: turning alone could never make them, you would have to flip the shape over.`;
+      return q;
+    }
+  }
+
+  const GEN = { spatial: genSpatial, sequences: genSequences, letters: genLetters, arithmetic: genArithmetic, logic: genLogic, matrices: genMatrices, verbal: genVerbal };
 
   function generate({ seed, cat, diff, avoid }) {
     const r = rng(seed >>> 0);
@@ -1072,7 +1211,7 @@ details.numbers summary { cursor: pointer; color: var(--muted); font-weight: 800
 
   // Question of the Day number n (0 = the first day). Walks every earlier day so a
   // question that matches an earlier one, even with its options reordered, is re-rolled.
-  const DAILY_CATS = CATEGORIES.map(c => c.id).filter(c => c !== 'verbal');
+  const DAILY_CATS = ['sequences', 'matrices', 'arithmetic', 'logic', 'letters', 'spatial'];
   const fingerprint = q => JSON.stringify([q.prompt, q.stem, q.options.map(o => JSON.stringify(o)).sort()]);
   function daily(n, keyAt, onDay) {
     const seen = new Set();
@@ -1231,6 +1370,7 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
   const $ = id => document.getElementById(id);
   const CAT = Object.fromEntries(E.CATEGORIES.map(c => [c.id, c]));
   const CATS = E.CATEGORIES.map(c => c.id);
+  const QCATS = E.CATEGORIES.filter(c => !c.game).map(c => c.id);
   const DIFF_LABEL = { easy: 'Easy', medium: 'Medium', hard: 'Hard' };
   const START = '2026-10-24';
   const reduced = () => window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -1247,7 +1387,7 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
   /* ---------- state + storage ---------- */
   // log rows: [time, catIndex, diffIndex, correct, seconds, usedHint, mode (0 daily, 1 practice), scoreAfter, catScoreAfter]
   const LS = 'quotient.v1';
-  const blank = () => ({ v: 1, updatedAt: 0, daily: {}, words: {}, cats: {}, diffs: {}, best: 0, xp: 0, R: 1000, rc: {}, n: 0, log: [], base: null,
+  const blank = () => ({ v: 1, updatedAt: 0, daily: {}, words: {}, cats: {}, diffs: {}, best: 0, xp: 0, R: 1000, rc: {}, n: 0, log: [], base: null, workouts: {}, bests: {},
     prefs: { diff: 'medium', cat: 'all', sound: true } });
   const hydrate = s => { const b = blank(); const out = Object.assign(b, s); out.prefs = Object.assign(blank().prefs, s.prefs || {}); return out; };
   let state = blank();
@@ -1289,9 +1429,9 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
   /* ---------- scoring ---------- */
   // Brain Score works like a chess rating: beating harder questions moves it more.
   const QR = { easy: 850, medium: 1050, hard: 1250 };
-  function rate(R, diff, ok, hint, n) {
+  function rate(R, diff, ok, hint, n, score) {
     const exp = 1 / (1 + 10 ** ((QR[diff] - R) / 400));
-    const s = ok ? (hint ? 0.6 : 1) : 0;
+    const s = score !== undefined ? score : ok ? (hint ? 0.6 : 1) : 0;
     return Math.round(R + (n < 20 ? 40 : 24) * (s - exp));
   }
   const XP_FOR = { easy: 10, medium: 20, hard: 35 };
@@ -1300,18 +1440,19 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
     while (xp >= need) { xp -= need; L++; need = 100 + 50 * (L - 1); }
     return { L, into: xp, need };
   }
-  function record(q, ok, secs, hint, mode, bonus) {
+  // mode: 0 Question of the Day, 1 practice, 2 workout. score (0–1) is set for games.
+  function record(q, ok, secs, hint, mode, bonus, score) {
     const c = state.cats[q.cat] || (state.cats[q.cat] = { seen: 0, correct: 0 });
     const d = state.diffs[q.diff] || (state.diffs[q.diff] = { seen: 0, correct: 0 });
     c.seen++; d.seen++;
     if (ok) { c.correct++; d.correct++; }
     const catN = state.log.filter(r => r[1] === CATS.indexOf(q.cat)).length;
-    state.R = rate(state.R, q.diff, ok, hint, state.n);
-    state.rc[q.cat] = rate(state.rc[q.cat] || 1000, q.diff, ok, hint, catN);
+    state.R = rate(state.R, q.diff, ok, hint, state.n, score);
+    state.rc[q.cat] = rate(state.rc[q.cat] || 1000, q.diff, ok, hint, catN, score);
     state.n++;
     state.log.push([Date.now(), CATS.indexOf(q.cat), E.DIFFS.indexOf(q.diff), ok ? 1 : 0, secs, hint ? 1 : 0, mode, state.R, state.rc[q.cat]]);
     trimLog();
-    let xp = ok ? Math.round(XP_FOR[q.diff] * (hint ? 0.5 : 1)) : 3;
+    let xp = score !== undefined ? Math.round(XP_FOR[q.diff] * (0.4 + score)) : ok ? Math.round(XP_FOR[q.diff] * (hint ? 0.5 : 1)) : 3;
     xp += bonus || 0;
     return gainXP(xp);
   }
@@ -1455,7 +1596,7 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
     btn.classList.remove('wiggle'); void btn.offsetWidth; btn.classList.add('wiggle');
     SFX.toot();
     const s = current();
-    if (s && !s.done && !s.hinted && s.elapsed() > 20) Peanut.say('Need a nudge? Tap “Show a hint” under the answers, or press H.', 'think', 2500);
+    if (s && !s.done && s.elapsed && !s.hinted && s.elapsed() > 20) Peanut.say('Need a nudge? Tap “Show a hint” under the answers, or press H.', 'think', 2500);
     else Peanut.say(pick(FACTS), 'idle');
   });
 
@@ -1474,6 +1615,12 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
     return `<svg viewBox="0 0 100 100" role="img" aria-label="${E.describeCell(c)}">${parts.join('')}</svg>`;
   }
   function cellEl(c) { const d = el('div', 'cell'); d.innerHTML = shapeSVG(c); return d; }
+  function polySVG(cells) {
+    const h = Math.max(...cells.map(c => c[0])) + 1, w = Math.max(...cells.map(c => c[1])) + 1;
+    const u = 88 / Math.max(3, h, w), ox = (100 - w * u) / 2, oy = (100 - h * u) / 2;
+    return `<svg viewBox="0 0 100 100" role="img" aria-label="shape of ${cells.length} squares">${cells.map(([r, c]) => `<rect class="poly-cell" x="${ox + c * u + 1.5}" y="${oy + r * u + 1.5}" width="${u - 3}" height="${u - 3}" rx="3"/>`).join('')}</svg>`;
+  }
+  function polyEl(cells) { const d = el('div', 'cell'); d.innerHTML = polySVG(cells); return d; }
   const fmtTime = s => `${Math.floor(s / 60)}:${String(Math.round(s) % 60).padStart(2, '0')}`;
   const CLOCK = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="var(--soft)" stroke="var(--ink)" stroke-width="2.2"/><path d="M12 7v5l3 2" fill="none" stroke="var(--ink)" stroke-width="2.2" stroke-linecap="round"/></svg>';
 
@@ -1507,6 +1654,10 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
         const ul = el('ul', 'stem-lines' + (q.stem.mono ? ' mono' : ''));
         q.stem.items.forEach(t => ul.appendChild(el('li', '', t)));
         sheet.appendChild(ul);
+      } else if (q.stem.kind === 'poly') {
+        const d = el('div', 'stem-poly');
+        d.innerHTML = polySVG(q.stem.cells);
+        sheet.appendChild(d);
       } else if (q.stem.kind === 'matrix') {
         const g = el('div', 'matrix');
         q.stem.cells.forEach((c, i) => { const ce = cellEl(c); ce.style.animationDelay = (i * 50) + 'ms'; g.appendChild(ce); });
@@ -1519,15 +1670,15 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
     }
 
     const long = !q.visual && q.options.some(o => String(o).length > 16);
-    const list = el('div', 'options' + (q.visual ? ' visual' : long ? ' long' : ''));
+    const list = el('div', 'options' + (q.visual ? ' visual' : long ? ' long' : '') + (q.render === 'poly' ? ` poly${q.options.length}` : ''));
     const keys = 'ABCDEF';
     const btns = q.options.map((o, i) => {
       const b = el('button', 'press opt');
       b.type = 'button';
       b.appendChild(el('span', 'key', keys[i]));
-      if (q.visual) b.appendChild(cellEl(o));
+      if (q.visual) b.appendChild(q.render === 'poly' ? polyEl(o) : cellEl(o));
       else b.appendChild(el('span', 'txt' + (q.mono && String(o).length < 10 ? ' big' : ''), String(o)));
-      b.setAttribute('aria-label', `Option ${keys[i]}: ${q.visual ? E.describeCell(o) : o}`);
+      b.setAttribute('aria-label', `Option ${keys[i]}: ${q.render === 'poly' ? 'shape' : q.visual ? E.describeCell(o) : o}`);
       b.addEventListener('click', () => choose(i));
       list.appendChild(b);
       return b;
@@ -1623,21 +1774,18 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
     const host = $('view-daily');
     host.textContent = '';
     if (dailySheet) dailySheet.stop();
-    const qHost = el('div', ''), wHost = el('div', '');
-    wHost.style.marginTop = '22px';
-    host.appendChild(qHost); host.appendChild(wHost);
+    const kHost = el('div', ''), qHost = el('div', ''), wHost = el('div', '');
+    qHost.style.marginTop = '22px'; wHost.style.marginTop = '22px';
+    host.appendChild(kHost); host.appendChild(qHost); host.appendChild(wHost);
+    workoutCard(kHost);
     const q = dailyQuestion();
     const done = state.daily[todayKey];
     dailySheet = Sheet(qHost, q, {
       label: `Question of the Day · No. ${dayIndex(todayKey) + 1}`,
       restore: done || null,
       onAnswer(choice, ok, secs, hint) {
-        state.daily[todayKey] = { choice, correct: ok, secs, hint };
-        const xp = record(q, ok, secs, hint, 0, ok ? 15 : 0);
-        const s = streak();
-        if (s > state.best) state.best = s;
-        prune(); save(); renderHUD(true);
-        if (ok) Peanut.say(s > 1 ? `Yes! That's a ${s} day streak. Your Word of the Day is waiting below.` : 'Yes! Great start. Your Word of the Day is waiting below.', 'happy', 2400);
+        const xp = answerDaily(q, choice, ok, secs, hint);
+        if (ok) Peanut.say(streak() > 1 ? `Yes! That's a ${streak()} day streak. Your Word of the Day is waiting below.` : 'Yes! Great start. Your Word of the Day is waiting below.', 'happy', 2400);
         else Peanut.say('So close. Read the explanation, it makes the next one easier. Then try the Word of the Day.', 'sad', 2400);
         return xp;
       },
@@ -1654,11 +1802,19 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
     renderWord(wHost);
     dailyGreet();
   }
+  function answerDaily(q, choice, ok, secs, hint) {
+    state.daily[todayKey] = { choice, correct: ok, secs, hint };
+    const xp = record(q, ok, secs, hint, 0, ok ? 15 : 0);
+    const s = streak();
+    if (s > state.best) state.best = s;
+    prune(); save(); renderHUD(true);
+    return xp;
+  }
   function dailyGreet() {
-    if (view !== 'daily') return;
+    if (view !== 'daily' || workout) return;
     const q = dailyQuestion(), done = state.daily[todayKey];
     {
-      if (!done) Peanut.say(`${greeting()}! Today's question is ${CAT[q.cat].name.toLowerCase()}. Take your time. I'm holding the hint if you need it.`, 'idle');
+      if (!state.workouts[todayKey] && !done) Peanut.say(`${greeting()}! Tap “Start workout” for a 3-minute brain warm-up. Today's question is ${CAT[q.cat].name.toLowerCase()}. Take your time. I'm holding the hint if you need it.`, 'idle');
       else if (!state.words[todayKey]) Peanut.say('You did today\'s question. Have you guessed the Word of the Day yet? It\'s below.', 'idle');
       else Peanut.say(`All done for today. Practice is open if you want more. You're on a ${streak()} day streak.`, 'happy', 1400);
     }
@@ -1667,6 +1823,7 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
     const cutoff = dkey(addDays(parseKey(todayKey), -400));
     for (const k of Object.keys(state.daily)) if (k < cutoff) delete state.daily[k];
     for (const k of Object.keys(state.words)) if (k < cutoff) delete state.words[k];
+    for (const k of Object.keys(state.workouts)) if (k < cutoff) delete state.workouts[k];
   }
 
   // Words come in a fixed shuffled order, one per day, so a word only repeats after the whole list.
@@ -1690,7 +1847,7 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
     for (let k = opts.length - 1; k > 0; k--) { const j = Math.floor(rnd() * (k + 1)); [opts[k], opts[j]] = [opts[j], opts[k]]; }
     return { w, opts, answer: opts.indexOf(w.meaning) };
   }
-  function renderWord(host) {
+  function renderWord(host, onDone) {
     const { w, opts, answer } = wordFor(todayKey);
     const card = el('article', 'sheet wotd');
     host.appendChild(card);
@@ -1743,9 +1900,454 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
       reveal(i, xp);
       if (ok) { SFX.right(); const [x, y] = centerOf(btns[i]); burst(x, y, 50); Peanut.say(`“${w.word[0].toUpperCase() + w.word.slice(1)}.” Try using it in a sentence today.`, 'happy', 2200); }
       else { SFX.wrong(); Peanut.say(`Tricky one. Try using “${w.word}” once today and it'll stick.`, 'sad', 2000); }
+      if (onDone) onDone(ok, card);
     }
     const done = state.words[todayKey];
     if (done) reveal(done.choice);
+  }
+
+
+  /* ---------- Games: speed maths, memory, focus ---------- */
+  const GAME_INTRO = {
+    speed: 'Speed maths! Quick sums, as many as you can before the bar runs out.',
+    memory: 'Memory! Watch which squares light up, then tap them back.',
+    focus: 'Focus! Tap the colour of the ink, not the word. Harder than it sounds.',
+  };
+  function gameShell(host, item, label) {
+    host.textContent = '';
+    const card = el('article', 'sheet enter');
+    host.appendChild(card);
+    const meta = el('div', 'meta'), left = el('div', 'left');
+    left.appendChild(el('span', '', label));
+    const ct = el('span', 'cat-tag', CAT[item.cat].short);
+    ct.style.background = `var(--c-${item.cat})`;
+    left.appendChild(ct);
+    left.appendChild(el('span', `dtag ${item.diff}`, DIFF_LABEL[item.diff]));
+    meta.appendChild(left); card.appendChild(meta);
+    const body = el('div', 'game-center'); card.appendChild(body);
+    const after = el('div', ''); after.style.cssText = 'display:flex;flex-direction:column;gap:14px'; card.appendChild(after);
+    return { card, body, after };
+  }
+  // Intro text and a Start button, then a 3-2-1 count before play begins.
+  function countIn(body, title, intro, onGo, api) {
+    body.textContent = '';
+    body.appendChild(el('h2', 'prompt', title));
+    body.appendChild(el('p', 'note', intro));
+    const go = el('button', 'press btn primary', 'Start');
+    go.type = 'button';
+    body.appendChild(go);
+    go.focus({ preventScroll: true });
+    go.addEventListener('click', () => {
+      body.textContent = '';
+      let n = 3;
+      const c = el('div', 'big-count', '3');
+      body.appendChild(c);
+      SFX.tap();
+      api.iv = setInterval(() => {
+        n--;
+        if (n === 0) { clearInterval(api.iv); onGo(); return; }
+        c.textContent = n; c.style.animation = 'none'; void c.offsetWidth; c.style.animation = '';
+        SFX.tap();
+      }, 650);
+    });
+  }
+  function countdownBar(body) {
+    const cd = el('div', 'countdown'), bar = el('i');
+    cd.style.width = '100%';
+    cd.appendChild(bar); body.appendChild(cd);
+    return frac => { bar.style.transform = `scaleX(${frac})`; };
+  }
+  const rnd = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
+  function speedProblem(diff) {
+    const k = Math.random();
+    if (diff === 'easy') {
+      if (k < 0.5) { const a = rnd(2, 12), b = rnd(2, 12); return [`${a} + ${b}`, a + b]; }
+      const a = rnd(6, 20), b = rnd(1, a); return [`${a} − ${b}`, a - b];
+    }
+    if (diff === 'medium') {
+      if (k < 0.4) { const a = rnd(2, 9), b = rnd(2, 9); return [`${a} × ${b}`, a * b]; }
+      if (k < 0.7) { const a = rnd(12, 60), b = rnd(5, 39); return [`${a} + ${b}`, a + b]; }
+      const a = rnd(30, 90), b = rnd(5, a - 1); return [`${a} − ${b}`, a - b];
+    }
+    if (k < 0.3) { const a = rnd(6, 12), b = rnd(3, 12); return [`${a} × ${b}`, a * b]; }
+    if (k < 0.55) { const b = rnd(3, 12), a = rnd(2, 12); return [`${a * b} ÷ ${b}`, a]; }
+    if (k < 0.8) { const a = rnd(25, 99), b = rnd(25, 99); return [`${a} + ${b}`, a + b]; }
+    const a = rnd(3, 9), b = rnd(3, 9), c = rnd(2, 20); return [`${a} × ${b} + ${c}`, a * b + c];
+  }
+  const SPEED_TARGET = { easy: 20, medium: 14, hard: 9 }; // a strong score per 60 seconds
+  function SpeedGame(host, o) {
+    const item = { cat: 'speed', diff: o.diff };
+    const g = gameShell(host, item, o.label);
+    const api = { done: false, iv: 0, key: () => false, stop() { clearInterval(api.iv); } };
+    let typed = '', prob = null, right = 0, wrong = 0, t0 = 0, over = false, box, probEl, sc, setBar;
+    countIn(g.body, `How many sums can you solve in ${o.secs} seconds?`, 'Type each answer on the keypad or keyboard. It checks itself as you type. Enter skips.', play, api);
+    function play() {
+      g.body.textContent = '';
+      setBar = countdownBar(g.body);
+      sc = el('div', 'scoreline'); g.body.appendChild(sc);
+      probEl = el('div', 'problem'); g.body.appendChild(probEl);
+      box = el('div', 'answer-box'); box.setAttribute('aria-live', 'polite'); g.body.appendChild(box);
+      const pad = el('div', 'keypad');
+      ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'Skip', '0', '⌫'].forEach(k => {
+        const b = el('button', 'press', k);
+        b.type = 'button';
+        if (k === 'Skip') b.style.fontSize = '1rem';
+        if (k === '⌫') b.setAttribute('aria-label', 'Delete');
+        b.addEventListener('click', () => press(k));
+        pad.appendChild(b);
+      });
+      g.body.appendChild(pad);
+      next();
+      t0 = performance.now();
+      api.iv = setInterval(tick, 100);
+    }
+    function next() {
+      prob = speedProblem(o.diff);
+      probEl.textContent = prob[0] + ' = ?';
+      typed = ''; box.textContent = ' '; box.className = 'answer-box';
+      sc.textContent = '';
+      const a = el('span', ''); a.appendChild(el('b', '', String(right))); a.appendChild(document.createTextNode(' right'));
+      sc.appendChild(a);
+    }
+    function press(k) {
+      if (over || !prob) return;
+      if (k === 'Skip') { next(); return; }
+      if (k === '⌫') { typed = typed.slice(0, -1); box.textContent = typed || ' '; return; }
+      typed += k; box.textContent = typed; box.className = 'answer-box';
+      const want = String(prob[1]);
+      if (typed === want) {
+        right++; prob = null; tone(880, .06, 'triangle', 0, .08);
+        box.className = 'answer-box good';
+        setTimeout(() => { if (!over) next(); }, 150);
+      } else if (typed.length >= want.length) {
+        wrong++; typed = ''; tone(200, .12, 'sawtooth', 0, .04);
+        box.className = 'answer-box bad';
+        setTimeout(() => { if (!over && !typed) { box.textContent = ' '; box.className = 'answer-box'; } }, 350);
+      }
+    }
+    function tick() {
+      const left = Math.max(0, o.secs - (performance.now() - t0) / 1000);
+      setBar(left / o.secs);
+      if (left <= 0) finish();
+    }
+    function finish() {
+      over = true; api.done = true; clearInterval(api.iv);
+      const acc = right + wrong ? right / (right + wrong) : 0;
+      const s = Math.min(1, right / (SPEED_TARGET[o.diff] * o.secs / 60)) * Math.sqrt(acc);
+      g.body.textContent = '';
+      g.body.appendChild(el('div', 'big-count', String(right)));
+      g.body.appendChild(el('p', 'note', `right in ${o.secs} seconds${wrong ? `, ${wrong} slip${wrong > 1 ? 's' : ''}` : ''}`));
+      o.onDone({ item, s, secs: o.secs, summary: `${right} sums right`, best: [`speed-${o.diff}-${o.secs}`, right], after: g.after });
+    }
+    api.key = e => {
+      if (over || !prob) return false;
+      if (/^[0-9]$/.test(e.key)) { press(e.key); return true; }
+      if (e.key === 'Backspace') { press('⌫'); return true; }
+      if (e.key === 'Enter') { press('Skip'); return true; }
+      return false;
+    };
+    return api;
+  }
+
+  const MEM = { easy: { n: 3, start: 3 }, medium: { n: 4, start: 4 }, hard: { n: 5, start: 5 } };
+  function MemoryGame(host, o) {
+    const item = { cat: 'memory', diff: o.diff }, cfg = MEM[o.diff];
+    const g = gameShell(host, item, o.label);
+    const api = { done: false, iv: 0, t: 0, key: () => false, stop() { clearInterval(api.iv); clearTimeout(api.t); } };
+    const maxRounds = o.rounds || 12, lives = o.rounds ? Infinity : 2;
+    let round = 0, passed = 0, fails = 0, span = cfg.start, longest = 0;
+    const t0 = Date.now();
+    countIn(g.body, 'Remember the pattern',
+      `Some squares light up for a moment. Tap the same squares from memory. ${o.rounds ? `${o.rounds} rounds.` : 'Each perfect round adds a square. Two misses ends the game.'}`, nextRound, api);
+    function nextRound() {
+      if (round >= maxRounds || fails >= lives) return finish();
+      round++;
+      g.body.textContent = '';
+      const sc = el('div', 'scoreline');
+      [['Round', `${round}${o.rounds ? ' of ' + o.rounds : ''}`], ['Squares', span], ['Perfect', passed]].forEach(([l, v]) => { const x = el('span', ''); x.appendChild(document.createTextNode(l + ' ')); x.appendChild(el('b', '', String(v))); sc.appendChild(x); });
+      g.body.appendChild(sc);
+      const status = el('p', 'note', 'Watch closely…');
+      status.setAttribute('aria-live', 'polite');
+      g.body.appendChild(status);
+      const grid = el('div', 'mem-grid showing');
+      grid.style.gridTemplateColumns = `repeat(${cfg.n}, 1fr)`;
+      const cells = [];
+      for (let i = 0; i < cfg.n * cfg.n; i++) {
+        const b = el('button', 'press');
+        b.type = 'button'; b.disabled = true;
+        b.setAttribute('aria-label', `Square ${i + 1}`);
+        grid.appendChild(b); cells.push(b);
+      }
+      g.body.appendChild(grid);
+      const order = cells.map((_, i) => i).sort(() => Math.random() - 0.5);
+      const target = new Set(order.slice(0, span));
+      target.forEach(i => cells[i].classList.add('lit'));
+      let found = 0, settled = false;
+      api.t = setTimeout(() => {
+        target.forEach(i => cells[i].classList.remove('lit'));
+        grid.classList.remove('showing');
+        status.textContent = `Your turn: tap the ${span} squares that lit up.`;
+        cells.forEach(b => { b.disabled = false; });
+      }, 900 + 380 * span);
+      cells.forEach((b, i) => b.addEventListener('click', () => {
+        if (settled || b.classList.contains('found')) return;
+        if (target.has(i)) {
+          b.classList.add('found'); found++; tone(500 + 60 * found, .07, 'triangle', 0, .08);
+          if (found === target.size) {
+            settled = true; passed++; longest = Math.max(longest, span);
+            status.textContent = pick(['Perfect!', 'Got them all!', 'Elephant memory!']);
+            SFX.right();
+            if (span < cfg.n * cfg.n - 2) span++;
+            api.t = setTimeout(nextRound, 800);
+          }
+        } else {
+          settled = true; fails++;
+          b.classList.add('miss');
+          target.forEach(j => { if (!cells[j].classList.contains('found')) cells[j].classList.add('missed'); });
+          status.textContent = 'Not that one. The faded squares show where the rest were.';
+          SFX.wrong();
+          cells.forEach(x => { x.disabled = true; });
+          api.t = setTimeout(nextRound, 1600);
+        }
+      }));
+    }
+    function finish() {
+      api.done = true;
+      g.body.textContent = '';
+      g.body.appendChild(el('div', 'big-count', `${passed}/${round}`));
+      g.body.appendChild(el('p', 'note', `perfect rounds${longest ? ` · longest pattern ${longest} squares` : ''}`));
+      o.onDone({ item, s: round ? passed / round : 0, secs: Math.round((Date.now() - t0) / 1000), summary: `${passed} of ${round} patterns`, best: [`memory-${o.diff}`, longest], after: g.after });
+    }
+    return api;
+  }
+
+  const INKS = [['Red', '--ink-red', 'r'], ['Blue', '--ink-blue', 'b'], ['Green', '--ink-green', 'g'], ['Yellow', '--ink-yellow', 'y']];
+  const FOCUS_TARGET = { easy: 18, medium: 15, hard: 12 }; // a strong score per 30 seconds
+  function FocusGame(host, o) {
+    const item = { cat: 'focus', diff: o.diff };
+    const g = gameShell(host, item, o.label);
+    const api = { done: false, iv: 0, key: () => false, stop() { clearInterval(api.iv); } };
+    const tricky = o.diff === 'easy' ? 0.5 : 0.8, flips = o.diff === 'hard';
+    let right = 0, wrong = 0, t0 = 0, over = false, trial = null, wordEl, ruleEl, sc, setBar, btns;
+    countIn(g.body, 'Tap the colour of the ink, not the word',
+      `The word BLUE might be printed in red ink. Tap Red. ${flips ? 'Watch the yellow banner: sometimes it asks for the word instead.' : ''} You have ${o.secs} seconds. Keys 1–4 work too.`, play, api);
+    function play() {
+      g.body.textContent = '';
+      setBar = countdownBar(g.body);
+      sc = el('div', 'scoreline'); g.body.appendChild(sc);
+      ruleEl = el('span', 'stroop-rule'); g.body.appendChild(ruleEl);
+      wordEl = el('div', 'stroop-word'); wordEl.setAttribute('aria-live', 'polite'); g.body.appendChild(wordEl);
+      const box = el('div', 'stroop-btns');
+      btns = INKS.map(([name, v], i) => {
+        const b = el('button', 'press');
+        b.type = 'button';
+        const sw = el('i'); sw.style.background = `var(${v})`;
+        b.appendChild(sw); b.appendChild(document.createTextNode(name));
+        b.addEventListener('click', () => answer(i));
+        box.appendChild(b);
+        return b;
+      });
+      g.body.appendChild(box);
+      next();
+      t0 = performance.now();
+      api.iv = setInterval(tick, 100);
+    }
+    function next() {
+      const word = rnd(0, 3);
+      let ink = word;
+      if (Math.random() < tricky) while (ink === word) ink = rnd(0, 3);
+      const rule = flips && Math.random() < 0.3 ? 'word' : 'ink';
+      trial = { word, ink, want: rule === 'ink' ? ink : word };
+      ruleEl.textContent = rule === 'ink' ? 'Tap the INK colour' : 'Tap the WORD';
+      ruleEl.className = 'stroop-rule' + (rule === 'word' ? ' word' : '');
+      wordEl.textContent = INKS[word][0].toUpperCase();
+      wordEl.style.color = `var(${INKS[ink][1]})`;
+      wordEl.classList.remove('flash-good'); void wordEl.offsetWidth;
+      sc.textContent = '';
+      const a = el('span', ''); a.appendChild(el('b', '', String(right))); a.appendChild(document.createTextNode(' right'));
+      sc.appendChild(a);
+    }
+    function answer(i) {
+      if (over || !trial) return;
+      if (i === trial.want) { right++; tone(820, .05, 'triangle', 0, .07); wordEl.classList.add('flash-good'); }
+      else { wrong++; tone(200, .12, 'sawtooth', 0, .04); btns[i].classList.remove('wrong'); void btns[i].offsetWidth; btns[i].style.animation = 'shake .3s'; setTimeout(() => { btns[i].style.animation = ''; }, 320); }
+      next();
+    }
+    function tick() {
+      const left = Math.max(0, o.secs - (performance.now() - t0) / 1000);
+      setBar(left / o.secs);
+      if (left <= 0) finish();
+    }
+    function finish() {
+      over = true; api.done = true; clearInterval(api.iv);
+      const acc = right + wrong ? right / (right + wrong) : 0;
+      const s = acc * Math.min(1, right / (FOCUS_TARGET[o.diff] * o.secs / 30));
+      g.body.textContent = '';
+      g.body.appendChild(el('div', 'big-count', String(right)));
+      g.body.appendChild(el('p', 'note', `right in ${o.secs} seconds · ${Math.round(acc * 100)}% accurate`));
+      o.onDone({ item, s, secs: o.secs, summary: `${right} right, ${Math.round(acc * 100)}% accurate`, best: [`focus-${o.diff}-${o.secs}`, right], after: g.after });
+    }
+    api.key = e => {
+      if (over || !trial) return false;
+      const k = e.key.toLowerCase();
+      let i = /^[1-4]$/.test(k) ? Number(k) - 1 : INKS.findIndex(x => x[2] === k);
+      if (i >= 0) { answer(i); return true; }
+      return false;
+    };
+    return api;
+  }
+  function runGame(cat, host, o) {
+    if (cat === 'speed') return SpeedGame(host, Object.assign({ secs: 60 }, o));
+    if (cat === 'memory') return MemoryGame(host, o);
+    return FocusGame(host, Object.assign({ secs: 30 }, o));
+  }
+  // Records a finished game, shows XP and personal bests, and has Peanut react.
+  function finishGame(res, mode) {
+    const ok = res.s >= 0.6;
+    const xp = record(res.item, ok, res.secs, false, mode, 0, res.s);
+    const [bk, bv] = res.best;
+    const isBest = bv > 0 && bv > (state.bests[bk] || 0);
+    if (isBest) state.bests[bk] = bv;
+    save();
+    const v = el('div', 'verdict ' + (ok ? 'good' : 'bad'));
+    const h = el('h3', '', ok ? pick(['Great round!', 'Brain on fire!', 'Sharp!']) : 'Good effort!');
+    h.appendChild(el('span', 'xp-gain', `+${xp} XP`));
+    v.appendChild(h);
+    v.appendChild(el('p', '', res.summary + '.' + (isBest ? ' That\'s a new personal best!' : '')));
+    res.after.appendChild(v);
+    if (ok || isBest) { SFX.right(); burst(innerWidth / 2, innerHeight / 3, 60); }
+    Peanut.say(isBest ? 'New personal best! I\'m trumpeting.' : ok ? pick(['Lovely round.', 'Your brain is warming up nicely.', 'Quick thinking!']) : 'Every round makes the next one easier.', ok || isBest ? 'happy' : 'idle', 2200);
+    return xp;
+  }
+
+  /* ---------- 3-minute workout ---------- */
+  let workout = null;
+  // Each skill's Brain Score picks how hard its workout round is.
+  const autoDiff = cat => { const v = state.rc[cat] || 1000; return v < 1000 ? 'easy' : v < 1150 ? 'medium' : 'hard'; };
+  function planWorkout() {
+    return [
+      { kind: 'speed', name: 'Speed maths warm-up' },
+      state.daily[todayKey] ? { kind: 'question', name: 'Bonus question' } : { kind: 'qotd', name: 'Question of the Day' },
+      { kind: 'memory', name: 'Memory' },
+      state.words[todayKey] ? { kind: 'focus', name: 'Focus' } : { kind: 'word', name: 'Word of the Day' },
+    ];
+  }
+  function workoutCard(host) {
+    const done = state.workouts[todayKey];
+    const c = el('section', 'workout-card');
+    c.appendChild(el('h2', '', done ? `Workout done in ${fmtTime(done.secs)}. Brain warmed up!` : 'Your 3-minute brain workout'));
+    c.appendChild(el('p', '', done ? `+${done.xp} XP. Run it again any time, or head to Practice.` : 'Four quick rounds back to back. The difficulty adjusts to how you are doing.'));
+    const ol = el('ol', 'steps');
+    planWorkout().forEach((st, i) => { const li = el('li', done ? 'done' : ''); li.appendChild(el('b', '', String(i + 1))); li.appendChild(document.createTextNode(st.name)); ol.appendChild(li); });
+    c.appendChild(ol);
+    const b = el('button', 'press btn primary', done ? 'Do it again' : 'Start workout');
+    b.type = 'button';
+    b.addEventListener('click', () => { SFX.tap(); startWorkout(); });
+    c.appendChild(b);
+    host.appendChild(c);
+  }
+  function startWorkout() {
+    if (dailySheet) dailySheet.stop();
+    workout = { steps: planWorkout(), i: -1, t0: Date.now(), xp0: state.xp, results: [], cur: null };
+    const host = $('view-daily');
+    host.textContent = '';
+    const bar = el('div', 'wk-bar');
+    const lbl = el('span', 'lbl'), dots = el('div', 'wk-dots');
+    const quit = el('button', 'btn quiet', 'Quit workout');
+    quit.type = 'button';
+    quit.addEventListener('click', endWorkout);
+    bar.append(lbl, dots, quit);
+    const stepHost = el('div', '');
+    stepHost.style.marginTop = '14px';
+    host.append(bar, stepHost);
+    workout.ui = { lbl, dots, quit, stepHost };
+    nextStep();
+  }
+  function endWorkout() {
+    if (workout && workout.cur) workout.cur.stop();
+    workout = null; dailySheet = null;
+    renderDaily();
+  }
+  function nextStep() {
+    const w = workout;
+    if (!w) return;
+    if (w.cur) w.cur.stop();
+    w.i++;
+    if (w.i >= w.steps.length) return workoutSummary();
+    const st = w.steps[w.i], { lbl, dots, stepHost } = w.ui;
+    lbl.textContent = `Step ${w.i + 1} of ${w.steps.length}: ${st.name}`;
+    dots.textContent = '';
+    w.steps.forEach((_, j) => dots.appendChild(el('i', j < w.i ? 'done' : j === w.i ? 'now' : '')));
+    stepHost.textContent = '';
+    lbl.scrollIntoView({ block: 'nearest', behavior: reduced() ? 'auto' : 'smooth' });
+    const last = w.i === w.steps.length - 1;
+    const nextBtn = box => {
+      const a = el('div', 'actions');
+      const b = el('button', 'press btn primary', last ? 'Finish workout' : 'Next step');
+      b.type = 'button';
+      b.addEventListener('click', () => { SFX.tap(); nextStep(); });
+      a.appendChild(b); box.appendChild(a);
+      b.focus({ preventScroll: true });
+    };
+    const label = `Workout ${w.i + 1}/${w.steps.length}`;
+    const game = (cat, extra, line) => {
+      Peanut.say(line, 'idle');
+      w.cur = runGame(cat, stepHost, Object.assign({ diff: autoDiff(cat), label, onDone(res) { finishGame(res, 2); w.results.push([st.name, res.summary]); nextBtn(res.after); } }, extra));
+    };
+    if (st.kind === 'speed') game('speed', { secs: 30 }, 'Warm-up! Quick sums, as many as you can in 30 seconds.');
+    else if (st.kind === 'memory') game('memory', { rounds: 3 }, 'Memory time. Three patterns. Watch the squares closely.');
+    else if (st.kind === 'focus') game('focus', { secs: 20 }, 'Last one: tap the ink colour, not the word!');
+    else if (st.kind === 'qotd' || st.kind === 'question') {
+      let q;
+      if (st.kind === 'qotd') q = dailyQuestion();
+      else { const cat = pick(QCATS.filter(c => c !== 'verbal')); q = E.generate({ seed: (Math.random() * 4294967296) >>> 0, cat, diff: autoDiff(cat) }); }
+      Peanut.say(st.kind === 'qotd' ? `Now the Question of the Day: ${CAT[q.cat].name.toLowerCase()}. Take your time.` : `Bonus question: ${CAT[q.cat].short}. Take your time.`, 'idle');
+      w.cur = Sheet(stepHost, q, {
+        label: st.kind === 'qotd' ? `Question of the Day · No. ${dayIndex(todayKey) + 1}` : label,
+        onAnswer(choice, ok, secs, hint) {
+          const xp = st.kind === 'qotd' ? answerDaily(q, choice, ok, secs, hint) : record(q, ok, secs, hint, 2);
+          if (st.kind !== 'qotd') save();
+          w.results.push([st.name, ok ? 'Right' : 'Missed it']);
+          Peanut.say(ok ? pick(['Nailed it!', 'Big brain move.', 'Exactly right.']) : 'Tricky one. The explanation shows the trick.', ok ? 'happy' : 'sad', 2000);
+          return xp;
+        },
+        after: box => nextBtn(box),
+      });
+    } else if (st.kind === 'word') {
+      Peanut.say('Last one: the Word of the Day. What do you think it means?', 'idle');
+      w.cur = null;
+      renderWord(stepHost, (ok, card) => { w.results.push([st.name, ok ? 'Knew it' : 'Learned it']); nextBtn(card); });
+    }
+  }
+  function workoutSummary() {
+    const w = workout, { lbl, dots, quit, stepHost } = w.ui;
+    w.cur = null;
+    const secs = Math.round((Date.now() - w.t0) / 1000);
+    gainXP(25);
+    const xp = state.xp - w.xp0;
+    const prevW = state.workouts[todayKey];
+    state.workouts[todayKey] = { secs, xp, n: ((prevW && prevW.n) || 0) + 1 };
+    save();
+    lbl.textContent = 'Workout complete!';
+    dots.textContent = '';
+    w.steps.forEach(() => dots.appendChild(el('i', 'done')));
+    quit.hidden = true;
+    stepHost.textContent = '';
+    const card = el('article', 'sheet enter');
+    card.appendChild(el('h2', 'prompt', 'Brain warmed up!'));
+    card.appendChild(el('p', 'note', `Done in ${fmtTime(secs)} · +${xp} XP including a 25 XP workout bonus`));
+    const ul = el('ul', 'summary-list');
+    w.results.forEach(([n, r]) => { const li = el('li'); li.append(el('span', '', n), el('span', '', r)); ul.appendChild(li); });
+    card.appendChild(ul);
+    const a = el('div', 'actions');
+    const more = el('button', 'press btn primary', 'Keep practising'); more.type = 'button';
+    more.addEventListener('click', () => { endWorkout(); show('practice'); });
+    const back = el('button', 'press btn', 'Back to Today'); back.type = 'button';
+    back.addEventListener('click', endWorkout);
+    a.append(more, back); card.appendChild(a);
+    stepHost.appendChild(card);
+    SFX.level(); burst(); setTimeout(() => burst(innerWidth / 4, innerHeight / 2, 50), 250); setTimeout(() => burst(innerWidth * 3 / 4, innerHeight / 2, 50), 500);
+    Peanut.say(`Workout done in ${fmtTime(secs)}! Your brain is officially switched on. See you tomorrow.`, 'happy', 3200);
   }
 
   /* ---------- Practice ---------- */
@@ -1768,10 +2370,11 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
     const chips = $('chips');
     chips.textContent = '';
     [{ id: 'all', short: 'Mixed' }].concat(E.CATEGORIES).forEach(c => {
+      if (c.id === 'memory') chips.appendChild(el('span', 'ctl-label', 'Games:'));
       const b = el('button', 'press chip');
       b.type = 'button';
       const dot = el('span', 'dot');
-      dot.style.background = c.id === 'all' ? 'conic-gradient(var(--c-sequences) 0 60deg, var(--c-matrices) 0 120deg, var(--c-arithmetic) 0 180deg, var(--c-logic) 0 240deg, var(--c-letters) 0 300deg, var(--c-verbal) 0)' : `var(--c-${c.id})`;
+      dot.style.background = c.id === 'all' ? 'conic-gradient(var(--c-sequences) 0 51deg, var(--c-matrices) 0 103deg, var(--c-arithmetic) 0 154deg, var(--c-logic) 0 206deg, var(--c-letters) 0 257deg, var(--c-verbal) 0 309deg, var(--c-spatial) 0)' : `var(--c-${c.id})`;
       b.appendChild(dot);
       b.appendChild(document.createTextNode(c.short));
       b.setAttribute('aria-pressed', String(state.prefs.cat === c.id));
@@ -1786,7 +2389,25 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
   };
   function nextPractice() {
     if (practiceSheet) practiceSheet.stop();
-    const cat = state.prefs.cat === 'all' ? pick(CATS) : state.prefs.cat;
+    const cat = state.prefs.cat === 'all' ? pick(QCATS) : state.prefs.cat;
+    if (CAT[cat].game) {
+      practiceSheet = runGame(cat, $('practice-sheet'), {
+        diff: state.prefs.diff, label: `Practice ${sessionSeen + 1}`,
+        onDone(res) {
+          sessionSeen++;
+          finishGame(res, 1);
+          const a = el('div', 'actions');
+          const again = el('button', 'press btn primary', 'Play again');
+          again.type = 'button';
+          again.addEventListener('click', () => { SFX.tap(); nextPractice(); });
+          a.appendChild(again);
+          res.after.appendChild(a);
+          again.focus({ preventScroll: true });
+        },
+      });
+      if (view === 'practice') Peanut.say(GAME_INTRO[cat], 'idle');
+      return;
+    }
     const seed = (Math.random() * 4294967296) >>> 0;
     const q = E.generate({ seed, cat, diff: state.prefs.diff, avoid: recentVerbal });
     if (q.verbalId !== undefined) { recentVerbal.push(q.verbalId); if (recentVerbal.length > 12) recentVerbal.shift(); }
@@ -1948,6 +2569,8 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
     const weekAgo = Date.now() - 7 * DAY;
     const gains = CATS.map(c => [c, (state.rc[c] || 1000) - scoreAt(weekAgo, c)]).filter(([, g]) => g !== 0).sort((a, b) => b[1] - a[1]);
     if (gains.length && gains[0][1] > 0) parts.push(`Biggest gain: ${CAT[gains[0][0]].short} (+${gains[0][1]}).`);
+    const wks = Object.keys(state.workouts).filter(k => parseKey(k).getTime() > Date.now() - 7 * DAY).length;
+    if (wks) parts.push(`${wks} workout${wks === 1 ? '' : 's'} done.`);
     return parts.join(' ');
   }
   function renderProgress() {
@@ -2050,10 +2673,25 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
     }
     wrap.appendChild(sk);
 
+    // Personal bests from the games
+    const bp = el('section', 'panel');
+    bp.appendChild(el('h2', '', 'Personal bests'));
+    bp.appendChild(el('p', 'sub', 'Your top score in each game when you play it in Practice'));
+    const bg = el('div', 'bests');
+    [['speed', 'Speed maths', d => `speed-${d}-60`, 'sums in 60 s'], ['memory', 'Memory', d => `memory-${d}`, 'square pattern'], ['focus', 'Focus', d => `focus-${d}-30`, 'right in 30 s']].forEach(([cat, name, key, unit]) => {
+      const s = el('div', 'stat');
+      const t = el('span', 'l'); t.textContent = name; t.style.color = 'var(--ink)'; t.style.fontSize = '0.95rem';
+      s.appendChild(t);
+      E.DIFFS.forEach(d => { const v = state.bests[key(d)]; s.appendChild(el('span', 'l', `${DIFF_LABEL[d]}: ${v ? v + ' ' + unit : '–'}`)); });
+      bg.appendChild(s);
+    });
+    bp.appendChild(bg);
+    wrap.appendChild(bp);
+
     // Daily record
     const cal = el('section', 'panel');
     cal.appendChild(el('h2', '', 'Question of the Day record'));
-    cal.appendChild(el('p', 'sub', `Last 4 weeks · best streak ${Math.max(state.best, streak())} days · ${Object.keys(state.words).length} words learned`));
+    cal.appendChild(el('p', 'sub', `Last 4 weeks · best streak ${Math.max(state.best, streak())} days · ${Object.keys(state.words).length} words learned · ${Object.keys(state.workouts).length} workouts`));
     const cg = el('div', 'cal');
     const calStart = addDays(today, -(21 + today.getDay()));
     ['S', 'M', 'T', 'W', 'T', 'F', 'S'].forEach(d => cg.appendChild(el('div', 'dow', d)));
@@ -2088,7 +2726,7 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
     if (bump) ['level-pill', 'streak-pill'].forEach(id => { const n = $(id); n.classList.remove('bump'); void n.offsetWidth; n.classList.add('bump'); });
   }
   let view = 'daily';
-  const current = () => (view === 'daily' ? dailySheet : view === 'practice' ? practiceSheet : null);
+  const current = () => (view === 'daily' ? (workout ? workout.cur : dailySheet) : view === 'practice' ? practiceSheet : null);
   function show(v) {
     view = v;
     ['daily', 'practice', 'progress'].forEach(n => {

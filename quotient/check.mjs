@@ -22,7 +22,7 @@ const bad = /undefined|NaN|Infinity|\[object/;
 let failures = 0, total = 0;
 const fail = (q, msg) => { if (failures++ < 15) console.log('FAIL', q.cat, q.diff, q.seed, msg, '\n ', q.prompt); };
 
-for (const { id: cat } of E.CATEGORIES) {
+for (const { id: cat } of E.CATEGORIES.filter(c => !c.game)) {
   for (const diff of E.DIFFS) {
     for (let seed = 1; seed <= 3000; seed++) {
       const q = E.generate({ seed, cat, diff });
@@ -32,6 +32,14 @@ for (const { id: cat } of E.CATEGORIES) {
       if (q.options.length < min) fail(q, `only ${q.options.length} options`);
       if (new Set(keys).size !== keys.length) fail(q, 'duplicate options');
       if (!(q.answer >= 0 && q.answer < q.options.length)) fail(q, 'answer missing');
+      if (cat === 'spatial') {
+        // Exactly one option may be reachable by turning the shape.
+        const norm = cs => { const a = Math.min(...cs.map(x => x[0])), b = Math.min(...cs.map(x => x[1])); return JSON.stringify(cs.map(([r, c]) => [r - a, c - b]).sort((x, y) => x[0] - y[0] || x[1] - y[1])); };
+        const turnsOf = new Set(); let cs = q.stem.cells;
+        for (let k = 0; k < 4; k++) { turnsOf.add(norm(cs)); cs = cs.map(([r, c]) => [c, -r]); }
+        const hits = q.options.filter(o => turnsOf.has(norm(o))).length;
+        if (hits !== 1) fail(q, `${hits} options are turns of the shape`);
+      }
       const text = [q.prompt, q.hint, q.why, JSON.stringify(q.stem), ...keys].join(' ');
       if (bad.test(text)) fail(q, 'bad text: ' + text.match(bad)[0]);
     }
