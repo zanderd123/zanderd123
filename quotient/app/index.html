@@ -3,6 +3,15 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="A few minutes a day to get your brain going: puzzles, memory, speed and focus games with Peanut the elephant.">
+<meta name="theme-color" content="#d9eeff">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Quotient">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}[hidden]{display:none!important}</style>
 </head>
 <body>
@@ -374,6 +383,37 @@ details.numbers summary { cursor: pointer; color: var(--muted); font-weight: 800
 .flash-good { animation: yay .3s; }
 .bests { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
 
+/* Game picker and the new games */
+.why-box { background: var(--accent-soft); border: 2px solid var(--accent); border-radius: 14px; padding: 10px 14px; text-align: left; max-width: 520px; width: 100%; }
+.why-box b { font-family: var(--display); font-weight: 600; font-size: 1rem; }
+.why-box p { margin: 4px 0 0; font-weight: 600; font-size: 0.95rem; }
+.chooser { display: flex; flex-direction: column; gap: 14px; }
+.game-card { gap: 10px; }
+.gc-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.gc-head h2 { margin: 0; font-family: var(--display); font-weight: 600; font-size: 1.35rem; }
+.gc-best { color: var(--muted); font-weight: 800; font-size: 0.85rem; }
+.game-card .helps { margin: 0; font-weight: 700; }
+.game-card .helps b { color: var(--accent); }
+.digit-show { font-family: var(--display); font-weight: 700; font-size: 5rem; line-height: 1.1; min-height: 1.15em; color: var(--c-memory); font-variant-numeric: tabular-nums; }
+.cmp-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; width: 100%; max-width: 440px; }
+.cmp-row button { padding: 24px 8px; font-family: var(--display); font-weight: 600; font-size: 1.7rem; font-variant-numeric: tabular-nums; }
+.sym-pair { display: flex; flex-direction: column; gap: 10px; padding: 14px; background: var(--soft); border-radius: 14px; border: 2px solid var(--line); }
+.sym-row { display: flex; gap: 8px; justify-content: center; }
+.sym-row svg { width: 40px; height: 40px; }
+.sym { fill: var(--ink); }
+.sym-o { fill: none; stroke: var(--ink); stroke-width: 3; }
+.two-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; max-width: 360px; }
+.two-btns button { padding: 14px; font-family: var(--display); font-weight: 600; font-size: 1.15rem; display: flex; gap: 8px; justify-content: center; align-items: center; }
+.two-btns svg { width: 26px; height: 26px; }
+.arrows { display: flex; gap: 6px; justify-content: center; min-height: 56px; }
+.arrows svg { width: 44px; height: 44px; }
+.arrow { fill: var(--ink); }
+.go-stage { width: 170px; height: 170px; border-radius: 26px; border: 3px solid var(--ink); background: var(--soft); display: grid; place-items: center; cursor: pointer; padding: 0; }
+.go-stage svg { width: 120px; height: 120px; }
+.go-stage.hit { background: var(--good-soft); border-color: var(--good); }
+.go-stage.oops { background: var(--bad-soft); border-color: var(--bad); animation: shake .35s; }
+.tap-btn { padding: 14px 48px; font-size: 1.3rem; }
+
 /* Test mode */
 .test-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .test-bar .lbl { font-family: var(--display); font-weight: 600; font-size: 1.1rem; }
@@ -412,6 +452,10 @@ details.numbers summary { cursor: pointer; color: var(--muted); font-weight: 800
   .skill { grid-template-columns: 92px 1fr 78px; }
   .bests { grid-template-columns: 1fr; }
   .tab { font-size: 0.95rem; padding: 9px 2px; }
+  .digit-show { font-size: 4rem; }
+  .cmp-row button { font-size: 1.4rem; }
+  .arrows svg { width: 34px; height: 34px; }
+  .sym-row svg { width: 34px; height: 34px; }
   .score-big { font-size: 3.8rem; }
   .problem { font-size: 2.2rem; }
   .stroop-word { font-size: 2.8rem; }
@@ -1960,11 +2004,6 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
 
 
   /* ---------- Games: speed maths, memory, focus ---------- */
-  const GAME_INTRO = {
-    speed: 'Speed maths! Quick sums, as many as you can before the bar runs out.',
-    memory: 'Memory! Watch which squares light up, then tap them back.',
-    focus: 'Focus! Tap the colour of the ink, not the word. Harder than it sounds.',
-  };
   function gameShell(host, item, label) {
     host.textContent = '';
     const card = el('article', 'sheet enter');
@@ -1981,10 +2020,23 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
     return { card, body, after };
   }
   // Intro text and a Start button, then a 3-2-1 count before play begins.
-  function countIn(body, title, intro, onGo, api) {
+  function whyBox(text) {
+    const d = el('div', 'why-box');
+    d.appendChild(el('b', '', 'How this helps your brain'));
+    d.appendChild(el('p', '', text));
+    return d;
+  }
+  function scoreLine(body, pairs) {
+    const sc = el('div', 'scoreline');
+    pairs.forEach(([l, v]) => { const x = el('span', ''); x.appendChild(document.createTextNode(l + ' ')); x.appendChild(el('b', '', String(v))); sc.appendChild(x); });
+    body.appendChild(sc);
+    return sc;
+  }
+  function countIn(body, title, intro, onGo, api, why) {
     body.textContent = '';
     body.appendChild(el('h2', 'prompt', title));
     body.appendChild(el('p', 'note', intro));
+    if (why) body.appendChild(whyBox(why));
     const go = el('button', 'press btn primary', 'Start');
     go.type = 'button';
     body.appendChild(go);
@@ -2032,7 +2084,7 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
     const g = gameShell(host, item, o.label);
     const api = { done: false, iv: 0, key: () => false, stop() { clearInterval(api.iv); } };
     let typed = '', prob = null, right = 0, wrong = 0, t0 = 0, over = false, box, probEl, sc, setBar;
-    countIn(g.body, `How many sums can you solve in ${o.secs} seconds?`, 'Type each answer on the keypad or keyboard. It checks itself as you type. Enter skips.', play, api);
+    countIn(g.body, `How many sums can you solve in ${o.secs} seconds?`, 'Type each answer on the keypad or keyboard. It checks itself as you type. Enter skips.', play, api, o.why);
     function play() {
       g.body.textContent = '';
       setBar = countdownBar(g.body);
@@ -2110,7 +2162,7 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
     let round = 0, passed = 0, fails = 0, span = cfg.start, longest = 0;
     const t0 = Date.now();
     countIn(g.body, 'Remember the pattern',
-      `Some squares light up for a moment. Tap the same squares from memory. ${o.rounds ? `${o.rounds} rounds.` : 'Each perfect round adds a square. Two misses ends the game.'}`, nextRound, api);
+      `Some squares light up for a moment. Tap the same squares from memory. ${o.rounds ? `${o.rounds} rounds.` : 'Each perfect round adds a square. Two misses ends the game.'}`, nextRound, api, o.why);
     function nextRound() {
       if (round >= maxRounds || fails >= lives) return finish();
       round++;
@@ -2182,7 +2234,7 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
     const tricky = o.diff === 'easy' ? 0.5 : 0.8, flips = o.diff === 'hard';
     let right = 0, wrong = 0, t0 = 0, over = false, trial = null, wordEl, ruleEl, sc, setBar, btns;
     countIn(g.body, 'Tap the colour of the ink, not the word',
-      `The word BLUE might be printed in red ink. Tap Red. ${flips ? 'Watch the yellow banner: sometimes it asks for the word instead.' : ''} You have ${o.secs} seconds. Keys 1–4 work too.`, play, api);
+      `The word BLUE might be printed in red ink. Tap Red. ${flips ? 'Watch the yellow banner: sometimes it asks for the word instead.' : ''} You have ${o.secs} seconds. Keys 1–4 work too.`, play, api, o.why);
     function play() {
       g.body.textContent = '';
       setBar = countdownBar(g.body);
@@ -2248,10 +2300,491 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
     };
     return api;
   }
-  function runGame(cat, host, o) {
-    if (cat === 'speed') return SpeedGame(host, Object.assign({ secs: 60 }, o));
-    if (cat === 'memory') return MemoryGame(host, o);
-    return FocusGame(host, Object.assign({ secs: 30 }, o));
+
+  /* Memory: Sequence (repeat the order squares light up in) */
+  const SEQ_START = { easy: 3, medium: 4, hard: 5 };
+  function SequenceGame(host, o) {
+    const item = { cat: 'memory', diff: o.diff };
+    const g = gameShell(host, item, o.label);
+    const api = { done: false, iv: 0, t: 0, key: () => false, stop() { clearInterval(api.iv); clearTimeout(api.t); } };
+    const maxRounds = o.rounds || 12, lives = o.rounds ? Infinity : 2;
+    const on = o.diff === 'hard' ? 430 : 560, off = o.diff === 'hard' ? 150 : 200;
+    let round = 0, passed = 0, fails = 0, len = SEQ_START[o.diff], longest = 0;
+    const t0 = Date.now();
+    countIn(g.body, 'Repeat the order',
+      `Squares light up one at a time. Tap them back in the same order. ${o.rounds ? `${o.rounds} rounds.` : 'Each perfect round adds one more. Two misses ends the game.'}`, nextRound, api, o.why);
+    function nextRound() {
+      if (round >= maxRounds || fails >= lives) return finish();
+      round++;
+      g.body.textContent = '';
+      scoreLine(g.body, [['Round', `${round}${o.rounds ? ' of ' + o.rounds : ''}`], ['Length', len], ['Perfect', passed]]);
+      const status = el('p', 'note', 'Watch the order…');
+      status.setAttribute('aria-live', 'polite');
+      g.body.appendChild(status);
+      const grid = el('div', 'mem-grid showing');
+      grid.style.gridTemplateColumns = 'repeat(3, 1fr)';
+      const cells = [];
+      for (let i = 0; i < 9; i++) { const b = el('button', 'press'); b.type = 'button'; b.disabled = true; b.setAttribute('aria-label', `Square ${i + 1}`); grid.appendChild(b); cells.push(b); }
+      g.body.appendChild(grid);
+      const seq = [];
+      while (seq.length < len) { const c = rnd(0, 8); if (c !== seq[seq.length - 1]) seq.push(c); }
+      let k = 0;
+      const flash = () => {
+        if (k >= seq.length) {
+          grid.classList.remove('showing');
+          status.textContent = 'Your turn: tap them in order.';
+          cells.forEach(b => { b.disabled = false; });
+          return;
+        }
+        const c = cells[seq[k]];
+        c.classList.add('lit'); tone(392 + seq[k] * 45, on / 1000 * 0.8, 'triangle', 0, .07);
+        api.t = setTimeout(() => { c.classList.remove('lit'); k++; api.t = setTimeout(flash, off); }, on);
+      };
+      api.t = setTimeout(flash, 500);
+      let pos = 0, settled = false;
+      cells.forEach((b, i) => b.addEventListener('click', () => {
+        if (settled) return;
+        if (i === seq[pos]) {
+          pos++;
+          b.classList.add('found'); tone(392 + i * 45, .12, 'triangle', 0, .08);
+          setTimeout(() => b.classList.remove('found'), 220);
+          if (pos === seq.length) {
+            settled = true; passed++; longest = Math.max(longest, len);
+            status.textContent = pick(['Perfect order!', 'Spot on!', 'Elephant memory!']);
+            SFX.right();
+            if (len < 10) len++;
+            api.t = setTimeout(nextRound, 800);
+          }
+        } else {
+          settled = true; fails++;
+          b.classList.add('miss'); cells[seq[pos]].classList.add('missed');
+          status.textContent = `Not quite. Number ${pos + 1} in the order was the faded square.`;
+          SFX.wrong();
+          cells.forEach(x => { x.disabled = true; });
+          api.t = setTimeout(nextRound, 1700);
+        }
+      }));
+    }
+    function finish() {
+      api.done = true;
+      g.body.textContent = '';
+      g.body.appendChild(el('div', 'big-count', `${passed}/${round}`));
+      g.body.appendChild(el('p', 'note', `perfect rounds${longest ? ` · longest sequence ${longest}` : ''}`));
+      o.onDone({ item, s: round ? passed / round : 0, secs: Math.round((Date.now() - t0) / 1000), summary: `${passed} of ${round} sequences`, best: [`sequence-${o.diff}`, longest], after: g.after });
+    }
+    return api;
+  }
+
+  /* Memory: Number Span (digits one at a time, typed back; backwards on Hard) */
+  const DIG_START = { easy: 4, medium: 5, hard: 4 };
+  function DigitGame(host, o) {
+    const item = { cat: 'memory', diff: o.diff }, back = o.diff === 'hard';
+    const g = gameShell(host, item, o.label);
+    const api = { done: false, iv: 0, t: 0, key: () => false, stop() { clearInterval(api.iv); clearTimeout(api.t); } };
+    const maxRounds = o.rounds || 12, lives = o.rounds ? Infinity : 2, show = back ? 750 : 850;
+    let round = 0, passed = 0, fails = 0, len = DIG_START[o.diff], longest = 0, typing = null;
+    const t0 = Date.now();
+    countIn(g.body, back ? 'Remember the numbers, then type them backwards' : 'Remember the numbers',
+      `Digits appear one at a time. When they stop, type them ${back ? 'in reverse order (last one first)' : 'in the same order'}. ${o.rounds ? `${o.rounds} rounds.` : 'Each perfect round adds a digit. Two misses ends the game.'}`, nextRound, api, o.why);
+    function nextRound() {
+      typing = null;
+      if (round >= maxRounds || fails >= lives) return finish();
+      round++;
+      g.body.textContent = '';
+      scoreLine(g.body, [['Round', `${round}${o.rounds ? ' of ' + o.rounds : ''}`], ['Digits', len], ['Perfect', passed]]);
+      const status = el('p', 'note', 'Watch…');
+      status.setAttribute('aria-live', 'polite');
+      const disp = el('div', 'digit-show', ' ');
+      g.body.append(status, disp);
+      const digits = [];
+      while (digits.length < len) { const d = rnd(0, 9); if (d !== digits[digits.length - 1]) digits.push(d); }
+      let k = 0;
+      const next = () => {
+        if (k >= digits.length) return ask();
+        disp.textContent = digits[k]; tone(440, .08, 'sine', 0, .06);
+        api.t = setTimeout(() => { disp.textContent = ' '; k++; api.t = setTimeout(next, 250); }, show);
+      };
+      api.t = setTimeout(next, 500);
+      function ask() {
+        disp.remove();
+        status.textContent = back ? 'Type them backwards, last digit first.' : 'Type them in order.';
+        const box = el('div', 'answer-box', ' ');
+        const pad = el('div', 'keypad');
+        let typed = '';
+        const want = (back ? digits.slice().reverse() : digits).join('');
+        const press = key => {
+          if (typed === null) return;
+          if (key === '⌫') { typed = typed.slice(0, -1); box.textContent = typed || ' '; return; }
+          if (!/^[0-9]$/.test(key)) return;
+          typed += key; box.textContent = typed; tone(600, .04, 'square', 0, .03);
+          if (typed.length < want.length) return;
+          const ok = typed === want;
+          typed = null; typing = null;
+          if (ok) { passed++; longest = Math.max(longest, len); box.className = 'answer-box good'; status.textContent = pick(['Perfect!', 'Every digit!', 'Elephant memory!']); SFX.right(); if (len < 12) len++; api.t = setTimeout(nextRound, 900); }
+          else { fails++; box.className = 'answer-box bad'; status.textContent = `It was ${want.split('').join(' ')}.`; SFX.wrong(); api.t = setTimeout(nextRound, 1900); }
+        };
+        ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', '⌫'].forEach(kk => {
+          const b = el('button', 'press', kk); b.type = 'button';
+          if (!kk) b.style.visibility = 'hidden';
+          if (kk === '⌫') b.setAttribute('aria-label', 'Delete');
+          b.addEventListener('click', () => press(kk));
+          pad.appendChild(b);
+        });
+        g.body.append(box, pad);
+        typing = press;
+      }
+    }
+    function finish() {
+      api.done = true;
+      g.body.textContent = '';
+      g.body.appendChild(el('div', 'big-count', `${passed}/${round}`));
+      g.body.appendChild(el('p', 'note', `perfect rounds${longest ? ` · longest ${longest} digits${back ? ' backwards' : ''}` : ''}`));
+      o.onDone({ item, s: round ? passed / round : 0, secs: Math.round((Date.now() - t0) / 1000), summary: `${passed} of ${round} spans`, best: [`digits-${o.diff}`, longest], after: g.after });
+    }
+    api.key = e => {
+      if (!typing) return false;
+      if (/^[0-9]$/.test(e.key)) { typing(e.key); return true; }
+      if (e.key === 'Backspace') { typing('⌫'); return true; }
+      return false;
+    };
+    return api;
+  }
+
+  // Shared clock for the timed games: calls each(left) and then end() when time is up.
+  function timed(api, secs, setBar, end) {
+    const t0 = performance.now();
+    api.iv = setInterval(() => {
+      const left = Math.max(0, secs - (performance.now() - t0) / 1000);
+      setBar(left / secs);
+      if (left <= 0) { clearInterval(api.iv); end(); }
+    }, 100);
+  }
+  function timedResult(g, right, wrong, secs, target, extra) {
+    const acc = right + wrong ? right / (right + wrong) : 0;
+    g.body.textContent = '';
+    g.body.appendChild(el('div', 'big-count', String(right)));
+    g.body.appendChild(el('p', 'note', `right in ${secs} seconds · ${Math.round(acc * 100)}% accurate${extra || ''}`));
+    return Math.min(1, right / target) * Math.sqrt(acc);
+  }
+
+  /* Speed: Quick Compare (tap the bigger amount) */
+  function comparePair(diff) {
+    const mk = () => {
+      if (diff === 'easy') { const v = rnd(10, 99); return [String(v), v]; }
+      if (diff === 'medium') { if (Math.random() < 0.55) { const a = rnd(10, 60), b = rnd(3, 30); return [`${a} + ${b}`, a + b]; } const v = rnd(20, 90); return [String(v), v]; }
+      if (Math.random() < 0.55) { const a = rnd(3, 12), b = rnd(3, 12); return [`${a} × ${b}`, a * b]; }
+      const a = rnd(20, 80), b = rnd(10, 50); return [`${a} + ${b}`, a + b];
+    };
+    for (;;) {
+      const L = mk(), R = mk(), gap = Math.abs(L[1] - R[1]);
+      if (!gap || (diff !== 'easy' && gap > 20)) continue;
+      return [L, R];
+    }
+  }
+  const COMPARE_TARGET = { easy: 50, medium: 32, hard: 24 }; // a strong score per 60 seconds
+  function CompareGame(host, o) {
+    const item = { cat: 'speed', diff: o.diff };
+    const g = gameShell(host, item, o.label);
+    const api = { done: false, iv: 0, key: () => false, stop() { clearInterval(api.iv); } };
+    let right = 0, wrong = 0, pair = null, over = false, btns, sc;
+    countIn(g.body, 'Tap the bigger one', `Two amounts appear. Tap the larger as fast as you can${o.diff === 'easy' ? '' : ' (you may need to work it out)'}. ${o.secs} seconds. Arrow keys work too.`, play, api, o.why);
+    function play() {
+      g.body.textContent = '';
+      const setBar = countdownBar(g.body);
+      sc = scoreLine(g.body, [['Right', 0]]);
+      const row = el('div', 'cmp-row');
+      btns = [0, 1].map(i => { const b = el('button', 'press'); b.type = 'button'; b.addEventListener('click', () => answer(i)); row.appendChild(b); return b; });
+      g.body.appendChild(row);
+      next();
+      timed(api, o.secs, setBar, finish);
+    }
+    function next() {
+      pair = comparePair(o.diff);
+      btns.forEach((b, i) => { b.textContent = pair[i][0]; });
+      sc.querySelector('b').textContent = right;
+    }
+    function answer(i) {
+      if (over || !pair) return;
+      const ok = pair[i][1] > pair[1 - i][1];
+      if (ok) { right++; tone(820, .05, 'triangle', 0, .07); }
+      else { wrong++; tone(200, .12, 'sawtooth', 0, .04); btns[i].style.animation = 'shake .3s'; setTimeout(() => { btns[i].style.animation = ''; }, 320); }
+      next();
+    }
+    function finish() {
+      over = true; api.done = true;
+      const s = timedResult(g, right, wrong, o.secs, COMPARE_TARGET[o.diff] * o.secs / 60);
+      o.onDone({ item, s, secs: o.secs, summary: `${right} right`, best: [`compare-${o.diff}-${o.secs}`, right], after: g.after });
+    }
+    api.key = e => {
+      if (over || !pair) return false;
+      if (e.key === 'ArrowLeft' || e.key === '1') { answer(0); return true; }
+      if (e.key === 'ArrowRight' || e.key === '2') { answer(1); return true; }
+      return false;
+    };
+    return api;
+  }
+
+  /* Speed: Symbol Match (are the two rows the same?) */
+  const SYM_SETS = {
+    easy: ['circle', 'square', 'triangle', 'star', 'cross', 'diamond'],
+    medium: ['circle', 'square', 'triangle', 'star', 'cross', 'diamond', 'ring', 'tri-down'],
+    hard: ['tri-up', 'tri-down', 'tri-left', 'tri-right', 'half-l', 'half-r', 'half-t', 'half-b'],
+  };
+  const SYM_LEN = { easy: 4, medium: 5, hard: 6 };
+  function starPts(cx, cy, n, r1, r2) {
+    const pts = [];
+    for (let i = 0; i < n * 2; i++) { const a = -Math.PI / 2 + i * Math.PI / n, r = i % 2 ? r2 : r1; pts.push(`${(cx + r * Math.cos(a)).toFixed(1)},${(cy + r * Math.sin(a)).toFixed(1)}`); }
+    return pts.join(' ');
+  }
+  function symSVG(id) {
+    const half = d => `<circle class="sym-o" cx="20" cy="20" r="13"/><path class="sym" d="${d}"/>`;
+    const body = {
+      circle: '<circle class="sym" cx="20" cy="20" r="14"/>',
+      ring: '<circle class="sym-o" cx="20" cy="20" r="12"/>',
+      square: '<rect class="sym" x="7" y="7" width="26" height="26" rx="2"/>',
+      triangle: '<polygon class="sym" points="20,5 35,33 5,33"/>',
+      'tri-up': '<polygon class="sym" points="20,5 35,33 5,33"/>',
+      'tri-down': '<polygon class="sym" points="5,7 35,7 20,35"/>',
+      'tri-left': '<polygon class="sym" points="33,5 33,35 5,20"/>',
+      'tri-right': '<polygon class="sym" points="7,5 7,35 35,20"/>',
+      star: `<polygon class="sym" points="${starPts(20, 21, 5, 16, 7)}"/>`,
+      cross: '<path class="sym" d="M15 5h10v10h10v10H25v10H15V25H5V15h10z"/>',
+      diamond: '<polygon class="sym" points="20,3 36,20 20,37 4,20"/>',
+      'half-l': half('M20 7 A13 13 0 0 0 20 33 Z'),
+      'half-r': half('M20 7 A13 13 0 0 1 20 33 Z'),
+      'half-t': half('M7 20 A13 13 0 0 1 33 20 Z'),
+      'half-b': half('M7 20 A13 13 0 0 0 33 20 Z'),
+    }[id];
+    return `<svg viewBox="0 0 40 40" aria-hidden="true">${body}</svg>`;
+  }
+  const SYMBOL_TARGET = { easy: 36, medium: 28, hard: 20 }; // a strong score per 60 seconds
+  function SymbolGame(host, o) {
+    const item = { cat: 'speed', diff: o.diff };
+    const g = gameShell(host, item, o.label);
+    const api = { done: false, iv: 0, key: () => false, stop() { clearInterval(api.iv); } };
+    const set = SYM_SETS[o.diff], n = SYM_LEN[o.diff];
+    let right = 0, wrong = 0, trial = null, over = false, rowA, rowB, sc;
+    countIn(g.body, 'Same or different?', `Two rows of symbols appear. Decide as fast as you can whether they are exactly the same. ${o.secs} seconds. Keys: S for same, D for different.`, play, api, o.why);
+    function play() {
+      g.body.textContent = '';
+      const setBar = countdownBar(g.body);
+      sc = scoreLine(g.body, [['Right', 0]]);
+      const pairBox = el('div', 'sym-pair');
+      rowA = el('div', 'sym-row'); rowB = el('div', 'sym-row');
+      pairBox.append(rowA, rowB);
+      g.body.appendChild(pairBox);
+      const two = el('div', 'two-btns');
+      [['Same', true], ['Different', false]].forEach(([l, v]) => { const b = el('button', 'press', l); b.type = 'button'; b.addEventListener('click', () => answer(v)); two.appendChild(b); });
+      g.body.appendChild(two);
+      next();
+      timed(api, o.secs, setBar, finish);
+    }
+    function next() {
+      const a = Array.from({ length: n }, () => pick(set));
+      const b = a.slice(), same = Math.random() < 0.5;
+      if (!same) { const i = rnd(0, n - 1); b[i] = pick(set.filter(x => x !== a[i])); }
+      trial = { same };
+      rowA.innerHTML = a.map(symSVG).join('');
+      rowB.innerHTML = b.map(symSVG).join('');
+      sc.querySelector('b').textContent = right;
+    }
+    function answer(v) {
+      if (over || !trial) return;
+      if (v === trial.same) { right++; tone(820, .05, 'triangle', 0, .07); }
+      else { wrong++; tone(200, .12, 'sawtooth', 0, .04); }
+      next();
+    }
+    function finish() {
+      over = true; api.done = true;
+      const s = timedResult(g, right, wrong, o.secs, SYMBOL_TARGET[o.diff] * o.secs / 60);
+      o.onDone({ item, s, secs: o.secs, summary: `${right} right`, best: [`symbols-${o.diff}-${o.secs}`, right], after: g.after });
+    }
+    api.key = e => {
+      if (over || !trial) return false;
+      const k = e.key.toLowerCase();
+      if (k === 's' || e.key === 'ArrowLeft') { answer(true); return true; }
+      if (k === 'd' || e.key === 'ArrowRight') { answer(false); return true; }
+      return false;
+    };
+    return api;
+  }
+
+  /* Focus: Arrow Flanker (which way does the middle arrow point?) */
+  const ARROW = dir => `<svg viewBox="0 0 40 40" aria-hidden="true"><path class="arrow" transform="${dir < 0 ? 'rotate(180 20 20)' : ''}" d="M4 15h18V6l15 14-15 14v-9H4z"/></svg>`;
+  const FLANK_TARGET = { easy: 26, medium: 22, hard: 18 }; // a strong score per 30 seconds
+  function FlankerGame(host, o) {
+    const item = { cat: 'focus', diff: o.diff };
+    const g = gameShell(host, item, o.label);
+    const api = { done: false, iv: 0, key: () => false, stop() { clearInterval(api.iv); } };
+    const n = o.diff === 'hard' ? 7 : 5, same = { easy: 0.5, medium: 0.3, hard: 0.25 }[o.diff];
+    let right = 0, wrong = 0, trial = null, over = false, row, sc;
+    countIn(g.body, 'Which way does the middle arrow point?', `A row of arrows appears. Only the one in the middle counts; ignore the others. ${o.secs} seconds. Arrow keys work too.`, play, api, o.why);
+    function play() {
+      g.body.textContent = '';
+      const setBar = countdownBar(g.body);
+      sc = scoreLine(g.body, [['Right', 0]]);
+      row = el('div', 'arrows');
+      row.setAttribute('aria-live', 'polite');
+      g.body.appendChild(row);
+      const two = el('div', 'two-btns');
+      [[-1, 'Left'], [1, 'Right']].forEach(([d, l]) => { const b = el('button', 'press'); b.type = 'button'; b.innerHTML = ARROW(d); b.appendChild(document.createTextNode(l)); b.addEventListener('click', () => answer(d)); two.appendChild(b); });
+      g.body.appendChild(two);
+      next();
+      timed(api, o.secs, setBar, finish);
+    }
+    function next() {
+      const mid = Math.random() < 0.5 ? -1 : 1, flank = Math.random() < same ? mid : -mid;
+      trial = { mid };
+      row.innerHTML = Array.from({ length: n }, (_, i) => ARROW(i === (n - 1) / 2 ? mid : flank)).join('');
+      row.setAttribute('aria-label', `Middle arrow points ${mid < 0 ? 'left' : 'right'}`);
+      row.style.transform = o.diff === 'hard' ? `translateX(${rnd(-30, 30)}px)` : '';
+      sc.querySelector('b').textContent = right;
+    }
+    function answer(d) {
+      if (over || !trial) return;
+      if (d === trial.mid) { right++; tone(820, .05, 'triangle', 0, .07); }
+      else { wrong++; tone(200, .12, 'sawtooth', 0, .04); }
+      next();
+    }
+    function finish() {
+      over = true; api.done = true;
+      const s = timedResult(g, right, wrong, o.secs, FLANK_TARGET[o.diff] * o.secs / 30);
+      o.onDone({ item, s, secs: o.secs, summary: `${right} right`, best: [`arrows-${o.diff}-${o.secs}`, right], after: g.after });
+    }
+    api.key = e => {
+      if (over || !trial) return false;
+      if (e.key === 'ArrowLeft') { answer(-1); return true; }
+      if (e.key === 'ArrowRight') { answer(1); return true; }
+      return false;
+    };
+    return api;
+  }
+
+  /* Focus: Star Catch (go/no-go: tap for stars, hold back for anything else) */
+  const GO_WINDOW = { easy: 1100, medium: 900, hard: 750 };
+  function goItem(diff) {
+    if (Math.random() < 0.7) return { go: true, svg: `<polygon points="${starPts(60, 63, 5, 52, 22)}" fill="var(--gold)" stroke="var(--ink)" stroke-width="4" stroke-linejoin="round"/>` };
+    const lure = diff === 'easy' ? 'circle-red' : diff === 'medium' ? pick(['circle-gold', 'square-gold']) : pick(['star4', 'star6', 'circle-gold']);
+    const svg = {
+      'circle-red': '<circle cx="60" cy="60" r="46" fill="var(--bad)" stroke="var(--ink)" stroke-width="4"/>',
+      'circle-gold': '<circle cx="60" cy="60" r="46" fill="var(--gold)" stroke="var(--ink)" stroke-width="4"/>',
+      'square-gold': '<rect x="16" y="16" width="88" height="88" rx="8" fill="var(--gold)" stroke="var(--ink)" stroke-width="4"/>',
+      star4: `<polygon points="${starPts(60, 60, 4, 54, 20)}" fill="var(--gold)" stroke="var(--ink)" stroke-width="4" stroke-linejoin="round"/>`,
+      star6: `<polygon points="${starPts(60, 60, 6, 52, 30)}" fill="var(--gold)" stroke="var(--ink)" stroke-width="4" stroke-linejoin="round"/>`,
+    }[lure];
+    return { go: false, svg };
+  }
+  function StarGame(host, o) {
+    const item = { cat: 'focus', diff: o.diff };
+    const g = gameShell(host, item, o.label);
+    const api = { done: false, iv: 0, t: 0, key: () => false, stop() { clearTimeout(api.t); clearInterval(api.iv); } };
+    const trials = o.trials || 30, win = GO_WINDOW[o.diff];
+    let i = 0, hits = 0, misses = 0, oops = 0, holds = 0, cur = null, stage, sc, over = false;
+    const t0 = Date.now();
+    countIn(g.body, 'Catch the stars', `Shapes flash up one at a time. Tap only when you see a five-point star, and hold back for anything else${o.diff === 'hard' ? ', even other stars' : ''}. ${trials} shapes. Space bar works too.`, play, api, o.why);
+    function play() {
+      g.body.textContent = '';
+      sc = scoreLine(g.body, [['Shape', `0 of ${trials}`], ['Caught', 0], ['Slips', 0]]);
+      stage = el('button', 'go-stage');
+      stage.type = 'button';
+      stage.setAttribute('aria-label', 'Tap when you see a star');
+      stage.addEventListener('pointerdown', e => { e.preventDefault(); tap(); });
+      const tb = el('button', 'press btn primary tap-btn', 'Tap!');
+      tb.type = 'button';
+      tb.addEventListener('pointerdown', e => { e.preventDefault(); tap(); });
+      g.body.append(stage, tb);
+      api.t = setTimeout(next, 500);
+    }
+    function update() {
+      const b = sc.querySelectorAll('b');
+      b[0].textContent = `${i} of ${trials}`; b[1].textContent = hits; b[2].textContent = misses + oops;
+    }
+    function next() {
+      stage.className = 'go-stage';
+      if (i >= trials) return finish();
+      i++;
+      cur = goItem(o.diff);
+      cur.tapped = false;
+      stage.innerHTML = `<svg viewBox="0 0 120 120" aria-hidden="true">${cur.svg}</svg>`;
+      update();
+      api.t = setTimeout(endTrial, win);
+    }
+    function endTrial() {
+      if (cur && !cur.tapped) { if (cur.go) { misses++; tone(260, .08, 'sine', 0, .04); } else holds++; }
+      cur = null;
+      stage.innerHTML = '';
+      update();
+      api.t = setTimeout(next, 330);
+    }
+    function tap() {
+      if (over || !cur || cur.tapped) return;
+      cur.tapped = true;
+      if (cur.go) { hits++; stage.classList.add('hit'); tone(880, .06, 'triangle', 0, .08); }
+      else { oops++; stage.classList.add('oops'); tone(200, .14, 'sawtooth', 0, .05); }
+      update();
+      clearTimeout(api.t);
+      api.t = setTimeout(endTrial, 180);
+    }
+    function finish() {
+      over = true; api.done = true;
+      const points = hits + holds, s = points / trials;
+      g.body.textContent = '';
+      g.body.appendChild(el('div', 'big-count', `${points}/${trials}`));
+      g.body.appendChild(el('p', 'note', `${hits} stars caught · ${misses} missed · ${oops} tapped by mistake`));
+      o.onDone({ item, s, secs: Math.round((Date.now() - t0) / 1000), summary: `${points} of ${trials} correct`, best: [`stars-${o.diff}-${trials}`, points], after: g.after });
+    }
+    api.key = e => { if (e.key === ' ' || e.key === 'Enter') { tap(); return true; } return false; };
+    return api;
+  }
+
+  // Three games per skill. `why` is the "How this helps your brain" box shown before play.
+  const GAMES = {
+    memory: [
+      { id: 'grid', name: 'Pattern Grid', run: MemoryGame, practice: {}, workout: { rounds: 3 }, best: d => `memory-${d}`, unit: 'squares',
+        helps: 'Remember where the squares lit up.',
+        why: 'Trains visual working memory: holding a picture in mind for a few seconds. You use it to remember where you parked or to keep a route in your head.',
+        peanut: 'Pattern Grid! Watch where the squares light up, then tap them back.' },
+      { id: 'sequence', name: 'Sequence', run: SequenceGame, practice: {}, workout: { rounds: 3 }, best: d => `sequence-${d}`, unit: 'long',
+        helps: 'Repeat the order squares light up in.',
+        why: 'Trains sequential memory: keeping things in the right order, like directions or the steps of a recipe. It is based on the Corsi block test psychologists use to measure memory span.',
+        peanut: 'Sequence! Watch the order, then copy it. Humming the tune helps.' },
+      { id: 'digits', name: 'Number Span', run: DigitGame, practice: {}, workout: { rounds: 3 }, best: d => `digits-${d}`, unit: 'digits',
+        helps: 'Hold a string of digits in your head. Hard mode is backwards.',
+        why: 'Trains verbal working memory, the mental notepad you use to hold a phone number or a total in your head. Digit span is a classic part of IQ tests. Backwards makes you hold and rearrange at the same time.',
+        peanut: 'Number Span! Say the digits to yourself as they appear.' },
+    ],
+    speed: [
+      { id: 'sums', name: 'Speed Maths', run: SpeedGame, practice: { secs: 60 }, workout: { secs: 30 }, best: d => `speed-${d}-60`, unit: 'sums',
+        helps: 'Quick sums against the clock.',
+        why: 'Builds number fluency and processing speed: how fast you take in information and act on it. When basic sums are automatic, your attention is free for harder problems.',
+        peanut: 'Speed Maths! As many sums as you can before the bar runs out.' },
+      { id: 'compare', name: 'Quick Compare', run: CompareGame, practice: { secs: 45 }, workout: { secs: 30 }, best: d => `compare-${d}-45`, unit: 'right',
+        helps: 'Tap the bigger amount, fast.',
+        why: 'Trains number sense and quick decisions: judging amounts at a glance, as you do when comparing prices or splitting a bill.',
+        peanut: 'Quick Compare! Bigger one, quick as you can.' },
+      { id: 'symbols', name: 'Symbol Match', run: SymbolGame, practice: { secs: 45 }, workout: { secs: 30 }, best: d => `symbols-${d}-45`, unit: 'right',
+        helps: 'Spot whether two rows of symbols match.',
+        why: 'Trains perceptual speed: spotting small differences quickly and accurately. It is close to the symbol-search tasks in IQ tests, and helps with proofreading and checking details.',
+        peanut: 'Symbol Match! Same or different? Trust your eyes.' },
+    ],
+    focus: [
+      { id: 'colour', name: 'Colour Clash', run: FocusGame, practice: { secs: 30 }, workout: { secs: 20 }, best: d => `focus-${d}-30`, unit: 'right',
+        helps: 'Tap the ink colour, not the word.',
+        why: 'Trains inhibitory control: stopping an automatic habit (reading the word) to do what you meant to do. This is the Stroop test, used for decades to study attention.',
+        peanut: 'Colour Clash! Ink colour, not the word. Harder than it sounds.' },
+      { id: 'arrows', name: 'Arrow Flanker', run: FlankerGame, practice: { secs: 30 }, workout: { secs: 20 }, best: d => `arrows-${d}-30`, unit: 'right',
+        helps: 'Follow the middle arrow and ignore the rest.',
+        why: 'Trains selective attention: focusing on one thing while ignoring distractions right next to it, like reading in a noisy café. Based on the flanker task, a standard attention test.',
+        peanut: 'Arrow Flanker! Only the middle arrow counts.' },
+      { id: 'stars', name: 'Star Catch', run: StarGame, practice: { trials: 30 }, workout: { trials: 20 }, best: d => `stars-${d}-30`, unit: 'points',
+        helps: 'Tap for stars, hold back for everything else.',
+        why: 'Trains impulse control and sustained attention: acting fast on what matters and holding back on what does not. It is a go/no-go task, used to study self-control.',
+        peanut: 'Star Catch! Tap the stars, and only the stars.' },
+    ],
+  };
+  const ALL_GAMES = [].concat(GAMES.memory, GAMES.speed, GAMES.focus);
+  function runGame(gm, host, o) {
+    return gm.run(host, Object.assign({}, o, { why: gm.why }));
   }
   // Records a finished game, shows XP and personal bests, and has Peanut react.
   function finishGame(res, mode) {
@@ -2277,11 +2810,13 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
   // Each skill's Brain Score picks how hard its workout round is.
   const autoDiff = cat => { const v = state.rc[cat] || 1000; return v < 1000 ? 'easy' : v < 1150 ? 'medium' : 'hard'; };
   function planWorkout() {
+    const turn = dayIndex(todayKey) + ((state.workouts[todayKey] || {}).n || 0);
+    const gm = cat => GAMES[cat][((turn % 3) + 3) % 3];
     return [
-      { kind: 'speed', name: 'Speed maths warm-up' },
+      { kind: 'game', cat: 'speed', game: gm('speed'), name: `Warm-up: ${gm('speed').name}` },
       state.daily[todayKey] ? { kind: 'question', name: 'Bonus question' } : { kind: 'qotd', name: 'Question of the Day' },
-      { kind: 'memory', name: 'Memory' },
-      state.words[todayKey] ? { kind: 'focus', name: 'Focus' } : { kind: 'word', name: 'Word of the Day' },
+      { kind: 'game', cat: 'memory', game: gm('memory'), name: `Memory: ${gm('memory').name}` },
+      state.words[todayKey] ? { kind: 'game', cat: 'focus', game: gm('focus'), name: `Focus: ${gm('focus').name}` } : { kind: 'word', name: 'Word of the Day' },
     ];
   }
   function workoutCard(host) {
@@ -2342,14 +2877,10 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
       b.focus({ preventScroll: true });
     };
     const label = `Workout ${w.i + 1}/${w.steps.length}`;
-    const game = (cat, extra, line) => {
-      Peanut.say(line, 'idle');
-      w.cur = runGame(cat, stepHost, Object.assign({ diff: autoDiff(cat), label, onDone(res) { finishGame(res, 2); w.results.push([st.name, res.summary]); nextBtn(res.after); } }, extra));
-    };
-    if (st.kind === 'speed') game('speed', { secs: 30 }, 'Warm-up! Quick sums, as many as you can in 30 seconds.');
-    else if (st.kind === 'memory') game('memory', { rounds: 3 }, 'Memory time. Three patterns. Watch the squares closely.');
-    else if (st.kind === 'focus') game('focus', { secs: 20 }, 'Last one: tap the ink colour, not the word!');
-    else if (st.kind === 'qotd' || st.kind === 'question') {
+    if (st.kind === 'game') {
+      Peanut.say(st.game.peanut, 'idle');
+      w.cur = runGame(st.game, stepHost, Object.assign({ diff: autoDiff(st.cat), label, onDone(res) { finishGame(res, 2); w.results.push([st.name, res.summary]); nextBtn(res.after); } }, st.game.workout));
+    } else if (st.kind === 'qotd' || st.kind === 'question') {
       let q;
       if (st.kind === 'qotd') q = dailyQuestion();
       else { const cat = pick(QCATS.filter(c => c !== 'verbal')); q = E.generate({ seed: (Math.random() * 4294967296) >>> 0, cat, diff: autoDiff(cat) }); }
@@ -2676,27 +3207,56 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
     medium: ['Look for the pattern.', 'This one needs a little thought.', 'Take a breath, then go one step at a time.'],
     hard: ['This one is tough. I believe in you.', 'A real brain-stretcher. Slow and steady.', 'Hard mode! Write things down if it helps.'],
   };
+  const bestText = (gm, d) => { const v = state.bests[gm.best(d)]; return v ? `${v} ${gm.unit}` : '–'; };
+  function gameChooser(cat) {
+    const host = $('practice-sheet');
+    host.textContent = '';
+    const wrap = el('div', 'chooser');
+    GAMES[cat].forEach(gm => {
+      const c = el('article', 'sheet game-card enter');
+      const head = el('div', 'gc-head');
+      head.appendChild(el('h2', '', gm.name));
+      head.appendChild(el('span', 'gc-best', `Best on ${DIFF_LABEL[state.prefs.diff]}: ${bestText(gm, state.prefs.diff)}`));
+      c.appendChild(head);
+      c.appendChild(el('p', 'helps', gm.helps));
+      c.appendChild(whyBox(gm.why));
+      const b = el('button', 'press btn primary', `Play ${gm.name}`);
+      b.type = 'button';
+      b.style.alignSelf = 'flex-start';
+      b.addEventListener('click', () => { SFX.tap(); playPracticeGame(cat, gm); });
+      c.appendChild(b);
+      wrap.appendChild(c);
+    });
+    wrap.appendChild(el('p', 'note', 'Brain games mostly sharpen the skill they practise, so mixing different games gives your brain the widest workout.'));
+    host.appendChild(wrap);
+    practiceSheet = { done: false, key: () => false, stop() {} };
+    if (view === 'practice') Peanut.say(`${CAT[cat].name}: pick a game. Each one trains a different side of it.`, 'idle');
+  }
+  function playPracticeGame(cat, gm) {
+    if (practiceSheet) practiceSheet.stop();
+    practiceSheet = runGame(gm, $('practice-sheet'), Object.assign({
+      diff: state.prefs.diff, label: `Practice · ${gm.name}`,
+      onDone(res) {
+        sessionSeen++;
+        finishGame(res, 1);
+        const a = el('div', 'actions');
+        const again = el('button', 'press btn primary', 'Play again');
+        again.type = 'button';
+        again.addEventListener('click', () => { SFX.tap(); playPracticeGame(cat, gm); });
+        const other = el('button', 'press btn', `Other ${CAT[cat].short.toLowerCase()} games`);
+        other.type = 'button';
+        other.addEventListener('click', () => { SFX.tap(); gameChooser(cat); });
+        a.append(again, other);
+        res.after.appendChild(a);
+        again.focus({ preventScroll: true });
+      },
+    }, gm.practice));
+    if (view === 'practice') Peanut.say(gm.peanut, 'idle');
+  }
   function nextPractice() {
     if (practiceSheet) practiceSheet.stop();
     const cat = state.prefs.cat === 'all' ? pick(QCATS) : state.prefs.cat;
-    if (CAT[cat].game) {
-      practiceSheet = runGame(cat, $('practice-sheet'), {
-        diff: state.prefs.diff, label: `Practice ${sessionSeen + 1}`,
-        onDone(res) {
-          sessionSeen++;
-          finishGame(res, 1);
-          const a = el('div', 'actions');
-          const again = el('button', 'press btn primary', 'Play again');
-          again.type = 'button';
-          again.addEventListener('click', () => { SFX.tap(); nextPractice(); });
-          a.appendChild(again);
-          res.after.appendChild(a);
-          again.focus({ preventScroll: true });
-        },
-      });
-      if (view === 'practice') Peanut.say(GAME_INTRO[cat], 'idle');
-      return;
-    }
+    if (CAT[cat].game) { gameChooser(cat); return; }
     const seed = (Math.random() * 4294967296) >>> 0;
     const q = E.generate({ seed, cat, diff: state.prefs.diff, avoid: recentVerbal });
     if (q.verbalId !== undefined) { recentVerbal.push(q.verbalId); if (recentVerbal.length > 12) recentVerbal.shift(); }
@@ -2983,11 +3543,13 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
     bp.appendChild(el('h2', '', 'Personal bests'));
     bp.appendChild(el('p', 'sub', 'Your top score in each game when you play it in Practice'));
     const bg = el('div', 'bests');
-    [['speed', 'Speed maths', d => `speed-${d}-60`, 'sums in 60 s'], ['memory', 'Memory', d => `memory-${d}`, 'square pattern'], ['focus', 'Focus', d => `focus-${d}-30`, 'right in 30 s']].forEach(([cat, name, key, unit]) => {
+    ALL_GAMES.forEach(gm => {
       const s = el('div', 'stat');
-      const t = el('span', 'l'); t.textContent = name; t.style.color = 'var(--ink)'; t.style.fontSize = '0.95rem';
+      const t = el('span', 'l'); t.style.color = 'var(--ink)'; t.style.fontSize = '0.95rem';
+      const dot = el('i'); dot.style.cssText = `display:inline-block;width:10px;height:10px;border-radius:50%;border:2px solid var(--ink);margin-right:6px;background:var(--c-${GAMES.memory.includes(gm) ? 'memory' : GAMES.speed.includes(gm) ? 'speed' : 'focus'})`;
+      t.append(dot, document.createTextNode(gm.name));
       s.appendChild(t);
-      E.DIFFS.forEach(d => { const v = state.bests[key(d)]; s.appendChild(el('span', 'l', `${DIFF_LABEL[d]}: ${v ? v + ' ' + unit : '–'}`)); });
+      E.DIFFS.forEach(d => s.appendChild(el('span', 'l', `${DIFF_LABEL[d]}: ${bestText(gm, d)}`)));
       bg.appendChild(s);
     });
     bp.appendChild(bg);
@@ -3066,5 +3628,8 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
 })();
 </script>
 
+<script>
+if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js');
+</script>
 </body>
 </html>
