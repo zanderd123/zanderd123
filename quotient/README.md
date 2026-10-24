@@ -13,7 +13,12 @@ A daily brain workout: one IQ-style question a day, plus unlimited practice.
   and a category, or Mixed. Three timed games live here too: **Memory**
   (repeat a pattern of squares), **Speed maths** (sums against the clock) and
   **Focus** (tap the ink colour, not the word).
-- **Progress**: this week vs last week, Brain Score and accuracy trends
+- **Test**: a 25-question, 20-minute practice test mixing every question
+  type. No hints, adaptive difficulty (two right steps up, a miss steps
+  down), and answers revealed at the end. The Test Score is estimated on the
+  Brain Score scale. It is a practice score, not an IQ: there is no norming
+  group behind it, and scores rise with practice.
+- **Progress**: Test Score history, this week vs last week, Brain Score and accuracy trends
   (7 days to all time), skill per category, and the daily calendar.
 - XP, levels, practice combos, confetti and optional sound effects.
 

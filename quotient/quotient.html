@@ -56,6 +56,7 @@
 }
 
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 html { background: var(--sky); }
 body {
   background-color: var(--sky);
@@ -103,7 +104,7 @@ button { font: inherit; color: inherit; }
 @keyframes bump { 30% { transform: scale(1.18); } 60% { transform: scale(.95); } }
 
 /* Tabs */
-.tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
 .tab { padding: 9px 6px; font-family: var(--display); font-weight: 600; font-size: 1.05rem; }
 .tab[aria-selected="true"] { background: var(--ink); color: var(--card); }
 
@@ -365,6 +366,34 @@ details.numbers summary { cursor: pointer; color: var(--muted); font-weight: 800
 .flash-good { animation: yay .3s; }
 .bests { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
 
+/* Test mode */
+.test-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.test-bar .lbl { font-family: var(--display); font-weight: 600; font-size: 1.1rem; }
+.test-progress { flex: 1 1 100%; height: 10px; border-radius: 5px; background: var(--card); border: 2px solid var(--ink); overflow: hidden; order: 3; }
+.test-progress i { display: block; height: 100%; background: var(--accent); transition: width .3s; }
+.test-clock { margin-left: auto; font-family: var(--display); font-weight: 600; font-size: 1.15rem; font-variant-numeric: tabular-nums; display: inline-flex; gap: 6px; align-items: center; background: var(--card); border: 2.5px solid var(--ink); border-radius: 999px; padding: 2px 12px 2px 8px; }
+.test-clock svg { width: 18px; height: 18px; }
+.test-clock.warn { background: var(--bad-soft); color: var(--bad); border-color: var(--bad); }
+.confirm { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; flex-basis: 100%; order: 4; padding: 10px 12px; border-radius: 14px; background: var(--card); border: 2.5px solid var(--ink); font-weight: 800; }
+.opt.picked { background: var(--accent-soft); border-color: var(--accent); box-shadow: 0 4px 0 var(--accent); }
+.score-big { font-family: var(--display); font-weight: 700; font-size: 4.6rem; line-height: 1; font-variant-numeric: tabular-nums; }
+.score-head { display: flex; align-items: flex-end; gap: 16px; flex-wrap: wrap; }
+.score-head .what { display: flex; flex-direction: column; gap: 2px; padding-bottom: 8px; }
+.score-head .what b { font-family: var(--display); font-weight: 600; font-size: 1.2rem; }
+.disclaim { margin: 0; padding: 10px 12px; border-radius: 12px; background: var(--soft); color: var(--muted); font-weight: 700; font-size: 0.9rem; }
+.review { display: flex; flex-direction: column; gap: 8px; }
+.review details { border: 2px solid var(--line); border-radius: 14px; background: var(--card); }
+.review summary { cursor: pointer; padding: 10px 12px; font-weight: 800; display: flex; gap: 10px; align-items: center; list-style: none; }
+.review summary::-webkit-details-marker { display: none; }
+.review summary .mark { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; color: var(--card); font-family: var(--display); flex: none; font-size: .85rem; }
+.review summary .mark.ok { background: var(--good); } .review summary .mark.no { background: var(--bad); }
+.review summary .q { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.review .body { padding: 0 12px 12px; display: flex; flex-direction: column; gap: 8px; }
+.review .body p { margin: 0; }
+.review .ans { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; font-weight: 800; }
+.review .ans .cell { width: 64px; }
+.tests-list td:nth-child(2) { font-family: var(--display); font-weight: 600; }
+
 #confetti { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 20; }
 
 @media (max-width: 560px) {
@@ -374,6 +403,8 @@ details.numbers summary { cursor: pointer; color: var(--muted); font-weight: 800
   .sheet { padding: 16px 14px 18px; }
   .skill { grid-template-columns: 92px 1fr 78px; }
   .bests { grid-template-columns: 1fr; }
+  .tab { font-size: 0.95rem; padding: 9px 2px; }
+  .score-big { font-size: 3.8rem; }
   .problem { font-size: 2.2rem; }
   .stroop-word { font-size: 2.8rem; }
   .stem-seq span { min-width: 46px; font-size: 1.2rem; padding: 7px 9px; }
@@ -409,6 +440,7 @@ details.numbers summary { cursor: pointer; color: var(--muted); font-weight: 800
   <nav class="tabs" role="tablist">
     <button class="press tab" role="tab" id="tab-daily" aria-selected="true">Today</button>
     <button class="press tab" role="tab" id="tab-practice" aria-selected="false">Practice</button>
+    <button class="press tab" role="tab" id="tab-test" aria-selected="false">Test</button>
     <button class="press tab" role="tab" id="tab-progress" aria-selected="false">Progress</button>
   </nav>
 
@@ -470,6 +502,8 @@ details.numbers summary { cursor: pointer; color: var(--muted); font-weight: 800
     </div>
     <div id="practice-sheet" style="margin-top:18px"></div>
   </section>
+
+  <section id="view-test" hidden></section>
 
   <section id="view-progress" hidden></section>
 
@@ -1387,7 +1421,7 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
   /* ---------- state + storage ---------- */
   // log rows: [time, catIndex, diffIndex, correct, seconds, usedHint, mode (0 daily, 1 practice), scoreAfter, catScoreAfter]
   const LS = 'quotient.v1';
-  const blank = () => ({ v: 1, updatedAt: 0, daily: {}, words: {}, cats: {}, diffs: {}, best: 0, xp: 0, R: 1000, rc: {}, n: 0, log: [], base: null, workouts: {}, bests: {},
+  const blank = () => ({ v: 1, updatedAt: 0, daily: {}, words: {}, cats: {}, diffs: {}, best: 0, xp: 0, R: 1000, rc: {}, n: 0, log: [], base: null, workouts: {}, bests: {}, tests: [],
     prefs: { diff: 'medium', cat: 'all', sound: true } });
   const hydrate = s => { const b = blank(); const out = Object.assign(b, s); out.prefs = Object.assign(blank().prefs, s.prefs || {}); return out; };
   let state = blank();
@@ -1596,7 +1630,8 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
     btn.classList.remove('wiggle'); void btn.offsetWidth; btn.classList.add('wiggle');
     SFX.toot();
     const s = current();
-    if (s && !s.done && s.elapsed && !s.hinted && s.elapsed() > 20) Peanut.say('Need a nudge? Tap “Show a hint” under the answers, or press H.', 'think', 2500);
+    if (view === 'test' && test && test.running) Peanut.say('Shh! No help from me during the test. You\'ve got this.', 'idle');
+    else if (s && !s.done && s.elapsed && !s.hinted && s.elapsed() > 20) Peanut.say('Need a nudge? Tap “Show a hint” under the answers, or press H.', 'think', 2500);
     else Peanut.say(pick(FACTS), 'idle');
   });
 
@@ -1692,8 +1727,10 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
       hinted = true; hintBtn.hidden = true; SFX.hint();
       Peanut.say('Psst… ' + q.hint, 'think');
     });
-    actions.appendChild(hintBtn);
-    actions.appendChild(el('span', 'target', `Target ${q.target}`));
+    if (!opts.test) {
+      actions.appendChild(hintBtn);
+      actions.appendChild(el('span', 'target', `Target ${q.target}`));
+    } else timer.hidden = true;
     if (opts.extraAction) actions.appendChild(opts.extraAction);
     sheet.appendChild(actions);
     const after = el('div', '');
@@ -1706,7 +1743,7 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
     const tick = () => {
       if (done) return;
       tnum.textContent = fmtTime(Math.floor(elapsed()));
-      if (!nudged && !hinted && elapsed() > 75 && api === current()) { nudged = true; Peanut.say('Taking your time? Good. If you are stuck, tap me or press H for a hint.', 'think', 2200); }
+      if (!opts.test && !nudged && !hinted && elapsed() > 75 && api === current()) { nudged = true; Peanut.say('Taking your time? Good. If you are stuck, tap me or press H for a hint.', 'think', 2200); }
     };
     const iv = setInterval(tick, 1000);
 
@@ -1735,6 +1772,13 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
       if (done) return;
       const secs = Math.floor(elapsed());
       const ok = i === q.answer;
+      if (opts.test) {
+        done = true; clearInterval(iv);
+        btns.forEach((b, j) => { b.disabled = true; if (j === i) b.classList.add('picked'); });
+        tone(620, .05, 'triangle', 0, .06);
+        opts.onAnswer(i, ok, secs, false);
+        return;
+      }
       const xp = opts.onAnswer(i, ok, secs, hinted);
       reveal(i, secs, hinted, xp);
       if (ok) { SFX.right(); const [x, y] = centerOf(btns[i]); burst(x, y, 70); }
@@ -1749,7 +1793,7 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
         let i = keys.indexOf(k);
         if (i < 0 && /^[1-6]$/.test(e.key)) i = Number(e.key) - 1;
         if (i >= 0 && i < btns.length) { choose(i); return true; }
-        if (k === 'H' && !hinted) { hintBtn.click(); return true; }
+        if (k === 'H' && !hinted && !opts.test) { hintBtn.click(); return true; }
         return false;
       },
       stop() { clearInterval(iv); },
@@ -2350,6 +2394,243 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
     Peanut.say(`Workout done in ${fmtTime(secs)}! Your brain is officially switched on. See you tomorrow.`, 'happy', 3200);
   }
 
+
+  /* ---------- Test mode ---------- */
+  // A timed, adaptive practice test. The score is estimated on the Brain Score scale;
+  // it is a practice score, not an IQ, because no norming group stands behind it.
+  const TEST_N = 25, TEST_SECS = 20 * 60, TIERS = ['easy', 'medium', 'hard'];
+  let test = null;
+  // Most likely ability given which questions were answered right, with a gentle pull toward 1000.
+  function testEstimate(items) {
+    let best = 1000, bestLL = -Infinity;
+    for (let th = 400; th <= 1900; th += 2) {
+      let ll = -((th - 1000) ** 2) / (2 * 220 * 220);
+      for (const it of items) { const p = 1 / (1 + 10 ** ((it.d - th) / 400)); ll += Math.log(it.ok ? p : 1 - p); }
+      if (ll > bestLL) { bestLL = ll; best = th; }
+    }
+    return Math.round(best);
+  }
+  const fmtDate = t => new Date(t).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+  function showTest() {
+    if (test && test.running) return;
+    if (test && test.results) { Peanut.say('Here are your results. Open any question below to see how it works.', 'idle'); return; }
+    renderTestHome();
+  }
+  function renderTestHome() {
+    test = null;
+    const host = $('view-test');
+    host.textContent = '';
+    const c = el('section', 'workout-card');
+    c.appendChild(el('h2', '', 'Practice IQ-style test'));
+    c.appendChild(el('p', '', 'A timed test mixing every question type. It gets harder when you are doing well and easier when you are not, like real adaptive tests.'));
+    const ol = el('ol', 'steps');
+    [`${TEST_N} questions`, `${TEST_SECS / 60} minutes`, 'No hints', 'Answers revealed at the end'].forEach((t, i) => { const li = el('li'); li.appendChild(el('b', '', String(i + 1))); li.appendChild(document.createTextNode(t)); ol.appendChild(li); });
+    c.appendChild(ol);
+    const last = state.tests[state.tests.length - 1];
+    if (last) {
+      const best = Math.max(...state.tests.map(t => t.score));
+      const days = Math.floor((Date.now() - last.t) / DAY);
+      c.appendChild(el('p', '', `Last test: ${last.score} on ${fmtDate(last.t)}${days ? ` (${days} day${days === 1 ? '' : 's'} ago)` : ''} · best ${best}. Retaking every few weeks shows the clearest trend.`));
+    }
+    const b = el('button', 'press btn primary', last ? 'Take the test again' : 'Start the test');
+    b.type = 'button';
+    b.addEventListener('click', () => { SFX.tap(); startTest(); });
+    c.appendChild(b);
+    host.appendChild(c);
+    const note = el('p', 'disclaim', 'Your Test Score uses the same scale as your Brain Score, where everyone starts at 1000. It is not an IQ: a real IQ compares you with a large, representative group who took the same test under supervision, and this app has no such group. Scores also rise with practice, so treat it as a measure of your progress here.');
+    note.style.marginTop = '16px';
+    host.appendChild(note);
+    if (state.tests.length) {
+      const pnl = el('section', 'panel');
+      pnl.style.marginTop = '16px';
+      pnl.appendChild(el('h2', '', 'Your tests'));
+      const w = el('div', 'tablewrap'), t = el('table', 'tests-list'), hr = el('tr');
+      ['Date', 'Score', 'Right', 'Time'].forEach(h => hr.appendChild(el('th', '', h)));
+      t.appendChild(hr);
+      state.tests.slice(-8).reverse().forEach(r => { const tr = el('tr'); [fmtDate(r.t), r.score, `${r.right} of ${r.n}`, fmtTime(r.secs)].forEach(v => tr.appendChild(el('td', '', String(v)))); t.appendChild(tr); });
+      w.appendChild(t); pnl.appendChild(w);
+      host.appendChild(pnl);
+    }
+    if (view === 'test') Peanut.say(last ? 'Ready for another go? Find a quiet spot and give it 20 minutes.' : 'Want to see how you do under test conditions? Find a quiet spot. I\'ll stay quiet once it starts.', 'idle');
+  }
+  function startTest() {
+    // Spread the question types evenly, shuffled in blocks so the same type rarely comes twice in a row.
+    const order = [];
+    while (order.length < TEST_N) order.push(...QCATS.slice().sort(() => Math.random() - 0.5));
+    order.length = TEST_N;
+    test = { running: true, i: -1, order, tier: 1, streak: 0, items: [], t0: Date.now(), avoid: [], cur: null };
+    const host = $('view-test');
+    host.textContent = '';
+    const bar = el('div', 'test-bar');
+    const lbl = el('span', 'lbl');
+    const clock = el('span', 'test-clock');
+    clock.innerHTML = CLOCK;
+    const cnum = el('span', '', fmtTime(TEST_SECS)); clock.appendChild(cnum);
+    const end = el('button', 'btn quiet', 'End test'); end.type = 'button';
+    const prog = el('div', 'test-progress'), fill = el('i'); prog.appendChild(fill);
+    const confirm = el('div', 'confirm'); confirm.hidden = true;
+    confirm.appendChild(el('span', '', 'End the test now? Questions you have not reached will not count.'));
+    const yes = el('button', 'press btn primary', 'End test'); yes.type = 'button';
+    const no = el('button', 'press btn', 'Keep going'); no.type = 'button';
+    confirm.append(yes, no);
+    end.addEventListener('click', () => { confirm.hidden = false; });
+    no.addEventListener('click', () => { confirm.hidden = true; });
+    yes.addEventListener('click', () => finishTest(false));
+    bar.append(lbl, clock, end, prog, confirm);
+    const stepHost = el('div', ''); stepHost.style.marginTop = '14px';
+    host.append(bar, stepHost);
+    test.ui = { lbl, clock, cnum, fill, stepHost };
+    test.iv = setInterval(testTick, 500);
+    Peanut.say('Good luck! I\'ll stay quiet until you finish. Skip any question that stalls you.', 'idle');
+    nextTestQ();
+  }
+  function testTick() {
+    if (!test || !test.running) return;
+    const left = Math.max(0, TEST_SECS - (Date.now() - test.t0) / 1000);
+    test.ui.cnum.textContent = fmtTime(Math.ceil(left));
+    test.ui.clock.classList.toggle('warn', left <= 60);
+    if (left <= 0) finishTest(true);
+  }
+  function nextTestQ() {
+    const t = test;
+    if (!t || !t.running) return;
+    t.i++;
+    if (t.i >= TEST_N) return finishTest(false);
+    const cat = t.order[t.i], diff = TIERS[t.tier];
+    const q = E.generate({ seed: (Math.random() * 4294967296) >>> 0, cat, diff, avoid: t.avoid });
+    if (q.verbalId !== undefined) t.avoid.push(q.verbalId);
+    t.ui.lbl.textContent = `Question ${t.i + 1} of ${TEST_N}`;
+    t.ui.fill.style.width = (100 * t.i / TEST_N) + '%';
+    const skip = el('button', 'btn quiet', 'Skip'); skip.type = 'button';
+    const answer = (choice, ok, secs) => {
+      if (t !== test || !t.running) return;
+      t.items.push({ q, choice, ok, secs, d: QR[diff], cat, diff });
+      // Two right in a row steps up a level; a miss steps down.
+      if (ok) { t.streak++; if (t.streak >= 2 && t.tier < 2) { t.tier++; t.streak = 0; } }
+      else { t.streak = 0; if (t.tier > 0) t.tier--; }
+      setTimeout(nextTestQ, choice < 0 ? 0 : 280);
+    };
+    skip.addEventListener('click', () => { if (t.cur) t.cur.stop(); answer(-1, false, 0); });
+    t.cur = Sheet(t.ui.stepHost, q, { label: `Test · ${CAT[cat].short}`, test: true, extraAction: skip, onAnswer: answer });
+    window.scrollTo({ top: t.ui.lbl.getBoundingClientRect().top + scrollY - 20, behavior: 'auto' });
+  }
+  function finishTest(timeUp) {
+    const t = test;
+    if (!t || !t.running) return;
+    t.running = false;
+    clearInterval(t.iv);
+    if (t.cur) t.cur.stop();
+    const items = t.items;
+    const secs = Math.min(TEST_SECS, Math.round((Date.now() - t.t0) / 1000));
+    const right = items.filter(x => x.ok).length;
+    const bycat = {};
+    for (const x of items) { const b = bycat[x.cat] || (bycat[x.cat] = [0, 0]); b[1]++; if (x.ok) b[0]++; }
+    const prev = state.tests[state.tests.length - 1];
+    const rec = { t: Date.now(), score: testEstimate(items), right, n: items.length, total: TEST_N, secs, bycat, timeUp: !!timeUp };
+    if (items.length) {
+      state.tests.push(rec);
+      if (state.tests.length > 100) state.tests.splice(0, state.tests.length - 100);
+      gainXP(items.length >= TEST_N ? 50 : 20);
+      save();
+    }
+    test = { results: true, rec, items, prev };
+    renderTestResults(timeUp);
+  }
+  function optionNode(q, i) {
+    if (i < 0) return el('span', '', 'Skipped');
+    const o = q.options[i];
+    if (q.render === 'poly') return polyEl(o);
+    if (q.visual) return cellEl(o);
+    return el('span', '', `${'ABCDEF'[i]}: ${o}`);
+  }
+  function renderTestResults(timeUp) {
+    const { rec, items, prev } = test;
+    const host = $('view-test');
+    host.textContent = '';
+    if (!items.length) { renderTestHome(); return; }
+    const card = el('article', 'sheet enter');
+    const meta = el('div', 'meta');
+    meta.appendChild(el('span', '', `Test results · ${fmtDate(rec.t)}`));
+    card.appendChild(meta);
+    const head = el('div', 'score-head');
+    head.appendChild(el('span', 'score-big', String(rec.score)));
+    const what = el('div', 'what');
+    what.appendChild(el('b', '', 'Test Score'));
+    if (prev) {
+      const d = rec.score - prev.score;
+      what.appendChild(el('span', 'delta ' + (d > 0 ? 'up' : d < 0 ? 'down' : 'flat'), d ? `${d > 0 ? '▲' : '▼'} ${Math.abs(d)} since your last test` : 'Same as your last test'));
+    } else what.appendChild(el('span', 'delta flat', 'Your first test. Retake it in a few weeks to see your trend.'));
+    head.appendChild(what);
+    card.appendChild(head);
+    const grid = el('div', 'compare');
+    const stat = (v, l) => { const s = el('div', 'stat'); s.appendChild(el('b', '', v)); s.appendChild(el('span', 'l', l)); grid.appendChild(s); };
+    stat(`${rec.right}/${rec.n}`, 'Right');
+    stat(fmtTime(rec.secs), timeUp ? 'Time ran out' : 'Time used');
+    stat(DIFF_LABEL[TIERS[Math.max(...items.map(x => TIERS.indexOf(x.diff)))]], 'Hardest level reached');
+    stat(String(TEST_N - rec.n), 'Not reached');
+    card.appendChild(grid);
+    card.appendChild(el('p', 'disclaim', 'This is a practice score on the Brain Score scale, where 1000 is the starting point. It is not an IQ and is not comparable with Mensa or other official tests.'));
+
+    // By skill
+    const cats = Object.keys(rec.bycat).map(c => ({ c, r: rec.bycat[c][0], n: rec.bycat[c][1] }));
+    const sk = el('div', 'skills');
+    cats.sort((a, b) => b.r / b.n - a.r / a.n).forEach(x => {
+      const row = el('div', 'skill');
+      const nm = el('span', 'name'); const dot = el('i'); dot.style.background = `var(--c-${x.c})`; nm.appendChild(dot); nm.appendChild(document.createTextNode(CAT[x.c].short));
+      const tr = el('div', 'track'), f = el('div', 'fill'); f.style.background = `var(--c-${x.c})`; f.style.width = Math.max(4, 100 * x.r / x.n) + '%'; tr.appendChild(f);
+      const val = el('span', 'val'); val.appendChild(el('b', '', `${x.r} of ${x.n}`));
+      row.append(nm, tr, val); sk.appendChild(row);
+    });
+    const skh = el('h2', 'prompt', 'By skill'); skh.style.fontSize = '1.2rem';
+    card.append(skh, sk);
+    const best = cats[0], worst = cats[cats.length - 1];
+    if (cats.length > 1 && best.r / best.n > worst.r / worst.n) card.appendChild(el('p', 'note', `Strongest: ${CAT[best.c].name}. Most room to grow: ${CAT[worst.c].name}.`));
+
+    const a = el('div', 'actions');
+    const again = el('button', 'press btn primary', 'Back to Test'); again.type = 'button';
+    again.addEventListener('click', () => { SFX.tap(); renderTestHome(); });
+    const prog = el('button', 'press btn', 'See Progress'); prog.type = 'button';
+    prog.addEventListener('click', () => show('progress'));
+    a.append(again, prog);
+    if (cats.length > 1 && best.r / best.n > worst.r / worst.n) {
+      const pr = el('button', 'press btn', `Practise ${CAT[worst.c].short}`); pr.type = 'button';
+      pr.addEventListener('click', () => { state.prefs.cat = worst.c; saveLocal(); renderControls(); practiceSheet = null; show('practice'); });
+      a.appendChild(pr);
+    }
+    card.appendChild(a);
+    host.appendChild(card);
+
+    // Review every question
+    const rv = el('section', 'panel');
+    rv.style.marginTop = '16px';
+    rv.appendChild(el('h2', '', 'Review your answers'));
+    rv.appendChild(el('p', 'sub', 'Tap a question to see the right answer and how it works'));
+    const list = el('div', 'review');
+    items.forEach((x, n) => {
+      const d = el('details');
+      const sm = el('summary');
+      sm.appendChild(el('span', 'mark ' + (x.ok ? 'ok' : 'no'), x.ok ? '✓' : '✗'));
+      sm.appendChild(el('span', 'q', `${n + 1}. ${CAT[x.cat].short} · ${DIFF_LABEL[x.diff]} · ${x.q.prompt}`));
+      d.appendChild(sm);
+      const body = el('div', 'body');
+      if (x.q.stem && (x.q.stem.kind === 'seq' || x.q.stem.kind === 'lines')) body.appendChild(el('p', '', x.q.stem.items.join(x.q.stem.kind === 'seq' ? ', ' : ' · ')));
+      const yours = el('div', 'ans'); yours.appendChild(el('span', '', 'Your answer:')); yours.appendChild(optionNode(x.q, x.choice));
+      const corr = el('div', 'ans'); corr.appendChild(el('span', '', 'Right answer:')); corr.appendChild(optionNode(x.q, x.q.answer));
+      body.append(yours);
+      if (!x.ok) body.append(corr);
+      body.appendChild(el('p', '', x.q.why));
+      d.appendChild(body);
+      list.appendChild(d);
+    });
+    rv.appendChild(list);
+    host.appendChild(rv);
+
+    window.scrollTo({ top: 0, behavior: 'auto' });
+    if (prev && rec.score > prev.score) { burst(); SFX.level(); Peanut.say(`${rec.score}! That's ${rec.score - prev.score} up on last time. My ears are flapping.`, 'happy', 3000); }
+    else if (!prev) { burst(); SFX.right(); Peanut.say(`Test done! Your first score is ${rec.score}. Practise a bit and try again in a few weeks.`, 'happy', 2600); }
+    else Peanut.say(`Test done: ${rec.score}. Scores wobble from test to test. The trend over several tests is what counts.`, 'idle');
+  }
+
   /* ---------- Practice ---------- */
   let practiceSheet = null, sessionSeen = 0, sessionRight = 0, combo = 0, recentVerbal = [];
   function renderControls() {
@@ -2594,6 +2875,22 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
     rep.appendChild(grid);
     wrap.appendChild(rep);
 
+    // Test history, not scoped by the range filter below
+    const th = el('section', 'panel');
+    th.appendChild(el('h2', '', 'Test Score history'));
+    th.appendChild(el('p', 'sub', 'Each point is one full practice test. Not an IQ: see the Test tab for why.'));
+    if (state.tests.length) {
+      const pts = state.tests.map(r => ({ label: short(new Date(r.t)), sub: `${fmtDate(r.t)} · ${r.right} of ${r.n} right`, v: r.score }));
+      lineChart(th, pts, 'Test Score over time');
+      th.appendChild(tableFor(['Date', 'Test Score', 'Right'], state.tests.map(r => [fmtDate(r.t), r.score, `${r.right} of ${r.n}`])));
+    } else {
+      th.appendChild(el('div', 'empty', 'No tests yet. Your scores appear here after your first test.'));
+      const go = el('button', 'press btn', 'Take the test'); go.type = 'button';
+      go.addEventListener('click', () => show('test'));
+      th.appendChild(go);
+    }
+    wrap.appendChild(th);
+
     // Range filter scopes everything below
     const rb = el('div', 'rangebar');
     rb.appendChild(el('span', 'ctl-label', 'Trends over'));
@@ -2726,18 +3023,19 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
     if (bump) ['level-pill', 'streak-pill'].forEach(id => { const n = $(id); n.classList.remove('bump'); void n.offsetWidth; n.classList.add('bump'); });
   }
   let view = 'daily';
-  const current = () => (view === 'daily' ? (workout ? workout.cur : dailySheet) : view === 'practice' ? practiceSheet : null);
+  const current = () => (view === 'daily' ? (workout ? workout.cur : dailySheet) : view === 'practice' ? practiceSheet : view === 'test' ? (test && test.running ? test.cur : null) : null);
   function show(v) {
     view = v;
-    ['daily', 'practice', 'progress'].forEach(n => {
+    ['daily', 'practice', 'test', 'progress'].forEach(n => {
       $('view-' + n).hidden = n !== v;
       $('tab-' + n).setAttribute('aria-selected', String(n === v));
     });
     if (v === 'practice') { if (!practiceSheet || practiceSheet.done) nextPractice(); else Peanut.say('Pick a difficulty and a category, or just keep going.', 'idle'); }
     if (v === 'progress') renderProgress();
+    if (v === 'test') showTest();
     if (v === 'daily') { if (!dailySheet) renderDaily(); else dailyGreet(); }
   }
-  ['daily', 'practice', 'progress'].forEach(n => $('tab-' + n).addEventListener('click', () => { SFX.tap(); show(n); }));
+  ['daily', 'practice', 'test', 'progress'].forEach(n => $('tab-' + n).addEventListener('click', () => { SFX.tap(); show(n); }));
   document.addEventListener('keydown', e => {
     if (e.metaKey || e.ctrlKey || e.altKey || /INPUT|TEXTAREA/.test(e.target.tagName)) return;
     const s = current();
