@@ -1,0 +1,1306 @@
+<title>Quotient</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one narrow column like a test booklet; the question is the page, everything else sits around it. */
+:root {
+  --paper: #edf0f3;
+  --card: #fafbfc;
+  --ink: #16202b;
+  --muted: #5b6775;
+  --line: #d3d9e0;
+  --accent: #2846c8;
+  --accent-ink: #ffffff;
+  --accent-soft: #dde3fa;
+  --good: #1f7a4d;
+  --good-soft: #dcefe4;
+  --bad: #b3261e;
+  --bad-soft: #f7dedb;
+  --shade: #9aa5b1;
+  --easy: #2f8f6b;
+  --medium: #b07a0c;
+  --hard: #b23a5b;
+
+  --display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  --body: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  --r: 10px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0e1319; --card: #161d26; --ink: #e6ebf1; --muted: #95a1af; --line: #2a3440;
+    --accent: #8ea2ff; --accent-ink: #0e1319; --accent-soft: #1f2a4d;
+    --good: #5cc793; --good-soft: #15301f; --bad: #f08a80; --bad-soft: #3a1c1a;
+    --shade: #6b7785; --easy: #5cc7a0; --medium: #e8b54a; --hard: #ee7f9c;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #0e1319; --card: #161d26; --ink: #e6ebf1; --muted: #95a1af; --line: #2a3440;
+  --accent: #8ea2ff; --accent-ink: #0e1319; --accent-soft: #1f2a4d;
+  --good: #5cc793; --good-soft: #15301f; --bad: #f08a80; --bad-soft: #3a1c1a;
+  --shade: #6b7785; --easy: #5cc7a0; --medium: #e8b54a; --hard: #ee7f9c;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--body);
+  font-size: 17px;
+  line-height: 1.55;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 20px 56px;
+}
+.wrap { max-width: 680px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+button { font: inherit; color: inherit; }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+/* Masthead */
+.mast { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.brand { display: flex; flex-direction: column; gap: 2px; }
+.brand h1 {
+  margin: 0; font-family: var(--display); font-weight: 800; font-size: 2.1rem;
+  letter-spacing: -0.03em; line-height: 1;
+}
+.brand h1 .q { color: var(--accent); }
+.brand .date { color: var(--muted); font-size: 0.92rem; }
+.streak {
+  display: flex; align-items: baseline; gap: 6px; font-family: var(--mono); font-size: 0.85rem;
+  color: var(--muted);
+}
+.streak b { font-family: var(--display); font-size: 1.6rem; color: var(--ink); font-weight: 700; }
+
+/* Tabs */
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); }
+.tab {
+  background: none; border: 0; padding: 10px 14px 12px; cursor: pointer; color: var(--muted);
+  font-weight: 700; border-bottom: 3px solid transparent; margin-bottom: -1px;
+}
+.tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
+
+/* Practice controls */
+.controls { display: flex; flex-direction: column; gap: 12px; }
+.ctl-label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 700; }
+.diffbar { display: grid; grid-template-columns: repeat(3, 1fr); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; background: var(--card); }
+.diffbar button {
+  border: 0; background: none; padding: 10px 6px; cursor: pointer; font-weight: 700;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+}
+.diffbar button + button { border-left: 1px solid var(--line); }
+.diffbar button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+.pips { display: inline-flex; gap: 3px; }
+.pips i { width: 6px; height: 14px; border-radius: 2px; background: currentColor; opacity: 0.25; }
+.pips i.on { opacity: 1; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip {
+  border: 1px solid var(--line); background: var(--card); border-radius: 999px; padding: 6px 14px;
+  cursor: pointer; font-size: 0.92rem;
+}
+.chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 700; }
+
+/* Question sheet */
+.sheet {
+  background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+  padding: 22px 22px 24px; display: flex; flex-direction: column; gap: 18px;
+}
+.meta { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap;
+  font-family: var(--mono); font-size: 0.78rem; color: var(--muted); }
+.meta .left { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.tag { padding: 2px 8px; border-radius: 4px; border: 1px solid currentColor; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }
+.tag.easy { color: var(--easy); } .tag.medium { color: var(--medium); } .tag.hard { color: var(--hard); }
+.timer { font-variant-numeric: tabular-nums; }
+.prompt { margin: 0; font-family: var(--display); font-weight: 700; font-size: 1.35rem; line-height: 1.3; text-wrap: balance; letter-spacing: -0.01em; }
+
+.stem-seq { display: flex; flex-wrap: wrap; gap: 8px; }
+.stem-seq span {
+  font-family: var(--mono); font-weight: 600; font-size: 1.25rem; min-width: 52px; padding: 10px 12px;
+  text-align: center; border: 1px solid var(--line); border-radius: 8px; background: var(--paper);
+  font-variant-numeric: tabular-nums;
+}
+.stem-seq span.gap { border-style: dashed; border-color: var(--accent); color: var(--accent); background: none; }
+.stem-lines { margin: 0; padding: 14px 16px; list-style: none; background: var(--paper); border-radius: 8px; display: flex; flex-direction: column; gap: 6px; }
+.stem-lines.mono li { font-family: var(--mono); font-size: 1.1rem; }
+.stem-lines li { min-width: 0; }
+
+.matrix { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; max-width: 330px; width: 100%; }
+.cell { aspect-ratio: 1; border: 1px solid var(--line); border-radius: 6px; background: var(--paper); display: grid; place-items: center; max-width: 100%; }
+.cell svg { width: 100%; height: 100%; }
+.cell.missing { border: 2px dashed var(--accent); color: var(--accent); font-family: var(--display); font-size: 2rem; font-weight: 800; }
+.sh { stroke: var(--ink); stroke-width: 3.5; stroke-linejoin: round; }
+.f-none { fill: none; } .f-grey { fill: var(--shade); } .f-solid { fill: var(--ink); }
+
+.options { display: grid; grid-template-columns: 1fr; gap: 8px; }
+.options.visual { grid-template-columns: repeat(3, 1fr); }
+.opt {
+  display: flex; align-items: center; gap: 12px; text-align: left; cursor: pointer;
+  border: 1px solid var(--line); background: var(--card); border-radius: var(--r); padding: 12px 14px;
+  min-width: 0; transition: border-color .12s, background .12s;
+}
+.opt:hover:not(:disabled) { border-color: var(--accent); }
+.opt .key { flex: none; width: 26px; height: 26px; border-radius: 6px; display: grid; place-items: center;
+  font-family: var(--mono); font-size: 0.8rem; font-weight: 600; background: var(--paper); border: 1px solid var(--line); }
+.opt .txt { min-width: 0; font-size: 1.05rem; }
+.opt .txt.mono { font-family: var(--mono); font-weight: 600; }
+.options.visual .opt { flex-direction: column; padding: 8px; gap: 6px; }
+.options.visual .opt .cell { width: 100%; border: 0; }
+.opt:disabled { cursor: default; }
+.opt.right { border-color: var(--good); background: var(--good-soft); }
+.opt.right .key { background: var(--good); color: var(--card); border-color: var(--good); }
+.opt.wrong { border-color: var(--bad); background: var(--bad-soft); }
+.opt.wrong .key { background: var(--bad); color: var(--card); border-color: var(--bad); }
+.opt.dim { opacity: 0.55; }
+
+.actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.btn {
+  border: 1px solid var(--line); background: var(--card); padding: 10px 16px; border-radius: var(--r);
+  cursor: pointer; font-weight: 700;
+}
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.btn.quiet { border-color: transparent; background: none; color: var(--muted); padding-inline: 6px; }
+.btn:disabled { opacity: .5; cursor: default; }
+.hint { margin: 0; padding: 12px 14px; border-left: 3px solid var(--medium); background: var(--paper); border-radius: 0 8px 8px 0; }
+.verdict { display: flex; flex-direction: column; gap: 8px; padding: 16px; border-radius: var(--r); }
+.verdict.good { background: var(--good-soft); }
+.verdict.bad { background: var(--bad-soft); }
+.verdict h3 { margin: 0; font-family: var(--display); font-size: 1.15rem; }
+.verdict.good h3 { color: var(--good); } .verdict.bad h3 { color: var(--bad); }
+.verdict p { margin: 0; }
+.verdict .time { font-family: var(--mono); font-size: 0.8rem; color: var(--muted); }
+
+.note { color: var(--muted); font-size: 0.9rem; margin: 0; }
+.session { font-family: var(--mono); font-size: 0.8rem; color: var(--muted); }
+
+/* Progress */
+.tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.tile { background: var(--card); border: 1px solid var(--line); border-radius: var(--r); padding: 12px 14px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.tile b { font-family: var(--display); font-size: 1.7rem; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.tile span { font-size: 0.78rem; color: var(--muted); }
+.panel { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 18px; display: flex; flex-direction: column; gap: 14px; }
+.panel h2 { margin: 0; font-family: var(--display); font-size: 1.1rem; }
+.cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; max-width: 360px; }
+.cal .d { aspect-ratio: 1; border-radius: 5px; background: var(--paper); border: 1px solid var(--line); display: grid; place-items: center; font-family: var(--mono); font-size: 0.65rem; color: var(--muted); }
+.cal .d.ok { background: var(--good); border-color: var(--good); color: var(--card); }
+.cal .d.miss { background: var(--bad-soft); border-color: var(--bad); color: var(--bad); }
+.cal .d.today { outline: 2px solid var(--accent); outline-offset: 1px; }
+.cal .dow { font-family: var(--mono); font-size: 0.65rem; color: var(--muted); text-align: center; }
+.legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 0.8rem; color: var(--muted); }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
+.bars { display: flex; flex-direction: column; gap: 10px; }
+.bar { display: grid; grid-template-columns: 110px 1fr 70px; gap: 10px; align-items: center; font-size: 0.9rem; }
+.bar .track { height: 10px; border-radius: 5px; background: var(--paper); border: 1px solid var(--line); overflow: hidden; }
+.bar .fill { height: 100%; background: var(--accent); }
+.bar .num { font-family: var(--mono); font-size: 0.78rem; color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
+.sync { font-family: var(--mono); font-size: 0.72rem; color: var(--muted); text-align: center; }
+
+@media (max-width: 520px) {
+  .tiles { grid-template-columns: repeat(2, 1fr); }
+  .prompt { font-size: 1.2rem; }
+  .sheet { padding: 18px 16px 20px; }
+  .bar { grid-template-columns: 88px 1fr 56px; }
+  .stem-seq span { min-width: 44px; font-size: 1.1rem; padding: 8px 9px; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header class="mast">
+    <div class="brand">
+      <h1>Quotient<span class="q">.</span></h1>
+      <div class="date" id="today-label"></div>
+    </div>
+    <div class="streak" title="Days in a row you've answered the daily item"><b id="streak-num">0</b> day streak</div>
+  </header>
+
+  <nav class="tabs" role="tablist">
+    <button class="tab" role="tab" id="tab-daily" aria-selected="true">Today</button>
+    <button class="tab" role="tab" id="tab-practice" aria-selected="false">Practice</button>
+    <button class="tab" role="tab" id="tab-progress" aria-selected="false">Progress</button>
+  </nav>
+
+  <section id="view-daily"></section>
+
+  <section id="view-practice" hidden>
+    <div class="controls">
+      <div class="ctl-label" id="lbl-diff">Difficulty</div>
+      <div class="diffbar" id="diffbar" role="group" aria-labelledby="lbl-diff"></div>
+      <div class="ctl-label" id="lbl-cat">Category</div>
+      <div class="chips" id="chips" role="group" aria-labelledby="lbl-cat"></div>
+    </div>
+    <div id="practice-sheet" style="margin-top:16px"></div>
+  </section>
+
+  <section id="view-progress" hidden></section>
+
+  <div class="sync" id="sync"></div>
+</div>
+
+<script id="engine">
+/* Quotient question engine: every question is generated from a seed, so the
+   daily item is the same for everyone on a given date and practice never runs out. */
+(function (root) {
+  'use strict';
+
+  function mulberry32(a) {
+    return function () {
+      a |= 0; a = a + 0x6D2B79F5 | 0;
+      let t = Math.imul(a ^ a >>> 15, 1 | a);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  }
+  function hashStr(s) {
+    let h = 2166136261;
+    for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+    return h >>> 0;
+  }
+  function rng(seed) {
+    const f = mulberry32(seed);
+    const r = {
+      f,
+      int: (a, b) => a + Math.floor(f() * (b - a + 1)),
+      pick: arr => arr[Math.floor(f() * arr.length)],
+      chance: p => f() < p,
+      shuffle: arr => {
+        const a = arr.slice();
+        for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(f() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+        return a;
+      },
+    };
+    return r;
+  }
+
+  const CATEGORIES = [
+    { id: 'sequences', name: 'Number sequences', short: 'Sequences' },
+    { id: 'matrices', name: 'Pattern matrices', short: 'Matrices' },
+    { id: 'arithmetic', name: 'Arithmetic', short: 'Arithmetic' },
+    { id: 'logic', name: 'Logic', short: 'Logic' },
+    { id: 'letters', name: 'Letter series', short: 'Letters' },
+    { id: 'verbal', name: 'Verbal reasoning', short: 'Verbal' },
+  ];
+  const DIFFS = ['easy', 'medium', 'hard'];
+  const TARGET = { easy: '~1 min', medium: '~2–3 min', hard: '~5 min' };
+
+  // Builds the option list: the answer plus distinct distractors, shuffled.
+  function finalize(r, q, answer, distractors, n, keyOf) {
+    keyOf = keyOf || (x => String(x));
+    const seen = new Set([keyOf(answer)]);
+    const opts = [answer];
+    for (const d of distractors) {
+      if (opts.length >= n) break;
+      if (d === undefined || d === null || (typeof d === 'number' && !isFinite(d))) continue;
+      const k = keyOf(d);
+      if (seen.has(k)) continue;
+      seen.add(k); opts.push(d);
+    }
+    const shuffled = r.shuffle(opts);
+    q.options = shuffled;
+    q.answer = shuffled.findIndex(o => keyOf(o) === keyOf(answer));
+    return q;
+  }
+  function numDistractors(r, ans, extra) {
+    const out = (extra || []).slice();
+    const near = r.shuffle([1, -1, 2, -2, 3, -3, 4, 5, 10, -10]);
+    for (const d of near) out.push(ans + d);
+    return out.filter(x => Number.isInteger(x));
+  }
+  const fmt = n => (n < 0 ? '−' + Math.abs(n) : String(n));
+
+  /* ---------- Number sequences ---------- */
+  const SEQ = {
+    easy: [
+      r => {
+        const d = r.pick([2, 3, 4, 5, 6, 7, 8, 9, 11, 12]) * (r.chance(0.3) ? -1 : 1);
+        const a = d < 0 ? r.int(-d * 6, -d * 6 + 30) : r.int(1, 30);
+        return { t: [0, 1, 2, 3, 4, 5].map(i => a + d * i),
+          why: `Each term ${d > 0 ? 'adds' : 'subtracts'} ${Math.abs(d)}.`,
+          hint: 'Compare each number with the one before it.' };
+      },
+      r => {
+        const a = r.int(1, 6), m = r.pick([2, 3]);
+        const len = m === 3 ? 5 : 6;
+        return { t: Array.from({ length: len }, (_, i) => a * m ** i),
+          why: `Each term is the previous one multiplied by ${m}.`,
+          hint: 'The gaps grow fast. Try dividing each term by the one before it.' };
+      },
+      r => {
+        const k = r.int(0, 6);
+        return { t: [0, 1, 2, 3, 4, 5].map(i => (i + 1 + k) ** 2),
+          why: `These are square numbers: ${k + 1}², ${k + 2}², ${k + 3}² and so on, so next is ${k + 6}².`,
+          hint: 'Look at each number on its own. Is it special?' };
+      },
+    ],
+    medium: [
+      r => {
+        const a = r.int(1, 15), d = r.int(1, 5), c = r.int(1, 4);
+        const t = [0, 1, 2, 3, 4, 5, 6].map(i => a + d * i + c * i * (i - 1) / 2);
+        const gaps = t.slice(1).map((x, i) => x - t[i]);
+        return { t, why: `The gaps are ${gaps.slice(0, 5).join(', ')}, each ${c} more than the last, so the next gap is ${gaps[5]}.`,
+          hint: 'Write down the gaps between terms. Do the gaps follow a pattern?' };
+      },
+      r => {
+        const a1 = r.int(1, 15), d1 = r.int(2, 6), a2 = r.int(30, 60), d2 = r.int(2, 5);
+        const t = [];
+        for (let i = 0; i < 4; i++) { t.push(a1 + d1 * i); t.push(a2 - d2 * i); }
+        return { t, why: `Two series are interleaved. The 1st, 3rd, 5th… terms go up by ${d1}; the 2nd, 4th, 6th… go down by ${d2}.`,
+          hint: 'Try reading every other number.' };
+      },
+      r => {
+        const c = r.pick([-1, 1, 2, 3]), s = c === -1 ? r.int(2, 5) : r.int(1, 5);
+        const t = [s];
+        for (let i = 1; i < 6; i++) t.push(t[i - 1] * 2 + c);
+        return { t, why: `Each term is double the previous one, then ${c > 0 ? 'plus' : 'minus'} ${Math.abs(c)}.`,
+          hint: 'Roughly how much bigger is each term than the one before?' };
+      },
+      r => {
+        const a = r.int(1, 5), b = r.int(a, a + 5);
+        const t = [a, b];
+        for (let i = 2; i < 7; i++) t.push(t[i - 1] + t[i - 2]);
+        return { t, why: 'Each term is the sum of the two terms before it.',
+          hint: 'Look at three neighbouring terms together.' };
+      },
+    ],
+    hard: [
+      r => {
+        const k = r.pick([-2, -1, 1, 2, 3, 5]);
+        return { t: [1, 2, 3, 4, 5, 6].map(n => n ** 3 + k),
+          why: `Each term is a cube ${k > 0 ? 'plus' : 'minus'} ${Math.abs(k)}: 1³, 2³, 3³… ${k > 0 ? '+' : '−'} ${Math.abs(k)}.`,
+          hint: `What happens if you ${k > 0 ? 'subtract' : 'add'} a small number from every term?` };
+      },
+      r => {
+        const a = r.int(1, 10), d = r.int(1, 3), m = r.pick([2, 3]);
+        const t = [a];
+        for (let i = 0; i < 6; i++) t.push(t[i] + d * m ** i);
+        return { t, why: `The gaps are ${t.slice(1, 6).map((x, i) => x - t[i]).join(', ')}: each gap is ${m}× the last.`,
+          hint: 'Find the gaps, then look at how the gaps change.' };
+      },
+      r => {
+        const s = r.int(1, 6), m = r.pick([2, 3]), k = r.int(1, 6);
+        const t = [s];
+        for (let i = 1; i < 8; i++) t.push(i % 2 ? t[i - 1] * m : t[i - 1] + k);
+        return { t, why: `The rule alternates: ×${m}, then +${k}, then ×${m}, then +${k}…`,
+          hint: 'There may be two different steps taking turns.' };
+      },
+      r => {
+        const s = r.int(1, 20), P = [2, 3, 5, 7, 11, 13];
+        const t = [s];
+        for (const p of P) t.push(t[t.length - 1] + p);
+        return { t, why: 'The gaps are the prime numbers 2, 3, 5, 7, 11, so the next gap is 13.',
+          hint: 'Write down the gaps. What kind of numbers are they?' };
+      },
+      r => {
+        const s = r.int(1, 3);
+        const t = [s];
+        for (let i = 2; i <= 6; i++) t.push(t[t.length - 1] * i);
+        return { t, why: 'Multiply by 2, then 3, then 4, then 5, then 6.',
+          hint: 'Divide each term by the one before it.' };
+      },
+    ],
+  };
+  function genSequences(r, diff) {
+    const p = r.pick(SEQ[diff])(r);
+    const shown = p.t.slice(0, -1), ans = p.t[p.t.length - 1];
+    const n = shown.length;
+    const lastGap = shown[n - 1] - shown[n - 2];
+    const q = {
+      prompt: 'What number comes next?',
+      stem: { kind: 'seq', items: shown.map(fmt).concat('?') },
+      hint: p.hint,
+      why: `${p.why} The answer is ${fmt(ans)}.`,
+      mono: true,
+    };
+    const ds = numDistractors(r, ans, [shown[n - 1] + lastGap, shown[n - 1] * 2, ans + lastGap - (shown[n - 2] - shown[n - 3])]);
+    finalize(r, q, ans, ds, 5);
+    q.options = q.options.map(fmt);
+    return q;
+  }
+
+  /* ---------- Letter series ---------- */
+  const L = i => String.fromCharCode(65 + (((i % 26) + 26) % 26));
+  const LETTERS = {
+    easy: [
+      r => {
+        const k = r.int(2, 4), s = r.int(0, 25 - 5 * k);
+        return { items: [0, 1, 2, 3, 4].map(i => L(s + k * i)), ans: L(s + 5 * k), near: s + 5 * k,
+          why: `Each letter moves ${k} places forward in the alphabet.`, hint: 'Count the steps between letters.' };
+      },
+      r => {
+        const s = r.int(0, 7);
+        const pair = i => L(s + i) + L(25 - s - i);
+        return { items: [0, 1, 2, 3].map(pair), ans: pair(4), pairs: [s + 4, 25 - s - 4],
+          why: 'The first letter steps forward from the start of the alphabet while the second steps backward from the end.',
+          hint: 'Look at the first letters and the second letters separately.' };
+      },
+    ],
+    medium: [
+      r => {
+        const s = r.int(0, 4);
+        const pos = [0, 1, 3, 6, 10, 15].map(x => s + x);
+        return { items: pos.slice(0, 5).map(L), ans: L(pos[5]), near: pos[5],
+          why: 'The steps grow by one each time: +1, +2, +3, +4, so next is +5.', hint: 'Count the steps. Are they the same each time?' };
+      },
+      r => {
+        const a = r.int(3, 5), b = r.int(1, 2), s = r.int(2, 8);
+        const pos = [s];
+        for (let i = 1; i < 7; i++) pos.push(pos[i - 1] + (i % 2 ? a : -b));
+        return { items: pos.slice(0, 6).map(L), ans: L(pos[6]), near: pos[6],
+          why: `The series alternates: forward ${a}, back ${b}, forward ${a}, back ${b}…`, hint: 'Some steps go backwards.' };
+      },
+      r => {
+        const k = r.int(1, 3), s = r.int(0, 8);
+        const grp = g => L(s + g) + L(s + g + k) + L(s + g + 2 * k);
+        return { items: [0, 1, 2].map(grp), ans: grp(3), group: [s + 3, k],
+          why: `Each group is three letters ${k} apart, and each group starts one letter later than the last.`,
+          hint: 'Compare the first letter of each group, then the spacing inside a group.' };
+      },
+    ],
+    hard: [
+      r => {
+        const k = r.int(5, 9), s = r.int(12, 25);
+        const pos = [0, 1, 2, 3, 4, 5].map(i => s + k * i);
+        return { items: pos.slice(0, 5).map(L), ans: L(pos[5]), near: pos[5],
+          why: `Each step moves ${k} letters forward, wrapping round from Z back to A.`,
+          hint: 'The alphabet may loop: after Z comes A again.' };
+      },
+      r => {
+        const P = [2, 3, 5, 7, 11, 13, 17, 19, 23], j = r.int(0, 3);
+        const pos = P.slice(j, j + 6).map(p => p - 1);
+        return { items: pos.slice(0, 5).map(L), ans: L(pos[5]), near: pos[5],
+          why: `The letters sit at prime-numbered places in the alphabet (${P.slice(j, j + 6).join(', ')}).`,
+          hint: 'Turn each letter into its place in the alphabet: A = 1, B = 2…' };
+      },
+      r => {
+        const k = r.int(0, 4), F = [1, 2, 3, 5, 8, 13, 21];
+        const pos = F.map(f => f - 1 + k);
+        return { items: pos.slice(0, 6).map(L), ans: L(pos[6]), near: pos[6],
+          why: `As alphabet positions${k ? ` minus ${k}` : ''}, the letters follow 1, 2, 3, 5, 8, 13: each is the sum of the two before.`,
+          hint: 'Convert the letters to numbers and look for a famous series.' };
+      },
+      r => {
+        const a = r.int(2, 4), b = r.int(2, 3), s = r.int(0, 3);
+        const pos = [];
+        for (let i = 0; i < 4; i++) { pos.push(s + a * i); pos.push(25 - b * i); }
+        return { items: pos.slice(0, 7).map(L), ans: L(pos[7]), near: pos[7],
+          why: `Two series are interleaved: one goes forward ${a} at a time from ${L(s)}, the other goes backward ${b} at a time from Z.`,
+          hint: 'Read every other letter.' };
+      },
+    ],
+  };
+  function genLetters(r, diff) {
+    const p = r.pick(LETTERS[diff])(r);
+    let ds = [];
+    if (p.near !== undefined) ds = r.shuffle([1, -1, 2, -2, 3, -3, 4]).map(d => L(p.near + d));
+    else if (p.pairs) ds = [[0, 1], [1, 0], [0, -1], [-1, 0], [1, 1], [1, -1], [2, 0]].map(([x, y]) => L(p.pairs[0] + x) + L(p.pairs[1] + y));
+    else if (p.group) {
+      const [g, k] = p.group;
+      ds = [[0, k + 1], [1, k], [-1, k], [0, k - 1 || 2], [2, k]].map(([o, kk]) => L(g + o) + L(g + o + kk) + L(g + o + 2 * kk));
+    }
+    const q = {
+      prompt: p.pairs || p.group ? 'Which letters come next?' : 'Which letter comes next?',
+      stem: { kind: 'seq', items: p.items.concat('?') },
+      hint: p.hint, why: `${p.why} The answer is ${p.ans}.`, mono: true,
+    };
+    return finalize(r, q, p.ans, ds, 5);
+  }
+
+  /* ---------- Arithmetic ---------- */
+  const OPS = {
+    medium: [
+      { f: (a, b) => a * b + a, t: 'a × b + a' }, { f: (a, b) => a * b - b, t: 'a × b − b' },
+      { f: (a, b) => 2 * a + b, t: '2a + b' }, { f: (a, b) => a * a + b, t: 'a² + b' },
+      { f: (a, b) => a * b + 1, t: 'a × b + 1' }, { f: (a, b) => (a + b) * 2, t: '(a + b) × 2' },
+      { f: (a, b) => a * b + a + b, t: 'a × b + a + b' }, { f: (a, b) => a + 3 * b, t: 'a + 3b' },
+    ],
+    hard: [
+      { f: (a, b) => a * a + b * b, t: 'a² + b²' }, { f: (a, b) => a * a - b * b, t: 'a² − b²' },
+      { f: (a, b) => a * b - a - b, t: 'a × b − a − b' }, { f: (a, b) => (a + b) ** 2, t: '(a + b)²' },
+      { f: (a, b) => a * (a + b), t: 'a × (a + b)' }, { f: (a, b) => a * a - b, t: 'a² − b' },
+      { f: (a, b) => (a - b) * b, t: '(a − b) × b' }, { f: (a, b) => a * b * 2 - a, t: '2ab − a' },
+    ],
+  };
+  function genMysteryOp(r, diff) {
+    const pool = OPS[diff];
+    for (let tries = 0; tries < 200; tries++) {
+      const op = r.pick(pool);
+      const pairs = [];
+      while (pairs.length < 4) {
+        const a = r.int(3, 9), b = r.int(2, a - 1);
+        if (!pairs.some(p => p[0] === a && p[1] === b)) pairs.push([a, b]);
+      }
+      const ex = pairs.slice(0, 3), [qa, qb] = pairs[3];
+      // Examples must rule out every other rule in the pool.
+      const rivals = pool.filter(o => o !== op && ex.every(([a, b]) => o.f(a, b) === op.f(a, b)));
+      if (rivals.length) continue;
+      const ans = op.f(qa, qb);
+      const q = {
+        prompt: 'The symbol ◆ stands for a hidden rule. What is the last result?',
+        stem: { kind: 'lines', mono: true, items: ex.map(([a, b]) => `${a} ◆ ${b} = ${fmt(op.f(a, b))}`).concat(`${qa} ◆ ${qb} = ?`) },
+        hint: 'Compare each result with the two numbers. Is it near their product, their sum, or a square?',
+        why: `The rule is a ◆ b = ${op.t}. So ${qa} ◆ ${qb} = ${fmt(ans)}.`, mono: true,
+      };
+      const ds = pool.filter(o => o !== op).map(o => o.f(qa, qb));
+      finalize(r, q, ans, numDistractors(r, ans, r.shuffle(ds)), 5);
+      q.options = q.options.map(fmt);
+      return q;
+    }
+    return genSymbols(r, diff);
+  }
+  function genSymbols(r, diff) {
+    const [x, y, z] = r.shuffle([2, 3, 4, 5, 6, 7, 8, 9]);
+    if (diff === 'medium') {
+      const q = {
+        prompt: 'Each symbol stands for a whole number. What is ● × ▲?',
+        stem: { kind: 'lines', mono: true, items: [`● + ● + ▲ = ${2 * x + y}`, `● + ▲ = ${x + y}`] },
+        hint: 'Compare the two lines. What does the first line have that the second does not?',
+        why: `The first line has one extra ● compared with the second, so ● = ${2 * x + y} − ${x + y} = ${x}. Then ▲ = ${y}, and ● × ▲ = ${x * y}.`,
+        mono: true,
+      };
+      return finalize(r, q, x * y, numDistractors(r, x * y, [x + y, (x + 1) * y, x * (y + 1), 2 * x * y]), 5);
+    }
+    const S = x + y + z, A = x + y, B = y + z, C = x + z;
+    const ans = x * z - y;
+    const q = {
+      prompt: 'Each symbol stands for a whole number. What is ● × ■ − ▲?',
+      stem: { kind: 'lines', mono: true, items: [`● + ▲ = ${A}`, `▲ + ■ = ${B}`, `● + ■ = ${C}`] },
+      hint: 'Add all three lines together. Each symbol appears exactly twice.',
+      why: `Adding the lines gives 2(● + ▲ + ■) = ${A + B + C}, so ● + ▲ + ■ = ${S}. Then ● = ${S} − ${B} = ${x}, ▲ = ${S} − ${C} = ${y}, ■ = ${S} − ${A} = ${z}. So ${x} × ${z} − ${y} = ${ans}.`,
+      mono: true,
+    };
+    finalize(r, q, ans, numDistractors(r, ans, [x * y - z, y * z - x, x * z + y, S]), 5);
+    q.options = q.options.map(fmt);
+    return q;
+  }
+  function genArithmetic(r, diff) {
+    if (diff === 'easy') {
+      const kind = r.int(0, 3);
+      if (kind === 0) {
+        const p = r.pick([10, 20, 25, 30, 40, 50, 75]), y = r.int(2, 12) * 20;
+        const ans = p * y / 100;
+        const q = { prompt: `What is ${p}% of ${y}?`, stem: null, hint: p % 25 === 0 ? `${p}% is ${p === 25 ? 'a quarter' : p === 50 ? 'half' : 'three quarters'}.` : 'Find 10% first by dividing by 10.',
+          why: `${p}% of ${y} = ${y} × ${p} ÷ 100 = ${ans}.`, mono: true };
+        return finalize(r, q, ans, numDistractors(r, ans, [ans * 2, ans / 2, y - ans, y * p / 10]).filter(Number.isInteger), 4);
+      }
+      if (kind === 1) {
+        const n = r.int(3, 12), m = r.int(3, 9), s = r.int(2, 15);
+        const q = { prompt: 'What number goes in the box?', stem: { kind: 'lines', mono: true, items: [`□ × ${m} − ${s} = ${n * m - s}`] },
+          hint: `Work backwards: first add ${s}.`, why: `Add ${s} to get ${n * m}, then divide by ${m}: □ = ${n}.`, mono: true };
+        return finalize(r, q, n, numDistractors(r, n, [Math.round((n * m - s) / m), n * m - s - m]), 4);
+      }
+      if (kind === 2) {
+        const pen = r.int(2, 6), more = r.int(1, 5), np = r.int(2, 5), nn = r.int(2, 4);
+        const ans = np * pen + nn * (pen + more);
+        const q = { prompt: `A pen costs $${pen}. A notebook costs $${more} more than a pen. How much do ${np} pens and ${nn} notebooks cost?`, stem: null,
+          hint: `A notebook costs $${pen} + $${more}.`, why: `A notebook is $${pen + more}. ${np} × $${pen} + ${nn} × $${pen + more} = $${ans}.`, mono: true };
+        finalize(r, q, ans, numDistractors(r, ans, [np * pen + nn * more, (np + nn) * pen + more, (np + nn) * (pen + more)]), 4);
+        q.options = q.options.map(v => '$' + v);
+        return q;
+      }
+      const base = r.pick([80, 120, 160, 200, 240, 320, 400]), a = r.pick(['half', 'a quarter']), b = r.pick(['half', 'a quarter']);
+      const fr = w => (w === 'half' ? 2 : 4);
+      const ans = base / fr(a) / fr(b);
+      const q = { prompt: `What is ${a} of ${b} of ${base}?`, stem: null, hint: `Start with ${b} of ${base}.`,
+        why: `${b[0].toUpperCase() + b.slice(1)} of ${base} is ${base / fr(b)}, and ${a} of that is ${ans}.`, mono: true };
+      return finalize(r, q, ans, numDistractors(r, ans, [ans * 2, ans * 4, base / 2, ans / 2].filter(Number.isInteger)), 4);
+    }
+    if (diff === 'medium') {
+      const kind = r.int(0, 3);
+      if (kind === 0) return genMysteryOp(r, 'medium');
+      if (kind === 1) return genSymbols(r, 'medium');
+      if (kind === 2) {
+        const m = r.int(2, 6), k = r.int(1, 4), t = r.pick([5, 6, 10, 12, 15, 20]), M = r.int(2, 9), T = t * r.int(2, 4);
+        const w = m * k, ans = k * M * (T / t);
+        const q = { prompt: `${m} machines make ${w} widgets in ${t} minutes. Working at the same rate, how many widgets do ${M} machines make in ${T} minutes?`, stem: null,
+          hint: 'First work out how many widgets one machine makes in one batch of time.',
+          why: `One machine makes ${k} widget${k > 1 ? 's' : ''} every ${t} minutes. ${T} minutes is ${T / t} batches, so ${M} machines make ${M} × ${k} × ${T / t} = ${ans}.`, mono: true };
+        return finalize(r, q, ans, numDistractors(r, ans, [w * M / m, w * T / t, M * T / t, ans + k * M]).filter(Number.isInteger), 4);
+      }
+      const n = r.int(3, 15), m = r.pick([3, 4, 5, 6]), d = r.pick([2, 3, 4, 5]);
+      let s = 1; while ((n * m + s) % d) s++;
+      if (s < 3) s += d;
+      const res = (n * m + s) / d;
+      const q = { prompt: `I think of a number. I multiply it by ${m}, add ${s}, then divide by ${d}. The result is ${res}. What was my number?`, stem: null,
+        hint: 'Undo each step in reverse order.', why: `Reverse it: ${res} × ${d} = ${res * d}, minus ${s} is ${n * m}, divided by ${m} is ${n}.`, mono: true };
+      return finalize(r, q, n, numDistractors(r, n, [Math.round(res * d / m), res * m - s]), 4);
+    }
+    const kind = r.int(0, 4);
+    if (kind === 0) return genMysteryOp(r, 'hard');
+    if (kind === 1) return genSymbols(r, 'hard');
+    if (kind === 2) {
+      const pairs = [[20, 25], [25, 20], [50, 50], [10, 10], [20, 20], [25, 50], [50, 25], [10, 20], [25, 25], [50, 20]];
+      const [a, b] = r.pick(pairs), upFirst = r.chance(0.5);
+      const net = Math.round(((1 + a / 100) * (1 - b / 100) - 1) * 1000) / 10;
+      const f = v => (v === 0 ? 'No change' : (v > 0 ? '+' : '−') + Math.abs(v) + '%');
+      const steps = upFirst ? `rises by ${a}% and then falls by ${b}%` : `falls by ${b}% and then rises by ${a}%`;
+      const q = { prompt: `A price ${steps}. What is the overall change?`, stem: null,
+        hint: 'Try it on a price of $100.',
+        why: `On $100: ${upFirst ? `+${a}% gives $${100 + a}, then −${b}%` : `−${b}% gives $${100 - b}, then +${a}%`} gives $${(100 + net).toFixed(Number.isInteger(100 + net) ? 0 : 2)}. That is ${f(net).toLowerCase()} overall. The order does not matter.`, mono: true };
+      const ds = [a - b, net + 5, net - 5, net + 1, net - 2, -net, 0].map(v => Math.round(v * 10) / 10).map(f);
+      return finalize(r, q, f(net), ds, 4);
+    }
+    if (kind === 3) {
+      const k = r.pick([5, 7]), kind2 = r.pick(['odd', 'even', 'whole']);
+      const step = kind2 === 'whole' ? 1 : 2;
+      let mid = r.int(10, 60);
+      if (kind2 === 'odd' && mid % 2 === 0) mid++;
+      if (kind2 === 'even' && mid % 2) mid++;
+      const ans = mid + step * (k - 1) / 2;
+      const q = { prompt: `${k} consecutive ${kind2 === 'whole' ? 'whole' : kind2} numbers add up to ${k * mid}. What is the largest of them?`, stem: null,
+        hint: `With an odd count of evenly spaced numbers, the middle one is the average.`,
+        why: `The average is ${k * mid} ÷ ${k} = ${mid}, which is the middle number. The largest is ${(k - 1) / 2} steps of ${step} above it: ${ans}.`, mono: true };
+      return finalize(r, q, ans, numDistractors(r, ans, [mid, ans + step, ans - step, mid + (k - 1) / 2]), 4);
+    }
+    const x = r.int(3, 9), y = r.int(4, 16), name = r.pick(['Ana', 'Marco', 'Priya', 'Tom', 'Lena']);
+    const ans = y + 2 * x;
+    const q = { prompt: `In ${y} years, ${name} will be twice as old as ${name} was ${x} years ago. How old is ${name} now?`, stem: null,
+      hint: `Call the age now A. Then A + ${y} = 2 × (A − ${x}).`,
+      why: `A + ${y} = 2(A − ${x}) gives A + ${y} = 2A − ${2 * x}, so A = ${y} + ${2 * x} = ${ans}. Check: in ${y} years ${ans + y}; ${x} years ago ${ans - x}; and ${ans + y} = 2 × ${ans - x}.`, mono: true };
+    return finalize(r, q, ans, numDistractors(r, ans, [y + x, 2 * (y + x), y * 2 - x, ans + x]), 4);
+  }
+
+  /* ---------- Logic ---------- */
+  const NAMES = ['Ava', 'Ben', 'Cleo', 'Dev', 'Esme', 'Finn', 'Hana', 'Jude', 'Kai', 'Lola', 'Omar', 'Rosa'];
+  const RELS = [
+    { more: 'taller than', less: 'shorter than', top: 'tallest', bottom: 'shortest' },
+    { more: 'older than', less: 'younger than', top: 'oldest', bottom: 'youngest' },
+    { more: 'faster than', less: 'slower than', top: 'fastest', bottom: 'slowest' },
+    { more: 'heavier than', less: 'lighter than', top: 'heaviest', bottom: 'lightest' },
+  ];
+  const ORD = ['', 'second', 'third', 'fourth'];
+  function perms(n) {
+    const out = [], a = [...Array(n).keys()];
+    (function go(k) {
+      if (k === n) { out.push(a.slice()); return; }
+      for (let i = k; i < n; i++) { [a[k], a[i]] = [a[i], a[k]]; go(k + 1); [a[k], a[i]] = [a[i], a[k]]; }
+    })(0);
+    return out;
+  }
+  function genOrdering(r, n) {
+    const names = r.shuffle(NAMES).slice(0, n), rel = r.pick(RELS);
+    // order[0] is the top. A clue [i, j] says person i ranks above person j.
+    const order = r.shuffle([...Array(n).keys()]);
+    const rank = []; order.forEach((p, k) => { rank[p] = k; });
+    const all = perms(n);
+    const fits = (clues, perm) => {
+      const rk = []; perm.forEach((p, k) => { rk[p] = k; });
+      return clues.every(([i, j]) => rk[i] < rk[j]);
+    };
+    const count = clues => all.filter(p => fits(clues, p)).length;
+    const pairs = [];
+    for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) if (rank[i] < rank[j]) pairs.push([i, j]);
+    let clues = [];
+    for (const c of r.shuffle(pairs)) { clues.push(c); if (count(clues) === 1) break; }
+    for (const c of r.shuffle(clues.slice())) {
+      const without = clues.filter(x => x !== c);
+      if (count(without) === 1) clues = without;
+    }
+    const lines = r.shuffle(clues).map(([i, j]) => (r.chance(0.5) ? `${names[i]} is ${rel.more} ${names[j]}.` : `${names[j]} is ${rel.less} ${names[i]}.`));
+    let pos, label;
+    if (n === 3) { pos = r.pick([0, 1, 2]); }
+    else { pos = r.int(1, n - 2); }
+    if (pos === 0) label = `the ${rel.top}`;
+    else if (pos === n - 1) label = `the ${rel.bottom}`;
+    else label = `the ${ORD[pos]} ${rel.top}`;
+    const ans = names[order[pos]];
+    const q = {
+      prompt: `Who is ${label}?`,
+      stem: { kind: 'lines', items: lines },
+      hint: `Draw a line and place each person on it, from ${rel.top} to ${rel.bottom}.`,
+      why: `From ${rel.top} to ${rel.bottom} the order is ${order.map(i => names[i]).join(', ')}. So ${label} is ${ans}.`,
+    };
+    return finalize(r, q, ans, r.shuffle(names), n);
+  }
+  function genKnights(r, n) {
+    const names = r.shuffle(NAMES).slice(0, n);
+    const others = s => [...Array(n).keys()].filter(i => i !== s);
+    const makers = [
+      (s, o) => ({ text: `${names[o]} is a knave.`, f: K => !K[o] }),
+      (s, o) => ({ text: `${names[o]} is a knight.`, f: K => K[o] }),
+      (s, o) => ({ text: `${names[o]} and I are the same kind.`, f: K => K[o] === K[s] }),
+      (s, o) => ({ text: `${names[o]} and I are different kinds.`, f: K => K[o] !== K[s] }),
+      () => ({ text: 'At least one of us is a knave.', f: K => K.some(x => !x) }),
+      () => ({ text: 'Exactly one of us is a knight.', f: K => K.filter(Boolean).length === 1 }),
+      (s, o) => ({ text: `Either I am a knave or ${names[o]} is a knight.`, f: K => !K[s] || K[o] }),
+    ];
+    const assigns = [];
+    for (let m = 0; m < 1 << n; m++) assigns.push([...Array(n).keys()].map(i => !!(m >> i & 1)));
+    for (let tries = 0; tries < 500; tries++) {
+      const st = [...Array(n).keys()].map(s => ({ s, ...r.pick(makers)(s, r.pick(others(s))) }));
+      const sols = assigns.filter(K => st.every(x => x.f(K) === K[x.s]));
+      if (sols.length !== 1) continue;
+      const K = sols[0];
+      const describe = A => {
+        const k = names.filter((_, i) => A[i]);
+        if (!k.length) return 'Nobody is a knight';
+        if (k.length === n) return n === 2 ? 'Both are knights' : 'All three are knights';
+        if (k.length === 1) return `Only ${k[0]}`;
+        return `${k.slice(0, -1).join(', ')} and ${k[k.length - 1]}`;
+      };
+      const q = {
+        prompt: 'On this island, knights always tell the truth and knaves always lie. Who is a knight?',
+        stem: { kind: 'lines', items: st.map(x => `${names[x.s]} says: “${x.text}”`) },
+        hint: `Suppose ${names[0]} is a knight, and follow what that forces. If it leads to a contradiction, ${names[0]} must be a knave.`,
+        why: names.map((nm, i) => `${nm} is a ${K[i] ? 'knight' : 'knave'}`).join(', ') + '. ' +
+          st.map(x => `${names[x.s]}'s claim is ${x.f(K) ? 'true' : 'false'}, which fits a ${K[x.s] ? 'knight' : 'knave'}.`).join(' ') +
+          ' Every other combination produces a contradiction.',
+      };
+      return finalize(r, q, describe(K), r.shuffle(assigns.filter(A => A !== K)).map(describe), n === 2 ? 4 : 5);
+    }
+    return genOrdering(r, n + 2);
+  }
+  const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  function genDays(r, diff) {
+    const simple = [['tomorrow', 1], ['yesterday', -1], ['the day after tomorrow', 2], ['the day before yesterday', -2]];
+    let phrase, off;
+    if (diff === 'easy') [phrase, off] = r.pick(simple);
+    else {
+      const [p, o] = r.pick(simple), k = r.int(3, 5), after = r.chance(0.5);
+      phrase = `${k} days ${after ? 'after' : 'before'} ${p}`; off = o + (after ? k : -k);
+    }
+    const given = r.int(0, 6);
+    const askOpts = [['today', 0, 'is'], ['tomorrow', 1, 'is'], ['yesterday', -1, 'was']];
+    const [ask, aoff, verb] = diff === 'easy' ? r.pick(askOpts.slice(0, 1).concat(askOpts.slice(2))) : r.pick(askOpts);
+    const today = ((given - off) % 7 + 7) % 7;
+    const ans = DAYS[((today + aoff) % 7 + 7) % 7];
+    const q = {
+      prompt: `If ${phrase} is ${DAYS[given]}, what day ${verb} ${ask}?`,
+      stem: null,
+      hint: 'Turn each phrase into a number of days from today, then add them up.',
+      why: `“${phrase[0].toUpperCase() + phrase.slice(1)}” is ${Math.abs(off)} day${Math.abs(off) === 1 ? '' : 's'} ${off >= 0 ? 'after' : 'before'} today, so today is ${DAYS[today]}${ask === 'today' ? '' : ` and ${ask} ${verb} ${ans}`}.`,
+    };
+    const idx = DAYS.indexOf(ans);
+    return finalize(r, q, ans, r.shuffle([1, -1, 2, -2, 3]).map(d => DAYS[((idx + d) % 7 + 7) % 7]), 4);
+  }
+  function genLogic(r, diff) {
+    if (diff === 'easy') return r.chance(0.55) ? genOrdering(r, 3) : genDays(r, 'easy');
+    if (diff === 'medium') { const k = r.int(0, 2); return k === 0 ? genOrdering(r, 4) : k === 1 ? genKnights(r, 2) : genDays(r, 'medium'); }
+    return r.chance(0.5) ? genOrdering(r, 5) : genKnights(r, 3);
+  }
+
+  /* ---------- Pattern matrices ---------- */
+  const DOMAIN = { shape: ['circle', 'square', 'triangle', 'diamond'], count: [1, 2, 3], fill: ['none', 'grey', 'solid'] };
+  const FILLWORD = { none: 'outlined', grey: 'grey', solid: 'black' };
+  const ATTRNAME = { shape: 'shape', count: 'number of shapes', fill: 'shading' };
+  const vword = (a, v) => (a === 'fill' ? FILLWORD[v] : a === 'shape' ? v + 's' : String(v));
+  function describeCell(c) { return `${c.count} ${FILLWORD[c.fill]} ${c.shape}${c.count > 1 ? 's' : ''}`; }
+  function genMatrices(r, diff) {
+    const attrs = ['shape', 'count', 'fill'];
+    const nv = { easy: 1, medium: 2, hard: 3 }[diff];
+    const vary = r.shuffle(attrs).slice(0, nv);
+    const spec = {};
+    vary.forEach((a, i) => {
+      let type;
+      if (diff === 'easy') type = r.pick(['across', 'down']);
+      else if (diff === 'medium') type = i === 0 ? 'latin' : r.pick(['across', 'down']);
+      else type = i === 2 ? r.pick(['across', 'down']) : 'latin';
+      const vals = a === 'count' && type !== 'latin' ? [1, 2, 3] : r.shuffle(DOMAIN[a]).slice(0, 3);
+      spec[a] = { type, vals, shift: r.pick([1, 2]) };
+    });
+    attrs.filter(a => !vary.includes(a)).forEach(a => { spec[a] = { type: 'const', v: r.pick(DOMAIN[a]) }; });
+    const at = (row, col) => {
+      const c = {};
+      for (const a of attrs) {
+        const s = spec[a];
+        c[a] = s.type === 'const' ? s.v : s.type === 'across' ? s.vals[col] : s.type === 'down' ? s.vals[row] : s.vals[(col + row * s.shift) % 3];
+      }
+      return c;
+    };
+    const cells = [];
+    for (let row = 0; row < 3; row++) for (let col = 0; col < 3; col++) cells.push(at(row, col));
+    const ans = cells[8];
+    const key = c => `${c.shape}|${c.count}|${c.fill}`;
+    const ds = [];
+    const one = [];
+    for (const a of attrs) for (const v of r.shuffle(DOMAIN[a])) if (v !== ans[a]) one.push({ ...ans, [a]: v });
+    // Prefer near misses that reuse values seen in the grid.
+    const inGrid = c => attrs.every(a => cells.some(x => x[a] === c[a]));
+    ds.push(...r.shuffle(one.filter(inGrid)), ...r.shuffle(one.filter(c => !inGrid(c))));
+    for (let i = 0; i < 6; i++) {
+      const [a1, a2] = r.shuffle(attrs);
+      ds.push({ ...ans, [a1]: r.pick(DOMAIN[a1].filter(v => v !== ans[a1])), [a2]: r.pick(DOMAIN[a2].filter(v => v !== ans[a2])) });
+    }
+    const rules = attrs.map(a => {
+      const s = spec[a], name = ATTRNAME[a];
+      if (s.type === 'const') return a === 'count' ? `Every cell has ${s.v} shape${s.v > 1 ? 's' : ''}.` : `Every shape is ${a === 'shape' ? 'a ' + s.v : FILLWORD[s.v]}.`;
+      const list = s.vals.map(v => vword(a, v));
+      if (s.type === 'latin') return `Each row has one of each ${name === 'number of shapes' ? 'count' : name}: ${list[0]}, ${list[1]} and ${list[2]}, in a shifting order.`;
+      return `The ${name} changes ${s.type === 'across' ? 'across each row, left to right' : 'down each column, top to bottom'}: ${list.join(' → ')}.`;
+    });
+    const q = {
+      prompt: 'Which cell completes the grid?',
+      stem: { kind: 'matrix', cells: cells.slice(0, 8) },
+      hint: nv === 1 ? 'Only one feature changes. Find it.' : 'Take one feature at a time (shape, number, shading) and check each row.',
+      why: rules.join(' ') + ` So the missing cell has ${describeCell(ans)}.`,
+      visual: true,
+    };
+    return finalize(r, q, ans, ds, 6, key);
+  }
+
+  /* ---------- Verbal reasoning ---------- */
+  // [difficulty, type, items, answer, distractors, explanation]
+  const VERBAL = [
+    ['easy', 'analogy', ['Bird', 'Nest', 'Bee'], 'Hive', ['Flower', 'Honey', 'Tree'], 'A bird lives in a nest; a bee lives in a hive.'],
+    ['easy', 'analogy', ['Glove', 'Hand', 'Sock'], 'Foot', ['Shoe', 'Leg', 'Wool'], 'A glove covers a hand; a sock covers a foot.'],
+    ['easy', 'analogy', ['Hot', 'Cold', 'Tall'], 'Short', ['High', 'Warm', 'Wide'], 'Hot is the opposite of cold; tall is the opposite of short.'],
+    ['easy', 'analogy', ['Puppy', 'Dog', 'Kitten'], 'Cat', ['Mouse', 'Lion', 'Pet'], 'A puppy grows into a dog; a kitten grows into a cat.'],
+    ['easy', 'analogy', ['Pen', 'Write', 'Knife'], 'Cut', ['Fork', 'Sharp', 'Cook'], 'You write with a pen and cut with a knife.'],
+    ['easy', 'odd', ['Apple', 'Banana', 'Carrot', 'Grape'], 'Carrot', [], 'Carrot is a vegetable; the rest are fruits.'],
+    ['easy', 'odd', ['Red', 'Blue', 'Circle', 'Green'], 'Circle', [], 'Circle is a shape; the rest are colours.'],
+    ['easy', 'odd', ['Violin', 'Guitar', 'Flute', 'Cello'], 'Flute', [], 'The flute is a wind instrument; the rest have strings.'],
+    ['easy', 'odd', ['January', 'March', 'Monday', 'June'], 'Monday', [], 'Monday is a day; the rest are months.'],
+    ['medium', 'analogy', ['Author', 'Novel', 'Composer'], 'Symphony', ['Orchestra', 'Piano', 'Conductor'], 'An author creates a novel; a composer creates a symphony.'],
+    ['medium', 'analogy', ['Thermometer', 'Temperature', 'Barometer'], 'Air pressure', ['Weather', 'Altitude', 'Wind'], 'A thermometer measures temperature; a barometer measures air pressure.'],
+    ['medium', 'analogy', ['Fish', 'School', 'Wolf'], 'Pack', ['Flock', 'Herd', 'Den'], 'A group of fish is a school; a group of wolves is a pack.'],
+    ['medium', 'analogy', ['Petal', 'Flower', 'Page'], 'Book', ['Paper', 'Word', 'Library'], 'A petal is part of a flower; a page is part of a book.'],
+    ['medium', 'analogy', ['Prologue', 'Epilogue', 'Dawn'], 'Dusk', ['Noon', 'Sunrise', 'Morning'], 'A prologue opens a story and an epilogue closes it; dawn opens a day and dusk closes it.'],
+    ['medium', 'odd', ['Mercury', 'Venus', 'Moon', 'Mars'], 'Moon', [], 'The Moon is a satellite; the rest are planets.'],
+    ['medium', 'odd', ['Square', 'Rectangle', 'Rhombus', 'Triangle'], 'Triangle', [], 'A triangle has three sides; the rest have four.'],
+    ['medium', 'odd', ['Shout', 'Whisper', 'Murmur', 'Listen'], 'Listen', [], 'Listening is hearing; the rest are ways of speaking.'],
+    ['medium', 'compound', ['FALL', 'BOW', 'COAT'], 'RAIN', ['SNOW', 'SUN', 'WATER'], 'Rainfall, rainbow, raincoat.'],
+    ['medium', 'compound', ['PLACE', 'WORK', 'FLY'], 'FIRE', ['HOME', 'HOUSE', 'BUTTER'], 'Fireplace, firework, firefly.'],
+    ['medium', 'compound', ['BALL', 'PRINT', 'STEP'], 'FOOT', ['HAND', 'FINGER', 'BASE'], 'Football, footprint, footstep.'],
+    ['hard', 'analogy', ['Ephemeral', 'Lasting', 'Candid'], 'Guarded', ['Honest', 'Brief', 'Open'], 'Ephemeral is the opposite of lasting; candid is the opposite of guarded.'],
+    ['hard', 'analogy', ['Cartographer', 'Maps', 'Lexicographer'], 'Dictionaries', ['Words', 'Languages', 'Letters'], 'A cartographer compiles maps; a lexicographer compiles dictionaries.'],
+    ['hard', 'analogy', ['Odometer', 'Distance', 'Ammeter'], 'Electric current', ['Voltage', 'Power', 'Resistance'], 'An odometer measures distance; an ammeter measures electric current.'],
+    ['hard', 'analogy', ['Sonnet', '14', 'Haiku'], '3', ['5', '17', '7'], 'A sonnet has 14 lines; a haiku has 3 lines (17 is its syllable count).'],
+    ['hard', 'analogy', ['Archipelago', 'Islands', 'Constellation'], 'Stars', ['Planets', 'Galaxies', 'Moons'], 'An archipelago is a group of islands; a constellation is a group of stars.'],
+    ['hard', 'analogy', ['Meticulous', 'Careless', 'Frugal'], 'Wasteful', ['Thrifty', 'Poor', 'Generous'], 'Meticulous is the opposite of careless; frugal is the opposite of wasteful. (Generous is tempting, but its opposite is mean, not frugal.)'],
+    ['hard', 'odd', ['Kilogram', 'Ounce', 'Litre', 'Pound'], 'Litre', [], 'A litre measures volume; the rest measure mass.'],
+    ['hard', 'odd', ['Ruby', 'Emerald', 'Pearl', 'Sapphire'], 'Pearl', [], 'A pearl is made by a living animal; the rest are minerals.'],
+    ['hard', 'odd', ['Dolphin', 'Shark', 'Whale', 'Seal'], 'Shark', [], 'A shark is a fish; the rest are mammals.'],
+    ['hard', 'odd', ['Pyramid', 'Cube', 'Cone', 'Circle'], 'Circle', [], 'A circle is flat (2D); the rest are solids.'],
+    ['hard', 'odd', ['Anxious', 'Uneasy', 'Serene', 'Apprehensive'], 'Serene', [], 'Serene means calm; the rest mean worried.'],
+    ['hard', 'compound', ['BOARD', 'NOTE', 'HOLE'], 'KEY', ['BLACK', 'FOOT', 'PORT'], 'Keyboard, keynote, keyhole.'],
+    ['hard', 'compound', ['FALL', 'MELON', 'PROOF'], 'WATER', ['RAIN', 'SUN', 'FIRE'], 'Waterfall, watermelon, waterproof.'],
+    ['hard', 'compound', ['LIGHT', 'BURN', 'FLOWER'], 'SUN', ['MOON', 'MAY', 'CORN'], 'Sunlight, sunburn, sunflower.'],
+  ];
+  function genVerbal(r, diff, avoid) {
+    const pool = VERBAL.filter(v => v[0] === diff);
+    const fresh = pool.filter(v => !(avoid || []).includes(VERBAL.indexOf(v)));
+    const item = r.pick(fresh.length ? fresh : pool);
+    const [, type, items, ans, ds, why] = item;
+    let q;
+    if (type === 'analogy') q = { prompt: `${items[0]} is to ${items[1]} as ${items[2]} is to…`, stem: null };
+    else if (type === 'odd') q = { prompt: 'Which one does not belong with the others?', stem: null };
+    else q = { prompt: 'Which word can go in front of all three to make new words?', stem: { kind: 'seq', items } };
+    q.hint = type === 'analogy' ? `Say the first pair as a sentence: “A ${items[0].toLowerCase()} … ${items[1].toLowerCase()}.” Then use the same sentence for ${items[2].toLowerCase()}.`
+      : type === 'odd' ? 'Find what three of them have in common.' : `Try each option in front of ${items[0]}.`;
+    q.why = why;
+    q.verbalId = VERBAL.indexOf(item);
+    if (type === 'odd') return finalize(r, q, ans, items.filter(x => x !== ans), 4);
+    return finalize(r, q, ans, ds, 4);
+  }
+
+  const GEN = { sequences: genSequences, letters: genLetters, arithmetic: genArithmetic, logic: genLogic, matrices: genMatrices, verbal: genVerbal };
+
+  function generate({ seed, cat, diff, avoid }) {
+    const r = rng(seed >>> 0);
+    const q = GEN[cat](r, diff, avoid);
+    q.cat = cat; q.diff = diff; q.seed = seed >>> 0; q.target = TARGET[diff];
+    return q;
+  }
+
+  root.QEngine = { generate, hashStr, CATEGORIES, DIFFS, TARGET, describeCell };
+})(typeof window !== 'undefined' ? window : globalThis);
+</script>
+
+<script>
+(function () {
+  'use strict';
+  const E = window.QEngine;
+  const $ = id => document.getElementById(id);
+  const CAT = Object.fromEntries(E.CATEGORIES.map(c => [c.id, c]));
+  const DIFF_LABEL = { easy: 'Easy', medium: 'Medium', hard: 'Hard' };
+  const START = '2026-10-24';
+
+  /* ---------- dates ---------- */
+  const dkey = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const parseKey = k => { const [y, m, d] = k.split('-').map(Number); return new Date(y, m - 1, d); };
+  const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
+  const dayIndex = k => Math.round((parseKey(k) - parseKey(START)) / 86400000);
+  let todayKey = dkey(new Date());
+
+  /* ---------- state + storage ---------- */
+  const LS = 'quotient.v1';
+  const blank = () => ({ v: 1, updatedAt: 0, daily: {}, cats: {}, diffs: {}, best: 0, prefs: { diff: 'medium', cat: 'all' } });
+  let state = blank();
+  try { const s = JSON.parse(localStorage.getItem(LS) || 'null'); if (s && s.v === 1) state = Object.assign(blank(), s); } catch (e) {}
+  let remote = null, saving = false, again = false;
+
+  async function pushRemote() {
+    if (!remote) return;
+    if (saving) { again = true; return; }
+    saving = true;
+    try { await remote.set({ json: JSON.stringify(state), updatedAt: state.updatedAt }); setSync('Progress saved to your account'); }
+    catch (e) { setSync('Saved on this device only'); }
+    saving = false;
+    if (again) { again = false; pushRemote(); }
+  }
+  function save() {
+    state.updatedAt = Date.now();
+    try { localStorage.setItem(LS, JSON.stringify(state)); } catch (e) {}
+    pushRemote();
+  }
+  function setSync(t) { $('sync').textContent = t; }
+  setSync('Saved on this device');
+
+  async function connect() {
+    if (!window.claude || !window.claude.use) return;
+    try {
+      const [db, user] = await Promise.all([window.claude.use('db'), window.claude.use('user')]);
+      if (!db || !user) return;
+      const id = await user.id();
+      if (!id) return;
+      const ref = db.doc(`data/users/${id}/progress`);
+      const snap = await ref.get();
+      remote = ref;
+      if (snap.exists) {
+        const d = snap.data();
+        const theirs = d && d.json ? JSON.parse(d.json) : null;
+        if (theirs && theirs.v === 1 && (theirs.updatedAt || 0) > (state.updatedAt || 0)) {
+          state = Object.assign(blank(), theirs);
+          try { localStorage.setItem(LS, JSON.stringify(state)); } catch (e) {}
+          renderAll();
+        } else if ((state.updatedAt || 0) > ((theirs && theirs.updatedAt) || 0)) pushRemote();
+      } else if (state.updatedAt) pushRemote();
+      setSync('Progress saved to your account');
+    } catch (e) { /* stay on device storage */ }
+  }
+
+  function record(q, correct) {
+    const c = state.cats[q.cat] || (state.cats[q.cat] = { seen: 0, correct: 0 });
+    const d = state.diffs[q.diff] || (state.diffs[q.diff] = { seen: 0, correct: 0 });
+    c.seen++; d.seen++;
+    if (correct) { c.correct++; d.correct++; }
+  }
+  function streak() {
+    let n = 0, d = parseKey(todayKey);
+    if (!state.daily[todayKey]) d = addDays(d, -1);
+    while (state.daily[dkey(d)]) { n++; d = addDays(d, -1); }
+    return n;
+  }
+
+  /* ---------- rendering helpers ---------- */
+  const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
+  function shapeSVG(c) {
+    const P = { 1: [[50, 50]], 2: [[29, 50], [71, 50]], 3: [[50, 27], [27, 71], [73, 71]] }[c.count];
+    const s = c.count === 1 ? 22 : 15;
+    const cls = `sh f-${c.fill}`;
+    const parts = P.map(([x, y]) => {
+      if (c.shape === 'circle') return `<circle class="${cls}" cx="${x}" cy="${y}" r="${s}"/>`;
+      if (c.shape === 'square') return `<rect class="${cls}" x="${x - s * 0.88}" y="${y - s * 0.88}" width="${s * 1.76}" height="${s * 1.76}"/>`;
+      if (c.shape === 'triangle') return `<polygon class="${cls}" points="${x},${y - s} ${x + s * 1.05},${y + s * 0.8} ${x - s * 1.05},${y + s * 0.8}"/>`;
+      return `<polygon class="${cls}" points="${x},${y - s * 1.1} ${x + s},${y} ${x},${y + s * 1.1} ${x - s},${y}"/>`;
+    });
+    return `<svg viewBox="0 0 100 100" role="img" aria-label="${E.describeCell(c)}">${parts.join('')}</svg>`;
+  }
+  function cellEl(c) { const d = el('div', 'cell'); d.innerHTML = shapeSVG(c); return d; }
+  const fmtTime = s => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+
+  /* A question sheet: renders a question, handles answering, and reports back. */
+  function Sheet(host, q, opts) {
+    host.textContent = '';
+    const sheet = el('article', 'sheet');
+    host.appendChild(sheet);
+    const meta = el('div', 'meta');
+    const left = el('div', 'left');
+    left.appendChild(el('span', '', opts.label));
+    left.appendChild(el('span', '', CAT[q.cat].short));
+    left.appendChild(el('span', `tag ${q.diff}`, DIFF_LABEL[q.diff]));
+    meta.appendChild(left);
+    const timer = el('span', 'timer', '');
+    meta.appendChild(timer);
+    sheet.appendChild(meta);
+
+    sheet.appendChild(el('h2', 'prompt', q.prompt));
+    if (q.stem) {
+      if (q.stem.kind === 'seq') {
+        const s = el('div', 'stem-seq');
+        q.stem.items.forEach(t => s.appendChild(el('span', t === '?' ? 'gap' : '', t)));
+        sheet.appendChild(s);
+      } else if (q.stem.kind === 'lines') {
+        const ul = el('ul', 'stem-lines' + (q.stem.mono ? ' mono' : ''));
+        q.stem.items.forEach(t => ul.appendChild(el('li', '', t)));
+        sheet.appendChild(ul);
+      } else if (q.stem.kind === 'matrix') {
+        const g = el('div', 'matrix');
+        q.stem.cells.forEach(c => g.appendChild(cellEl(c)));
+        const m = el('div', 'cell missing', '?');
+        m.setAttribute('aria-label', 'missing cell');
+        g.appendChild(m);
+        sheet.appendChild(g);
+      }
+    }
+
+    const list = el('div', 'options' + (q.visual ? ' visual' : ''));
+    const keys = 'ABCDEF';
+    const btns = q.options.map((o, i) => {
+      const b = el('button', 'opt');
+      b.type = 'button';
+      b.appendChild(el('span', 'key', keys[i]));
+      if (q.visual) b.appendChild(cellEl(o));
+      else b.appendChild(el('span', 'txt' + (q.mono ? ' mono' : ''), String(o)));
+      b.setAttribute('aria-label', `Option ${keys[i]}: ${q.visual ? E.describeCell(o) : o}`);
+      b.addEventListener('click', () => choose(i));
+      list.appendChild(b);
+      return b;
+    });
+    sheet.appendChild(list);
+
+    const hintBox = el('p', 'hint');
+    hintBox.hidden = true;
+    hintBox.textContent = 'Hint: ' + q.hint;
+    const actions = el('div', 'actions');
+    const hintBtn = el('button', 'btn quiet', 'Show a hint');
+    hintBtn.type = 'button';
+    hintBtn.addEventListener('click', () => { hintBox.hidden = false; hintBtn.hidden = true; usedHint = true; });
+    actions.appendChild(hintBtn);
+    actions.appendChild(el('span', 'note', `Target ${q.target}`));
+    sheet.appendChild(hintBox);
+    sheet.appendChild(actions);
+    const after = el('div', '');
+    after.style.display = 'flex'; after.style.flexDirection = 'column'; after.style.gap = '14px';
+    sheet.appendChild(after);
+
+    let done = false, usedHint = false;
+    const t0 = Date.now();
+    const tick = () => { if (!done) timer.textContent = fmtTime(Math.floor((Date.now() - t0) / 1000)); };
+    tick();
+    const iv = setInterval(tick, 1000);
+
+    function reveal(i, secs, hint) {
+      done = true; clearInterval(iv);
+      btns.forEach((b, j) => {
+        b.disabled = true;
+        if (j === q.answer) b.classList.add('right');
+        else if (j === i) b.classList.add('wrong');
+        else b.classList.add('dim');
+      });
+      actions.hidden = true;
+      if (hint) { hintBox.hidden = false; }
+      const ok = i === q.answer;
+      const v = el('div', 'verdict ' + (ok ? 'good' : 'bad'));
+      v.appendChild(el('h3', '', ok ? 'Correct.' : `Not quite. The answer is ${keys[q.answer]}.`));
+      v.appendChild(el('p', '', q.why));
+      if (secs !== undefined) v.appendChild(el('span', 'time', `Time ${fmtTime(secs)}${hint ? ' · used the hint' : ''}`));
+      after.appendChild(v);
+      if (opts.after) opts.after(after, ok);
+      timer.textContent = secs !== undefined ? fmtTime(secs) : '';
+    }
+    function choose(i) {
+      if (done) return;
+      const secs = Math.floor((Date.now() - t0) / 1000);
+      opts.onAnswer(i, i === q.answer, secs, usedHint);
+      reveal(i, secs, usedHint);
+    }
+    if (opts.restore) reveal(opts.restore.choice, opts.restore.secs, opts.restore.hint);
+
+    return {
+      key(e) {
+        if (done) return false;
+        const k = e.key.toUpperCase();
+        let i = keys.indexOf(k);
+        if (i < 0 && /^[1-6]$/.test(e.key)) i = Number(e.key) - 1;
+        if (i >= 0 && i < btns.length) { choose(i); return true; }
+        if (k === 'H') { hintBtn.click(); return true; }
+        return false;
+      },
+      stop() { clearInterval(iv); },
+      get done() { return done; },
+    };
+  }
+
+  /* ---------- Today ---------- */
+  let dailySheet = null;
+  function dailyQuestion() {
+    const idx = dayIndex(todayKey);
+    const cats = E.CATEGORIES.map(c => c.id);
+    const cat = cats[((idx % cats.length) + cats.length) % cats.length];
+    return E.generate({ seed: E.hashStr('daily:' + todayKey), cat, diff: 'medium' });
+  }
+  function renderDaily() {
+    const host = $('view-daily');
+    if (dailySheet) dailySheet.stop();
+    const q = dailyQuestion();
+    const done = state.daily[todayKey];
+    dailySheet = Sheet(host, q, {
+      label: `Daily No. ${dayIndex(todayKey) + 1}`,
+      restore: done ? done : null,
+      onAnswer(choice, correct, secs, hint) {
+        state.daily[todayKey] = { choice, correct, secs, hint };
+        record(q, correct);
+        const s = streak();
+        if (s > state.best) state.best = s;
+        prune(); save(); renderHeader();
+      },
+      after(box) {
+        const p = el('p', 'note', `That's today's item. A new one appears tomorrow. You're on a ${streak()} day streak.`);
+        const a = el('div', 'actions');
+        const go = el('button', 'btn primary', 'Keep going');
+        go.type = 'button';
+        go.addEventListener('click', () => { show('practice'); });
+        a.appendChild(go);
+        box.appendChild(p); box.appendChild(a);
+      },
+    });
+  }
+  function prune() {
+    const cutoff = dkey(addDays(parseKey(todayKey), -400));
+    for (const k of Object.keys(state.daily)) if (k < cutoff) delete state.daily[k];
+  }
+
+  /* ---------- Practice ---------- */
+  let practiceSheet = null, sessionSeen = 0, sessionRight = 0, recentVerbal = [];
+  function renderControls() {
+    const bar = $('diffbar');
+    bar.textContent = '';
+    E.DIFFS.forEach((d, i) => {
+      const b = el('button', '');
+      b.type = 'button';
+      b.setAttribute('aria-pressed', String(state.prefs.diff === d));
+      const pips = el('span', 'pips');
+      for (let k = 0; k < 3; k++) pips.appendChild(el('i', k <= i ? 'on' : ''));
+      b.appendChild(pips);
+      b.appendChild(el('span', '', DIFF_LABEL[d]));
+      b.addEventListener('click', () => { state.prefs.diff = d; savePrefs(); renderControls(); nextPractice(); });
+      bar.appendChild(b);
+    });
+    const chips = $('chips');
+    chips.textContent = '';
+    [{ id: 'all', short: 'Mixed' }].concat(E.CATEGORIES).forEach(c => {
+      const b = el('button', 'chip', c.short);
+      b.type = 'button';
+      b.setAttribute('aria-pressed', String(state.prefs.cat === c.id));
+      b.addEventListener('click', () => { state.prefs.cat = c.id; savePrefs(); renderControls(); nextPractice(); });
+      chips.appendChild(b);
+    });
+  }
+  function savePrefs() { try { localStorage.setItem(LS, JSON.stringify(state)); } catch (e) {} }
+  function nextPractice() {
+    if (practiceSheet) practiceSheet.stop();
+    const cats = E.CATEGORIES.map(c => c.id);
+    const cat = state.prefs.cat === 'all' ? cats[Math.floor(Math.random() * cats.length)] : state.prefs.cat;
+    const seed = (Math.random() * 4294967296) >>> 0;
+    const q = E.generate({ seed, cat, diff: state.prefs.diff, avoid: recentVerbal });
+    if (q.verbalId !== undefined) { recentVerbal.push(q.verbalId); if (recentVerbal.length > 12) recentVerbal.shift(); }
+    const host = $('practice-sheet');
+    practiceSheet = Sheet(host, q, {
+      label: `Practice ${sessionSeen + 1}`,
+      onAnswer(choice, correct) {
+        sessionSeen++; if (correct) sessionRight++;
+        record(q, correct); save(); renderHeader();
+      },
+      after(box) {
+        const a = el('div', 'actions');
+        const go = el('button', 'btn primary', 'Next question');
+        go.type = 'button';
+        go.addEventListener('click', nextPractice);
+        a.appendChild(go);
+        a.appendChild(el('span', 'session', `This session: ${sessionRight} of ${sessionSeen} right`));
+        box.appendChild(a);
+        go.focus({ preventScroll: true });
+      },
+    });
+    const skip = el('button', 'btn quiet', 'Skip');
+    skip.type = 'button';
+    skip.addEventListener('click', nextPractice);
+    host.querySelector('.actions').appendChild(skip);
+  }
+
+  /* ---------- Progress ---------- */
+  function renderProgress() {
+    const host = $('view-progress');
+    host.textContent = '';
+    const wrap = el('div', '');
+    wrap.style.display = 'flex'; wrap.style.flexDirection = 'column'; wrap.style.gap = '16px';
+    host.appendChild(wrap);
+    const tot = Object.values(state.cats).reduce((a, c) => ({ seen: a.seen + c.seen, correct: a.correct + c.correct }), { seen: 0, correct: 0 });
+    const tiles = el('div', 'tiles');
+    [[streak(), 'Current streak'], [Math.max(state.best, streak()), 'Best streak'], [tot.seen, 'Questions answered'],
+      [tot.seen ? Math.round(100 * tot.correct / tot.seen) + '%' : '–', 'Accuracy']].forEach(([v, l]) => {
+      const t = el('div', 'tile'); t.appendChild(el('b', '', String(v))); t.appendChild(el('span', '', l)); tiles.appendChild(t);
+    });
+    wrap.appendChild(tiles);
+
+    const cal = el('section', 'panel');
+    cal.appendChild(el('h2', '', 'Daily record, last 4 weeks'));
+    const grid = el('div', 'cal');
+    const end = parseKey(todayKey);
+    const startD = addDays(end, -(21 + end.getDay()));
+    ['S', 'M', 'T', 'W', 'T', 'F', 'S'].forEach(d => grid.appendChild(el('div', 'dow', d)));
+    for (let i = 0; i < 28; i++) {
+      const d = addDays(startD, i);
+      const k = dkey(d);
+      const rec = state.daily[k];
+      const c = el('div', 'd', String(d.getDate()));
+      if (d > end) { c.style.visibility = 'hidden'; }
+      else if (rec) c.classList.add(rec.correct ? 'ok' : 'miss');
+      if (k === todayKey) c.classList.add('today');
+      c.title = rec ? `${k}: ${rec.correct ? 'correct' : 'wrong'} in ${fmtTime(rec.secs)}` : k;
+      grid.appendChild(c);
+    }
+    cal.appendChild(grid);
+    const lg = el('div', 'legend');
+    lg.innerHTML = '<span><i style="background:var(--good)"></i>Correct</span><span><i style="background:var(--bad-soft);border:1px solid var(--bad)"></i>Answered, wrong</span><span><i style="background:var(--paper);border:1px solid var(--line)"></i>Not answered</span>';
+    cal.appendChild(lg);
+    wrap.appendChild(cal);
+
+    const bars = (title, rows) => {
+      const p = el('section', 'panel');
+      p.appendChild(el('h2', '', title));
+      const b = el('div', 'bars');
+      rows.forEach(([name, s]) => {
+        const r = el('div', 'bar');
+        r.appendChild(el('span', '', name));
+        const tr = el('div', 'track'); const f = el('div', 'fill');
+        f.style.width = s && s.seen ? (100 * s.correct / s.seen) + '%' : '0';
+        tr.appendChild(f); r.appendChild(tr);
+        r.appendChild(el('span', 'num', s && s.seen ? `${s.correct}/${s.seen}` : '–'));
+        b.appendChild(r);
+      });
+      p.appendChild(b);
+      return p;
+    };
+    wrap.appendChild(bars('Accuracy by category', E.CATEGORIES.map(c => [c.short, state.cats[c.id]])));
+    wrap.appendChild(bars('Accuracy by difficulty', E.DIFFS.map(d => [DIFF_LABEL[d], state.diffs[d]])));
+    if (!tot.seen) wrap.appendChild(el('p', 'note', 'Your numbers fill in as you answer. Start with today\'s item.'));
+  }
+
+  /* ---------- shell ---------- */
+  function renderHeader() {
+    $('today-label').textContent = parseKey(todayKey).toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
+    $('streak-num').textContent = streak();
+  }
+  let view = 'daily';
+  function show(v) {
+    view = v;
+    ['daily', 'practice', 'progress'].forEach(n => {
+      $('view-' + n).hidden = n !== v;
+      $('tab-' + n).setAttribute('aria-selected', String(n === v));
+    });
+    if (v === 'practice' && (!practiceSheet)) nextPractice();
+    if (v === 'progress') renderProgress();
+  }
+  ['daily', 'practice', 'progress'].forEach(n => $('tab-' + n).addEventListener('click', () => show(n)));
+  document.addEventListener('keydown', e => {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    const s = view === 'daily' ? dailySheet : view === 'practice' ? practiceSheet : null;
+    if (s && s.key(e)) e.preventDefault();
+  });
+  // Roll over to the next daily item if the page stays open past midnight.
+  setInterval(() => { const k = dkey(new Date()); if (k !== todayKey) { todayKey = k; renderAll(); } }, 60000);
+
+  function renderAll() {
+    renderHeader();
+    renderDaily();
+    renderControls();
+    if (view === 'progress') renderProgress();
+  }
+  renderAll();
+  connect();
+})();
+</script>
