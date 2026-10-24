@@ -2,19 +2,26 @@
 
 A daily brain workout: one IQ-style question a day, plus unlimited practice.
 
-- **Today**: one medium question per day, the same all day. The category
-  rotates daily. It takes a few minutes, and a hint is there if you get stuck.
+- **Today**: the Question of the Day (medium, a few minutes, never repeats)
+  and a Word of the Day to guess the meaning of. Peanut the elephant cheers,
+  hints and reacts as you go.
 - **Practice**: as many questions as you like. Pick **Easy / Medium / Hard**
   and a category, or Mixed.
-- **Progress**: daily streak, a 4-week calendar, and accuracy by category and
-  difficulty.
+- **Progress**: this week vs last week, Brain Score and accuracy trends
+  (7 days to all time), skill per category, and the daily calendar.
+- XP, levels, practice combos, confetti and optional sound effects.
 
 Categories: number sequences, pattern matrices (Raven's-style grids),
 arithmetic, logic (orderings, knights and knaves, day puzzles), letter series,
 and verbal reasoning (analogies, odd one out, compound words).
 
 Every question except verbal is generated from a seed, so practice never runs
-out and the daily item is fixed for the date. Every answer comes with a
+out. The Question of the Day is fixed for its date and is re-rolled if it
+would match any earlier day. Verbal reasoning has 34 hand-written items and
+the Word of the Day list has 125 words, one per day in a fixed shuffled order.
+
+Brain Score works like a chess rating: everyone starts at 1000, right answers
+raise it, and harder questions move it more. Every answer comes with a
 worked explanation.
 
 ## Files
@@ -22,8 +29,8 @@ worked explanation.
     quotient.html   the app, written for the Claude Artifact host
     index.html      standalone build: open it in any browser
     build.mjs       node quotient/build.mjs  -> rebuilds index.html
-    check.mjs       node quotient/check.mjs  -> generates 54,000 questions and
-                    checks each is well formed
+    check.mjs       node quotient/check.mjs  -> checks 54,000 generated questions,
+                    ten years of daily questions for repeats, and the word list
 
 Keyboard: A–F or 1–6 answers, H shows the hint.
 

@@ -11,11 +11,11 @@ import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
 
 const html = readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'quotient.html'), 'utf8');
-const src = html.match(/<script id="engine">([\s\S]*?)<\/script>/)[1];
 const ctx = {};
 vm.createContext(ctx);
-vm.runInContext(src, ctx);
-const E = ctx.QEngine;
+ctx.window = ctx;
+for (const id of ['engine', 'words']) vm.runInContext(html.match(new RegExp(`<script id="${id}">([\\s\\S]*?)<\\/script>`))[1], ctx);
+const E = ctx.QEngine, WORDS = ctx.QWords;
 
 const MIN = { matrices: 6 };
 const bad = /undefined|NaN|Infinity|\[object/;
@@ -43,5 +43,24 @@ const a = JSON.stringify(E.generate({ seed: 42, cat: 'logic', diff: 'hard' }));
 const b = JSON.stringify(E.generate({ seed: 42, cat: 'logic', diff: 'hard' }));
 if (a !== b) { failures++; console.log('FAIL generation is not deterministic'); }
 
+// The Question of the Day must never repeat over ten years.
+const keyAt = i => { const d = new Date(2026, 9, 24 + i); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+const seenDaily = new Set();
+let rerolled = 0;
+E.daily(3649, keyAt, (i, f, k) => {
+  if (seenDaily.has(f)) { failures++; console.log('FAIL daily question repeats on', keyAt(i)); }
+  seenDaily.add(f);
+  rerolled += k ? 1 : 0;
+});
+
+// Word list: no duplicate words or meanings, every field present.
+const words = new Set(), meanings = new Set();
+for (const w of WORDS) {
+  if (!w.word || !w.pos || !w.meaning || !w.example) { failures++; console.log('FAIL incomplete word', w.word); }
+  if (words.has(w.word) || meanings.has(w.meaning)) { failures++; console.log('FAIL duplicate word', w.word); }
+  words.add(w.word); meanings.add(w.meaning);
+}
+
+console.log(`${seenDaily.size} distinct daily questions over 10 years (${rerolled} re-rolled), ${WORDS.length} words`);
 console.log(`${total} questions checked, ${failures} failures`);
 process.exit(failures ? 1 : 0);

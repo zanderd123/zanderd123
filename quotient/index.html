@@ -10,226 +10,392 @@
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=JetBrains+Mono:wght@400;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:ital,wght@0,500;0,700;0,800;1,500&display=swap">
 <style>
-/* Layout: one narrow column like a test booklet; the question is the page, everything else sits around it. */
+/* Layout: a sticker-book page. Peanut the elephant sits above every view and talks you through it;
+   the question card below is the thing you play with. One bright look on purpose, whatever the OS theme. */
 :root {
-  --paper: #edf0f3;
-  --card: #fafbfc;
-  --ink: #16202b;
-  --muted: #5b6775;
-  --line: #d3d9e0;
-  --accent: #2846c8;
+  color-scheme: light;
+  --sky: #d9eeff;
+  --dot: #c3e1fb;
+  --card: #ffffff;
+  --ink: #1c2b4a;
+  --muted: #5a6a88;
+  --line: #c9d6ea;
+  --soft: #eef5fd;
+  --accent: #ff7a45;
   --accent-ink: #ffffff;
-  --accent-soft: #dde3fa;
-  --good: #1f7a4d;
-  --good-soft: #dcefe4;
-  --bad: #b3261e;
-  --bad-soft: #f7dedb;
-  --shade: #9aa5b1;
-  --easy: #2f8f6b;
-  --medium: #b07a0c;
-  --hard: #b23a5b;
+  --accent-soft: #ffe4d8;
+  --good: #15935d;
+  --good-soft: #d6f5e5;
+  --bad: #d23b54;
+  --bad-soft: #ffe0e5;
+  --gold: #ffc53d;
+  --ele: #9fb3d1;
+  --ele-dark: #7d93b5;
+  --ele-pink: #f7a9c4;
+  --water: #59b8ff;
+  --shade: #a9b6cb;
+  --easy: #15935d;
+  --medium: #e0a100;
+  --hard: #d23b54;
+  /* category identity, validated as a categorical set in this order */
+  --c-sequences: #2f6feb;
+  --c-matrices: #d9731a;
+  --c-arithmetic: #0e9fb0;
+  --c-logic: #e5487f;
+  --c-letters: #8b5cf6;
+  --c-verbal: #1fa67a;
 
-  --display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", system-ui, sans-serif;
-  --body: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
-  --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --display: "Fredoka", "Baloo 2", "Avenir Next Rounded", "Arial Rounded MT Bold", system-ui, sans-serif;
+  --body: "Nunito", "Avenir Next", "Segoe UI", system-ui, sans-serif;
 
-  --r: 10px;
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --paper: #0e1319; --card: #161d26; --ink: #e6ebf1; --muted: #95a1af; --line: #2a3440;
-    --accent: #8ea2ff; --accent-ink: #0e1319; --accent-soft: #1f2a4d;
-    --good: #5cc793; --good-soft: #15301f; --bad: #f08a80; --bad-soft: #3a1c1a;
-    --shade: #6b7785; --easy: #5cc7a0; --medium: #e8b54a; --hard: #ee7f9c;
-    color-scheme: dark;
-  }
-}
-:root[data-theme="dark"] {
-  --paper: #0e1319; --card: #161d26; --ink: #e6ebf1; --muted: #95a1af; --line: #2a3440;
-  --accent: #8ea2ff; --accent-ink: #0e1319; --accent-soft: #1f2a4d;
-  --good: #5cc793; --good-soft: #15301f; --bad: #f08a80; --bad-soft: #3a1c1a;
-  --shade: #6b7785; --easy: #5cc7a0; --medium: #e8b54a; --hard: #ee7f9c;
-  color-scheme: dark;
+  --r: 16px;
+  --pop: 0 4px 0 var(--ink);
 }
 
 * { box-sizing: border-box; }
+html { background: var(--sky); }
 body {
-  background: var(--paper);
+  background-color: var(--sky);
+  background-image: radial-gradient(var(--dot) 2px, transparent 2.5px);
+  background-size: 26px 26px;
   color: var(--ink);
   font-family: var(--body);
   font-size: 17px;
   line-height: 1.55;
   padding-left: max(16px, env(safe-area-inset-left, 0px));
   padding-right: max(16px, env(safe-area-inset-right, 0px));
-  padding-block: 20px 56px;
+  padding-block: 18px 60px;
 }
-.wrap { max-width: 680px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+.wrap { max-width: 720px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
 button { font: inherit; color: inherit; }
-:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+
+/* Chunky press-down buttons, shared */
+.press {
+  border: 2.5px solid var(--ink); border-radius: 14px; background: var(--card); box-shadow: var(--pop);
+  cursor: pointer; transition: transform .08s, box-shadow .08s, background .15s;
+}
+.press:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 5px 0 var(--ink); }
+.press:active:not(:disabled) { transform: translateY(4px); box-shadow: 0 0 0 var(--ink); }
 
 /* Masthead */
-.mast { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-.brand { display: flex; flex-direction: column; gap: 2px; }
-.brand h1 {
-  margin: 0; font-family: var(--display); font-weight: 800; font-size: 2.1rem;
-  letter-spacing: -0.03em; line-height: 1;
+.mast { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.brand h1 { margin: 0; font-family: var(--display); font-weight: 700; font-size: 2.2rem; line-height: 1; letter-spacing: -0.01em; }
+.brand h1 span { color: var(--accent); }
+.brand .date { color: var(--muted); font-size: 0.92rem; font-weight: 700; }
+.hud { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.pill {
+  display: inline-flex; align-items: center; gap: 6px; background: var(--card); border: 2.5px solid var(--ink);
+  border-radius: 999px; padding: 4px 12px 4px 8px; font-family: var(--display); font-weight: 600; box-shadow: 0 3px 0 var(--ink);
+  font-variant-numeric: tabular-nums;
 }
-.brand h1 .q { color: var(--accent); }
-.brand .date { color: var(--muted); font-size: 0.92rem; }
-.streak {
-  display: flex; align-items: baseline; gap: 6px; font-family: var(--mono); font-size: 0.85rem;
-  color: var(--muted);
-}
-.streak b { font-family: var(--display); font-size: 1.6rem; color: var(--ink); font-weight: 700; }
+.pill svg { width: 20px; height: 20px; flex: none; }
+.lvl { display: flex; flex-direction: column; gap: 2px; min-width: 96px; }
+.lvl small { font-family: var(--body); font-size: 0.68rem; color: var(--muted); font-weight: 800; line-height: 1; }
+.xpbar { height: 7px; border-radius: 4px; background: var(--soft); border: 1.5px solid var(--ink); overflow: hidden; }
+.xpbar i { display: block; height: 100%; background: var(--gold); width: 0; transition: width .6s cubic-bezier(.3,1.4,.5,1); }
+.sound { width: 40px; height: 40px; display: grid; place-items: center; border-radius: 999px; padding: 0; }
+.sound svg { width: 20px; height: 20px; }
+.bump { animation: bump .5s; }
+@keyframes bump { 30% { transform: scale(1.18); } 60% { transform: scale(.95); } }
 
 /* Tabs */
-.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); }
-.tab {
-  background: none; border: 0; padding: 10px 14px 12px; cursor: pointer; color: var(--muted);
-  font-weight: 700; border-bottom: 3px solid transparent; margin-bottom: -1px;
+.tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.tab { padding: 9px 6px; font-family: var(--display); font-weight: 600; font-size: 1.05rem; }
+.tab[aria-selected="true"] { background: var(--ink); color: var(--card); }
+
+/* Peanut's stage */
+.stage { display: grid; grid-template-columns: auto 1fr; align-items: end; gap: 6px; }
+#peanut { width: 132px; height: auto; display: block; cursor: pointer; background: none; border: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+#peanut svg { width: 100%; height: auto; overflow: visible; display: block; }
+.bubble {
+  position: relative; align-self: center; background: var(--card); border: 2.5px solid var(--ink); border-radius: 20px;
+  padding: 12px 16px; box-shadow: var(--pop); font-weight: 700; min-width: 0; margin-bottom: 18px;
 }
-.tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
+.bubble::before, .bubble::after { content: ""; position: absolute; left: -14px; bottom: 18px; border: 9px solid transparent; border-right: 14px solid var(--ink); border-left: 0; }
+.bubble::after { left: -10px; bottom: 20px; border-width: 7px 11px 7px 0; border-right-color: var(--card); }
+.bubble p { margin: 0; }
+.bubble .who { font-family: var(--display); font-size: 0.78rem; color: var(--accent); letter-spacing: .04em; text-transform: uppercase; display: block; }
+.bubble.pop { animation: pop .35s cubic-bezier(.3,1.6,.5,1); }
+@keyframes pop { 0% { transform: scale(.85); } 100% { transform: scale(1); } }
+.bubble .btn { margin-top: 10px; }
+
+/* Peanut animation */
+.pe-all { transform-box: fill-box; transform-origin: 50% 100%; animation: bob 3.2s ease-in-out infinite; }
+@keyframes bob { 50% { transform: translateY(-3px); } }
+.ear { transform-box: fill-box; animation: flapL 5s ease-in-out infinite; }
+.ear-l { transform-origin: 90% 35%; }
+.ear-r { transform-origin: 10% 35%; animation-name: flapR; }
+@keyframes flapL { 0%, 78%, 100% { transform: rotate(0); } 84% { transform: rotate(-12deg); } 90% { transform: rotate(2deg); } 95% { transform: rotate(-7deg); } }
+@keyframes flapR { 0%, 78%, 100% { transform: rotate(0); } 84% { transform: rotate(12deg); } 90% { transform: rotate(-2deg); } 95% { transform: rotate(7deg); } }
+.eyes-open { transform-box: fill-box; transform-origin: 50% 50%; animation: blink 4.4s infinite; }
+@keyframes blink { 0%, 94%, 100% { transform: scaleY(1); } 97% { transform: scaleY(.1); } }
+.trunk { transform-box: fill-box; transform-origin: 50% 0%; animation: sway 3.6s ease-in-out infinite alternate; }
+@keyframes sway { from { transform: rotate(-4deg); } to { transform: rotate(4deg); } }
+.tassel { transform-box: fill-box; transform-origin: 0% 0%; animation: tassel 2.4s ease-in-out infinite alternate; }
+@keyframes tassel { from { transform: rotate(-8deg); } to { transform: rotate(10deg); } }
+.face-happy, .face-sad, .face-think, .trunk-up, .trunk-curl, .tear, .drops, .mouth { display: none; }
+[data-mood="happy"] .eyes-open, [data-mood="happy"] .trunk-down { display: none; }
+[data-mood="happy"] .face-happy, [data-mood="happy"] .trunk-up, [data-mood="happy"] .drops, [data-mood="happy"] .mouth { display: inline; }
+[data-mood="happy"] .pe-all { animation: hop .45s ease-out 2; }
+[data-mood="happy"] .ear { animation-duration: .5s; }
+@keyframes hop { 40% { transform: translateY(-18px) rotate(-3deg); } 70% { transform: translateY(0) scaleY(.94); } }
+[data-mood="sad"] .face-sad, [data-mood="sad"] .tear { display: inline; }
+[data-mood="sad"] .ear-l { animation: none; transform: rotate(16deg); }
+[data-mood="sad"] .ear-r { animation: none; transform: rotate(-16deg); }
+[data-mood="sad"] .pe-all { animation: droop .6s ease-out forwards; }
+@keyframes droop { to { transform: translateY(3px) rotate(-4deg); } }
+[data-mood="think"] .trunk-down { display: none; }
+[data-mood="think"] .trunk-curl, [data-mood="think"] .face-think { display: inline; }
+[data-mood="think"] .eyes-open ellipse { transform: translate(-2px, -3px); }
+[data-mood="think"] .pe-all { animation: tilt 1.6s ease-in-out infinite alternate; }
+@keyframes tilt { from { transform: rotate(-3deg); } to { transform: rotate(3deg); } }
+.wiggle .pe-all { animation: wiggle .5s !important; }
+@keyframes wiggle { 20% { transform: rotate(-8deg); } 50% { transform: rotate(7deg); } 80% { transform: rotate(-3deg); } }
+.drops circle { animation: spray 0.9s ease-out infinite; transform-box: fill-box; }
+.drops circle:nth-child(2) { animation-delay: .15s; } .drops circle:nth-child(3) { animation-delay: .3s; } .drops circle:nth-child(4) { animation-delay: .45s; }
+@keyframes spray { from { transform: translate(0, 0); opacity: 1; } to { transform: translate(14px, -34px); opacity: 0; } }
 
 /* Practice controls */
-.controls { display: flex; flex-direction: column; gap: 12px; }
-.ctl-label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 700; }
-.diffbar { display: grid; grid-template-columns: repeat(3, 1fr); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; background: var(--card); }
-.diffbar button {
-  border: 0; background: none; padding: 10px 6px; cursor: pointer; font-weight: 700;
-  display: flex; align-items: center; justify-content: center; gap: 8px;
-}
-.diffbar button + button { border-left: 1px solid var(--line); }
-.diffbar button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+.controls { display: flex; flex-direction: column; gap: 10px; }
+.ctl-label { font-family: var(--display); font-size: 0.85rem; font-weight: 600; color: var(--muted); }
+.diffbar { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.diffbar button { padding: 9px 6px; font-family: var(--display); font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px; }
+.diffbar button[aria-pressed="true"][data-d="easy"] { background: var(--easy); color: var(--card); }
+.diffbar button[aria-pressed="true"][data-d="medium"] { background: var(--medium); color: var(--ink); }
+.diffbar button[aria-pressed="true"][data-d="hard"] { background: var(--hard); color: var(--card); }
 .pips { display: inline-flex; gap: 3px; }
-.pips i { width: 6px; height: 14px; border-radius: 2px; background: currentColor; opacity: 0.25; }
+.pips i { width: 6px; height: 14px; border-radius: 3px; background: currentColor; opacity: 0.25; }
 .pips i.on { opacity: 1; }
 .chips { display: flex; flex-wrap: wrap; gap: 8px; }
-.chip {
-  border: 1px solid var(--line); background: var(--card); border-radius: 999px; padding: 6px 14px;
-  cursor: pointer; font-size: 0.92rem;
-}
-.chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 700; }
+.chip { border-radius: 999px; padding: 5px 14px 5px 10px; font-weight: 800; font-size: 0.92rem; display: inline-flex; align-items: center; gap: 7px; box-shadow: 0 3px 0 var(--ink); }
+.chip .dot { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--ink); }
+.chip[aria-pressed="true"] { background: var(--ink); color: var(--card); }
+.chip[aria-pressed="true"] .dot { border-color: var(--card); }
 
-/* Question sheet */
+/* Question card */
 .sheet {
-  background: var(--card); border: 1px solid var(--line); border-radius: 14px;
-  padding: 22px 22px 24px; display: flex; flex-direction: column; gap: 18px;
+  background: var(--card); border: 2.5px solid var(--ink); border-radius: 24px; box-shadow: 0 6px 0 var(--ink);
+  padding: 20px 20px 22px; display: flex; flex-direction: column; gap: 18px;
 }
-.meta { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap;
-  font-family: var(--mono); font-size: 0.78rem; color: var(--muted); }
-.meta .left { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-.tag { padding: 2px 8px; border-radius: 4px; border: 1px solid currentColor; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }
-.tag.easy { color: var(--easy); } .tag.medium { color: var(--medium); } .tag.hard { color: var(--hard); }
-.timer { font-variant-numeric: tabular-nums; }
-.prompt { margin: 0; font-family: var(--display); font-weight: 700; font-size: 1.35rem; line-height: 1.3; text-wrap: balance; letter-spacing: -0.01em; }
+.sheet.enter { animation: enter .4s cubic-bezier(.3,1.4,.5,1); }
+@keyframes enter { from { transform: translateY(14px) scale(.98); opacity: .4; } }
+.meta { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 0.85rem; font-weight: 800; color: var(--muted); }
+.meta .left { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.cat-tag { color: var(--card); border-radius: 999px; padding: 2px 10px; font-family: var(--display); font-weight: 600; border: 2px solid var(--ink); }
+.dtag { border-radius: 999px; padding: 1px 9px; border: 2px solid currentColor; font-family: var(--display); font-weight: 600; }
+.dtag.easy { color: var(--easy); } .dtag.medium { color: #a87800; } .dtag.hard { color: var(--hard); }
+.timer { font-family: var(--display); font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; display: inline-flex; gap: 6px; align-items: center; }
+.timer svg { width: 16px; height: 16px; }
+.prompt { margin: 0; font-family: var(--display); font-weight: 600; font-size: 1.45rem; line-height: 1.25; text-wrap: balance; }
 
 .stem-seq { display: flex; flex-wrap: wrap; gap: 8px; }
 .stem-seq span {
-  font-family: var(--mono); font-weight: 600; font-size: 1.25rem; min-width: 52px; padding: 10px 12px;
-  text-align: center; border: 1px solid var(--line); border-radius: 8px; background: var(--paper);
-  font-variant-numeric: tabular-nums;
+  font-family: var(--display); font-weight: 600; font-size: 1.35rem; min-width: 54px; padding: 8px 12px; text-align: center;
+  border: 2.5px solid var(--ink); border-radius: 12px; background: var(--soft); font-variant-numeric: tabular-nums;
+  animation: tile .35s backwards cubic-bezier(.3,1.5,.5,1);
 }
-.stem-seq span.gap { border-style: dashed; border-color: var(--accent); color: var(--accent); background: none; }
-.stem-lines { margin: 0; padding: 14px 16px; list-style: none; background: var(--paper); border-radius: 8px; display: flex; flex-direction: column; gap: 6px; }
-.stem-lines.mono li { font-family: var(--mono); font-size: 1.1rem; }
+.stem-seq span.gap { border-style: dashed; border-color: var(--accent); color: var(--accent); background: var(--accent-soft); animation: tile .35s backwards cubic-bezier(.3,1.5,.5,1), throb 1.6s .6s ease-in-out infinite; }
+@keyframes tile { from { transform: translateY(10px) scale(.8); opacity: 0; } }
+@keyframes throb { 50% { transform: scale(1.07); } }
+.stem-lines { margin: 0; padding: 14px 16px; list-style: none; background: var(--soft); border: 2px solid var(--line); border-radius: 14px; display: flex; flex-direction: column; gap: 6px; font-weight: 700; }
+.stem-lines.mono li { font-family: var(--display); font-weight: 500; font-size: 1.2rem; }
 .stem-lines li { min-width: 0; }
 
-.matrix { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; max-width: 330px; width: 100%; }
-.cell { aspect-ratio: 1; border: 1px solid var(--line); border-radius: 6px; background: var(--paper); display: grid; place-items: center; max-width: 100%; }
+.matrix { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; max-width: 330px; width: 100%; }
+.cell { aspect-ratio: 1; border: 2px solid var(--line); border-radius: 12px; background: var(--soft); display: grid; place-items: center; max-width: 100%; }
+.matrix .cell { animation: tile .35s backwards cubic-bezier(.3,1.5,.5,1); }
 .cell svg { width: 100%; height: 100%; }
-.cell.missing { border: 2px dashed var(--accent); color: var(--accent); font-family: var(--display); font-size: 2rem; font-weight: 800; }
+.cell.missing { border: 3px dashed var(--accent); background: var(--accent-soft); color: var(--accent); font-family: var(--display); font-size: 2.2rem; font-weight: 700; }
 .sh { stroke: var(--ink); stroke-width: 3.5; stroke-linejoin: round; }
 .f-none { fill: none; } .f-grey { fill: var(--shade); } .f-solid { fill: var(--ink); }
 
-.options { display: grid; grid-template-columns: 1fr; gap: 8px; }
+.options { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .options.visual { grid-template-columns: repeat(3, 1fr); }
-.opt {
-  display: flex; align-items: center; gap: 12px; text-align: left; cursor: pointer;
-  border: 1px solid var(--line); background: var(--card); border-radius: var(--r); padding: 12px 14px;
-  min-width: 0; transition: border-color .12s, background .12s;
-}
-.opt:hover:not(:disabled) { border-color: var(--accent); }
-.opt .key { flex: none; width: 26px; height: 26px; border-radius: 6px; display: grid; place-items: center;
-  font-family: var(--mono); font-size: 0.8rem; font-weight: 600; background: var(--paper); border: 1px solid var(--line); }
-.opt .txt { min-width: 0; font-size: 1.05rem; }
-.opt .txt.mono { font-family: var(--mono); font-weight: 600; }
+.options.long { grid-template-columns: 1fr; }
+.opt { display: flex; align-items: center; gap: 10px; text-align: left; padding: 11px 12px; min-width: 0; }
+.opt .key { flex: none; width: 28px; height: 28px; border-radius: 9px; display: grid; place-items: center; font-family: var(--display); font-weight: 600; font-size: 0.9rem; background: var(--soft); border: 2px solid var(--ink); }
+.opt .txt { min-width: 0; font-size: 1.05rem; font-weight: 700; overflow-wrap: anywhere; }
+.opt .txt.big { font-family: var(--display); font-weight: 600; font-size: 1.25rem; }
 .options.visual .opt { flex-direction: column; padding: 8px; gap: 6px; }
 .options.visual .opt .cell { width: 100%; border: 0; }
 .opt:disabled { cursor: default; }
-.opt.right { border-color: var(--good); background: var(--good-soft); }
+.opt.right { background: var(--good-soft); border-color: var(--good); box-shadow: 0 4px 0 var(--good); animation: yay .5s cubic-bezier(.3,1.6,.5,1); }
 .opt.right .key { background: var(--good); color: var(--card); border-color: var(--good); }
-.opt.wrong { border-color: var(--bad); background: var(--bad-soft); }
+.opt.wrong { background: var(--bad-soft); border-color: var(--bad); box-shadow: 0 4px 0 var(--bad); animation: shake .45s; }
 .opt.wrong .key { background: var(--bad); color: var(--card); border-color: var(--bad); }
-.opt.dim { opacity: 0.55; }
+.opt.dim { opacity: 0.5; }
+@keyframes yay { 40% { transform: scale(1.06); } }
+@keyframes shake { 20% { transform: translateX(-7px); } 40% { transform: translateX(6px); } 60% { transform: translateX(-4px); } 80% { transform: translateX(2px); } }
 
 .actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
-.btn {
-  border: 1px solid var(--line); background: var(--card); padding: 10px 16px; border-radius: var(--r);
-  cursor: pointer; font-weight: 700;
-}
-.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
-.btn.quiet { border-color: transparent; background: none; color: var(--muted); padding-inline: 6px; }
-.btn:disabled { opacity: .5; cursor: default; }
-.hint { margin: 0; padding: 12px 14px; border-left: 3px solid var(--medium); background: var(--paper); border-radius: 0 8px 8px 0; }
-.verdict { display: flex; flex-direction: column; gap: 8px; padding: 16px; border-radius: var(--r); }
-.verdict.good { background: var(--good-soft); }
-.verdict.bad { background: var(--bad-soft); }
-.verdict h3 { margin: 0; font-family: var(--display); font-size: 1.15rem; }
+.btn { padding: 9px 18px; font-family: var(--display); font-weight: 600; font-size: 1.02rem; }
+.btn.primary { background: var(--accent); color: var(--accent-ink); }
+.btn.quiet { box-shadow: none; border-color: transparent; background: none; color: var(--muted); padding-inline: 8px; }
+.btn.quiet:hover { color: var(--ink); box-shadow: none; }
+.target { color: var(--muted); font-size: 0.88rem; font-weight: 700; }
+.verdict { display: flex; flex-direction: column; gap: 8px; padding: 16px; border-radius: 18px; border: 2.5px solid; animation: enter .35s; }
+.verdict.good { background: var(--good-soft); border-color: var(--good); }
+.verdict.bad { background: var(--bad-soft); border-color: var(--bad); }
+.verdict h3 { margin: 0; font-family: var(--display); font-weight: 600; font-size: 1.2rem; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .verdict.good h3 { color: var(--good); } .verdict.bad h3 { color: var(--bad); }
+.xp-gain { font-family: var(--display); font-size: 0.9rem; color: var(--ink); background: var(--gold); border: 2px solid var(--ink); border-radius: 999px; padding: 0 9px; }
 .verdict p { margin: 0; }
-.verdict .time { font-family: var(--mono); font-size: 0.8rem; color: var(--muted); }
-
-.note { color: var(--muted); font-size: 0.9rem; margin: 0; }
-.session { font-family: var(--mono); font-size: 0.8rem; color: var(--muted); }
+.verdict .time { font-size: 0.82rem; color: var(--muted); font-weight: 700; }
+.combo { font-family: var(--display); font-weight: 700; color: var(--accent); }
+.session { color: var(--muted); font-size: 0.88rem; font-weight: 700; }
+.note { color: var(--muted); margin: 0; font-weight: 700; }
 
 /* Progress */
-.tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
-.tile { background: var(--card); border: 1px solid var(--line); border-radius: var(--r); padding: 12px 14px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.tile b { font-family: var(--display); font-size: 1.7rem; line-height: 1.1; font-variant-numeric: tabular-nums; }
-.tile span { font-size: 0.78rem; color: var(--muted); }
-.panel { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 18px; display: flex; flex-direction: column; gap: 14px; }
-.panel h2 { margin: 0; font-family: var(--display); font-size: 1.1rem; }
-.cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; max-width: 360px; }
-.cal .d { aspect-ratio: 1; border-radius: 5px; background: var(--paper); border: 1px solid var(--line); display: grid; place-items: center; font-family: var(--mono); font-size: 0.65rem; color: var(--muted); }
-.cal .d.ok { background: var(--good); border-color: var(--good); color: var(--card); }
-.cal .d.miss { background: var(--bad-soft); border-color: var(--bad); color: var(--bad); }
-.cal .d.today { outline: 2px solid var(--accent); outline-offset: 1px; }
-.cal .dow { font-family: var(--mono); font-size: 0.65rem; color: var(--muted); text-align: center; }
-.legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 0.8rem; color: var(--muted); }
-.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
-.bars { display: flex; flex-direction: column; gap: 10px; }
-.bar { display: grid; grid-template-columns: 110px 1fr 70px; gap: 10px; align-items: center; font-size: 0.9rem; }
-.bar .track { height: 10px; border-radius: 5px; background: var(--paper); border: 1px solid var(--line); overflow: hidden; }
-.bar .fill { height: 100%; background: var(--accent); }
-.bar .num { font-family: var(--mono); font-size: 0.78rem; color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
-.sync { font-family: var(--mono); font-size: 0.72rem; color: var(--muted); text-align: center; }
-
-@media (max-width: 520px) {
-  .tiles { grid-template-columns: repeat(2, 1fr); }
-  .prompt { font-size: 1.2rem; }
-  .sheet { padding: 18px 16px 20px; }
-  .bar { grid-template-columns: 88px 1fr 56px; }
-  .stem-seq span { min-width: 44px; font-size: 1.1rem; padding: 8px 9px; }
+.pview { display: flex; flex-direction: column; gap: 16px; }
+.panel { background: var(--card); border: 2.5px solid var(--ink); border-radius: 22px; box-shadow: 0 5px 0 var(--ink); padding: 18px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.panel h2 { margin: 0; font-family: var(--display); font-weight: 600; font-size: 1.25rem; }
+.panel .sub { margin: -10px 0 0; color: var(--muted); font-size: 0.9rem; font-weight: 700; }
+.compare { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.stat { background: var(--soft); border: 2px solid var(--line); border-radius: 14px; padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.stat b { font-family: var(--display); font-weight: 600; font-size: 1.6rem; line-height: 1.15; font-variant-numeric: tabular-nums; }
+.stat span.l { font-size: 0.78rem; color: var(--muted); font-weight: 800; }
+.delta { font-size: 0.8rem; font-weight: 800; display: inline-flex; gap: 3px; align-items: center; }
+.delta.up { color: var(--good); } .delta.down { color: var(--bad); } .delta.flat { color: var(--muted); }
+.rangebar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.rangebar .chip { padding: 4px 14px; }
+.chart { position: relative; width: 100%; }
+.chart svg { display: block; width: 100%; height: auto; overflow: visible; touch-action: pan-y; }
+.chart .grid line { stroke: var(--line); stroke-width: 1; }
+.chart .axis text { fill: var(--muted); font-family: var(--body); font-size: 11px; font-weight: 700; }
+.chart .line { fill: none; stroke: var(--accent); stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
+.chart .area { fill: var(--accent); opacity: .13; }
+.chart .endpt { fill: var(--accent); stroke: var(--card); stroke-width: 2; }
+.chart .endlbl { fill: var(--ink); font-family: var(--display); font-size: 13px; font-weight: 600; }
+.chart .cross { stroke: var(--ink); stroke-width: 1; stroke-dasharray: 3 3; }
+.chart .bar { fill: var(--c-sequences); }
+.chart .bar.hot { fill: var(--ink); }
+.tip {
+  position: absolute; pointer-events: none; background: var(--ink); color: var(--card); border-radius: 10px; padding: 6px 10px;
+  font-size: 0.8rem; white-space: nowrap; transform: translate(-50%, -110%); z-index: 2;
 }
-@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+.tip b { font-family: var(--display); font-size: 1rem; font-weight: 600; display: block; }
+.empty { padding: 26px 12px; text-align: center; color: var(--muted); font-weight: 700; background: var(--soft); border-radius: 14px; border: 2px dashed var(--line); }
+.skills { display: flex; flex-direction: column; gap: 12px; }
+.skill { display: grid; grid-template-columns: 112px 1fr 92px; gap: 10px; align-items: center; font-weight: 800; font-size: 0.92rem; }
+.skill .name { display: flex; align-items: center; gap: 7px; min-width: 0; }
+.skill .name i { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--ink); flex: none; }
+.skill .track { height: 14px; border-radius: 7px; background: var(--soft); border: 2px solid var(--ink); overflow: hidden; }
+.skill .fill { height: 100%; border-radius: 0 5px 5px 0; transition: width .6s; }
+.skill .val { text-align: right; font-variant-numeric: tabular-nums; display: flex; flex-direction: column; line-height: 1.15; }
+.skill .val b { font-family: var(--display); font-weight: 600; font-size: 1rem; }
+.cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; max-width: 380px; }
+.cal .d { aspect-ratio: 1; border-radius: 9px; background: var(--soft); border: 2px solid var(--line); display: grid; place-items: center; font-size: 0.72rem; font-weight: 800; color: var(--muted); }
+.cal .d.ok { background: var(--good); border-color: var(--ink); color: var(--card); }
+.cal .d.miss { background: var(--bad-soft); border-color: var(--bad); color: var(--bad); }
+.cal .d.today { outline: 3px solid var(--accent); outline-offset: 1px; }
+.cal .dow { font-size: 0.7rem; color: var(--muted); text-align: center; font-weight: 800; }
+.legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 0.82rem; color: var(--muted); font-weight: 700; }
+.legend i { display: inline-block; width: 12px; height: 12px; border-radius: 4px; margin-right: 5px; vertical-align: -1px; }
+details.numbers summary { cursor: pointer; color: var(--muted); font-weight: 800; font-size: 0.88rem; }
+.tablewrap { overflow-x: auto; margin-top: 8px; }
+.tablewrap table { border-collapse: collapse; width: 100%; font-size: 0.85rem; font-variant-numeric: tabular-nums; }
+.tablewrap th, .tablewrap td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.tablewrap th { color: var(--muted); }
+.sync { font-size: 0.75rem; color: var(--muted); text-align: center; font-weight: 700; }
+
+.wotd .word-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.wotd .word { font-family: var(--display); font-weight: 700; font-size: 2.4rem; line-height: 1.05; color: var(--c-verbal); overflow-wrap: anywhere; }
+.wotd .pos { font-style: italic; color: var(--muted); font-weight: 700; }
+.wotd .note { margin-top: -6px; }
+.verdict .ex { font-style: italic; }
+
+#confetti { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 20; }
+
+@media (max-width: 560px) {
+  #peanut { width: 104px; }
+  .compare { grid-template-columns: repeat(2, 1fr); }
+  .prompt { font-size: 1.25rem; }
+  .sheet { padding: 16px 14px 18px; }
+  .skill { grid-template-columns: 92px 1fr 78px; }
+  .stem-seq span { min-width: 46px; font-size: 1.2rem; padding: 7px 9px; }
+  .brand h1 { font-size: 1.9rem; }
+}
+@media (max-width: 380px) { .options { grid-template-columns: 1fr; } }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
 </style>
 
+<canvas id="confetti" aria-hidden="true"></canvas>
 <div class="wrap">
   <header class="mast">
     <div class="brand">
-      <h1>Quotient<span class="q">.</span></h1>
+      <h1>Quotient<span>.</span></h1>
       <div class="date" id="today-label"></div>
     </div>
-    <div class="streak" title="Days in a row you've answered the daily item"><b id="streak-num">0</b> day streak</div>
+    <div class="hud">
+      <div class="pill" id="streak-pill" title="Days in a row you've answered the daily puzzle">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2c1 4 5 5.5 5 11a5 5 0 0 1-10 0c0-2.5 1.2-4 2.4-5 .1 1.6.8 2.7 1.8 3.2C11 8 11.2 5 12 2z" fill="var(--accent)" stroke="var(--ink)" stroke-width="2" stroke-linejoin="round"/></svg>
+        <span><span id="streak-num">0</span> day<span id="streak-s">s</span></span>
+      </div>
+      <div class="pill" id="level-pill" title="Earn XP for every answer">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5l2.8 5.9 6.4.8-4.7 4.4 1.2 6.4L12 16.9 6.3 20l1.2-6.4L2.8 9.2l6.4-.8z" fill="var(--gold)" stroke="var(--ink)" stroke-width="2" stroke-linejoin="round"/></svg>
+        <div class="lvl"><span>Level <span id="lvl-num">1</span></span><div class="xpbar"><i id="xp-fill"></i></div><small id="xp-text">0 / 100 XP</small></div>
+      </div>
+      <button class="press sound" id="sound-btn" type="button" aria-pressed="true" aria-label="Sound effects"></button>
+    </div>
   </header>
 
   <nav class="tabs" role="tablist">
-    <button class="tab" role="tab" id="tab-daily" aria-selected="true">Today</button>
-    <button class="tab" role="tab" id="tab-practice" aria-selected="false">Practice</button>
-    <button class="tab" role="tab" id="tab-progress" aria-selected="false">Progress</button>
+    <button class="press tab" role="tab" id="tab-daily" aria-selected="true">Today</button>
+    <button class="press tab" role="tab" id="tab-practice" aria-selected="false">Practice</button>
+    <button class="press tab" role="tab" id="tab-progress" aria-selected="false">Progress</button>
   </nav>
+
+  <div class="stage">
+    <button id="peanut" type="button" aria-label="Peanut the elephant. Tap for a tip.">
+      <svg viewBox="0 0 200 192" data-mood="idle" id="peanut-svg" aria-hidden="true">
+        <g class="pe-all">
+          <path d="M142 150 q14 -4 16 8 q1 5 -4 6" fill="none" stroke="var(--ele-dark)" stroke-width="5" stroke-linecap="round"/>
+          <rect x="68" y="152" width="24" height="32" rx="11" fill="var(--ele-dark)" stroke="var(--ink)" stroke-width="3"/>
+          <rect x="108" y="152" width="24" height="32" rx="11" fill="var(--ele-dark)" stroke="var(--ink)" stroke-width="3"/>
+          <ellipse cx="100" cy="146" rx="46" ry="32" fill="var(--ele)" stroke="var(--ink)" stroke-width="3"/>
+          <g fill="#fff"><ellipse cx="74" cy="180" rx="3" ry="2"/><ellipse cx="81" cy="181" rx="3" ry="2"/><ellipse cx="88" cy="180" rx="3" ry="2"/><ellipse cx="112" cy="180" rx="3" ry="2"/><ellipse cx="119" cy="181" rx="3" ry="2"/><ellipse cx="126" cy="180" rx="3" ry="2"/></g>
+          <g class="ear ear-l"><ellipse cx="44" cy="80" rx="38" ry="44" fill="var(--ele)" stroke="var(--ink)" stroke-width="3"/><ellipse cx="49" cy="82" rx="25" ry="31" fill="var(--ele-pink)"/></g>
+          <g class="ear ear-r"><ellipse cx="156" cy="80" rx="38" ry="44" fill="var(--ele)" stroke="var(--ink)" stroke-width="3"/><ellipse cx="151" cy="82" rx="25" ry="31" fill="var(--ele-pink)"/></g>
+          <circle cx="100" cy="80" r="45" fill="var(--ele)" stroke="var(--ink)" stroke-width="3"/>
+          <g>
+            <rect x="78" y="34" width="44" height="14" rx="4" fill="var(--ink)"/>
+            <polygon points="56,34 100,18 144,34 100,48" fill="var(--ink)"/>
+            <g class="tassel"><path d="M100 32 L134 38 L134 56" fill="none" stroke="var(--gold)" stroke-width="3" stroke-linecap="round"/><rect x="130" y="54" width="8" height="12" rx="3" fill="var(--gold)" stroke="var(--ink)" stroke-width="2"/></g>
+            <circle cx="100" cy="32" r="4" fill="var(--gold)"/>
+          </g>
+          <g class="eyes-open"><ellipse cx="84" cy="78" rx="6" ry="8" fill="var(--ink)"/><ellipse cx="116" cy="78" rx="6" ry="8" fill="var(--ink)"/><circle cx="86" cy="75" r="2.2" fill="#fff"/><circle cx="118" cy="75" r="2.2" fill="#fff"/></g>
+          <g class="face-happy" fill="none" stroke="var(--ink)" stroke-width="4" stroke-linecap="round"><path d="M77 81 q7 -10 14 0"/><path d="M109 81 q7 -10 14 0"/></g>
+          <g class="face-sad" fill="none" stroke="var(--ink)" stroke-width="3.5" stroke-linecap="round"><path d="M76 64 l13 5"/><path d="M124 64 l-13 5"/></g>
+          <g class="face-think" fill="none" stroke="var(--ink)" stroke-width="3.5" stroke-linecap="round"><path d="M77 66 q7 -5 14 -1"/><path d="M110 63 q7 -4 14 1"/></g>
+          <ellipse cx="70" cy="96" rx="8" ry="5" fill="var(--ele-pink)"/><ellipse cx="130" cy="96" rx="8" ry="5" fill="var(--ele-pink)"/>
+          <path class="mouth" d="M88 104 q12 16 24 0 z" fill="var(--bad)" stroke="var(--ink)" stroke-width="3" stroke-linejoin="round"/>
+          <path d="M88 102 q-9 10 -2 18 q2 -9 7 -15 z" fill="#fff" stroke="var(--ink)" stroke-width="2.5" stroke-linejoin="round"/>
+          <path d="M112 102 q9 10 2 18 q-2 -9 -7 -15 z" fill="#fff" stroke="var(--ink)" stroke-width="2.5" stroke-linejoin="round"/>
+          <g class="trunk trunk-down">
+            <path d="M100 90 C100 116 96 132 106 142 C112 148 121 142 117 135" fill="none" stroke="var(--ink)" stroke-width="20" stroke-linecap="round"/>
+            <path d="M100 90 C100 116 96 132 106 142 C112 148 121 142 117 135" fill="none" stroke="var(--ele)" stroke-width="14" stroke-linecap="round"/>
+            <path d="M93 110 h12 M93 120 h12" stroke="var(--ele-dark)" stroke-width="2.5" stroke-linecap="round"/>
+          </g>
+          <g class="trunk-up">
+            <path d="M100 90 C104 112 128 120 146 106 C156 98 160 86 154 79" fill="none" stroke="var(--ink)" stroke-width="20" stroke-linecap="round"/>
+            <path d="M100 90 C104 112 128 120 146 106 C156 98 160 86 154 79" fill="none" stroke="var(--ele)" stroke-width="14" stroke-linecap="round"/>
+          </g>
+          <g class="trunk-curl">
+            <path d="M100 90 C101 110 94 122 84 119 C75 116 77 104 87 106" fill="none" stroke="var(--ink)" stroke-width="20" stroke-linecap="round"/>
+            <path d="M100 90 C101 110 94 122 84 119 C75 116 77 104 87 106" fill="none" stroke="var(--ele)" stroke-width="14" stroke-linecap="round"/>
+          </g>
+          <path class="tear" d="M124 88 q5 8 0 11 q-5 -3 0 -11 z" fill="var(--water)" stroke="var(--ink)" stroke-width="1.5"/>
+          <g class="drops" fill="var(--water)" stroke="var(--ink)" stroke-width="1.5"><circle cx="154" cy="70" r="4"/><circle cx="160" cy="66" r="3.5"/><circle cx="150" cy="64" r="3"/><circle cx="158" cy="72" r="3"/></g>
+        </g>
+      </svg>
+    </button>
+    <div class="bubble" id="bubble" aria-live="polite"><span class="who">Peanut</span><p id="bubble-text">Hi!</p><div id="bubble-extra"></div></div>
+  </div>
 
   <section id="view-daily"></section>
 
@@ -240,7 +406,7 @@ button { font: inherit; color: inherit; }
       <div class="ctl-label" id="lbl-cat">Category</div>
       <div class="chips" id="chips" role="group" aria-labelledby="lbl-cat"></div>
     </div>
-    <div id="practice-sheet" style="margin-top:16px"></div>
+    <div id="practice-sheet" style="margin-top:18px"></div>
   </section>
 
   <section id="view-progress" hidden></section>
@@ -912,31 +1078,188 @@ button { font: inherit; color: inherit; }
     return q;
   }
 
-  root.QEngine = { generate, hashStr, CATEGORIES, DIFFS, TARGET, describeCell };
+  // Question of the Day number n (0 = the first day). Walks every earlier day so a
+  // question that matches an earlier one, even with its options reordered, is re-rolled.
+  const DAILY_CATS = CATEGORIES.map(c => c.id).filter(c => c !== 'verbal');
+  const fingerprint = q => JSON.stringify([q.prompt, q.stem, q.options.map(o => JSON.stringify(o)).sort()]);
+  function daily(n, keyAt, onDay) {
+    const seen = new Set();
+    let q = null;
+    for (let i = 0; i <= n; i++) {
+      for (let k = 0; ; k++) {
+        q = generate({ seed: hashStr('daily:' + keyAt(i) + (k ? ':' + k : '')), cat: DAILY_CATS[i % DAILY_CATS.length], diff: 'medium' });
+        const f = fingerprint(q);
+        if (!seen.has(f) || k > 50) { seen.add(f); if (onDay) onDay(i, f, k); break; }
+      }
+    }
+    return q;
+  }
+
+  root.QEngine = { generate, daily, fingerprint, hashStr, CATEGORIES, DIFFS, TARGET, describeCell };
 })(typeof window !== 'undefined' ? window : globalThis);
+</script>
+
+<script id="words">
+/* Word of the Day list: word | part of speech | meaning | example. Written for Quotient.
+   Meanings are kept distinct from each other because the quiz uses other words' meanings as wrong answers. */
+window.QWords = `
+serendipity|noun|finding good things by happy accident|It was pure serendipity that we sat next to each other on the train.
+ephemeral|adjective|lasting a very short time|The rainbow was ephemeral, gone before she found her camera.
+ubiquitous|adjective|seeming to be everywhere at once|Phones are so ubiquitous that it's rare to see someone without one.
+laconic|adjective|using very few words|His laconic reply was just “Fine.”
+gregarious|adjective|fond of company; sociable|Gregarious by nature, she knew everyone at the party within an hour.
+meticulous|adjective|showing great attention to detail|He kept meticulous notes on every experiment.
+candor|noun|honest, open speech|I appreciated her candor about the risks.
+ameliorate|verb|to make a bad situation better|New lights helped ameliorate the gloom of the old station.
+obfuscate|verb|to make something unclear on purpose|The report used jargon to obfuscate the real costs.
+pragmatic|adjective|dealing with things sensibly and practically|Rather than argue, they took a pragmatic approach and split the work.
+quixotic|adjective|idealistic in an unrealistic way|His quixotic plan was to plant a forest on the moon.
+sanguine|adjective|cheerfully optimistic|She remained sanguine about the team's chances.
+petrichor|noun|the earthy smell after rain|After the storm, the garden was full of petrichor.
+halcyon|adjective|describing a calm, happy time in the past|They remembered the halcyon summers at the lake.
+lucid|adjective|clear and easy to understand|Her explanation of the theory was wonderfully lucid.
+equanimity|noun|calmness under pressure|He accepted the bad news with equanimity.
+tenacious|adjective|holding firm; refusing to give up|The tenacious climber tried the route ten times.
+alacrity|noun|brisk and cheerful readiness|She accepted the invitation with alacrity.
+cogent|adjective|clear, logical and convincing|He made a cogent case for changing the schedule.
+benevolent|adjective|well-meaning and kindly|A benevolent neighbour paid for the new playground.
+capricious|adjective|given to sudden changes of mood or behaviour|The capricious weather turned from sun to hail in minutes.
+diligent|adjective|careful and hardworking|A diligent student, he reviewed his notes every night.
+eloquent|adjective|fluent and persuasive in speech or writing|Her eloquent speech moved the whole room.
+frugal|adjective|careful not to waste money|Living frugally, they saved enough for a year abroad.
+garrulous|adjective|talking far too much about trivial things|The garrulous driver narrated every street we passed.
+hubris|noun|excessive pride or self-confidence|It was hubris to skip practice before the final.
+inexorable|adjective|impossible to stop or prevent|The inexorable tide crept up the beach.
+juxtapose|verb|to place side by side to show contrast|The exhibit juxtaposes old photos with new ones of the same streets.
+kinetic|adjective|relating to motion|A spinning top stores kinetic energy.
+lethargic|adjective|sluggish and lacking energy|The heat made everyone lethargic by mid-afternoon.
+mellifluous|adjective|sweet and smooth to hear|The cellist's mellifluous tone filled the hall.
+nonchalant|adjective|calm and casually unconcerned|He gave a nonchalant shrug as the alarm went off.
+ostentatious|adjective|showy and designed to impress|The ostentatious car was painted gold.
+paradigm|noun|a typical model or pattern of something|The smartphone created a new paradigm for computing.
+quintessential|adjective|the most perfect example of its kind|A red double-decker is the quintessential London bus.
+resilient|adjective|able to recover quickly from difficulty|Resilient plants sprang back after the frost.
+superfluous|adjective|more than is needed|Cut the superfluous words from your essay.
+trepidation|noun|nervous fear about what may happen|She opened the exam results with trepidation.
+unanimous|adjective|agreed on by everyone|The vote to adopt the puppy was unanimous.
+vicarious|adjective|felt through someone else's experience|He took vicarious pleasure in his friend's travels.
+wistful|adjective|with a gentle, sad longing|She cast a wistful look at her old school.
+zealous|adjective|full of energetic enthusiasm for a cause|The zealous volunteers cleaned the whole beach by noon.
+aplomb|noun|self-confidence in a demanding situation|He handled the tough questions with aplomb.
+bucolic|adjective|relating to pleasant country life|The painting showed a bucolic scene of cows and hay.
+cacophony|noun|a harsh mix of loud sounds|The cacophony of car horns woke the street.
+dichotomy|noun|a sharp division into two opposites|There's a false dichotomy between work and play.
+ebullient|adjective|cheerful and bubbling with energy|The ebullient host greeted every guest with a hug.
+fastidious|adjective|very fussy about detail and cleanliness|A fastidious cook, he weighed every ingredient.
+gumption|noun|shrewd, resourceful initiative|It took gumption to start a business at sixteen.
+idiosyncrasy|noun|a habit or quirk peculiar to one person|One of her idiosyncrasies is eating pizza with a fork.
+jubilant|adjective|feeling great joy and triumph|Jubilant fans poured onto the pitch.
+kudos|noun|praise for an achievement|Kudos to the team for finishing early.
+magnanimous|adjective|generous toward a rival or someone weaker|The champion was magnanimous in victory.
+nefarious|adjective|wicked or criminal|The villain's nefarious plan involved the city's water supply.
+obsequious|adjective|too eager to please or obey|The obsequious waiter laughed at every joke.
+panacea|noun|a supposed cure for all problems|Exercise helps, but it isn't a panacea.
+quandary|noun|uncertainty about which choice to make|He was in a quandary over which job offer to take.
+recalcitrant|adjective|stubbornly refusing to obey|The recalcitrant cat would not go into its box.
+sagacious|adjective|wise and shrewd|The sagacious old captain read the clouds and turned back.
+umbrage|noun|offence or annoyance at a slight|She took umbrage at being left off the list.
+whimsical|adjective|playfully quaint or fanciful|The café had whimsical teapots shaped like animals.
+xenial|adjective|relating to hospitality toward guests|The xenial innkeeper left fresh bread at every door.
+yearn|verb|to long for something intensely|Sailors yearn for home after months at sea.
+zenith|noun|the highest point of something|At the zenith of her career she played sold-out stadiums.
+abate|verb|to become less intense|We waited for the storm to abate.
+belie|verb|to give a false impression of|His calm face belied his nerves.
+cajole|verb|to persuade by flattery or coaxing|She cajoled her brother into doing the dishes.
+deride|verb|to mock with contempt|Critics derided the film, but audiences loved it.
+elucidate|verb|to explain and make clear|The teacher used a diagram to elucidate the idea.
+foster|verb|to encourage the growth of|Good libraries foster a love of reading.
+galvanize|verb|to shock or excite someone into action|The flood galvanized the town into building a levee.
+harangue|verb|to lecture someone loudly and at length|The coach harangued the players at half-time.
+impede|verb|to slow down or block progress|Fallen trees impeded the rescue team.
+jettison|verb|to throw away something unwanted|They jettisoned the old plan and started fresh.
+languish|verb|to be stuck in a weak or unpleasant state|The project languished for years without funding.
+mollify|verb|to calm someone's anger|A free dessert mollified the annoyed customer.
+negate|verb|to cancel out the effect of|Eating a cake negates the benefit of the run.
+ostracize|verb|to exclude someone from a group|The club ostracized anyone who broke the rules.
+procrastinate|verb|to keep delaying something you should do|I procrastinated so long that the deadline crept up.
+rescind|verb|to officially cancel a law or decision|The council rescinded the parking ban.
+scrutinize|verb|to examine very closely|The jeweller scrutinized the stone under a lens.
+thwart|verb|to stop someone from succeeding|A locked gate thwarted their shortcut.
+undulate|verb|to move in smooth waves|The wheat field undulated in the breeze.
+vindicate|verb|to clear of blame or suspicion|The new evidence vindicated the accused man.
+exacerbate|verb|to make a problem worse|Scratching only exacerbates the itch.
+acumen|noun|skill at making good judgements|Her business acumen turned a stall into a chain.
+bravado|noun|a show of boldness meant to impress|Despite his bravado, he refused to ride the roller coaster.
+deluge|noun|a severe flood or an overwhelming amount|After the post, a deluge of emails arrived.
+enigma|noun|a person or thing that is mysterious|The quiet new neighbour was a complete enigma.
+facade|noun|the front of a building, or a false outward show|Her cheerful facade hid how tired she was.
+gambit|noun|an opening move meant to gain an advantage|His opening gambit was to offer half price.
+hiatus|noun|a pause or break in a series|The band returned after a five-year hiatus.
+impetus|noun|the force that makes something happen|The prize gave fresh impetus to the research.
+juggernaut|noun|a huge, overwhelming force|The streaming service became an entertainment juggernaut.
+kismet|noun|fate or destiny|Meeting again in a city of millions felt like kismet.
+labyrinth|noun|a complicated maze of paths|The old town is a labyrinth of narrow lanes.
+milieu|noun|a person's social surroundings|He grew up in an artistic milieu.
+nadir|noun|the lowest point of something|Losing the final was the nadir of their season.
+opus|noun|a musical or artistic work|The symphony is considered her greatest opus.
+penchant|noun|a strong liking for something|He has a penchant for spicy food.
+quagmire|noun|a bog, or a situation that is hard to escape|The negotiations sank into a legal quagmire.
+respite|noun|a short rest from something difficult|The shade offered a brief respite from the heat.
+solace|noun|comfort in a time of sadness|She found solace in music after the loss.
+tirade|noun|a long, angry speech of criticism|He launched into a tirade about the traffic.
+utopia|noun|an imagined perfect society|The novel describes a utopia without money.
+vestige|noun|a small remaining trace of something|A few stones are the last vestige of the castle.
+wanderlust|noun|a strong desire to travel|Wanderlust took him to forty countries.
+zeitgeist|noun|the spirit or mood of a particular time|The song captured the zeitgeist of the nineties.
+arcane|adjective|understood by only a few people|The rules of the old card game are arcane.
+brusque|adjective|abrupt or curt in manner|The clerk's brusque answer surprised us.
+copious|adjective|plentiful, in large amounts|She took copious notes during the lecture.
+deft|adjective|quick and skilful with the hands or mind|With a deft flick he flipped the pancake.
+erudite|adjective|having great knowledge from study|The erudite professor quoted Latin from memory.
+feckless|adjective|lacking purpose or responsibility|The feckless guard slept through the alarm.
+gauche|adjective|socially awkward and tactless|It felt gauche to ask how much the gift cost.
+hapless|adjective|unlucky|The hapless tourist lost his map and his umbrella.
+impeccable|adjective|without any faults|Her timing was impeccable.
+jocular|adjective|fond of joking; playful|His jocular manner put the nervous patients at ease.
+nascent|adjective|just beginning to develop|The nascent company had only three employees.
+oblique|adjective|indirect, or slanting|She made an oblique reference to the argument.
+palpable|adjective|so strong it can almost be touched|The excitement in the stadium was palpable.
+rambunctious|adjective|noisy and hard to control|The rambunctious puppies knocked over the plant.
+spurious|adjective|false, though it appears genuine|The ad made spurious claims about curing colds.
+venerable|adjective|respected because of age or wisdom|The venerable oak has stood for 400 years.
+wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
+`.trim().split('\n').map(l => { const [word, pos, meaning, example] = l.split('|'); return { word, pos, meaning, example }; });
 </script>
 
 <script>
 (function () {
   'use strict';
   const E = window.QEngine;
+  const WORDS = window.QWords;
   const $ = id => document.getElementById(id);
   const CAT = Object.fromEntries(E.CATEGORIES.map(c => [c.id, c]));
+  const CATS = E.CATEGORIES.map(c => c.id);
   const DIFF_LABEL = { easy: 'Easy', medium: 'Medium', hard: 'Hard' };
   const START = '2026-10-24';
+  const reduced = () => window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   /* ---------- dates ---------- */
   const dkey = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   const parseKey = k => { const [y, m, d] = k.split('-').map(Number); return new Date(y, m - 1, d); };
   const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
   const dayIndex = k => Math.round((parseKey(k) - parseKey(START)) / 86400000);
+  const short = d => d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
   let todayKey = dkey(new Date());
+  const DAY = 86400000;
 
   /* ---------- state + storage ---------- */
+  // log rows: [time, catIndex, diffIndex, correct, seconds, usedHint, mode (0 daily, 1 practice), scoreAfter, catScoreAfter]
   const LS = 'quotient.v1';
-  const blank = () => ({ v: 1, updatedAt: 0, daily: {}, cats: {}, diffs: {}, best: 0, prefs: { diff: 'medium', cat: 'all' } });
+  const blank = () => ({ v: 1, updatedAt: 0, daily: {}, words: {}, cats: {}, diffs: {}, best: 0, xp: 0, R: 1000, rc: {}, n: 0, log: [], base: null,
+    prefs: { diff: 'medium', cat: 'all', sound: true } });
+  const hydrate = s => { const b = blank(); const out = Object.assign(b, s); out.prefs = Object.assign(blank().prefs, s.prefs || {}); return out; };
   let state = blank();
-  try { const s = JSON.parse(localStorage.getItem(LS) || 'null'); if (s && s.v === 1) state = Object.assign(blank(), s); } catch (e) {}
+  try { const s = JSON.parse(localStorage.getItem(LS) || 'null'); if (s && s.v === 1) state = hydrate(s); } catch (e) {}
   let remote = null, saving = false, again = false;
 
   async function pushRemote() {
@@ -948,11 +1271,8 @@ button { font: inherit; color: inherit; }
     saving = false;
     if (again) { again = false; pushRemote(); }
   }
-  function save() {
-    state.updatedAt = Date.now();
-    try { localStorage.setItem(LS, JSON.stringify(state)); } catch (e) {}
-    pushRemote();
-  }
+  function saveLocal() { try { localStorage.setItem(LS, JSON.stringify(state)); } catch (e) {} }
+  function save() { state.updatedAt = Date.now(); saveLocal(); pushRemote(); }
   function setSync(t) { $('sync').textContent = t; }
   setSync('Saved on this device');
 
@@ -966,24 +1286,59 @@ button { font: inherit; color: inherit; }
       const ref = db.doc(`data/users/${id}/progress`);
       const snap = await ref.get();
       remote = ref;
-      if (snap.exists) {
-        const d = snap.data();
-        const theirs = d && d.json ? JSON.parse(d.json) : null;
-        if (theirs && theirs.v === 1 && (theirs.updatedAt || 0) > (state.updatedAt || 0)) {
-          state = Object.assign(blank(), theirs);
-          try { localStorage.setItem(LS, JSON.stringify(state)); } catch (e) {}
-          renderAll();
-        } else if ((state.updatedAt || 0) > ((theirs && theirs.updatedAt) || 0)) pushRemote();
+      const theirs = snap.exists && snap.data() && snap.data().json ? JSON.parse(snap.data().json) : null;
+      if (theirs && theirs.v === 1 && (theirs.updatedAt || 0) > (state.updatedAt || 0)) {
+        state = hydrate(theirs); saveLocal(); renderAll();
       } else if (state.updatedAt) pushRemote();
       setSync('Progress saved to your account');
     } catch (e) { /* stay on device storage */ }
   }
 
-  function record(q, correct) {
+  /* ---------- scoring ---------- */
+  // Brain Score works like a chess rating: beating harder questions moves it more.
+  const QR = { easy: 850, medium: 1050, hard: 1250 };
+  function rate(R, diff, ok, hint, n) {
+    const exp = 1 / (1 + 10 ** ((QR[diff] - R) / 400));
+    const s = ok ? (hint ? 0.6 : 1) : 0;
+    return Math.round(R + (n < 20 ? 40 : 24) * (s - exp));
+  }
+  const XP_FOR = { easy: 10, medium: 20, hard: 35 };
+  function levelOf(xp) {
+    let L = 1, need = 100;
+    while (xp >= need) { xp -= need; L++; need = 100 + 50 * (L - 1); }
+    return { L, into: xp, need };
+  }
+  function record(q, ok, secs, hint, mode, bonus) {
     const c = state.cats[q.cat] || (state.cats[q.cat] = { seen: 0, correct: 0 });
     const d = state.diffs[q.diff] || (state.diffs[q.diff] = { seen: 0, correct: 0 });
     c.seen++; d.seen++;
-    if (correct) { c.correct++; d.correct++; }
+    if (ok) { c.correct++; d.correct++; }
+    const catN = state.log.filter(r => r[1] === CATS.indexOf(q.cat)).length;
+    state.R = rate(state.R, q.diff, ok, hint, state.n);
+    state.rc[q.cat] = rate(state.rc[q.cat] || 1000, q.diff, ok, hint, catN);
+    state.n++;
+    state.log.push([Date.now(), CATS.indexOf(q.cat), E.DIFFS.indexOf(q.diff), ok ? 1 : 0, secs, hint ? 1 : 0, mode, state.R, state.rc[q.cat]]);
+    trimLog();
+    let xp = ok ? Math.round(XP_FOR[q.diff] * (hint ? 0.5 : 1)) : 3;
+    xp += bonus || 0;
+    return gainXP(xp);
+  }
+  function trimLog() {
+    const MAX = 1500;
+    if (state.log.length <= MAX) return;
+    const cut = state.log.splice(0, state.log.length - MAX);
+    const base = state.base || { R: 1000, rc: {} };
+    base.R = cut[cut.length - 1][7];
+    for (const r of cut) base.rc[CATS[r[1]]] = r[8];
+    state.base = base;
+  }
+  function gainXP(xp) {
+    const before = levelOf(state.xp).L;
+    state.xp += xp;
+    const after = levelOf(state.xp).L;
+    renderHUD(true);
+    if (after > before) setTimeout(() => { Peanut.say(`Level ${after}! My trunk is trumpeting for you.`, 'happy', 2600); SFX.level(); burst(); }, 900);
+    return xp;
   }
   function streak() {
     let n = 0, d = parseKey(todayKey);
@@ -991,6 +1346,126 @@ button { font: inherit; color: inherit; }
     while (state.daily[dkey(d)]) { n++; d = addDays(d, -1); }
     return n;
   }
+  const baseR = () => (state.base ? state.base.R : 1000);
+  const baseRc = c => (state.base && state.base.rc[c]) || 1000;
+  function scoreAt(t, cat) {
+    const ci = cat ? CATS.indexOf(cat) : -1;
+    let v = cat ? baseRc(cat) : baseR();
+    for (const r of state.log) {
+      if (r[0] > t) break;
+      if (!cat) v = r[7];
+      else if (r[1] === ci) v = r[8];
+    }
+    return v;
+  }
+
+  /* ---------- sound ---------- */
+  let actx = null;
+  function tone(freq, dur, type, when, vol, glideTo) {
+    if (!state.prefs.sound) return;
+    try {
+      actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+      const t = actx.currentTime + (when || 0);
+      const o = actx.createOscillator(), g = actx.createGain();
+      o.type = type || 'sine';
+      o.frequency.setValueAtTime(freq, t);
+      if (glideTo) o.frequency.exponentialRampToValueAtTime(glideTo, t + dur * 0.8);
+      g.gain.setValueAtTime(vol || 0.1, t);
+      g.gain.exponentialRampToValueAtTime(0.0008, t + dur);
+      o.connect(g).connect(actx.destination);
+      o.start(t); o.stop(t + dur + 0.02);
+    } catch (e) {}
+  }
+  const SFX = {
+    right() { tone(660, .12, 'triangle', 0, .12); tone(880, .14, 'triangle', .09, .12); tone(1320, .28, 'triangle', .18, .1); },
+    wrong() { tone(240, .22, 'sawtooth', 0, .045, 190); tone(170, .32, 'sawtooth', .14, .045, 130); },
+    tap() { tone(700, .05, 'square', 0, .03); },
+    hint() { tone(520, .1, 'sine', 0, .08); tone(780, .16, 'sine', .08, .08); },
+    level() { [523, 659, 784, 1047].forEach((f, i) => tone(f, .22, 'triangle', i * .1, .1)); },
+    toot() { tone(240, .45, 'sawtooth', 0, .05, 520); tone(480, .45, 'square', 0, .015, 1040); },
+  };
+  const SPEAKER_ON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z" fill="var(--gold)" stroke="var(--ink)" stroke-width="2" stroke-linejoin="round"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="var(--ink)" stroke-width="2" stroke-linecap="round"/></svg>';
+  const SPEAKER_OFF = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z" fill="var(--soft)" stroke="var(--ink)" stroke-width="2" stroke-linejoin="round"/><path d="M16 9l6 6M22 9l-6 6" stroke="var(--ink)" stroke-width="2" stroke-linecap="round"/></svg>';
+  function renderSound() {
+    const b = $('sound-btn');
+    b.innerHTML = state.prefs.sound ? SPEAKER_ON : SPEAKER_OFF;
+    b.setAttribute('aria-pressed', String(state.prefs.sound));
+    b.title = state.prefs.sound ? 'Sound on' : 'Sound off';
+  }
+  $('sound-btn').addEventListener('click', () => { state.prefs.sound = !state.prefs.sound; saveLocal(); renderSound(); SFX.tap(); });
+
+  /* ---------- confetti ---------- */
+  const cv = $('confetti'), cx = cv.getContext('2d');
+  let parts = [], raf = 0;
+  function burst(x, y, n) {
+    if (reduced()) return;
+    const dpr = window.devicePixelRatio || 1;
+    if (cv.width !== innerWidth * dpr) { cv.width = innerWidth * dpr; cv.height = innerHeight * dpr; }
+    const cs = getComputedStyle(document.documentElement);
+    const cols = ['--c-sequences', '--c-matrices', '--c-arithmetic', '--c-logic', '--c-letters', '--c-verbal', '--gold', '--accent'].map(v => cs.getPropertyValue(v).trim());
+    if (x === undefined) { x = innerWidth / 2; y = innerHeight / 3; }
+    for (let i = 0; i < (n || 90); i++) {
+      const a = Math.random() * Math.PI * 2, s = 3 + Math.random() * 7;
+      parts.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 4, r: 4 + Math.random() * 5, c: cols[i % cols.length], rot: Math.random() * 6, vr: (Math.random() - .5) * .4, life: 1, shape: i % 3 });
+    }
+    if (!raf) raf = requestAnimationFrame(step);
+  }
+  function step() {
+    const dpr = window.devicePixelRatio || 1;
+    cx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    cx.clearRect(0, 0, innerWidth, innerHeight);
+    parts = parts.filter(p => p.life > 0 && p.y < innerHeight + 30);
+    for (const p of parts) {
+      p.vy += 0.22; p.vx *= 0.99; p.x += p.vx; p.y += p.vy; p.rot += p.vr; p.life -= 0.009;
+      cx.save(); cx.globalAlpha = Math.max(0, Math.min(1, p.life * 2)); cx.translate(p.x, p.y); cx.rotate(p.rot); cx.fillStyle = p.c;
+      if (p.shape === 0) cx.fillRect(-p.r, -p.r / 2, p.r * 2, p.r);
+      else if (p.shape === 1) { cx.beginPath(); cx.arc(0, 0, p.r / 1.4, 0, 7); cx.fill(); }
+      else { cx.beginPath(); cx.moveTo(0, -p.r); cx.lineTo(p.r, p.r); cx.lineTo(-p.r, p.r); cx.fill(); }
+      cx.restore();
+    }
+    raf = parts.length ? requestAnimationFrame(step) : 0;
+    if (!raf) cx.clearRect(0, 0, innerWidth, innerHeight);
+  }
+  const centerOf = node => { const b = node.getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2]; };
+
+  /* ---------- Peanut ---------- */
+  const FACTS = [
+    'Elephants can recognise themselves in a mirror. Very few animals can.',
+    'My trunk has tens of thousands of muscles and no bones at all.',
+    'Elephants can pick up low rumbles from other elephants through their feet.',
+    'Elephants greet old friends by twining their trunks together.',
+    'An elephant calf can usually stand within an hour or two of being born.',
+    'Elephants spend most of the day eating. I spend it doing puzzles.',
+    'An elephant\'s trunk can sniff out water from far away.',
+    'Elephants use their big ears to cool down by flapping them.',
+    'Elephant herds are led by the oldest female, called the matriarch.',
+    'Elephants can tell human languages apart. I can tell a triangle from a square.',
+  ];
+  const pick = a => a[Math.floor(Math.random() * a.length)];
+  const Peanut = {
+    svg: $('peanut-svg'), bub: $('bubble'), text: $('bubble-text'), extra: $('bubble-extra'), t: 0,
+    say(msg, mood, ms, extra) {
+      this.text.textContent = msg;
+      this.extra.textContent = '';
+      if (extra) this.extra.appendChild(extra);
+      this.bub.classList.remove('pop'); void this.bub.offsetWidth; this.bub.classList.add('pop');
+      this.mood(mood || 'idle');
+      clearTimeout(this.t);
+      if (ms) this.t = setTimeout(() => this.mood('idle'), ms);
+    },
+    mood(m) {
+      if (this.svg.dataset.mood === m && m !== 'idle') { this.svg.dataset.mood = 'idle'; requestAnimationFrame(() => { this.svg.dataset.mood = m; }); }
+      else this.svg.dataset.mood = m;
+    },
+  };
+  $('peanut').addEventListener('click', () => {
+    const btn = $('peanut');
+    btn.classList.remove('wiggle'); void btn.offsetWidth; btn.classList.add('wiggle');
+    SFX.toot();
+    const s = current();
+    if (s && !s.done && !s.hinted && s.elapsed() > 20) Peanut.say('Need a nudge? Tap “Show a hint” under the answers, or press H.', 'think', 2500);
+    else Peanut.say(pick(FACTS), 'idle');
+  });
 
   /* ---------- rendering helpers ---------- */
   const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
@@ -1000,27 +1475,33 @@ button { font: inherit; color: inherit; }
     const cls = `sh f-${c.fill}`;
     const parts = P.map(([x, y]) => {
       if (c.shape === 'circle') return `<circle class="${cls}" cx="${x}" cy="${y}" r="${s}"/>`;
-      if (c.shape === 'square') return `<rect class="${cls}" x="${x - s * 0.88}" y="${y - s * 0.88}" width="${s * 1.76}" height="${s * 1.76}"/>`;
+      if (c.shape === 'square') return `<rect class="${cls}" x="${x - s * 0.88}" y="${y - s * 0.88}" width="${s * 1.76}" height="${s * 1.76}" rx="2"/>`;
       if (c.shape === 'triangle') return `<polygon class="${cls}" points="${x},${y - s} ${x + s * 1.05},${y + s * 0.8} ${x - s * 1.05},${y + s * 0.8}"/>`;
       return `<polygon class="${cls}" points="${x},${y - s * 1.1} ${x + s},${y} ${x},${y + s * 1.1} ${x - s},${y}"/>`;
     });
     return `<svg viewBox="0 0 100 100" role="img" aria-label="${E.describeCell(c)}">${parts.join('')}</svg>`;
   }
   function cellEl(c) { const d = el('div', 'cell'); d.innerHTML = shapeSVG(c); return d; }
-  const fmtTime = s => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+  const fmtTime = s => `${Math.floor(s / 60)}:${String(Math.round(s) % 60).padStart(2, '0')}`;
+  const CLOCK = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="var(--soft)" stroke="var(--ink)" stroke-width="2.2"/><path d="M12 7v5l3 2" fill="none" stroke="var(--ink)" stroke-width="2.2" stroke-linecap="round"/></svg>';
 
-  /* A question sheet: renders a question, handles answering, and reports back. */
+  /* A question card: renders a question, handles answering, and reports back. */
   function Sheet(host, q, opts) {
     host.textContent = '';
-    const sheet = el('article', 'sheet');
+    const sheet = el('article', 'sheet enter');
     host.appendChild(sheet);
     const meta = el('div', 'meta');
     const left = el('div', 'left');
     left.appendChild(el('span', '', opts.label));
-    left.appendChild(el('span', '', CAT[q.cat].short));
-    left.appendChild(el('span', `tag ${q.diff}`, DIFF_LABEL[q.diff]));
+    const ct = el('span', 'cat-tag', CAT[q.cat].short);
+    ct.style.background = `var(--c-${q.cat})`;
+    left.appendChild(ct);
+    left.appendChild(el('span', `dtag ${q.diff}`, DIFF_LABEL[q.diff]));
     meta.appendChild(left);
-    const timer = el('span', 'timer', '');
+    const timer = el('span', 'timer');
+    timer.innerHTML = CLOCK;
+    const tnum = el('span', '', '0:00');
+    timer.appendChild(tnum);
     meta.appendChild(timer);
     sheet.appendChild(meta);
 
@@ -1028,7 +1509,7 @@ button { font: inherit; color: inherit; }
     if (q.stem) {
       if (q.stem.kind === 'seq') {
         const s = el('div', 'stem-seq');
-        q.stem.items.forEach(t => s.appendChild(el('span', t === '?' ? 'gap' : '', t)));
+        q.stem.items.forEach((t, i) => { const sp = el('span', t === '?' ? 'gap' : '', t); sp.style.animationDelay = (i * 60) + 'ms'; s.appendChild(sp); });
         sheet.appendChild(s);
       } else if (q.stem.kind === 'lines') {
         const ul = el('ul', 'stem-lines' + (q.stem.mono ? ' mono' : ''));
@@ -1036,22 +1517,24 @@ button { font: inherit; color: inherit; }
         sheet.appendChild(ul);
       } else if (q.stem.kind === 'matrix') {
         const g = el('div', 'matrix');
-        q.stem.cells.forEach(c => g.appendChild(cellEl(c)));
+        q.stem.cells.forEach((c, i) => { const ce = cellEl(c); ce.style.animationDelay = (i * 50) + 'ms'; g.appendChild(ce); });
         const m = el('div', 'cell missing', '?');
         m.setAttribute('aria-label', 'missing cell');
+        m.style.animationDelay = '400ms';
         g.appendChild(m);
         sheet.appendChild(g);
       }
     }
 
-    const list = el('div', 'options' + (q.visual ? ' visual' : ''));
+    const long = !q.visual && q.options.some(o => String(o).length > 16);
+    const list = el('div', 'options' + (q.visual ? ' visual' : long ? ' long' : ''));
     const keys = 'ABCDEF';
     const btns = q.options.map((o, i) => {
-      const b = el('button', 'opt');
+      const b = el('button', 'press opt');
       b.type = 'button';
       b.appendChild(el('span', 'key', keys[i]));
       if (q.visual) b.appendChild(cellEl(o));
-      else b.appendChild(el('span', 'txt' + (q.mono ? ' mono' : ''), String(o)));
+      else b.appendChild(el('span', 'txt' + (q.mono && String(o).length < 10 ? ' big' : ''), String(o)));
       b.setAttribute('aria-label', `Option ${keys[i]}: ${q.visual ? E.describeCell(o) : o}`);
       b.addEventListener('click', () => choose(i));
       list.appendChild(b);
@@ -1059,28 +1542,32 @@ button { font: inherit; color: inherit; }
     });
     sheet.appendChild(list);
 
-    const hintBox = el('p', 'hint');
-    hintBox.hidden = true;
-    hintBox.textContent = 'Hint: ' + q.hint;
     const actions = el('div', 'actions');
     const hintBtn = el('button', 'btn quiet', 'Show a hint');
     hintBtn.type = 'button';
-    hintBtn.addEventListener('click', () => { hintBox.hidden = false; hintBtn.hidden = true; usedHint = true; });
+    hintBtn.addEventListener('click', () => {
+      hinted = true; hintBtn.hidden = true; SFX.hint();
+      Peanut.say('Psst… ' + q.hint, 'think');
+    });
     actions.appendChild(hintBtn);
-    actions.appendChild(el('span', 'note', `Target ${q.target}`));
-    sheet.appendChild(hintBox);
+    actions.appendChild(el('span', 'target', `Target ${q.target}`));
+    if (opts.extraAction) actions.appendChild(opts.extraAction);
     sheet.appendChild(actions);
     const after = el('div', '');
-    after.style.display = 'flex'; after.style.flexDirection = 'column'; after.style.gap = '14px';
+    after.style.cssText = 'display:flex;flex-direction:column;gap:14px';
     sheet.appendChild(after);
 
-    let done = false, usedHint = false;
+    let done = false, hinted = false, nudged = false;
     const t0 = Date.now();
-    const tick = () => { if (!done) timer.textContent = fmtTime(Math.floor((Date.now() - t0) / 1000)); };
-    tick();
+    const elapsed = () => (Date.now() - t0) / 1000;
+    const tick = () => {
+      if (done) return;
+      tnum.textContent = fmtTime(Math.floor(elapsed()));
+      if (!nudged && !hinted && elapsed() > 75 && api === current()) { nudged = true; Peanut.say('Taking your time? Good. If you are stuck, tap me or press H for a hint.', 'think', 2200); }
+    };
     const iv = setInterval(tick, 1000);
 
-    function reveal(i, secs, hint) {
+    function reveal(i, secs, hint, xp) {
       done = true; clearInterval(iv);
       btns.forEach((b, j) => {
         b.disabled = true;
@@ -1089,224 +1576,554 @@ button { font: inherit; color: inherit; }
         else b.classList.add('dim');
       });
       actions.hidden = true;
-      if (hint) { hintBox.hidden = false; }
       const ok = i === q.answer;
       const v = el('div', 'verdict ' + (ok ? 'good' : 'bad'));
-      v.appendChild(el('h3', '', ok ? 'Correct.' : `Not quite. The answer is ${keys[q.answer]}.`));
+      const h = el('h3', '', ok ? 'Correct!' : `Not quite. It's ${keys[q.answer]}.`);
+      if (xp) h.appendChild(el('span', 'xp-gain', `+${xp} XP`));
+      v.appendChild(h);
+      if (hint) v.appendChild(el('p', '', 'Hint: ' + q.hint));
       v.appendChild(el('p', '', q.why));
-      if (secs !== undefined) v.appendChild(el('span', 'time', `Time ${fmtTime(secs)}${hint ? ' · used the hint' : ''}`));
+      if (secs !== undefined) v.appendChild(el('span', 'time', `Solved in ${fmtTime(secs)}${hint ? ' with the hint' : ''}`));
       after.appendChild(v);
       if (opts.after) opts.after(after, ok);
-      timer.textContent = secs !== undefined ? fmtTime(secs) : '';
+      tnum.textContent = secs !== undefined ? fmtTime(secs) : '';
     }
     function choose(i) {
       if (done) return;
-      const secs = Math.floor((Date.now() - t0) / 1000);
-      opts.onAnswer(i, i === q.answer, secs, usedHint);
-      reveal(i, secs, usedHint);
+      const secs = Math.floor(elapsed());
+      const ok = i === q.answer;
+      const xp = opts.onAnswer(i, ok, secs, hinted);
+      reveal(i, secs, hinted, xp);
+      if (ok) { SFX.right(); const [x, y] = centerOf(btns[i]); burst(x, y, 70); }
+      else SFX.wrong();
     }
     if (opts.restore) reveal(opts.restore.choice, opts.restore.secs, opts.restore.hint);
 
-    return {
+    const api = {
       key(e) {
         if (done) return false;
         const k = e.key.toUpperCase();
         let i = keys.indexOf(k);
         if (i < 0 && /^[1-6]$/.test(e.key)) i = Number(e.key) - 1;
         if (i >= 0 && i < btns.length) { choose(i); return true; }
-        if (k === 'H') { hintBtn.click(); return true; }
+        if (k === 'H' && !hinted) { hintBtn.click(); return true; }
         return false;
       },
       stop() { clearInterval(iv); },
+      elapsed,
       get done() { return done; },
+      get hinted() { return hinted; },
     };
+    return api;
   }
 
-  /* ---------- Today ---------- */
+  /* ---------- Today: Question of the Day + Word of the Day ---------- */
   let dailySheet = null;
+  let dailyCache = null;
   function dailyQuestion() {
-    const idx = dayIndex(todayKey);
-    const cats = E.CATEGORIES.map(c => c.id);
-    const cat = cats[((idx % cats.length) + cats.length) % cats.length];
-    return E.generate({ seed: E.hashStr('daily:' + todayKey), cat, diff: 'medium' });
+    if (dailyCache && dailyCache.key === todayKey) return dailyCache.q;
+    const q = E.daily(Math.max(0, dayIndex(todayKey)), i => dkey(addDays(parseKey(START), i)));
+    dailyCache = { key: todayKey, q };
+    return q;
   }
+  const greeting = () => { const h = new Date().getHours(); return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening'; };
   function renderDaily() {
     const host = $('view-daily');
+    host.textContent = '';
     if (dailySheet) dailySheet.stop();
+    const qHost = el('div', ''), wHost = el('div', '');
+    wHost.style.marginTop = '22px';
+    host.appendChild(qHost); host.appendChild(wHost);
     const q = dailyQuestion();
     const done = state.daily[todayKey];
-    dailySheet = Sheet(host, q, {
-      label: `Daily No. ${dayIndex(todayKey) + 1}`,
-      restore: done ? done : null,
-      onAnswer(choice, correct, secs, hint) {
-        state.daily[todayKey] = { choice, correct, secs, hint };
-        record(q, correct);
+    dailySheet = Sheet(qHost, q, {
+      label: `Question of the Day · No. ${dayIndex(todayKey) + 1}`,
+      restore: done || null,
+      onAnswer(choice, ok, secs, hint) {
+        state.daily[todayKey] = { choice, correct: ok, secs, hint };
+        const xp = record(q, ok, secs, hint, 0, ok ? 15 : 0);
         const s = streak();
         if (s > state.best) state.best = s;
-        prune(); save(); renderHeader();
+        prune(); save(); renderHUD(true);
+        if (ok) Peanut.say(s > 1 ? `Yes! That's a ${s} day streak. Your Word of the Day is waiting below.` : 'Yes! Great start. Your Word of the Day is waiting below.', 'happy', 2400);
+        else Peanut.say('So close. Read the explanation, it makes the next one easier. Then try the Word of the Day.', 'sad', 2400);
+        return xp;
       },
       after(box) {
-        const p = el('p', 'note', `That's today's item. A new one appears tomorrow. You're on a ${streak()} day streak.`);
         const a = el('div', 'actions');
-        const go = el('button', 'btn primary', 'Keep going');
+        const go = el('button', 'press btn primary', 'Keep going');
         go.type = 'button';
-        go.addEventListener('click', () => { show('practice'); });
+        go.addEventListener('click', () => show('practice'));
         a.appendChild(go);
-        box.appendChild(p); box.appendChild(a);
+        a.appendChild(el('span', 'session', 'A new Question of the Day arrives tomorrow.'));
+        box.appendChild(a);
       },
     });
+    renderWord(wHost);
+    dailyGreet();
+  }
+  function dailyGreet() {
+    if (view !== 'daily') return;
+    const q = dailyQuestion(), done = state.daily[todayKey];
+    {
+      if (!done) Peanut.say(`${greeting()}! Today's question is ${CAT[q.cat].name.toLowerCase()}. Take your time. I'm holding the hint if you need it.`, 'idle');
+      else if (!state.words[todayKey]) Peanut.say('You did today\'s question. Have you guessed the Word of the Day yet? It\'s below.', 'idle');
+      else Peanut.say(`All done for today. Practice is open if you want more. You're on a ${streak()} day streak.`, 'happy', 1400);
+    }
   }
   function prune() {
     const cutoff = dkey(addDays(parseKey(todayKey), -400));
     for (const k of Object.keys(state.daily)) if (k < cutoff) delete state.daily[k];
+    for (const k of Object.keys(state.words)) if (k < cutoff) delete state.words[k];
+  }
+
+  // Words come in a fixed shuffled order, one per day, so a word only repeats after the whole list.
+  const WORD_ORDER = (() => {
+    const idx = WORDS.map((_, i) => i);
+    let h = E.hashStr('words');
+    for (let i = idx.length - 1; i > 0; i--) { h = Math.imul(h ^ (h >>> 15), 2246822519) >>> 0; const j = h % (i + 1); [idx[i], idx[j]] = [idx[j], idx[i]]; }
+    return idx;
+  })();
+  function wordFor(key) {
+    const i = ((dayIndex(key) % WORDS.length) + WORDS.length) % WORDS.length;
+    const w = WORDS[WORD_ORDER[i]];
+    // Wrong answers are other words' meanings, preferably the same part of speech.
+    let h = E.hashStr('w:' + key);
+    const rnd = () => { h = Math.imul(h ^ (h >>> 13), 3266489917) >>> 0; return h / 4294967296; };
+    const same = WORDS.filter(x => x !== w && x.pos === w.pos);
+    const pool = same.length >= 3 ? same : WORDS.filter(x => x !== w);
+    const picks = [];
+    while (picks.length < 3) { const c = pool[Math.floor(rnd() * pool.length)]; if (!picks.includes(c)) picks.push(c); }
+    const opts = picks.map(p => p.meaning).concat(w.meaning);
+    for (let k = opts.length - 1; k > 0; k--) { const j = Math.floor(rnd() * (k + 1)); [opts[k], opts[j]] = [opts[j], opts[k]]; }
+    return { w, opts, answer: opts.indexOf(w.meaning) };
+  }
+  function renderWord(host) {
+    const { w, opts, answer } = wordFor(todayKey);
+    const card = el('article', 'sheet wotd');
+    host.appendChild(card);
+    const meta = el('div', 'meta');
+    meta.appendChild(el('span', '', `Word of the Day · ${parseKey(todayKey).toLocaleDateString(undefined, { month: 'long', day: 'numeric' })}`));
+    const tag = el('span', 'cat-tag', 'Vocabulary');
+    tag.style.background = 'var(--c-verbal)';
+    meta.appendChild(tag);
+    card.appendChild(meta);
+    const head = el('div', 'word-head');
+    head.appendChild(el('span', 'word', w.word));
+    head.appendChild(el('span', 'pos', w.pos));
+    card.appendChild(head);
+    card.appendChild(el('p', 'note', 'What do you think it means?'));
+    const list = el('div', 'options long');
+    const keys = 'ABCD';
+    const btns = opts.map((o, i) => {
+      const b = el('button', 'press opt');
+      b.type = 'button';
+      b.appendChild(el('span', 'key', keys[i]));
+      b.appendChild(el('span', 'txt', o));
+      b.addEventListener('click', () => choose(i));
+      list.appendChild(b);
+      return b;
+    });
+    card.appendChild(list);
+    const after = el('div', '');
+    card.appendChild(after);
+    function reveal(i, xp) {
+      btns.forEach((b, j) => { b.disabled = true; b.classList.add(j === answer ? 'right' : j === i ? 'wrong' : 'dim'); });
+      const ok = i === answer;
+      const v = el('div', 'verdict ' + (ok ? 'good' : 'bad'));
+      const h = el('h3', '', ok ? 'You know it!' : 'Now you know it.');
+      if (xp) h.appendChild(el('span', 'xp-gain', `+${xp} XP`));
+      v.appendChild(h);
+      const def = el('p', '');
+      const b = el('b', '', `${w.word} (${w.pos}): `);
+      def.appendChild(b); def.appendChild(document.createTextNode(w.meaning + '.'));
+      v.appendChild(def);
+      v.appendChild(el('p', 'ex', `“${w.example}”`));
+      v.appendChild(el('span', 'time', `${Object.keys(state.words).length} words learned so far`));
+      after.appendChild(v);
+    }
+    function choose(i) {
+      if (state.words[todayKey]) return;
+      const ok = i === answer;
+      state.words[todayKey] = { choice: i, ok };
+      const xp = gainXP(ok ? 10 : 3);
+      save();
+      reveal(i, xp);
+      if (ok) { SFX.right(); const [x, y] = centerOf(btns[i]); burst(x, y, 50); Peanut.say(`“${w.word[0].toUpperCase() + w.word.slice(1)}.” Try using it in a sentence today.`, 'happy', 2200); }
+      else { SFX.wrong(); Peanut.say(`Tricky one. Try using “${w.word}” once today and it'll stick.`, 'sad', 2000); }
+    }
+    const done = state.words[todayKey];
+    if (done) reveal(done.choice);
   }
 
   /* ---------- Practice ---------- */
-  let practiceSheet = null, sessionSeen = 0, sessionRight = 0, recentVerbal = [];
+  let practiceSheet = null, sessionSeen = 0, sessionRight = 0, combo = 0, recentVerbal = [];
   function renderControls() {
     const bar = $('diffbar');
     bar.textContent = '';
     E.DIFFS.forEach((d, i) => {
-      const b = el('button', '');
+      const b = el('button', 'press');
       b.type = 'button';
+      b.dataset.d = d;
       b.setAttribute('aria-pressed', String(state.prefs.diff === d));
       const pips = el('span', 'pips');
       for (let k = 0; k < 3; k++) pips.appendChild(el('i', k <= i ? 'on' : ''));
       b.appendChild(pips);
       b.appendChild(el('span', '', DIFF_LABEL[d]));
-      b.addEventListener('click', () => { state.prefs.diff = d; savePrefs(); renderControls(); nextPractice(); });
+      b.addEventListener('click', () => { state.prefs.diff = d; saveLocal(); SFX.tap(); renderControls(); nextPractice(); });
       bar.appendChild(b);
     });
     const chips = $('chips');
     chips.textContent = '';
     [{ id: 'all', short: 'Mixed' }].concat(E.CATEGORIES).forEach(c => {
-      const b = el('button', 'chip', c.short);
+      const b = el('button', 'press chip');
       b.type = 'button';
+      const dot = el('span', 'dot');
+      dot.style.background = c.id === 'all' ? 'conic-gradient(var(--c-sequences) 0 60deg, var(--c-matrices) 0 120deg, var(--c-arithmetic) 0 180deg, var(--c-logic) 0 240deg, var(--c-letters) 0 300deg, var(--c-verbal) 0)' : `var(--c-${c.id})`;
+      b.appendChild(dot);
+      b.appendChild(document.createTextNode(c.short));
       b.setAttribute('aria-pressed', String(state.prefs.cat === c.id));
-      b.addEventListener('click', () => { state.prefs.cat = c.id; savePrefs(); renderControls(); nextPractice(); });
+      b.addEventListener('click', () => { state.prefs.cat = c.id; saveLocal(); SFX.tap(); renderControls(); nextPractice(); });
       chips.appendChild(b);
     });
   }
-  function savePrefs() { try { localStorage.setItem(LS, JSON.stringify(state)); } catch (e) {} }
+  const START_LINES = {
+    easy: ['A warm-up. Nice and easy.', 'Let\'s get the brain moving.', 'Quick one. Trust your first look.'],
+    medium: ['Look for the pattern.', 'This one needs a little thought.', 'Take a breath, then go one step at a time.'],
+    hard: ['This one is tough. I believe in you.', 'A real brain-stretcher. Slow and steady.', 'Hard mode! Write things down if it helps.'],
+  };
   function nextPractice() {
     if (practiceSheet) practiceSheet.stop();
-    const cats = E.CATEGORIES.map(c => c.id);
-    const cat = state.prefs.cat === 'all' ? cats[Math.floor(Math.random() * cats.length)] : state.prefs.cat;
+    const cat = state.prefs.cat === 'all' ? pick(CATS) : state.prefs.cat;
     const seed = (Math.random() * 4294967296) >>> 0;
     const q = E.generate({ seed, cat, diff: state.prefs.diff, avoid: recentVerbal });
     if (q.verbalId !== undefined) { recentVerbal.push(q.verbalId); if (recentVerbal.length > 12) recentVerbal.shift(); }
-    const host = $('practice-sheet');
-    practiceSheet = Sheet(host, q, {
+    const skip = el('button', 'btn quiet', 'Skip');
+    skip.type = 'button';
+    skip.addEventListener('click', () => { combo = 0; nextPractice(); });
+    practiceSheet = Sheet($('practice-sheet'), q, {
       label: `Practice ${sessionSeen + 1}`,
-      onAnswer(choice, correct) {
-        sessionSeen++; if (correct) sessionRight++;
-        record(q, correct); save(); renderHeader();
+      extraAction: skip,
+      onAnswer(choice, ok, secs, hint) {
+        sessionSeen++;
+        if (ok) { sessionRight++; combo++; } else combo = 0;
+        const bonus = ok && combo >= 3 ? Math.min(25, 5 * (combo - 2)) : 0;
+        const xp = record(q, ok, secs, hint, 1, bonus);
+        save();
+        if (ok) {
+          const lines = combo >= 3 ? [`${combo} in a row! Combo bonus.`, `Combo ×${combo}! You're on fire.`]
+            : secs < 30 ? ['Lightning fast!', 'Quick as a flick of the trunk.'] : ['Nailed it!', 'Trunk-tastic!', 'Big brain move.', 'Yes! Exactly right.'];
+          Peanut.say(pick(lines), 'happy', 2200);
+        } else Peanut.say(pick(['Tricky! The explanation shows the trick.', 'Close one. Have a look at why.', 'Everyone misses some. That\'s how brains grow.']), 'sad', 2000);
+        return xp;
       },
       after(box) {
         const a = el('div', 'actions');
-        const go = el('button', 'btn primary', 'Next question');
+        const go = el('button', 'press btn primary', 'Next question');
         go.type = 'button';
-        go.addEventListener('click', nextPractice);
+        go.addEventListener('click', () => { SFX.tap(); nextPractice(); });
         a.appendChild(go);
         a.appendChild(el('span', 'session', `This session: ${sessionRight} of ${sessionSeen} right`));
+        if (combo >= 2) a.appendChild(el('span', 'combo', `Combo ×${combo}`));
         box.appendChild(a);
         go.focus({ preventScroll: true });
       },
     });
-    const skip = el('button', 'btn quiet', 'Skip');
-    skip.type = 'button';
-    skip.addEventListener('click', nextPractice);
-    host.querySelector('.actions').appendChild(skip);
+    if (view === 'practice') Peanut.say(`${CAT[cat].short}! ${pick(START_LINES[q.diff])}`, 'idle');
   }
 
   /* ---------- Progress ---------- */
+  let range = 30;
+  const RANGES = [[7, '7 days'], [30, '30 days'], [90, '90 days'], [0, 'All time']];
+  const svgEl = (tag, attrs, parent) => { const n = document.createElementNS('http://www.w3.org/2000/svg', tag); for (const k in attrs) n.setAttribute(k, attrs[k]); if (parent) parent.appendChild(n); return n; };
+  const pct = (a, b) => (b ? Math.round(100 * a / b) : null);
+  function windowStats(from, to) {
+    const rows = state.log.filter(r => r[0] >= from && r[0] < to);
+    const right = rows.filter(r => r[3]);
+    return {
+      n: rows.length, acc: pct(right.length, rows.length),
+      time: right.length ? right.reduce((s, r) => s + r[4], 0) / right.length : null,
+      score: scoreAt(to - 1),
+    };
+  }
+  function deltaEl(d, unit, goodWhenUp, fmt) {
+    const s = el('span', 'delta');
+    if (d === null || d === undefined || isNaN(d)) { s.classList.add('flat'); s.textContent = 'no data last week'; return s; }
+    const up = d > 0;
+    if (Math.abs(d) < 0.5) { s.classList.add('flat'); s.textContent = '● same as last week'; return s; }
+    s.classList.add(up === goodWhenUp ? 'up' : 'down');
+    s.textContent = `${up ? '▲' : '▼'} ${fmt ? fmt(Math.abs(d)) : Math.round(Math.abs(d))}${unit} vs last week`;
+    return s;
+  }
+  function tableFor(headers, rows) {
+    const d = el('details', 'numbers');
+    d.appendChild(el('summary', '', 'See the numbers'));
+    const w = el('div', 'tablewrap'); const t = el('table'); const tr = el('tr');
+    headers.forEach(h => tr.appendChild(el('th', '', h)));
+    t.appendChild(tr);
+    rows.forEach(r => { const row = el('tr'); r.forEach(c => row.appendChild(el('td', '', String(c)))); t.appendChild(row); });
+    w.appendChild(t); d.appendChild(w);
+    return d;
+  }
+  function niceStep(span) { for (const s of [10, 20, 25, 50, 100, 200, 250, 500]) if (span / s <= 5) return s; return 1000; }
+
+  function lineChart(host, pts, label) {
+    const box = el('div', 'chart'); host.appendChild(box);
+    const W = Math.max(260, box.clientWidth || 600), H = 200, m = { l: 40, r: 52, t: 16, b: 26 };
+    const vals = pts.map(p => p.v);
+    let lo = Math.min(...vals), hi = Math.max(...vals);
+    if (hi - lo < 80) { const mid = (hi + lo) / 2; lo = mid - 40; hi = mid + 40; }
+    const stepV = niceStep(hi - lo);
+    lo = Math.floor(lo / stepV) * stepV; hi = Math.ceil(hi / stepV) * stepV;
+    const X = i => m.l + (pts.length === 1 ? (W - m.l - m.r) / 2 : i * (W - m.l - m.r) / (pts.length - 1));
+    const Y = v => m.t + (hi - v) * (H - m.t - m.b) / (hi - lo);
+    const svg = svgEl('svg', { viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': label, tabindex: '0' }, box);
+    const g = svgEl('g', { class: 'grid' }, svg), ax = svgEl('g', { class: 'axis' }, svg);
+    for (let v = lo; v <= hi; v += stepV) {
+      svgEl('line', { x1: m.l, x2: W - m.r, y1: Y(v), y2: Y(v) }, g);
+      svgEl('text', { x: m.l - 8, y: Y(v) + 4, 'text-anchor': 'end' }, ax).textContent = v;
+    }
+    const ticks = pts.length < 3 ? [0, pts.length - 1] : [0, Math.floor((pts.length - 1) / 2), pts.length - 1];
+    [...new Set(ticks)].forEach(i => svgEl('text', { x: X(i), y: H - 6, 'text-anchor': i === 0 ? 'start' : i === pts.length - 1 ? 'end' : 'middle' }, ax).textContent = pts[i].label);
+    const d = pts.map((p, i) => `${i ? 'L' : 'M'}${X(i).toFixed(1)},${Y(p.v).toFixed(1)}`).join('');
+    svgEl('path', { class: 'area', d: `${d}L${X(pts.length - 1)},${Y(lo)}L${X(0)},${Y(lo)}Z` }, svg);
+    svgEl('path', { class: 'line', d }, svg);
+    const last = pts.length - 1;
+    svgEl('circle', { class: 'endpt', cx: X(last), cy: Y(pts[last].v), r: 5 }, svg);
+    svgEl('text', { class: 'endlbl', x: X(last) + 9, y: Y(pts[last].v) + 4 }, svg).textContent = pts[last].v;
+    const cross = svgEl('line', { class: 'cross', y1: m.t, y2: H - m.b, visibility: 'hidden' }, svg);
+    const dot = svgEl('circle', { class: 'endpt', r: 5, visibility: 'hidden' }, svg);
+    const tip = el('div', 'tip'); tip.hidden = true; box.appendChild(tip);
+    let cur = -1;
+    const showAt = i => {
+      cur = Math.max(0, Math.min(last, i));
+      const p = pts[cur], x = X(cur), y = Y(p.v);
+      cross.setAttribute('x1', x); cross.setAttribute('x2', x); cross.setAttribute('visibility', 'visible');
+      dot.setAttribute('cx', x); dot.setAttribute('cy', y); dot.setAttribute('visibility', 'visible');
+      tip.textContent = ''; tip.appendChild(el('b', '', String(p.v))); tip.appendChild(document.createTextNode(p.sub));
+      const scale = box.clientWidth / W;
+      tip.style.left = Math.min(Math.max(x * scale, 60), box.clientWidth - 60) + 'px'; tip.style.top = (y * scale) + 'px'; tip.hidden = false;
+    };
+    const hide = () => { cross.setAttribute('visibility', 'hidden'); dot.setAttribute('visibility', 'hidden'); tip.hidden = true; };
+    svg.addEventListener('pointermove', e => {
+      const r = svg.getBoundingClientRect(); const x = (e.clientX - r.left) * W / r.width;
+      showAt(pts.length === 1 ? 0 : Math.round((x - m.l) / ((W - m.l - m.r) / (pts.length - 1))));
+    });
+    svg.addEventListener('pointerleave', hide);
+    svg.addEventListener('blur', hide);
+    svg.addEventListener('keydown', e => {
+      if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') { e.preventDefault(); showAt((cur < 0 ? last : cur) + (e.key === 'ArrowRight' ? 1 : -1)); }
+    });
+  }
+  function barChart(host, bars, label) {
+    const box = el('div', 'chart'); host.appendChild(box);
+    const W = Math.max(260, box.clientWidth || 600), H = 180, m = { l: 40, r: 8, t: 12, b: 26 };
+    const Y = v => m.t + (100 - v) * (H - m.t - m.b) / 100;
+    const slot = (W - m.l - m.r) / bars.length;
+    const bw = Math.min(38, Math.max(3, slot - 2));
+    const svg = svgEl('svg', { viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': label }, box);
+    const g = svgEl('g', { class: 'grid' }, svg), ax = svgEl('g', { class: 'axis' }, svg);
+    [0, 50, 100].forEach(v => { svgEl('line', { x1: m.l, x2: W - m.r, y1: Y(v), y2: Y(v) }, g); svgEl('text', { x: m.l - 8, y: Y(v) + 4, 'text-anchor': 'end' }, ax).textContent = v + '%'; });
+    const ticks = bars.length < 3 ? bars.map((_, i) => i) : [0, Math.floor((bars.length - 1) / 2), bars.length - 1];
+    [...new Set(ticks)].forEach(i => svgEl('text', { x: m.l + slot * i + slot / 2, y: H - 6, 'text-anchor': 'middle' }, ax).textContent = bars[i].label);
+    const tip = el('div', 'tip'); tip.hidden = true; box.appendChild(tip);
+    bars.forEach((b, i) => {
+      const x = m.l + slot * i + (slot - bw) / 2;
+      let mark = null;
+      if (b.acc !== null) {
+        const top = Y(b.acc), base = Y(0), r = Math.min(4, bw / 2, base - top);
+        mark = svgEl('path', { class: 'bar', d: `M${x},${base}V${top + r}Q${x},${top} ${x + r},${top}H${x + bw - r}Q${x + bw},${top} ${x + bw},${top + r}V${base}Z` }, svg);
+        if (b.acc === 0) svgEl('line', { x1: x, x2: x + bw, y1: base, y2: base, stroke: 'var(--accent)', 'stroke-width': 3 }, svg);
+      }
+      const hit = svgEl('rect', { x: m.l + slot * i, y: m.t, width: slot, height: H - m.t - m.b, fill: 'transparent', tabindex: '0' }, svg);
+      const on = () => {
+        if (mark) mark.classList.add('hot');
+        tip.textContent = ''; tip.appendChild(el('b', '', b.acc === null ? 'No questions' : b.acc + '% right')); tip.appendChild(document.createTextNode(`${b.sub} · ${b.n} answered`));
+        const scale = box.clientWidth / W;
+        tip.style.left = Math.min(Math.max((x + bw / 2) * scale, 70), box.clientWidth - 70) + 'px'; tip.style.top = (Y(b.acc || 0) * scale) + 'px'; tip.hidden = false;
+      };
+      const off = () => { if (mark) mark.classList.remove('hot'); tip.hidden = true; };
+      hit.addEventListener('pointerenter', on); hit.addEventListener('focus', on);
+      hit.addEventListener('pointerleave', off); hit.addEventListener('blur', off);
+    });
+  }
+
+  function weeklySummary(now, prev) {
+    const parts = [];
+    if (!now.n) return state.log.length ? 'No questions in the last 7 days. One today restarts the climb.' : 'Answer a few questions and I\'ll write your report here.';
+    parts.push(`You answered ${now.n} question${now.n === 1 ? '' : 's'} this week${prev.n ? (now.n > prev.n ? `, ${now.n - prev.n} more than last week` : now.n < prev.n ? `, ${prev.n - now.n} fewer than last week` : ', same as last week') : ''}.`);
+    if (prev.acc !== null && now.acc !== null) parts.push(now.acc > prev.acc ? `Accuracy is up ${now.acc - prev.acc} points.` : now.acc < prev.acc ? `Accuracy dipped ${prev.acc - now.acc} points. Harder questions do that.` : 'Accuracy held steady.');
+    const weekAgo = Date.now() - 7 * DAY;
+    const gains = CATS.map(c => [c, (state.rc[c] || 1000) - scoreAt(weekAgo, c)]).filter(([, g]) => g !== 0).sort((a, b) => b[1] - a[1]);
+    if (gains.length && gains[0][1] > 0) parts.push(`Biggest gain: ${CAT[gains[0][0]].short} (+${gains[0][1]}).`);
+    return parts.join(' ');
+  }
   function renderProgress() {
     const host = $('view-progress');
     host.textContent = '';
-    const wrap = el('div', '');
-    wrap.style.display = 'flex'; wrap.style.flexDirection = 'column'; wrap.style.gap = '16px';
+    const wrap = el('div', 'pview');
     host.appendChild(wrap);
-    const tot = Object.values(state.cats).reduce((a, c) => ({ seen: a.seen + c.seen, correct: a.correct + c.correct }), { seen: 0, correct: 0 });
-    const tiles = el('div', 'tiles');
-    [[streak(), 'Current streak'], [Math.max(state.best, streak()), 'Best streak'], [tot.seen, 'Questions answered'],
-      [tot.seen ? Math.round(100 * tot.correct / tot.seen) + '%' : '–', 'Accuracy']].forEach(([v, l]) => {
-      const t = el('div', 'tile'); t.appendChild(el('b', '', String(v))); t.appendChild(el('span', '', l)); tiles.appendChild(t);
-    });
-    wrap.appendChild(tiles);
+    const now = Date.now();
+    const wk = windowStats(now - 7 * DAY, now + 1), prev = windowStats(now - 14 * DAY, now - 7 * DAY);
 
+    // This week vs last week
+    const rep = el('section', 'panel');
+    rep.appendChild(el('h2', '', 'This week'));
+    rep.appendChild(el('p', 'sub', 'The last 7 days compared with the 7 before'));
+    const grid = el('div', 'compare');
+    const stat = (value, labelText, delta) => { const s = el('div', 'stat'); s.appendChild(el('b', '', value)); s.appendChild(el('span', 'l', labelText)); s.appendChild(delta); grid.appendChild(s); };
+    stat(String(wk.n), 'Questions', deltaEl(prev.n || wk.n ? wk.n - prev.n : null, '', true));
+    stat(wk.acc === null ? '–' : wk.acc + '%', 'Accuracy', deltaEl(wk.acc !== null && prev.acc !== null ? wk.acc - prev.acc : null, ' pts', true));
+    stat(wk.time === null ? '–' : fmtTime(wk.time), 'Avg time when right', deltaEl(wk.time !== null && prev.time !== null ? wk.time - prev.time : null, 's', false));
+    stat(String(state.R), 'Brain Score', deltaEl(state.log.length ? state.R - scoreAt(now - 7 * DAY) : null, '', true));
+    rep.appendChild(grid);
+    wrap.appendChild(rep);
+
+    // Range filter scopes everything below
+    const rb = el('div', 'rangebar');
+    rb.appendChild(el('span', 'ctl-label', 'Trends over'));
+    RANGES.forEach(([d, l]) => {
+      const b = el('button', 'press chip', l); b.type = 'button';
+      b.setAttribute('aria-pressed', String(range === d));
+      b.addEventListener('click', () => { range = d; SFX.tap(); renderProgress(); });
+      rb.appendChild(b);
+    });
+    wrap.appendChild(rb);
+
+    const today = parseKey(todayKey);
+    const first = state.log.length ? parseKey(dkey(new Date(state.log[0][0]))) : today;
+    const startDay = range ? addDays(today, -(range - 1)) : first;
+    const nDays = Math.round((today - startDay) / DAY) + 1;
+    const rangeStart = startDay.getTime();
+    const inRange = state.log.filter(r => r[0] >= rangeStart);
+
+    const sp = el('section', 'panel');
+    sp.appendChild(el('h2', '', 'Brain Score'));
+    sp.appendChild(el('p', 'sub', 'Goes up when you get questions right, and up more for hard ones. Everyone starts at 1000.'));
+    wrap.appendChild(sp);
+    const spts = [];
+    for (let i = 0; i < nDays; i++) {
+      const d = addDays(startDay, i);
+      spts.push({ label: short(d), sub: d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }), v: scoreAt(addDays(d, 1).getTime() - 1) });
+    }
+
+    const ap = el('section', 'panel');
+    const weekly = nDays > 31;
+    ap.appendChild(el('h2', '', weekly ? 'Accuracy by week' : 'Accuracy by day'));
+    ap.appendChild(el('p', 'sub', 'Share of questions you got right'));
+    wrap.appendChild(ap);
+    const bars = [];
+    const bsize = weekly ? 7 : 1;
+    for (let endI = nDays - 1; endI >= 0; endI -= bsize) {
+      const s = addDays(startDay, Math.max(0, endI - bsize + 1)), e = addDays(startDay, endI + 1);
+      const rows = state.log.filter(r => r[0] >= s.getTime() && r[0] < e.getTime());
+      bars.unshift({ label: short(s), sub: weekly ? `Week of ${short(s)}` : s.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }), acc: pct(rows.filter(r => r[3]).length, rows.length), n: rows.length });
+    }
+    if (!state.log.length) {
+      sp.appendChild(el('div', 'empty', 'Your Brain Score line appears after your first answer.'));
+      ap.appendChild(el('div', 'empty', 'Your accuracy bars fill in as you answer questions.'));
+    } else {
+      lineChart(sp, spts, 'Brain Score over time');
+      sp.appendChild(tableFor(['Date', 'Brain Score'], spts.map(p => [p.sub, p.v])));
+      barChart(ap, bars, 'Accuracy over time');
+      ap.appendChild(tableFor([weekly ? 'Week' : 'Day', 'Accuracy', 'Answered'], bars.map(b => [b.sub, b.acc === null ? '–' : b.acc + '%', b.n])));
+    }
+
+    // Skills
+    const sk = el('section', 'panel');
+    sk.appendChild(el('h2', '', 'Skills'));
+    sk.appendChild(el('p', 'sub', `Brain Score in each category, and the change over the ${range ? 'last ' + range + ' days' : 'whole time'}`));
+    const list = el('div', 'skills');
+    const rows = CATS.map(c => ({ c, v: state.rc[c] || 1000, d: (state.rc[c] || 1000) - scoreAt(rangeStart - 1, c), n: inRange.filter(r => r[1] === CATS.indexOf(c)).length, seen: (state.cats[c] || {}).seen || 0 }));
+    rows.forEach(r => {
+      const row = el('div', 'skill');
+      const nm = el('span', 'name'); const dot = el('i'); dot.style.background = `var(--c-${r.c})`; nm.appendChild(dot); nm.appendChild(document.createTextNode(CAT[r.c].short));
+      row.appendChild(nm);
+      const tr = el('div', 'track'); const f = el('div', 'fill');
+      f.style.background = `var(--c-${r.c})`;
+      f.style.width = Math.max(4, Math.min(100, (r.v - 600) / 10)) + '%';
+      tr.appendChild(f); row.appendChild(tr);
+      const val = el('span', 'val'); val.appendChild(el('b', '', r.seen ? String(r.v) : '–'));
+      const dl = el('span', 'delta ' + (r.d > 0 ? 'up' : r.d < 0 ? 'down' : 'flat'), r.d ? `${r.d > 0 ? '▲' : '▼'} ${Math.abs(r.d)}` : r.seen ? 'no change' : 'not tried');
+      val.appendChild(dl); row.appendChild(val);
+      list.appendChild(row);
+    });
+    sk.appendChild(list);
+    const tried = rows.filter(r => r.seen);
+    if (tried.length) {
+      const weak = tried.slice().sort((a, b) => a.v - b.v)[0];
+      const go = el('button', 'press btn', `Practise ${CAT[weak.c].short}, your weakest area`); go.type = 'button';
+      go.addEventListener('click', () => { state.prefs.cat = weak.c; saveLocal(); renderControls(); practiceSheet = null; show('practice'); });
+      sk.appendChild(go);
+    }
+    wrap.appendChild(sk);
+
+    // Daily record
     const cal = el('section', 'panel');
-    cal.appendChild(el('h2', '', 'Daily record, last 4 weeks'));
-    const grid = el('div', 'cal');
-    const end = parseKey(todayKey);
-    const startD = addDays(end, -(21 + end.getDay()));
-    ['S', 'M', 'T', 'W', 'T', 'F', 'S'].forEach(d => grid.appendChild(el('div', 'dow', d)));
+    cal.appendChild(el('h2', '', 'Question of the Day record'));
+    cal.appendChild(el('p', 'sub', `Last 4 weeks · best streak ${Math.max(state.best, streak())} days · ${Object.keys(state.words).length} words learned`));
+    const cg = el('div', 'cal');
+    const calStart = addDays(today, -(21 + today.getDay()));
+    ['S', 'M', 'T', 'W', 'T', 'F', 'S'].forEach(d => cg.appendChild(el('div', 'dow', d)));
     for (let i = 0; i < 28; i++) {
-      const d = addDays(startD, i);
-      const k = dkey(d);
-      const rec = state.daily[k];
+      const d = addDays(calStart, i), k = dkey(d), rec = state.daily[k];
       const c = el('div', 'd', String(d.getDate()));
-      if (d > end) { c.style.visibility = 'hidden'; }
+      if (d > today) c.style.visibility = 'hidden';
       else if (rec) c.classList.add(rec.correct ? 'ok' : 'miss');
       if (k === todayKey) c.classList.add('today');
-      c.title = rec ? `${k}: ${rec.correct ? 'correct' : 'wrong'} in ${fmtTime(rec.secs)}` : k;
-      grid.appendChild(c);
+      c.title = rec ? `${k}: ${rec.correct ? 'right' : 'wrong'} in ${fmtTime(rec.secs)}` : k;
+      cg.appendChild(c);
     }
-    cal.appendChild(grid);
+    cal.appendChild(cg);
     const lg = el('div', 'legend');
-    lg.innerHTML = '<span><i style="background:var(--good)"></i>Correct</span><span><i style="background:var(--bad-soft);border:1px solid var(--bad)"></i>Answered, wrong</span><span><i style="background:var(--paper);border:1px solid var(--line)"></i>Not answered</span>';
+    lg.innerHTML = '<span><i style="background:var(--good);border:2px solid var(--ink)"></i>Right</span><span><i style="background:var(--bad-soft);border:2px solid var(--bad)"></i>Wrong</span><span><i style="background:var(--soft);border:2px solid var(--line)"></i>Not answered</span>';
     cal.appendChild(lg);
     wrap.appendChild(cal);
 
-    const bars = (title, rows) => {
-      const p = el('section', 'panel');
-      p.appendChild(el('h2', '', title));
-      const b = el('div', 'bars');
-      rows.forEach(([name, s]) => {
-        const r = el('div', 'bar');
-        r.appendChild(el('span', '', name));
-        const tr = el('div', 'track'); const f = el('div', 'fill');
-        f.style.width = s && s.seen ? (100 * s.correct / s.seen) + '%' : '0';
-        tr.appendChild(f); r.appendChild(tr);
-        r.appendChild(el('span', 'num', s && s.seen ? `${s.correct}/${s.seen}` : '–'));
-        b.appendChild(r);
-      });
-      p.appendChild(b);
-      return p;
-    };
-    wrap.appendChild(bars('Accuracy by category', E.CATEGORIES.map(c => [c.short, state.cats[c.id]])));
-    wrap.appendChild(bars('Accuracy by difficulty', E.DIFFS.map(d => [DIFF_LABEL[d], state.diffs[d]])));
-    if (!tot.seen) wrap.appendChild(el('p', 'note', 'Your numbers fill in as you answer. Start with today\'s item.'));
+    if (view === 'progress') Peanut.say(weeklySummary(wk, prev), wk.n && wk.acc >= 60 ? 'happy' : 'idle', 1600);
   }
 
   /* ---------- shell ---------- */
-  function renderHeader() {
+  function renderHUD(bump) {
     $('today-label').textContent = parseKey(todayKey).toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
-    $('streak-num').textContent = streak();
+    const s = streak();
+    $('streak-num').textContent = s;
+    $('streak-s').textContent = s === 1 ? '' : 's';
+    const lv = levelOf(state.xp);
+    $('lvl-num').textContent = lv.L;
+    $('xp-fill').style.width = (100 * lv.into / lv.need) + '%';
+    $('xp-text').textContent = `${lv.into} / ${lv.need} XP`;
+    if (bump) ['level-pill', 'streak-pill'].forEach(id => { const n = $(id); n.classList.remove('bump'); void n.offsetWidth; n.classList.add('bump'); });
   }
   let view = 'daily';
+  const current = () => (view === 'daily' ? dailySheet : view === 'practice' ? practiceSheet : null);
   function show(v) {
     view = v;
     ['daily', 'practice', 'progress'].forEach(n => {
       $('view-' + n).hidden = n !== v;
       $('tab-' + n).setAttribute('aria-selected', String(n === v));
     });
-    if (v === 'practice' && (!practiceSheet)) nextPractice();
+    if (v === 'practice') { if (!practiceSheet || practiceSheet.done) nextPractice(); else Peanut.say('Pick a difficulty and a category, or just keep going.', 'idle'); }
     if (v === 'progress') renderProgress();
+    if (v === 'daily') { if (!dailySheet) renderDaily(); else dailyGreet(); }
   }
-  ['daily', 'practice', 'progress'].forEach(n => $('tab-' + n).addEventListener('click', () => show(n)));
+  ['daily', 'practice', 'progress'].forEach(n => $('tab-' + n).addEventListener('click', () => { SFX.tap(); show(n); }));
   document.addEventListener('keydown', e => {
-    if (e.metaKey || e.ctrlKey || e.altKey) return;
-    const s = view === 'daily' ? dailySheet : view === 'practice' ? practiceSheet : null;
+    if (e.metaKey || e.ctrlKey || e.altKey || /INPUT|TEXTAREA/.test(e.target.tagName)) return;
+    const s = current();
     if (s && s.key(e)) e.preventDefault();
   });
-  // Roll over to the next daily item if the page stays open past midnight.
+  let rt = 0;
+  addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => { if (view === 'progress') renderProgress(); }, 200); });
+  // Roll over to the next day's question if the page stays open past midnight.
   setInterval(() => { const k = dkey(new Date()); if (k !== todayKey) { todayKey = k; renderAll(); } }, 60000);
 
   function renderAll() {
-    renderHeader();
-    renderDaily();
+    renderHUD();
+    renderSound();
     renderControls();
-    if (view === 'progress') renderProgress();
+    if (view === 'daily') renderDaily();
+    else if (view === 'progress') renderProgress();
   }
   renderAll();
   connect();
