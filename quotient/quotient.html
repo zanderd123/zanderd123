@@ -397,6 +397,44 @@ details.numbers summary { cursor: pointer; color: var(--muted); font-weight: 800
 .go-stage.oops { background: var(--bad-soft); border-color: var(--bad); animation: shake .35s; }
 .tap-btn { padding: 14px 48px; font-size: 1.3rem; }
 
+/* Daily Grid */
+.grid-wrap { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.dgrid { display: grid; width: 100%; max-width: 380px; border: 3px solid var(--ink); border-radius: 12px; overflow: hidden; background: var(--ink); gap: 1px; user-select: none; }
+.dgrid button { aspect-ratio: 1; border: 0; padding: 0; background: var(--card); font-family: var(--display); font-weight: 500; font-size: 1.35rem; color: var(--c-sequences); cursor: pointer; position: relative; display: grid; place-items: center; min-width: 0; }
+.dgrid button.given { color: var(--ink); font-weight: 700; cursor: default; }
+.dgrid button.peer { background: var(--soft); }
+.dgrid button.same { background: var(--accent-soft); }
+.dgrid button.sel { background: var(--gold); }
+.dgrid button.bad { color: var(--bad); }
+.dgrid button.bR { box-shadow: inset -2px 0 0 var(--ink); }
+.dgrid button.bB { box-shadow: inset 0 -2px 0 var(--ink); }
+.dgrid button.bR.bB { box-shadow: inset -2px 0 0 var(--ink), inset 0 -2px 0 var(--ink); }
+.dgrid .notes { position: absolute; inset: 2px; display: grid; grid-template-columns: repeat(3, 1fr); font-size: 0.55rem; line-height: 1; color: var(--muted); font-family: var(--body); font-weight: 800; place-items: center; }
+.dgrid.solved button { background: var(--good-soft); }
+.gpad { display: grid; gap: 6px; width: 100%; max-width: 380px; }
+.gpad button { padding: 10px 0; font-family: var(--display); font-weight: 600; font-size: 1.25rem; }
+.gtools { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+.gtools .press[aria-pressed="true"] { background: var(--ink); color: var(--card); }
+.diff-pick { display: flex; gap: 8px; flex-wrap: wrap; }
+.diff-pick .chip.solved::after { content: " ✓"; color: var(--good); }
+.diff-pick .chip[aria-pressed="true"].solved::after { color: var(--gold); }
+
+/* Share */
+.share-out { width: 100%; min-height: 120px; font: inherit; font-size: 0.95rem; padding: 10px; border-radius: 12px; border: 2px solid var(--ink); background: var(--soft); color: var(--ink); }
+
+/* Leaderboard */
+.board { width: 100%; border-collapse: collapse; font-size: 0.92rem; font-variant-numeric: tabular-nums; }
+.board th { text-align: left; color: var(--muted); font-size: 0.78rem; font-weight: 800; padding: 4px 6px; border-bottom: 2px solid var(--line); }
+.board td { padding: 8px 6px; border-bottom: 1px solid var(--line); font-weight: 700; vertical-align: middle; }
+.board tr.me td { background: var(--accent-soft); }
+.board .rank { font-family: var(--display); font-weight: 600; font-size: 1.05rem; width: 32px; }
+.board .who { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.board .who img { width: 26px; height: 26px; border-radius: 50%; border: 2px solid var(--ink); flex: none; }
+.board .who span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.board .pts { font-family: var(--display); font-weight: 600; text-align: right; }
+.board td.sm { font-size: 0.82rem; color: var(--muted); }
+.board td.sm div { white-space: nowrap; }
+
 /* Test mode */
 .test-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .test-bar .lbl { font-family: var(--display); font-weight: 600; font-size: 1.1rem; }
@@ -435,6 +473,10 @@ details.numbers summary { cursor: pointer; color: var(--muted); font-weight: 800
   .skill { grid-template-columns: 92px 1fr 78px; }
   .bests { grid-template-columns: 1fr; }
   .tab { font-size: 0.95rem; padding: 9px 2px; }
+  .dgrid button { font-size: 1.15rem; }
+  .board .who img { display: none; }
+  .board td { padding: 8px 4px; }
+  .board .who span { white-space: normal; }
   .digit-show { font-size: 4rem; }
   .cmp-row button { font-size: 1.4rem; }
   .arrows svg { width: 34px; height: 34px; }
@@ -1295,7 +1337,60 @@ details.numbers summary { cursor: pointer; color: var(--muted); font-weight: 800
     return q;
   }
 
-  root.QEngine = { generate, daily, fingerprint, hashStr, CATEGORIES, DIFFS, TARGET, describeCell };
+  /* ---------- Daily Grid: a number-placement puzzle with exactly one solution ---------- */
+  // Easy is 6×6 with 2×3 boxes; Medium and Hard are 9×9 with 3×3 boxes and fewer givens.
+  const GRID = { easy: { n: 6, br: 2, bc: 3, givens: 14 }, medium: { n: 9, br: 3, bc: 3, givens: 34 }, hard: { n: 9, br: 3, bc: 3, givens: 26 } };
+  function gridPeers(n, br, bc) {
+    const peers = [];
+    for (let i = 0; i < n * n; i++) {
+      const r = Math.floor(i / n), c = i % n, set = new Set();
+      for (let k = 0; k < n; k++) { set.add(r * n + k); set.add(k * n + c); }
+      const r0 = r - r % br, c0 = c - c % bc;
+      for (let a = 0; a < br; a++) for (let b = 0; b < bc; b++) set.add((r0 + a) * n + c0 + b);
+      set.delete(i);
+      peers.push([...set]);
+    }
+    return peers;
+  }
+  // Counts solutions up to `limit`, always filling the cell with the fewest options next.
+  function countSolutions(cells, n, peers, limit, order) {
+    let found = 0;
+    const g = cells.slice();
+    (function go() {
+      let best = -1, bestOpts = null;
+      for (let i = 0; i < g.length; i++) {
+        if (g[i]) continue;
+        const used = new Set(peers[i].map(j => g[j]));
+        const opts = [];
+        for (let v = 1; v <= n; v++) if (!used.has(v)) opts.push(v);
+        if (!opts.length) return;
+        if (!bestOpts || opts.length < bestOpts.length) { best = i; bestOpts = opts; if (opts.length === 1) break; }
+      }
+      if (best < 0) { found++; if (order) order.push(g.slice()); return; }
+      for (const v of (order && order.shuffle ? order.shuffle(bestOpts) : bestOpts)) {
+        g[best] = v; go(); g[best] = 0;
+        if (found >= limit) return;
+      }
+    })();
+    return found;
+  }
+  function makeGrid(seed, diff) {
+    const r = rng(seed >>> 0), cfg = GRID[diff], n = cfg.n;
+    const peers = gridPeers(n, cfg.br, cfg.bc);
+    const out = []; out.shuffle = r.shuffle;
+    countSolutions(new Array(n * n).fill(0), n, peers, 1, out);
+    const solution = out[0], puzzle = solution.slice();
+    // Take numbers away in random order, keeping each removal only if the answer stays unique.
+    for (const i of r.shuffle([...Array(n * n).keys()])) {
+      if (puzzle.filter(Boolean).length <= cfg.givens) break;
+      const keep = puzzle[i];
+      puzzle[i] = 0;
+      if (countSolutions(puzzle, n, peers, 2) !== 1) puzzle[i] = keep;
+    }
+    return { n, br: cfg.br, bc: cfg.bc, diff, puzzle: puzzle.join(''), solution: solution.join(''), peers };
+  }
+
+  root.QEngine = { generate, daily, fingerprint, makeGrid, countSolutions, hashStr, CATEGORIES, DIFFS, TARGET, describeCell };
 })(typeof window !== 'undefined' ? window : globalThis);
 </script>
 
@@ -1456,7 +1551,7 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
   /* ---------- state + storage ---------- */
   // log rows: [time, catIndex, diffIndex, correct, seconds, usedHint, mode (0 daily, 1 practice), scoreAfter, catScoreAfter]
   const LS = 'quotient.v1';
-  const blank = () => ({ v: 1, updatedAt: 0, daily: {}, words: {}, cats: {}, diffs: {}, best: 0, xp: 0, R: 1000, rc: {}, n: 0, log: [], base: null, workouts: {}, bests: {}, tests: [],
+  const blank = () => ({ v: 1, updatedAt: 0, daily: {}, words: {}, cats: {}, diffs: {}, best: 0, xp: 0, R: 1000, rc: {}, n: 0, log: [], base: null, workouts: {}, bests: {}, tests: [], grids: {}, gridProg: {}, xpWeek: {},
     prefs: { diff: 'medium', cat: 'all', sound: true } });
   const hydrate = s => { const b = blank(); const out = Object.assign(b, s); out.prefs = Object.assign(blank().prefs, s.prefs || {}); return out; };
   let state = blank();
@@ -1481,9 +1576,9 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
     if (!window.claude || !window.claude.use) return;
     try {
       const [db, user] = await Promise.all([window.claude.use('db'), window.claude.use('user')]);
-      if (!db || !user) return;
+      if (!db || !user) return board.off();
       const id = await user.id();
-      if (!id) return;
+      if (!id) return board.off();
       const ref = db.doc(`data/users/${id}/progress`);
       const snap = await ref.get();
       remote = ref;
@@ -1492,7 +1587,8 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
         state = hydrate(theirs); saveLocal(); renderAll();
       } else if (state.updatedAt) pushRemote();
       setSync('Progress saved to your account');
-    } catch (e) { /* stay on device storage */ }
+      board.connect(db, user, id);
+    } catch (e) { board.off(); /* stay on device storage */ }
   }
 
   /* ---------- scoring ---------- */
@@ -1534,9 +1630,15 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
     for (const r of cut) base.rc[CATS[r[1]]] = r[8];
     state.base = base;
   }
+  // Weeks start on Monday.
+  const weekKey = k => { const d = parseKey(k); return dkey(addDays(d, -((d.getDay() + 6) % 7))); };
   function gainXP(xp) {
     const before = levelOf(state.xp).L;
     state.xp += xp;
+    const wk = weekKey(todayKey);
+    state.xpWeek[wk] = (state.xpWeek[wk] || 0) + xp;
+    for (const k of Object.keys(state.xpWeek).sort().slice(0, -6)) delete state.xpWeek[k];
+    board.push();
     const after = levelOf(state.xp).L;
     renderHUD(true);
     if (after > before) setTimeout(() => { Peanut.say(`Level ${after}! My trunk is trumpeting for you.`, 'happy', 2600); SFX.level(); burst(); }, 900);
@@ -1853,9 +1955,11 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
     const host = $('view-daily');
     host.textContent = '';
     if (dailySheet) dailySheet.stop();
-    const kHost = el('div', ''), qHost = el('div', ''), wHost = el('div', '');
-    qHost.style.marginTop = '22px'; wHost.style.marginTop = '22px';
-    host.appendChild(kHost); host.appendChild(qHost); host.appendChild(wHost);
+    const kHost = el('div', ''), qHost = el('div', ''), gHost = el('div', ''), wHost = el('div', ''), bHost = el('div', '');
+    [qHost, gHost, wHost, bHost].forEach(h => { h.style.marginTop = '22px'; });
+    host.append(kHost, qHost, gHost, wHost, bHost);
+    renderGridCard(gHost);
+    board.mount(bHost);
     workoutCard(kHost);
     const q = dailyQuestion();
     const done = state.daily[todayKey];
@@ -1864,6 +1968,7 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
       restore: done || null,
       onAnswer(choice, ok, secs, hint) {
         const xp = answerDaily(q, choice, ok, secs, hint);
+        board.push();
         if (ok) Peanut.say(streak() > 1 ? `Yes! That's a ${streak()} day streak. Your Word of the Day is waiting below.` : 'Yes! Great start. Your Word of the Day is waiting below.', 'happy', 2400);
         else Peanut.say('So close. Read the explanation, it makes the next one easier. Then try the Word of the Day.', 'sad', 2400);
         return xp;
@@ -1874,6 +1979,7 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
         go.type = 'button';
         go.addEventListener('click', () => show('practice'));
         a.appendChild(go);
+        a.appendChild(shareButton());
         a.appendChild(el('span', 'session', 'A new Question of the Day arrives tomorrow.'));
         box.appendChild(a);
       },
@@ -1903,6 +2009,8 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
     for (const k of Object.keys(state.daily)) if (k < cutoff) delete state.daily[k];
     for (const k of Object.keys(state.words)) if (k < cutoff) delete state.words[k];
     for (const k of Object.keys(state.workouts)) if (k < cutoff) delete state.workouts[k];
+    for (const k of Object.keys(state.grids)) if (k < cutoff) delete state.grids[k];
+    for (const k of Object.keys(state.gridProg)) if (k.slice(0, 10) < dkey(addDays(parseKey(todayKey), -2))) delete state.gridProg[k];
   }
 
   // Words come in a fixed shuffled order, one per day, so a word only repeats after the whole list.
@@ -2872,6 +2980,7 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
         label: st.kind === 'qotd' ? `Question of the Day · No. ${dayIndex(todayKey) + 1}` : label,
         onAnswer(choice, ok, secs, hint) {
           const xp = st.kind === 'qotd' ? answerDaily(q, choice, ok, secs, hint) : record(q, ok, secs, hint, 2);
+          if (st.kind === 'qotd') board.push();
           if (st.kind !== 'qotd') save();
           w.results.push([st.name, ok ? 'Right' : 'Missed it']);
           Peanut.say(ok ? pick(['Nailed it!', 'Big brain move.', 'Exactly right.']) : 'Tricky one. The explanation shows the trick.', ok ? 'happy' : 'sad', 2000);
@@ -2910,7 +3019,7 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
     more.addEventListener('click', () => { endWorkout(); show('practice'); });
     const back = el('button', 'press btn', 'Back to Today'); back.type = 'button';
     back.addEventListener('click', endWorkout);
-    a.append(more, back); card.appendChild(a);
+    a.append(more, back, shareButton()); card.appendChild(a);
     stepHost.appendChild(card);
     SFX.level(); burst(); setTimeout(() => burst(innerWidth / 4, innerHeight / 2, 50), 250); setTimeout(() => burst(innerWidth * 3 / 4, innerHeight / 2, 50), 500);
     Peanut.say(`Workout done in ${fmtTime(secs)}! Your brain is officially switched on. See you tomorrow.`, 'happy', 3200);
@@ -3152,6 +3261,342 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
     else if (!prev) { burst(); SFX.right(); Peanut.say(`Test done! Your first score is ${rec.score}. Practise a bit and try again in a few weeks.`, 'happy', 2600); }
     else Peanut.say(`Test done: ${rec.score}. Scores wobble from test to test. The trend over several tests is what counts.`, 'idle');
   }
+
+
+  /* ---------- Daily Grid ---------- */
+  // Three puzzles a day (6×6 Easy, 9×9 Medium and Hard), the same for everyone.
+  const GRID_XP = { easy: 20, medium: 35, hard: 50 };
+  const GRID_LABEL = { easy: 'Easy 6×6', medium: 'Medium 9×9', hard: 'Hard 9×9' };
+  let gridDiff = null, gridGame = null;
+  const gridCache = {};
+  function dailyGrid(diff) {
+    const k = `${todayKey}-${diff}`;
+    return gridCache[k] || (gridCache[k] = E.makeGrid(E.hashStr('grid:' + k), diff));
+  }
+  function renderGridCard(host) {
+    if (gridGame) gridGame.stop();
+    gridGame = null;
+    const solvedToday = state.grids[todayKey] || {};
+    gridDiff = gridDiff || (['easy', 'medium', 'hard'].find(d => state.gridProg[`${todayKey}-${d}`] && !solvedToday[d]) || 'medium');
+    const card = el('article', 'sheet');
+    host.textContent = '';
+    host.appendChild(card);
+    const meta = el('div', 'meta');
+    const left = el('div', 'left');
+    left.appendChild(el('span', '', `Daily Grid · No. ${dayIndex(todayKey) + 1}`));
+    const tag = el('span', 'cat-tag', 'Logic'); tag.style.background = 'var(--c-logic)';
+    left.appendChild(tag);
+    meta.appendChild(left);
+    card.appendChild(meta);
+    card.appendChild(el('h2', 'prompt', 'Fill the grid so every row, column and box has each number once'));
+    const picker = el('div', 'diff-pick');
+    E.DIFFS.forEach(d => {
+      const b = el('button', 'press chip' + (solvedToday[d] ? ' solved' : ''), GRID_LABEL[d]);
+      b.type = 'button';
+      b.setAttribute('aria-pressed', String(d === gridDiff));
+      b.addEventListener('click', () => { SFX.tap(); gridDiff = d; renderGridCard(host); });
+      picker.appendChild(b);
+    });
+    card.appendChild(picker);
+    const body = el('div', 'grid-wrap');
+    card.appendChild(body);
+    const done = solvedToday[gridDiff];
+    const prog = state.gridProg[`${todayKey}-${gridDiff}`];
+    if (done) { gridGame = GridGame(body, dailyGrid(gridDiff), { solved: done, onSolved() {} }); gridSolvedNote(body, gridDiff, done.secs); return; }
+    if (!prog) {
+      body.appendChild(el('p', 'note', 'Each number fits in exactly one place. Use logic, not guessing: look for the row, column or box with only one gap left.'));
+      body.appendChild(whyBox('Trains logical deduction and working memory: holding several possibilities in mind and ruling them out one by one. Everyone gets the same grids today, so it counts toward the leaderboard.'));
+      const go = el('button', 'press btn primary', `Start ${GRID_LABEL[gridDiff]}`);
+      go.type = 'button';
+      go.addEventListener('click', () => { SFX.tap(); state.gridProg[`${todayKey}-${gridDiff}`] = { v: '', secs: 0 }; saveLocal(); renderGridCard(host); });
+      body.appendChild(go);
+      return;
+    }
+    gridGame = GridGame(body, dailyGrid(gridDiff), {
+      prog,
+      onSolved(secs) {
+        const t = state.grids[todayKey] || (state.grids[todayKey] = {});
+        t[gridDiff] = { secs };
+        delete state.gridProg[`${todayKey}-${gridDiff}`];
+        const xp = gainXP(GRID_XP[gridDiff]);
+        save(); board.push();
+        Peanut.say(`Daily Grid solved in ${fmtTime(secs)}! +${xp} XP. ${gridDiff !== 'hard' ? 'Fancy the next level up?' : 'That was the hard one, too.'}`, 'happy', 2800);
+        renderGridCard(host);
+        burst(); SFX.level();
+      },
+      onChange(v, secs) { prog.v = v; prog.secs = secs; saveLocal(); },
+    });
+  }
+  function gridSolvedNote(body, diff, secs) {
+    const v = el('div', 'verdict good');
+    v.style.width = '100%';
+    v.appendChild(el('h3', '', `Solved in ${fmtTime(secs)}`));
+    v.appendChild(el('p', '', diff === 'hard' ? 'You solved the hardest grid today. A new set arrives tomorrow.' : 'Try the next difficulty, or come back tomorrow for new grids.'));
+    const a = el('div', 'actions');
+    a.appendChild(shareButton());
+    v.appendChild(a);
+    body.appendChild(v);
+  }
+  // The puzzle itself: tap a cell, then a number. Notes mode pencils in small candidates.
+  function GridGame(host, g, o) {
+    const n = g.n, givens = g.puzzle.split('').map(Number), sol = g.solution.split('').map(Number);
+    const vals = givens.slice();
+    if (o.prog && o.prog.v) o.prog.v.split('').forEach((ch, i) => { if (!givens[i]) vals[i] = Number(ch); });
+    if (o.solved) sol.forEach((v, i) => { vals[i] = v; });
+    const notes = vals.map(() => new Set());
+    let sel = givens.findIndex(v => !v), noteMode = false, done = !!o.solved;
+    const t0 = Date.now(), base = (o.prog && o.prog.secs) || 0;
+    const secs = () => base + Math.round((Date.now() - t0) / 1000);
+    host.textContent = '';
+    const bar = el('div', 'scoreline');
+    const tEl = el('b', '', fmtTime(o.solved ? o.solved.secs : base));
+    const tw = el('span', ''); tw.appendChild(document.createTextNode('Time ')); tw.appendChild(tEl);
+    bar.appendChild(tw);
+    host.appendChild(bar);
+    const grid = el('div', 'dgrid' + (done ? ' solved' : ''));
+    grid.style.gridTemplateColumns = `repeat(${n}, 1fr)`;
+    const cells = vals.map((_, i) => {
+      const b = el('button');
+      b.type = 'button';
+      const r = Math.floor(i / n), c = i % n;
+      if (c % g.bc === g.bc - 1 && c < n - 1) b.classList.add('bR');
+      if (r % g.br === g.br - 1 && r < n - 1) b.classList.add('bB');
+      if (givens[i]) b.classList.add('given');
+      b.addEventListener('click', () => { if (!done) { sel = i; draw(); } });
+      grid.appendChild(b);
+      return b;
+    });
+    host.appendChild(grid);
+    let pad = null, noteBtn = null;
+    if (!done) {
+      pad = el('div', 'gpad');
+      pad.style.gridTemplateColumns = `repeat(${n === 9 ? 9 : 6}, 1fr)`;
+      for (let v = 1; v <= n; v++) { const b = el('button', 'press', String(v)); b.type = 'button'; b.addEventListener('click', () => put(v)); pad.appendChild(b); }
+      host.appendChild(pad);
+      const tools = el('div', 'gtools');
+      noteBtn = el('button', 'press btn', 'Notes: off'); noteBtn.type = 'button';
+      noteBtn.setAttribute('aria-pressed', 'false');
+      noteBtn.addEventListener('click', () => { noteMode = !noteMode; draw(); });
+      const erase = el('button', 'press btn', 'Erase'); erase.type = 'button';
+      erase.addEventListener('click', () => put(0));
+      tools.append(noteBtn, erase);
+      host.appendChild(tools);
+      host.appendChild(el('p', 'note', 'Keyboard: arrow keys move, numbers fill, Backspace erases, N toggles notes.'));
+    }
+    const iv = done ? 0 : setInterval(() => { tEl.textContent = fmtTime(secs()); }, 1000);
+    function conflicts(i) { return vals[i] && g.peers[i].some(j => vals[j] === vals[i]); }
+    function draw() {
+      const sv = vals[sel];
+      cells.forEach((b, i) => {
+        b.classList.toggle('sel', !done && i === sel);
+        b.classList.toggle('peer', !done && i !== sel && g.peers[sel].includes(i));
+        b.classList.toggle('same', !done && i !== sel && sv && vals[i] === sv);
+        b.classList.toggle('bad', !done && !givens[i] && !!conflicts(i));
+        b.textContent = '';
+        if (vals[i]) b.textContent = vals[i];
+        else if (notes[i].size) {
+          const nt = el('span', 'notes');
+          for (let v = 1; v <= n; v++) nt.appendChild(el('span', '', notes[i].has(v) ? String(v) : ''));
+          b.appendChild(nt);
+        }
+        const r = Math.floor(i / n) + 1, c = i % n + 1;
+        b.setAttribute('aria-label', `Row ${r}, column ${c}: ${vals[i] || 'empty'}${givens[i] ? ', given' : ''}`);
+      });
+      if (noteBtn) { noteBtn.textContent = `Notes: ${noteMode ? 'on' : 'off'}`; noteBtn.setAttribute('aria-pressed', String(noteMode)); }
+    }
+    function put(v) {
+      if (done || sel < 0 || givens[sel]) return;
+      if (noteMode && v) { notes[sel].has(v) ? notes[sel].delete(v) : notes[sel].add(v); tone(700, .03, 'square', 0, .02); draw(); return; }
+      vals[sel] = v;
+      if (v) { notes[sel].clear(); g.peers[sel].forEach(j => notes[j].delete(v)); }
+      tone(v ? 560 + v * 30 : 300, .05, 'triangle', 0, .05);
+      draw();
+      if (o.onChange) o.onChange(vals.map((x, i) => (givens[i] ? 0 : x)).join(''), secs());
+      if (vals.every((x, i) => x === sol[i])) {
+        done = true; clearInterval(iv);
+        o.onSolved(secs());
+      }
+    }
+    function move(dr, dc) {
+      const r = Math.floor(sel / n), c = sel % n;
+      sel = ((r + dr + n) % n) * n + (c + dc + n) % n;
+      draw();
+    }
+    if (sel < 0) sel = 0;
+    draw();
+    return {
+      done: false,
+      key(e) {
+        if (done) return false;
+        if (/^[1-9]$/.test(e.key) && Number(e.key) <= n) { put(Number(e.key)); return true; }
+        if (e.key === 'Backspace' || e.key === 'Delete' || e.key === '0') { put(0); return true; }
+        if (e.key.toLowerCase() === 'n') { noteMode = !noteMode; draw(); return true; }
+        const m = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] }[e.key];
+        if (m) { move(m[0], m[1]); return true; }
+        return false;
+      },
+      stop() { clearInterval(iv); },
+      get active() { return !done && document.body.contains(grid); },
+    };
+  }
+
+  /* ---------- Share ---------- */
+  function shareText() {
+    const lines = [`Quotient No. ${dayIndex(todayKey) + 1} 🐘`];
+    const d = state.daily[todayKey];
+    if (d) lines.push(`🧠 Question: ${d.correct ? '✅' : '❌'} ${fmtTime(d.secs)}${d.hint ? ' 💡' : ''}`);
+    const gs = state.grids[todayKey] || {};
+    const best = ['hard', 'medium', 'easy'].find(x => gs[x]);
+    if (best) lines.push(`🔢 Daily Grid: ✅ ${DIFF_LABEL[best]} ${fmtTime(gs[best].secs)}`);
+    const w = state.words[todayKey];
+    if (w) lines.push(`📖 Word: ${w.ok ? '✅' : '❌'}`);
+    const wk = state.workouts[todayKey];
+    if (wk) lines.push(`🏋️ Workout: ${fmtTime(wk.secs)}`);
+    const s = streak();
+    if (s > 1) lines.push(`🔥 ${s}-day streak`);
+    if (lines.length === 1) lines.push('Getting my brain going with Peanut the elephant.');
+    // The installed app has a public address worth sharing; inside claude.ai the page has no public link.
+    if (window.top === window && /^https?:$/.test(location.protocol)) lines.push(location.origin + location.pathname);
+    return lines.join('\n');
+  }
+  function shareButton() {
+    const b = el('button', 'press btn', 'Share results');
+    b.type = 'button';
+    b.addEventListener('click', () => {
+      const text = shareText();
+      const fallback = () => {
+        const box = b.parentElement;
+        if (box.querySelector('.share-out')) return;
+        const ta = el('textarea', 'share-out');
+        ta.id = 'share-out-' + Math.random().toString(36).slice(2, 7);
+        ta.readOnly = true; ta.value = text;
+        ta.setAttribute('aria-label', 'Your results, ready to copy');
+        box.appendChild(ta);
+        box.appendChild(el('p', 'note', 'Select the text above and copy it.'));
+        ta.focus(); ta.select();
+      };
+      if (window.top === window && navigator.share) { navigator.share({ text }).catch(e => { if (e && e.name !== 'AbortError') fallback(); }); return; }
+      try {
+        navigator.clipboard.writeText(text).then(() => {
+          b.textContent = 'Copied!';
+          Peanut.say('Copied! Paste it into a message to challenge your friends.', 'happy', 1600);
+          setTimeout(() => { b.textContent = 'Share results'; }, 2000);
+        }, fallback);
+      } catch (e) { fallback(); }
+    });
+    return b;
+  }
+
+  /* ---------- Friends leaderboard ---------- */
+  // Each person writes their own board/<id> document; everyone reads the whole board.
+  // Names are never stored, only ids, which are turned into names when the board is drawn.
+  const board = (() => {
+    let ref = null, coll = null, user = null, me = null, docs = [], writable = true, saving = false, again = false, timer = 0, tab = 'today', host = null, live = false, off = false;
+    function body() {
+      const d = {};
+      for (let i = 0; i < 8; i++) {
+        const k = dkey(addDays(parseKey(todayKey), -i)), e = {};
+        const q = state.daily[k]; if (q) e.q = [q.correct ? 1 : 0, q.secs];
+        const gs = state.grids[k]; if (gs) e.g = Object.fromEntries(Object.entries(gs).map(([df, v]) => [df, v.secs]));
+        if (Object.keys(e).length) d[k] = e;
+      }
+      const w = {};
+      Object.keys(state.xpWeek).sort().slice(-3).forEach(k => { w[k] = state.xpWeek[k]; });
+      return { d, w, at: Date.now() };
+    }
+    async function write() {
+      if (!ref || !writable) return;
+      if (saving) { again = true; return; }
+      saving = true;
+      try { await ref.set(body()); }
+      catch (e) { if (e && e.code === 'invalid_argument') { writable = false; draw(); } }
+      saving = false;
+      if (again) { again = false; write(); }
+    }
+    // Points for a day: the question, plus the hardest grid solved, each with a speed bonus.
+    const GRID_PTS = { easy: 60, medium: 100, hard: 150 };
+    function dayPoints(e) {
+      let pts = 0, q = null, g = null;
+      if (e && e.q && e.q[1] >= 3) { q = e.q; if (q[0]) pts += 100 + Math.max(0, 50 - Math.floor(q[1] / 6)); }
+      if (e && e.g) {
+        const best = ['hard', 'medium', 'easy'].find(df => e.g[df] >= 20);
+        if (best) { g = [best, e.g[best]]; pts += GRID_PTS[best] + Math.max(0, 50 - Math.floor(e.g[best] / 12)); }
+      }
+      return { pts, q, g };
+    }
+    async function draw() {
+      if (!host || !document.body.contains(host)) return;
+      host.textContent = '';
+      if (!window.claude) return; // the installed app has no shared board
+      const p = el('section', 'panel');
+      host.appendChild(p);
+      p.appendChild(el('h2', '', 'Friends leaderboard'));
+      if (!live) {
+        p.appendChild(el('p', 'sub', 'Compete on the Question of the Day and the Daily Grid'));
+        p.appendChild(el('div', 'empty', off ? 'Sign in to claude.ai to see the leaderboard and save your scores to it.' : 'Connecting to the leaderboard…'));
+        return;
+      }
+      p.appendChild(el('p', 'sub', tab === 'today' ? 'Today: 100 points for the question, 60–150 for the hardest grid solved, plus a speed bonus' : `This week's XP, Monday to today`));
+      const chips = el('div', 'rangebar');
+      [['today', 'Today'], ['week', 'This week']].forEach(([k, l]) => {
+        const b = el('button', 'press chip', l); b.type = 'button';
+        b.setAttribute('aria-pressed', String(tab === k));
+        b.addEventListener('click', () => { tab = k; SFX.tap(); draw(); });
+        chips.appendChild(b);
+      });
+      p.appendChild(chips);
+      const wk = weekKey(todayKey);
+      let rows = docs.map(dc => {
+        if (tab === 'today') { const r = dayPoints(dc.d && dc.d[todayKey]); return { id: dc.id, ...r, sortKey: r.pts }; }
+        return { id: dc.id, xp: (dc.w && dc.w[wk]) || 0, sortKey: (dc.w && dc.w[wk]) || 0 };
+      }).filter(r => r.sortKey > 0 || (tab === 'today' && r.q));
+      rows.sort((a, b) => b.sortKey - a.sortKey);
+      if (!rows.length) {
+        p.appendChild(el('div', 'empty', tab === 'today' ? 'Nobody has scored today yet. Answer the Question of the Day or solve a grid to take first place.' : 'No XP earned this week yet.'));
+      } else {
+        const ps = user ? await user.profiles(rows.map(r => r.id)) : {};
+        if (!document.body.contains(p)) return;
+        const t = el('table', 'board'), hr = el('tr');
+        (tab === 'today' ? ['#', 'Player', 'Today', 'Points'] : ['#', 'Player', 'XP']).forEach((h, i) => { const th = el('th', '', h); if (i === (tab === 'today' ? 3 : 2)) th.style.textAlign = 'right'; hr.appendChild(th); });
+        t.appendChild(hr);
+        rows.forEach((r, i) => {
+          const pr = ps[r.id] || {};
+          const tr = el('tr', r.id === me ? 'me' : '');
+          tr.appendChild(el('td', 'rank', String(i + 1)));
+          const who = el('td'); const w = el('div', 'who');
+          const img = el('img'); img.alt = ''; if (pr.avatarUrl) img.src = pr.avatarUrl;
+          w.append(img, el('span', '', r.id === me ? `${pr.name || 'You'} (you)` : (pr.name || 'A friend')));
+          who.appendChild(w); tr.appendChild(who);
+          if (tab === 'today') {
+            const res = el('td', 'sm');
+            res.appendChild(el('div', '', `Question ${r.q ? `${r.q[0] ? '✅' : '❌'} ${fmtTime(r.q[1])}` : '–'}`));
+            res.appendChild(el('div', '', `Grid ${r.g ? `✅ ${DIFF_LABEL[r.g[0]]} ${fmtTime(r.g[1])}` : '–'}`));
+            tr.appendChild(res);
+            tr.appendChild(el('td', 'pts', String(r.pts)));
+          } else tr.appendChild(el('td', 'pts', String(r.xp)));
+          t.appendChild(tr);
+        });
+        const wrap = el('div', 'tablewrap'); wrap.appendChild(t);
+        p.appendChild(wrap);
+      }
+      p.appendChild(el('p', 'note', writable
+        ? 'To add friends, open the share menu and invite them by email as Editors. Only people invited that way can save scores here; anyone else can watch.'
+        : 'You can see the board, but your scores are not being saved to it. Ask the owner to invite you by email as an Editor.'));
+      p.appendChild(shareButton());
+    }
+    return {
+      async connect(db, u, id) {
+        user = u; me = id;
+        ref = db.doc(`board/${id}`); coll = db.collection('board');
+        coll.onSnapshot(snap => { live = true; docs = snap.docs.filter(d => d.exists).map(d => ({ id: d.id, ...d.data() })); draw(); }, () => { live = false; draw(); });
+        try { const c = await u.can('data.write'); if (c === false && !(await u.isOwner())) writable = false; } catch (e) {}
+        write();
+      },
+      mount(h) { host = h; draw(); },
+      off() { off = true; draw(); },
+      push() { clearTimeout(timer); timer = setTimeout(write, 1500); },
+    };
+  })();
 
   /* ---------- Practice ---------- */
   let practiceSheet = null, sessionSeen = 0, sessionRight = 0, combo = 0, recentVerbal = [];
@@ -3576,7 +4021,7 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
     if (bump) ['level-pill', 'streak-pill'].forEach(id => { const n = $(id); n.classList.remove('bump'); void n.offsetWidth; n.classList.add('bump'); });
   }
   let view = 'daily';
-  const current = () => (view === 'daily' ? (workout ? workout.cur : dailySheet) : view === 'practice' ? practiceSheet : view === 'test' ? (test && test.running ? test.cur : null) : null);
+  const current = () => (view === 'daily' ? (workout ? workout.cur : (gridGame && gridGame.active && !(dailySheet && !dailySheet.done) ? gridGame : dailySheet)) : view === 'practice' ? practiceSheet : view === 'test' ? (test && test.running ? test.cur : null) : null);
   function show(v) {
     view = v;
     ['daily', 'practice', 'test', 'progress'].forEach(n => {

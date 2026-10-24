@@ -7,8 +7,17 @@ A daily brain workout: one IQ-style question a day, plus unlimited practice.
   Day (a bonus question or a focus game once those are done). The games
   rotate each day, and each one's difficulty follows your Brain Score in
   that skill.
-- **Today**: the Question of the Day (medium, a few minutes, never repeats)
-  and a Word of the Day to guess the meaning of. Peanut the elephant cheers,
+- **Today**: the Question of the Day (medium, a few minutes, never repeats),
+  the **Daily Grid** (a number-placement logic puzzle in Easy 6×6, Medium and
+  Hard 9×9, the same for everyone each day, always with exactly one solution),
+  and a Word of the Day to guess the meaning of. A **Share results** button
+  copies a short summary to paste into a message.
+- **Friends leaderboard** (claude.ai version): today's points for the
+  question and the hardest grid solved, plus this week's XP. Each person
+  writes only their own `board/<id>` entry and stores ids, never names. On a
+  personal account, friends must be invited by email as Editors to save
+  scores; anyone else can watch. Times under 3 seconds (question) or 20
+  seconds (grid) are ignored as implausible. Peanut the elephant cheers,
   hints and reacts as you go.
 - **Practice**: as many questions as you like. Pick **Easy / Medium / Hard**
   and a category, or Mixed. Nine timed games live here too, three per skill,
@@ -46,7 +55,8 @@ worked explanation.
     build.mjs          node quotient/build.mjs -> rebuilds app/, the installable web app
     make-icons.mjs     node quotient/make-icons.mjs -> draws the app icons from Peanut
     check.mjs          node quotient/check.mjs -> checks 63,000 generated questions,
-                       ten years of daily questions for repeats, and the word list
+                       ten years of daily questions for repeats, 120 Daily Grids
+                       for a single solution, and the word list
     app/               open app/index.html in any browser, or host the folder
     MAKE-IT-AN-APP.md  steps to host it, install it, and reach the app stores
 

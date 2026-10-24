@@ -61,6 +61,21 @@ E.daily(3649, keyAt, (i, f, k) => {
   rerolled += k ? 1 : 0;
 });
 
+// Daily Grid: every puzzle has exactly one solution that matches its givens.
+let gridCount = 0;
+for (const diff of E.DIFFS) {
+  for (let seed = 1; seed <= 40; seed++) {
+    const g = E.makeGrid(seed * 7919, diff);
+    const cells = g.puzzle.split('').map(Number);
+    const sols = E.countSolutions(cells, g.n, g.peers, 2);
+    const fits = cells.every((v, i) => !v || v === Number(g.solution[i]));
+    const sol = g.solution.split('').map(Number);
+    const valid = sol.every((v, i) => v >= 1 && v <= g.n && g.peers[i].every(j => sol[j] !== v));
+    if (sols !== 1 || !fits || !valid) { failures++; console.log('FAIL grid', diff, seed, { sols, fits, valid }); }
+    gridCount++;
+  }
+}
+
 // Word list: no duplicate words or meanings, every field present.
 const words = new Set(), meanings = new Set();
 for (const w of WORDS) {
@@ -70,5 +85,6 @@ for (const w of WORDS) {
 }
 
 console.log(`${seenDaily.size} distinct daily questions over 10 years (${rerolled} re-rolled), ${WORDS.length} words`);
+console.log(`${gridCount} Daily Grid puzzles checked for a single solution`);
 console.log(`${total} questions checked, ${failures} failures`);
 process.exit(failures ? 1 : 0);
