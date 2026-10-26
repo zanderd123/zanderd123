@@ -121,6 +121,13 @@ await tap('Space'); await settle();
 await page.waitForTimeout(1500);
 check(await sk(() => __SK.S.mode) === 'ending', 'seven keys open the chest and finish the game');
 
+const finish = await sk(() => [__SK.S.finalTime, __SK.S.playTime]);
+check(finish[0] > 5 && finish[0] === finish[1], 'the clock ran during play and stopped at the chest (' + finish[0].toFixed(1) + 's)');
+await page.waitForTimeout(1500); await tap('Space'); await page.waitForTimeout(500);
+const b = await sk(() => ({ mode: __SK.S.mode, rows: __SK.board.rows.length, scope: __SK.board.scope }));
+check(b.mode === 'board' && b.rows === 1 && b.scope === 'device', 'the finished run shows on the best-times board (' + b.scope + ')');
+await page.locator('#screen').screenshot({ path: process.env.SHOT_DIR ? process.env.SHOT_DIR + '/board.png' : '/dev/null' }).catch(() => {});
+
 check(!errors.length, 'no page errors' + (errors.length ? ': ' + errors.join(' | ') : ''));
 await browser.close();
 console.log(failures ? `\n${failures} failure(s)` : '\nplaythrough passed');

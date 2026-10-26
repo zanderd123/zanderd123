@@ -88,7 +88,7 @@ function resize() {
   const aw = window.innerWidth - 40, ah = window.innerHeight - padH - 24;
   let s = Math.min(aw / VW, ah / VH);
   s = s >= 1 ? Math.floor(s) : Math.max(0.5, s);
-  const dpr = window.devicePixelRatio || 1;
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
   screen.style.width = Math.round(VW * s) + 'px';
   screen.style.height = Math.round(VH * s) + 'px';
   screen.width = Math.round(VW * s * dpr);
@@ -367,7 +367,7 @@ const DEFS = [
       '.......RRR.......',
       '.......RRR.......',
       'P......RRR......P' ],
-    text:{ '6,0':'A stone lion guards the chest.', '10,0':'A stone lion guards the chest.' } },
+    text:{ '6,0':'A stone guardian stands watch beside the chest.', '10,0':'A stone guardian stands watch beside the chest.' } },
 
   { id:'westhall', name:'West Hall', gx:1, gy:2, theme:'wood', doors:'ENS',
     decor:{ 3:'painting', 6:'window', 12:'window', 15:'painting' },
@@ -431,9 +431,9 @@ const DEFS = [
       '.P.............P.',
       '.................' ],
     text:{ '3,3':'A brass plaque: "On ICE, you slide until something stops you. Plan your stops before you move."',
-           '13,3':'A brass plaque: "STONE on stone opens the iron door. Leave the room and come back if the boulders get stuck."',
-           '1,1':'A statue of a knight holding a lantern. It looks like the one in the Storage room...',
-           '5,1':'A statue of a girl playing a flute. Music matters in this house.',
+           '13,3':'A brass plaque: "STONE on stone opens the iron gate. Leave the room and come back if the boulders get stuck."',
+           '1,1':'A statue of a knight holding up a lantern. The plaque reads: "Even the darkest maze is easy with a light."',
+           '5,1':'A statue of a girl playing a flute. The plaque reads: "Listen first, then follow the tune."',
            '11,1':'A statue of an old man reading a book. He looks a lot like Professor Quill!',
            '15,1':'A statue of a cat. It looks just like Pip!' } },
 
@@ -451,7 +451,7 @@ const DEFS = [
       '..O.......s......',
       'C...............C',
       'CC.............CC' ],
-    text:{ '10,8':'An old note on the floor: "The SKY KEY lies past the great Chasm. Only those who carry a staff or a whip may cross."' } },
+    text:{ '10,8':'Words scratched into an old sign: "The SKY KEY waits at the bottom of the Chasm, south of the Greenhouse. Only a staff or a whip can get you across."' } },
 
   { id:'observatory', name:'Observatory', gx:3, gy:0, theme:'night', doors:'S',
     decor:{ 2:'nightwindow', 5:'nightwindow', 13:'nightwindow', 16:'nightwindow' },
@@ -468,7 +468,7 @@ const DEFS = [
       '.................',
       'PP.............PP' ],
     text:{ '8,4':'You peek through the telescope... The stars form the shape of a key. Seven stars glow brighter than the rest.',
-           '1,8':'A star chart: "The SHADOW KEY rests in darkness, west of the Storage room. Bring a light!"' } },
+           '1,8':'A sign under a star chart: "The SHADOW KEY rests in darkness, west of the Storage room. Bring a light!"' } },
 
   { id:'music', name:'Music Room', gx:3, gy:1, theme:'wood', doors:'NS',
     decor:{ 2:'painting', 9:'banner', 15:'painting' },
@@ -500,7 +500,7 @@ const DEFS = [
       '.T......R......T.',
       '........R........',
       'P.......R.......P' ],
-    text:{ '10,3':'EAST WING.  North: the Music Room.  East: the Chapel.  South: the Kitchen.' } },
+    text:{ '10,3':'EAST WING.  North: the Music Room.  East: the Chapel.  South: the Kitchen.  West: the Great Hall.' } },
 
   { id:'chapel', name:'Chapel', gx:4, gy:2, theme:'chapel', doors:'WNS',
     decor:{ 3:'stained', 6:'stained', 12:'stained', 15:'stained' },
@@ -520,7 +520,7 @@ const DEFS = [
            '4,0':'Words are carved into the altar: "Seven keys. Seven trials. One way out."',
            '12,0':'Candles flicker on the altar, though no one lit them.',
            '13,0':'Candles flicker on the altar, though no one lit them.',
-           '10,10':'North: the ICE ROOM.  Bundle up!' } },
+           '10,10':'CHAPEL.  North: the Ice Room (bundle up!).  South: the Greenhouse.  West: the East Hall.' } },
 
   { id:'ice', name:'Ice Room', gx:4, gy:1, theme:'ice', doors:'S',
     decor:{ 4:'window', 14:'window' },
@@ -613,7 +613,7 @@ const DEFS = [
       '........R..s.....',
       '........R........',
       'P.......R.......P' ],
-    text:{ '11,8':'SOUTH FOYER.  South: the Courtyard.  West: Storage.  East: the Kitchen.',
+    text:{ '11,8':'SOUTH FOYER.  North: the Great Hall.  South: the Courtyard.  West: the Storage room.  East: the Kitchen.',
            '2,2':'A statue of a knight. Its shield shows seven keys in a circle.', '14,2':'A statue of a knight. Its shield shows seven keys in a circle.' } },
 
   { id:'courtyard', name:'Courtyard', gx:2, gy:4, theme:'garden', doors:'NW',
@@ -812,6 +812,13 @@ function drawStatic(r) {
     if (PAD[ch]) { rr(px + 1, py + 1, 14, 14, OUT); rr(px + 2, py + 2, 12, 12, PAD[ch][0]); rr(px + 2, py + 2, 12, 1, '#ffffff33'); }
     if (ch === '%') { rr(px + 3, py + 5, 4, 1, '#3a3a46'); rr(px + 6, py + 6, 1, 4, '#3a3a46'); rr(px + 7, py + 10, 5, 1, '#3a3a46'); rr(px + 11, py + 3, 1, 3, '#3a3a46'); }
   }
+  // cells the renderer has to revisit every frame, so it never scans the whole grid
+  r.animCells = []; r.propCells = [];
+  for (let y = 2; y < MH - 1; y++) for (let x = 1; x < MW - 1; x++) {
+    const ch = r.grid[y][x];
+    if (ch === 'a' || ch === 'b' || ch === 'w' || ch === '%' || PAD[ch]) r.animCells.push([x, y]);
+    if (PROPS.has(ch) || ch === 'G') r.propCells.push([x, y]);
+  }
   C = save; r.dirty = false;
 }
 
@@ -889,16 +896,20 @@ function initAudio() {
   try {
     AC = new (window.AudioContext || window.webkitAudioContext)();
     master = AC.createGain(); master.gain.value = 0.9; master.connect(AC.destination);
-    musicGain = AC.createGain(); musicGain.gain.value = musicOn ? 1 : 0; musicGain.connect(master);
+    // the tune goes through a low-pass filter so the notes sound round instead of buzzy
+    const soft = AC.createBiquadFilter(); soft.type = 'lowpass'; soft.frequency.value = 1400; soft.connect(master);
+    musicGain = AC.createGain(); musicGain.gain.value = musicOn ? 1 : 0; musicGain.connect(soft);
     nextNote = AC.currentTime + 0.1;
   } catch (e) { AC = null; }
 }
-function tone(f, d, type = 'square', vol = 0.06, when = 0, slide = 0, dest) {
+function tone(f, d, type = 'square', vol = 0.06, when = 0, slide = 0, dest, attack = 0) {
   if (!AC) return;
   const t = AC.currentTime + when, o = AC.createOscillator(), gn = AC.createGain();
   o.type = type; o.frequency.setValueAtTime(f, t);
   if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(30, f * slide), t + d);
-  gn.gain.setValueAtTime(vol, t); gn.gain.exponentialRampToValueAtTime(0.0001, t + d);
+  if (attack) { gn.gain.setValueAtTime(0.0001, t); gn.gain.linearRampToValueAtTime(vol, t + attack); }
+  else gn.gain.setValueAtTime(vol, t);
+  gn.gain.exponentialRampToValueAtTime(0.0001, t + d);
   o.connect(gn).connect(dest || master); o.start(t); o.stop(t + d + 0.02);
 }
 const midi = m => 440 * Math.pow(2, (m - 69) / 12);
@@ -929,15 +940,16 @@ const PADNOTE = { 1:midi(72), 2:midi(76), 3:midi(79), 4:midi(84) };
 // A mysterious little loop in A minor.
 const MEL = [69, 72, 76, 72, 74, 77, 76, 72, 71, 74, 72, 69, 68, 71, 64, 0, 69, 72, 76, 79, 77, 76, 74, 72, 71, 72, 74, 71, 69, 0, 0, 0];
 const BASS = [45, 0, 45, 0, 41, 0, 41, 0, 38, 0, 38, 0, 40, 0, 40, 0, 45, 0, 45, 0, 41, 0, 41, 0, 43, 0, 43, 0, 45, 0, 40, 0];
+const BEAT = 0.36;                 // seconds per step (was 0.24)
 let nextNote = 0, noteIx = 0;
 setInterval(() => {
   if (!AC || AC.state !== 'running') return;
   if (nextNote < AC.currentTime) nextNote = AC.currentTime + 0.05;
-  while (nextNote < AC.currentTime + 0.25) {
+  while (nextNote < AC.currentTime + 0.4) {
     const i = noteIx % 32, w = nextNote - AC.currentTime;
-    if (MEL[i]) tone(midi(MEL[i]), 0.2, 'square', 0.022, w, 0, musicGain);
-    if (BASS[i]) tone(midi(BASS[i]), 0.4, 'triangle', 0.05, w, 0, musicGain);
-    nextNote += 0.24; noteIx++;
+    if (MEL[i]) tone(midi(MEL[i]), BEAT * 1.6, 'triangle', 0.05, w, 0, musicGain, 0.04);
+    if (BASS[i]) tone(midi(BASS[i]), BEAT * 2.4, 'sine', 0.07, w, 0, musicGain, 0.06);
+    nextNote += BEAT; noteIx++;
   }
 }, 60);
 function setMusic(on) { musicOn = on; if (musicGain) musicGain.gain.value = on ? 1 : 0; }
@@ -978,7 +990,7 @@ if (TOUCH) {
 // ---------------------------------------------------------------------------
 // Game state
 // ---------------------------------------------------------------------------
-const S = { mode:'title', kind:'boy', keys:new Set(), inserted:0, lantern:false, flags:{}, time:0, playTime:0,
+const S = { mode:'title', clock:false, finalTime:0, kind:'boy', keys:new Set(), inserted:0, lantern:false, flags:{}, time:0, playTime:0,
             stats:{ spikes:0, wrong:0, falls:0 }, room:null, menu:false, fade:0, hintIx:0, qUsed:[] };
 const P = { x:9, y:9, fx:9, fy:9, dir:'up', moving:false, t:0, dur:0.22, walkT:0, wasMoving:false, turnT:0,
             sliding:false, jump:false, exiting:null, flash:0, fall:0 };
@@ -1401,6 +1413,8 @@ function openChest() {
       await say('A giant treasure chest with SEVEN keyholes.', n ? `You have ${n} of the 7 keys. Find ${7 - n} more!` : 'It\'s locked tight. You need to find all seven keys!');
       return;
     }
+    S.clock = false; S.finalTime = S.playTime;
+    S.recordP = recordRun();
     await say('You have all seven keys!', 'You slide them into the keyholes, one by one...');
     S.inserted = 0;
     for (let i = 0; i < 7; i++) { S.inserted = i + 1; sfx('click'); await wait(0.32); }
@@ -1430,7 +1444,7 @@ function resetGame(kind) {
 }
 function newGame(kind) {
   resetGame(kind);
-  S.mode = 'play'; S.fade = 1;
+  S.mode = 'play'; S.fade = 1; S.clock = false;
   enterRoom('hall', 9, 9, 'up');
   popup = null;
   const ctl = TOUCH ? 'Use the D-PAD to move and A to talk or look at things. Hold B to run. Tap MENU to see your keys.'
@@ -1443,13 +1457,14 @@ function newGame(kind) {
       'In front of you sits an enormous chest with SEVEN keyholes.', 'A note is pinned to it. It says:',
       '"Seven keys are hidden in seven rooms of this house. Find them all and the chest will open... and so will your way out."', ctl);
     popup = { text:'Great Hall', t:0 };
+    S.clock = true;
   });
 }
 function continueGame(sv) {
   resetGame(sv.kind);
   Object.assign(S, { keys:new Set(sv.keys), lantern:sv.lantern, flags:sv.flags || {}, stats:sv.stats || S.stats, playTime:sv.playTime || 0, qUsed:sv.qUsed || [] });
   Object.assign(prof, sv.prof, { fx:sv.prof.x, fy:sv.prof.y, path:null, gone:false });
-  S.mode = 'play'; S.fade = 1;
+  S.mode = 'play'; S.fade = 1; S.clock = true;
   enterRoom(sv.room, sv.x, sv.y, sv.dir || 'down');
   run(async () => { await fadeTo(0, 0.5); });
 }
@@ -1470,9 +1485,15 @@ function update(dt) {
 
   if (S.mode === 'title') {
     saved = saved || loadSave();
-    const n = saved ? 2 : 1;
-    if (take('up') || take('down')) { titleSel = (titleSel + 1) % n; sfx('blip'); }
-    if (take('a')) { sfx('select'); if (titleSel === 1 && saved) continueGame(saved); else { S.mode = 'select'; } }
+    const opts = titleOptions();
+    if (take('up')) { titleSel = (titleSel + opts.length - 1) % opts.length; sfx('blip'); }
+    if (take('down')) { titleSel = (titleSel + 1) % opts.length; sfx('blip'); }
+    if (take('a')) {
+      sfx('select'); const o = opts[titleSel];
+      if (o === 'CONTINUE') continueGame(saved);
+      else if (o === 'BEST TIMES') { S.mode = 'board'; loadBoard(); }
+      else S.mode = 'select';
+    }
     return;
   }
   if (S.mode === 'select') {
@@ -1483,14 +1504,18 @@ function update(dt) {
   }
   if (S.mode === 'ending') {
     S.endT += dt;
-    if (S.endT > 2 && take('a')) { S.mode = 'title'; saved = null; titleSel = 0; }
+    if (S.endT > 2 && take('a')) { S.mode = 'board'; sfx('select'); loadBoard(); }
+    return;
+  }
+  if (S.mode === 'board') {
+    if (take('a') || take('b') || take('menu')) { S.mode = 'title'; S.lastRun = null; saved = null; titleSel = 0; sfx('blip'); }
     return;
   }
 
   // play
   if (S.menu) { if (take('menu') || take('b') || take('a')) S.menu = false; return; }
   if (!dlg.active && !locks && take('menu')) { S.menu = true; sfx('select'); return; }
-  S.playTime += dt;
+  if (S.clock) S.playTime += dt;
   if (popup) { popup.t += dt; if (popup.t > 2.6) popup = null; }
   if (P.flash > 0) P.flash -= dt;
   if (P.cheer > 0) P.cheer -= dt;
@@ -1576,13 +1601,14 @@ function render() {
   if (S.mode === 'title') return renderTitle();
   if (S.mode === 'select') return renderSelect();
   if (S.mode === 'ending') return renderEnding();
+  if (S.mode === 'board') return renderBoard();
   const r = S.room; C = g;
   if (r.dirty) drawStatic(r);
   g.drawImage(r.cv, 0, 0);
   const t = S.time;
 
   // animated tiles
-  for (let y = 2; y < MH - 1; y++) for (let x = 1; x < MW - 1; x++) {
+  for (const [x, y] of r.animCells) {
     const ch = r.grid[y][x], px = x * TS, py = y * TS;
     if (ch === 'a' || ch === 'b') { const u = spikeUp(ch); if (u) drawSpikes(px, py, u); }
     else if (PAD[ch] && padLit[ch]) { rr(px + 2, py + 2, 12, 12, PAD[ch][1]); rr(px + 4, py + 4, 8, 8, '#ffffff88'); }
@@ -1598,7 +1624,7 @@ function render() {
 
   // y-sorted drawables
   const list = [];
-  for (let y = 2; y < MH - 1; y++) for (let x = 1; x < MW - 1; x++) {
+  for (const [x, y] of r.propCells) {
     const ch = r.grid[y][x];
     if (PROPS.has(ch) || (ch === 'G' && !S.flags.gate)) list.push({ y:y * TS + 15, f:() => {
       if (ch === 'G') { rr(x * TS, y * TS - 4, 16, 20, '#1a1418'); for (let i = 0; i < 5; i++) { rr(x * TS + 1 + i * 3, y * TS - 4, 2, 20, '#5a5a66'); rr(x * TS + 1 + i * 3, y * TS - 4, 1, 20, '#8a8a96'); } rr(x * TS, y * TS + 2, 16, 2, '#4a4a56'); return; }
@@ -1701,7 +1727,14 @@ function drawHUD() {
   const w = 82, x = VW - w - 3, y = 3;
   srr(x, y, w, 13, '#120e1cdd'); srr(x, y + 12, w, 1, '#00000055');
   KEYS.forEach((k, i) => keyIcon(x + 4 + i * 11, y + 4, k.color, S.keys.has(k.id)));
-  if (S.lantern) { const lx = x - 13; srr(lx, y, 12, 13, '#120e1cdd'); srr(lx + 4, y + 3, 4, 7, '#3a3a44'); srr(lx + 5, y + 5, 2, 3, '#ffd860'); }
+  let cx = x;
+  if (S.lantern) { cx = x - 13; srr(cx, y, 12, 13, '#120e1cdd'); srr(cx + 4, y + 3, 4, 7, '#3a3a44'); srr(cx + 5, y + 5, 2, 3, '#ffd860'); }
+  // the run clock
+  const tw = 50, tx = cx - tw - 1;
+  srr(tx, y, tw, 13, '#120e1cdd');
+  sc.strokeStyle = '#d8d0e8'; sc.lineWidth = 1; sc.beginPath(); sc.arc(tx + 7.5, y + 6.5, 3.5, 0, Math.PI * 2); sc.stroke();
+  srr(tx + 7, y + 4, 1, 3, '#d8d0e8'); srr(tx + 7, y + 6, 2, 1, '#d8d0e8');
+  txt(fmtTime(S.playTime), tx + tw - 4, y + 3, S.clock ? '#ffffff' : '#a89cc0', 8, 'right', null);
   if (!musicOn) txt('MUTE', 4, 4, '#a89cc0', 8, 'left', '#000');
 }
 function drawPopup() {
@@ -1731,7 +1764,10 @@ function drawDialog() {
     });
   }
 }
-function fmtTime(s) { s = Math.floor(s); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }
+function fmtTime(s, tenths) {
+  const t = Math.floor(s * 10), m = Math.floor(t / 600), sec = Math.floor(t / 10) % 60;
+  return m + ':' + String(sec).padStart(2, '0') + (tenths ? '.' + (t % 10) : '');
+}
 function drawMenu() {
   srr(0, 0, VW, VH, 'rgba(10,6,20,.55)');
   const x = 24, y = 18, w = VW - 48, h = VH - 36;
@@ -1772,8 +1808,8 @@ function renderTitle() {
   txt('THE SEVEN', VW / 2, 26 + bob, '#f0c040', 16, 'center', '#5a2a10');
   txt('KEYS', VW / 2, 48 + bob, '#f0c040', 24, 'center', '#5a2a10');
   for (let i = 0; i < 7; i++) keyIcon(VW / 2 - 38 + i * 11, 80, KEYS[i].color, true);
-  const opts = saved ? ['NEW GAME', 'CONTINUE'] : ['NEW GAME'];
-  const by = 168;
+  const opts = titleOptions();
+  const by = 150;
   srr(VW / 2 - 60, by - 8, 120, opts.length * 16 + 10, '#0e0a18cc');
   opts.forEach((o, i) => {
     txt(o, VW / 2 + 6, by + i * 16, i === titleSel ? '#ffffff' : '#8f86a3', 8, 'center', '#000');
@@ -1835,9 +1871,77 @@ function renderEnding() {
   txt('THE END', VW / 2, 38, '#7a3a14', 8, 'center', null);
   if (t > 1.5) {
     srr(6, 190, VW - 12, 30, '#2a1a10aa');
-    txt('TIME ' + fmtTime(S.playTime) + '   SPIKE ZAPS ' + S.stats.spikes + '   WRONG ' + S.stats.wrong, VW / 2, 195, '#ffffff', 8, 'center', '#000');
-    if (t > 2 && Math.floor(t * 2) % 2) txt((TOUCH ? 'PRESS A' : 'PRESS SPACE') + ' TO PLAY AGAIN', VW / 2, 208, '#fff4b0', 8, 'center', '#000');
+    txt('TIME ' + fmtTime(S.finalTime, true) + '   SPIKE ZAPS ' + S.stats.spikes + '   WRONG ' + S.stats.wrong, VW / 2, 195, '#ffffff', 8, 'center', '#000');
+    if (t > 2 && Math.floor(t * 2) % 2) txt((TOUCH ? 'PRESS A' : 'PRESS SPACE') + ' FOR BEST TIMES', VW / 2, 208, '#fff4b0', 8, 'center', '#000');
   }
+  drawFade();
+}
+
+// ---------------------------------------------------------------------------
+// Best times. On claude.ai the page keeps one shared board (each player's
+// personal best, under runs/<their id>); anywhere else it keeps this device's.
+// ---------------------------------------------------------------------------
+let DB = null, USER = null, myId = null;
+const board = { status:'idle', scope:'device', rows:[], note:'' };
+const LOCALBEST = 'seven-keys-best-v1';
+function titleOptions() { return saved ? ['NEW GAME', 'CONTINUE', 'BEST TIMES'] : ['NEW GAME', 'BEST TIMES']; }
+if (window.claude && typeof window.claude.use === 'function') {
+  window.claude.use('db').then(d => { DB = d; }, () => {});
+  window.claude.use('user').then(async u => { USER = u; if (u) myId = await u.id(); }, () => {});
+}
+function localRuns() { try { return JSON.parse(localStorage.getItem(LOCALBEST)) || []; } catch (e) { return []; } }
+async function recordRun() {
+  const run = { time:Math.round(S.finalTime * 10) / 10, kind:S.kind, spikes:S.stats.spikes, wrong:S.stats.wrong, at:Date.now() };
+  const mine = localRuns(); mine.push(run); mine.sort((a, b) => a.time - b.time);
+  try { localStorage.setItem(LOCALBEST, JSON.stringify(mine.slice(0, 10))); } catch (e) { /* storage unavailable */ }
+  S.lastRun = run; board.note = '';
+  if (!DB || !myId) return;
+  try {
+    const ref = DB.doc('runs/' + myId), snap = await ref.get();
+    const prev = snap.exists ? snap.data().time : Infinity;
+    if (run.time < prev) { await ref.set(run); board.note = prev === Infinity ? 'Your first time is on the board!' : 'New personal best!'; }
+    else board.note = 'Your best is still ' + fmtTime(prev, true) + '.';
+  } catch (e) { board.note = 'Your time was saved on this device only.'; }
+}
+async function loadBoard() {
+  board.status = 'loading';
+  if (S.recordP) { try { await S.recordP; } catch (e) { /* shown as a note */ } S.recordP = null; }
+  if (DB) {
+    try {
+      const snap = await DB.collection('runs').orderBy('time').limit(8).get();
+      const ids = snap.docs.map(d => d.id);
+      const names = USER && ids.length ? await USER.profiles(ids) : {};
+      board.rows = snap.docs.map(d => {
+        const v = d.data();
+        return { name:((names[d.id] && names[d.id].name) || 'Explorer'), time:+v.time || 0, kind:v.kind === 'girl' ? 'girl' : 'boy', me:d.id === myId };
+      }).filter(r => r.time > 0);
+      board.scope = 'everyone'; board.status = 'ready'; return;
+    } catch (e) { /* fall back to this device */ }
+  }
+  board.rows = localRuns().slice(0, 8).map(r => ({ name:r.kind === 'girl' ? 'Girl' : 'Boy', time:r.time, kind:r.kind, me:S.lastRun && r.at === S.lastRun.at }));
+  board.scope = 'device'; board.status = 'ready';
+}
+function renderBoard() {
+  const t = S.time; C = g;
+  sky('#0a0820', '#3a2050');
+  for (let i = 0; i < 60; i++) { const x = Math.floor(hash(i, 1) * VW), y = Math.floor(hash(i, 2) * VH); if (Math.sin(t * 2 + i) > -0.6) rr(x, y, 1, 1, '#c8c0e8'); }
+  present();
+  const x = 20, y = 10, w = VW - 40, h = VH - 20;
+  panel(x, y, w, h);
+  txt('BEST TIMES', VW / 2, y + 12, '#4a3a70', 16, 'center', '#c8c8d4');
+  txt(board.scope === 'everyone' ? 'EVERYONE WHO PLAYS THIS PAGE' : 'ON THIS DEVICE', VW / 2, y + 34, '#8a80a0', 8, 'center', null);
+  if (board.status !== 'ready') txt('Loading...', VW / 2, y + 90, '#6a6080', 8, 'center', null);
+  else if (!board.rows.length) { txt('No finished runs yet.', VW / 2, y + 84, '#6a6080', 8, 'center', null); txt('Be the first!', VW / 2, y + 100, '#6a6080', 8, 'center', null); }
+  board.rows.forEach((r, i) => {
+    const ly = y + 54 + i * 15;
+    if (r.me) srr(x + 8, ly - 3, w - 16, 14, '#fff0b8');
+    txt(String(i + 1), x + 22, ly, i === 0 ? '#c8902a' : '#4a3a70', 8, 'right', null);
+    sc.imageSmoothingEnabled = false; sc.drawImage(SPR[r.kind].down[0], 2, 4, 16, 12, x + 30, ly - 2, 12, 9);
+    txt(r.name.length > 16 ? r.name.slice(0, 15) + '.' : r.name, x + 48, ly, '#303040', 8, 'left', null);
+    txt(fmtTime(r.time, true), x + w - 14, ly, '#303040', 8, 'right', null);
+  });
+  if (board.note && S.lastRun) txt(board.note, VW / 2, y + h - 30, '#a0402a', 8, 'center', null);
+  if (Math.floor(t * 2) % 2) txt(TOUCH ? 'PRESS A' : 'PRESS SPACE', VW / 2, y + h - 16, '#8a80a0', 8, 'center', null);
   drawFade();
 }
 
@@ -1857,7 +1961,7 @@ const go = () => requestAnimationFrame(t => { last = t; frame(t); });
 (document.fonts && document.fonts.load ? Promise.race([document.fonts.load('8px "Press Start 2P"'), new Promise(r => setTimeout(r, 1500))]) : Promise.resolve()).then(go, go);
 
 // Hooks for the automated checks in tools/.
-window.__SK = { S, P, ROOM, DEFS, KEYS, QUESTIONS, prof, dlg, enterRoom, newGame, giveKey, get boulders() { return boulders; }, get music() { return music; }, get locks() { return locks; }, WALK, MW, MH };
+window.__SK = { S, P, ROOM, DEFS, KEYS, QUESTIONS, prof, dlg, enterRoom, newGame, giveKey, get boulders() { return boulders; }, get music() { return music; }, get locks() { return locks; }, board, WALK, MW, MH };
 })();
 </script>
 </body>

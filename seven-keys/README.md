@@ -22,6 +22,17 @@ built-in synthesizer.
 Progress saves automatically in the browser, and **Continue** appears on the
 title screen.
 
+## Clock and best times
+
+A clock in the top-right corner starts when the intro story ends and stops the
+moment you open the chest. **Best Times** on the title screen (and after the
+ending) shows the fastest runs:
+
+- Played as the published claude.ai page, it is one shared board: each
+  player's personal best, with their claude.ai name. Players need to be
+  shared on the page as Contributor or higher to post a time.
+- Opened as a plain file, it keeps the top 10 runs on that device.
+
 ## The explorers
 
 - **Boy**: red bandana, backpack, wooden staff. He vaults over gaps with the staff.
