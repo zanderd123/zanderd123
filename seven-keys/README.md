@@ -36,7 +36,7 @@ ending) shows the fastest runs:
 ## The explorers
 
 - **Boy**: bright red bandana, a backpack full of supplies, a sturdy wooden staff in hand. He vaults over gaps with the staff.
-- **Girl**: long blond hair, a backpack over her shoulder, a long traveler whip at her side. She swings over gaps with the whip.
+- **Girl**: a brave adventurer with an amulet, a backpack over her shoulder, a fearless whip at her side. She swings over gaps with the whip.
 
 ## Map
 

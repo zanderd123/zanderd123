@@ -106,7 +106,7 @@ const CHARS = {
           shoe:'#4a2a16', pack:'#a0682e', packS:'#6e4418', tool:'staff' },
   girl: { skin:'#f6c79c', skinS:'#d9976a', hair:'#f4d65a', hairS:'#cfa632', style:'long',
           shirt:'#3aa078', shirtS:'#287258', pants:'#7a4a2a', pantsS:'#5a3418',
-          shoe:'#4a2a16', pack:'#a0682e', packS:'#6e4418', tool:'whip' },
+          shoe:'#4a2a16', pack:'#a0682e', packS:'#6e4418', tool:'whip', amulet:'#e04a6a' },
   prof: { skin:'#f0c098', skinS:'#c98e64', hair:'#eeeef4', hairS:'#b8b8c8', style:'bald',
           shirt:'#6a3a9a', shirtS:'#4a2470', pants:'#4a2470', pantsS:'#3a1a5a', shoe:'#2a1a1a', robe:true },
 };
@@ -139,6 +139,7 @@ function buildChar(cf, dir, fr) {
     D(2, lift === 2 ? 13 : 14, 2, 1, cf.skin); D(12, lift === 1 ? 13 : 14, 2, 1, cf.skin);
     D(4, 15, 8, 1, cf.shirtS);
     if (front && !cf.robe) { D(4, 11, 1, 4, cf.packS); D(11, 11, 1, 4, cf.packS); }
+    if (front && cf.amulet) { D(7, 11, 2, 1, '#e0b040'); D(7, 12, 2, 2, cf.amulet); }
     if (cf.robe) { D(7, 11, 2, 8, cf.shirtS); D(4, 13, 8, 1, '#d8b048'); }
     layer();
     // head
@@ -2060,7 +2061,7 @@ function renderSelect() {
     txt(k === 'boy' ? 'BOY' : 'GIRL', cx, 156, on ? '#ffffff' : '#8f86a3', 8, 'center', '#000');
     if (on && Math.floor(t * 3) % 2) { sc.fillStyle = '#f0c040'; sc.beginPath(); sc.moveTo(cx - 5, 50); sc.lineTo(cx + 5, 50); sc.lineTo(cx, 56); sc.fill(); }
   });
-  const desc = selKind ? ['Long blond hair', 'A backpack over her shoulder', 'A long traveler WHIP at her side']
+  const desc = selKind ? ['A brave adventurer with an amulet', 'A backpack over her shoulder', 'A fearless whip at her side']
                        : ['A tough adventurer', 'Red bandana and a backpack', 'A sturdy STAFF in hand'];
   srr(16, 172, VW - 32, 44, '#0e0a18cc');
   desc.forEach((d, i) => txt(d, VW / 2, 178 + i * 12, i === 2 ? '#f0c040' : '#d8d0e8', 8, 'center', '#000'));
