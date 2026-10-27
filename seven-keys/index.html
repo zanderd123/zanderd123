@@ -1002,6 +1002,7 @@ const P = { x:9, y:9, fx:9, fy:9, dir:'up', moving:false, t:0, dur:0.22, walkT:0
 const prof = { room:'library', x:9, y:7, fx:9, fy:9, dir:'down', path:null, t:0, met:false, gone:false };
 let boulders = [], crumble = {}, music = { phase:'idle', seq:[], idx:0 }, padLit = {};
 let locks = 0, popup = null, toolFx = null, bumpT = 0;
+const DEV = {};                    // tools/mockups.mjs draws extra things through DEV.after
 const timers = [];
 const wait = s => new Promise(r => timers.push({ t:s, r }));
 let fadeTween = null;
@@ -1706,6 +1707,7 @@ function render() {
   }
   list.sort((a, b) => a.y - b.y);
   for (const d of list) d.f();
+  if (DEV.after) DEV.after(t, g);
 
   if (r.dark) drawDarkness(t);
   if (P.flash > 0) { g.fillStyle = 'rgba(220,40,40,' + (P.flash * 0.35).toFixed(2) + ')'; g.fillRect(0, 0, VW, VH); }
@@ -1713,6 +1715,7 @@ function render() {
   present();
   drawHUD();
   drawPopup();
+  if (DEV.ui) DEV.ui(t);
   drawFade();
   drawDialog();
   if (S.menu) drawMenu();
@@ -1789,7 +1792,7 @@ function drawHUD() {
   let cx = x;
   if (S.lantern) { cx = x - 13; srr(cx, y, 12, 13, '#120e1cdd'); srr(cx + 4, y + 3, 4, 7, '#3a3a44'); srr(cx + 5, y + 5, 2, 3, '#ffd860'); }
   // the run clock
-  const tw = 50, tx = cx - tw - 1;
+  const tw = 58, tx = cx - tw - 1;
   srr(tx, y, tw, 13, '#120e1cdd');
   sc.strokeStyle = '#d8d0e8'; sc.lineWidth = 1; sc.beginPath(); sc.arc(tx + 7.5, y + 6.5, 3.5, 0, Math.PI * 2); sc.stroke();
   srr(tx + 7, y + 4, 1, 3, '#d8d0e8'); srr(tx + 7, y + 6, 2, 1, '#d8d0e8');
@@ -1900,7 +1903,7 @@ function renderSelect() {
     if (on && Math.floor(t * 3) % 2) { sc.fillStyle = '#f0c040'; sc.beginPath(); sc.moveTo(cx - 5, 50); sc.lineTo(cx + 5, 50); sc.lineTo(cx, 56); sc.fill(); }
   });
   const desc = selKind ? ['Long blond hair', 'A backpack over her shoulder', 'A long traveler WHIP at her side']
-                       : ['A bright red bandana', 'A backpack full of supplies', 'A sturdy wooden STAFF in hand'];
+                       : ['A tough adventurer', 'Red bandana and a backpack', 'A sturdy STAFF in hand'];
   srr(16, 172, VW - 32, 44, '#0e0a18cc');
   desc.forEach((d, i) => txt(d, VW / 2, 178 + i * 12, i === 2 ? '#f0c040' : '#d8d0e8', 8, 'center', '#000'));
   drawFade();
@@ -2019,8 +2022,8 @@ resize();
 const go = () => requestAnimationFrame(t => { last = t; frame(t); });
 (document.fonts && document.fonts.load ? Promise.race([document.fonts.load('8px "Press Start 2P"'), new Promise(r => setTimeout(r, 1500))]) : Promise.resolve()).then(go, go);
 
-// Hooks for the automated checks in tools/.
-window.__SK = { S, P, ROOM, DEFS, KEYS, QUESTIONS, prof, dlg, enterRoom, newGame, giveKey, get boulders() { return boulders; }, get music() { return music; }, get locks() { return locks; }, board, WALK, MW, MH };
+// Hooks for the automated checks and room mockups in tools/.
+window.__SK = { DEV, txt, srr, buildRoom, THEMES, FLOORS, DECOR, PROPDRAW, PROPS, rr, blob, openDialog, S, P, ROOM, DEFS, KEYS, QUESTIONS, prof, dlg, enterRoom, newGame, giveKey, get boulders() { return boulders; }, get music() { return music; }, get locks() { return locks; }, board, WALK, MW, MH };
 })();
 </script>
 </body>
