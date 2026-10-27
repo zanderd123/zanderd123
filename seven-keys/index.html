@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>The Seven Keys</title>
+<title>House Keeper</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap">
@@ -42,7 +42,7 @@ body{
 </style>
 </head>
 <body>
-<canvas id="screen" tabindex="0" aria-label="The Seven Keys game screen"></canvas>
+<canvas id="screen" tabindex="0" aria-label="House Keeper game screen"></canvas>
 <div id="hint"><b>Arrows/WASD</b> move · <b>Space</b> talk / use · <b>Shift</b> run · <b>Esc</b> keys · <b>M</b> music</div>
 <div id="pad" hidden>
   <div class="dpad">
@@ -2026,8 +2026,8 @@ function renderTitle() {
   rr(0, 196, VW, 28, '#1a1428');
   present();
   const bob = Math.round(Math.sin(t * 2) * 2);
-  txt('THE SEVEN', VW / 2, 26 + bob, '#f0c040', 16, 'center', '#5a2a10');
-  txt('KEYS', VW / 2, 48 + bob, '#f0c040', 24, 'center', '#5a2a10');
+  txt('HOUSE', VW / 2, 26 + bob, '#f0c040', 16, 'center', '#5a2a10');
+  txt('KEEPER', VW / 2, 48 + bob, '#f0c040', 24, 'center', '#5a2a10');
   for (let i = 0; i < 7; i++) keyIcon(VW / 2 - 38 + i * 11, 80, KEYS[i].color, true);
   const opts = titleOptions();
   const by = 150;

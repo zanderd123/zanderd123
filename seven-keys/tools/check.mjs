@@ -1,4 +1,4 @@
-// Checks The Seven Keys: map shapes, door links, that every puzzle room can be
+// Checks House Keeper: map shapes, door links, that every puzzle room can be
 // solved, and that the page runs without errors. Saves a screenshot of every
 // room so the art can be eyeballed.
 //

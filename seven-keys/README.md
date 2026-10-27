@@ -1,4 +1,4 @@
-# The Seven Keys
+# House Keeper
 
 A top-down pixel-art exploration game in the style of the classic Game Boy
 Advance Pokémon games. You wake up inside a strange old building with a giant

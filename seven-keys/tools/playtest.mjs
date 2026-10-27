@@ -1,4 +1,4 @@
-// Plays through every obstacle in The Seven Keys with real key presses and
+// Plays through every obstacle in House Keeper with real key presses and
 // checks the game reacts the right way.   node seven-keys/tools/playtest.mjs
 import { createRequire } from 'node:module';
 import { dirname, resolve } from 'node:path';
