@@ -10,7 +10,10 @@ A daily brain workout: one IQ-style question a day, plus unlimited practice.
 - **Today**: the Question of the Day (medium, a few minutes, never repeats),
   the **Daily Grid** (a number-placement logic puzzle in Easy 6×6, Medium and
   Hard 9×9, the same for everyone each day, always with exactly one solution),
-  and a Word of the Day to guess the meaning of. A **Share results** button
+  a **Challenge of the Day** (one deep physics, probability, geometry,
+  combinatorics or number-theory problem with a typed answer, meant to take 5
+  to 20 minutes; the only hint is the kind of maths to use), and a Word of the
+  Day to guess the meaning of. A **Share results** button
   copies a short summary to paste into a message.
 - **Friends leaderboard** (claude.ai version): today's points for the
   question and the hardest grid solved, plus this week's XP. Each person
@@ -35,6 +38,12 @@ A daily brain workout: one IQ-style question a day, plus unlimited practice.
   for every game, and the daily calendar.
 - XP, levels, practice combos, confetti and optional sound effects.
 
+Hard is built to need several steps of reasoning: cubic and three-term
+sequences, letter series that wrap past Z, pattern grids with an addition
+rule, six-person orderings, harder knights-and-knaves statements, four-house
+deduction puzzles, pipe, round-trip and clock-angle problems, and larger
+spatial shapes with more look-alikes.
+
 Categories: number sequences, pattern matrices (Raven's-style grids),
 arithmetic, logic (orderings, knights and knaves, day puzzles), letter series,
 verbal reasoning (analogies, odd one out, compound words) and spatial
@@ -54,6 +63,9 @@ worked explanation.
     quotient.html      the app, written for the Claude Artifact host
     build.mjs          node quotient/build.mjs -> rebuilds app/, the installable web app
     make-icons.mjs     node quotient/make-icons.mjs -> draws the app icons from Peanut
+    challenge-check.mjs  node quotient/challenge-check.mjs -> checks every Challenge
+                       of the Day template against an independent method
+                       (simulation, brute-force search, numerical integration)
     check.mjs          node quotient/check.mjs -> checks 63,000 generated questions,
                        ten years of daily questions for repeats, 120 Daily Grids
                        for a single solution, and the word list

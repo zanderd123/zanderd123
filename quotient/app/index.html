@@ -88,7 +88,7 @@ body {
   padding-block: 18px 60px;
 }
 .wrap { max-width: 720px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
-button { font: inherit; color: inherit; }
+button { font: inherit; color: inherit; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
 :focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
 
 /* Chunky press-down buttons, shared */
@@ -237,6 +237,7 @@ button { font: inherit; color: inherit; }
 .options.long { grid-template-columns: 1fr; }
 .options.visual.poly4 { grid-template-columns: repeat(4, 1fr); }
 .options.visual.poly5 { grid-template-columns: repeat(5, 1fr); }
+.options.visual.poly6 { grid-template-columns: repeat(3, 1fr); }
 .opt { display: flex; align-items: center; gap: 10px; text-align: left; padding: 11px 12px; min-width: 0; }
 .opt .key { flex: none; width: 28px; height: 28px; border-radius: 9px; display: grid; place-items: center; font-family: var(--display); font-weight: 600; font-size: 0.9rem; background: var(--soft); border: 2px solid var(--ink); }
 .opt .txt { min-width: 0; font-size: 1.05rem; font-weight: 700; overflow-wrap: anywhere; }
@@ -381,6 +382,8 @@ details.numbers summary { cursor: pointer; color: var(--muted); font-weight: 800
 .stroop-btns button { padding: 12px; font-family: var(--display); font-weight: 600; font-size: 1.1rem; display: flex; align-items: center; justify-content: center; gap: 8px; }
 .stroop-btns i { width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--ink); }
 .flash-good { animation: yay .3s; }
+.tap-good { background: var(--good-soft) !important; border-color: var(--good) !important; }
+.tap-bad { background: var(--bad-soft) !important; border-color: var(--bad) !important; }
 .bests { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
 
 /* Game picker and the new games */
@@ -451,6 +454,18 @@ details.numbers summary { cursor: pointer; color: var(--muted); font-weight: 800
 .board .pts { font-family: var(--display); font-weight: 600; text-align: right; }
 .board td.sm { font-size: 0.82rem; color: var(--muted); }
 .board td.sm div { white-space: nowrap; }
+
+/* Challenge of the Day */
+.chal-text { margin: 0; font-size: 1.08rem; line-height: 1.6; font-weight: 600; }
+.chal-answer { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.chal-answer input { flex: 1 1 160px; min-width: 0; font: inherit; font-family: var(--display); font-weight: 600; font-size: 1.25rem; padding: 10px 14px; border: 2.5px solid var(--ink); border-radius: 14px; background: var(--soft); color: var(--ink); }
+.chal-answer input:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.chal-answer .unit { font-weight: 800; color: var(--muted); }
+.chal-feedback { margin: 0; font-weight: 800; }
+.chal-feedback.bad { color: var(--bad); }
+.chal-steps { margin: 0; padding-left: 22px; display: flex; flex-direction: column; gap: 6px; }
+.chal-steps li { padding-left: 4px; }
+.chal-confirm { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding: 10px 12px; border-radius: 14px; background: var(--soft); border: 2px solid var(--line); font-weight: 800; }
 
 /* Test mode */
 .test-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
@@ -653,7 +668,7 @@ details.numbers summary { cursor: pointer; color: var(--muted); font-weight: 800
     { id: 'focus', name: 'Focus', short: 'Focus', game: true },
   ];
   const DIFFS = ['easy', 'medium', 'hard'];
-  const TARGET = { easy: '~1 min', medium: '~2–3 min', hard: '~5 min' };
+  const TARGET = { easy: '~1 min', medium: '~2–3 min', hard: '~5–8 min' };
 
   // Builds the option list: the answer plus distinct distractors, shuffled.
   function finalize(r, q, answer, distractors, n, keyOf) {
@@ -734,40 +749,65 @@ details.numbers summary { cursor: pointer; color: var(--muted); font-weight: 800
           hint: 'Look at three neighbouring terms together.' };
       },
     ],
+    // Hard needs two or three layers of reasoning: differences of differences, recurrences, or two rules at once.
     hard: [
       r => {
+        const b = r.int(-2, 2), c = r.int(-3, 3), d = r.int(0, 9);
+        const f = n => n ** 3 + b * n * n + c * n + d;
+        const t = [1, 2, 3, 4, 5, 6, 7].map(f);
+        const poly = `n³${b ? ` ${b > 0 ? '+' : '−'} ${Math.abs(b) === 1 ? '' : Math.abs(b)}n²` : ''}${c ? ` ${c > 0 ? '+' : '−'} ${Math.abs(c) === 1 ? '' : Math.abs(c)}n` : ''}${d ? ` + ${d}` : ''}`;
+        return { t, why: `Take differences three times and the third differences are all 6, so the rule is a cubic: the nth term is ${poly}.`,
+          hint: 'Find the gaps, then the gaps between the gaps, and keep going until a row is constant.' };
+      },
+      r => {
+        const a = r.int(0, 3), b = r.int(1, 3), c = r.int(1, 4);
+        const t = [a, b, c];
+        for (let i = 3; i < 8; i++) t.push(t[i - 1] + t[i - 2] + t[i - 3]);
+        return { t, why: 'Each term is the sum of the three terms before it.',
+          hint: 'Adding two neighbours is not quite enough. Try more.' };
+      },
+      r => {
+        const a = r.int(1, 4), b = r.int(1, 5), m = r.pick([2, 3]);
+        const t = [a, b];
+        for (let i = 2; i < 8; i++) t.push(t[i - 1] + m * t[i - 2]);
+        return { t, why: `Each term is the previous term plus ${m}× the one before that.`,
+          hint: 'Each term depends on the two before it, but not equally.' };
+      },
+      r => {
+        const k = r.int(2, 5), s = r.int(1, 3), m = r.pick([2, 3]);
+        const t = [];
+        for (let i = 0; i < 5; i++) { t.push((k + i) ** 2); if (i < 4) t.push(s * m ** i); }
+        return { t, why: `Two series are interleaved: the 1st, 3rd, 5th… terms are squares (${k}², ${k + 1}², …) and the others multiply by ${m}.`,
+          hint: 'Read every other number, then look at each half on its own.' };
+      },
+      r => {
+        const s = r.int(1, 20), j = r.int(1, 3);
+        const t = [s];
+        for (let i = 0; i < 6; i++) t.push(t[i] + (i + j) ** 2);
+        return { t, why: `The gaps are square numbers: ${j}², ${j + 1}², ${j + 2}²… so the next gap is ${j + 5}².`,
+          hint: 'Write down the gaps. Do they look familiar?' };
+      },
+      r => {
+        const s = r.int(4, 9), m = r.pick([2, 3]), k = r.int(3, 9);
+        const t = [s];
+        for (let i = 1; i < 8; i++) t.push(i % 2 ? t[i - 1] * m : t[i - 1] - k);
+        if (t.some(x => x <= 0)) t.forEach((_, i) => { t[i] = i ? (i % 2 ? t[i - 1] * m : t[i - 1] + k) : s; });
+        const sign = t[2] < t[1] ? '−' : '+';
+        return { t, why: `The rule alternates: ×${m}, then ${sign}${k}, then ×${m}, then ${sign}${k}…`,
+          hint: 'Two different steps take turns. Look at the even and odd jumps separately.' };
+      },
+      r => {
+        const s = r.int(1, 4);
+        const t = [s];
+        for (let n = 2; n <= 7; n++) t.push(t[t.length - 1] * 2 + n);
+        return { t, why: 'Each term is double the previous term plus its position: ×2 + 2, ×2 + 3, ×2 + 4…',
+          hint: 'Roughly doubling, but not exactly. What is left over each time?' };
+      },
+      r => {
         const k = r.pick([-2, -1, 1, 2, 3, 5]);
-        return { t: [1, 2, 3, 4, 5, 6].map(n => n ** 3 + k),
-          why: `Each term is a cube ${k > 0 ? 'plus' : 'minus'} ${Math.abs(k)}: 1³, 2³, 3³… ${k > 0 ? '+' : '−'} ${Math.abs(k)}.`,
-          hint: `What happens if you ${k > 0 ? 'subtract' : 'add'} a small number from every term?` };
-      },
-      r => {
-        const a = r.int(1, 10), d = r.int(1, 3), m = r.pick([2, 3]);
-        const t = [a];
-        for (let i = 0; i < 6; i++) t.push(t[i] + d * m ** i);
-        return { t, why: `The gaps are ${t.slice(1, 6).map((x, i) => x - t[i]).join(', ')}: each gap is ${m}× the last.`,
-          hint: 'Find the gaps, then look at how the gaps change.' };
-      },
-      r => {
-        const s = r.int(1, 6), m = r.pick([2, 3]), k = r.int(1, 6);
-        const t = [s];
-        for (let i = 1; i < 8; i++) t.push(i % 2 ? t[i - 1] * m : t[i - 1] + k);
-        return { t, why: `The rule alternates: ×${m}, then +${k}, then ×${m}, then +${k}…`,
-          hint: 'There may be two different steps taking turns.' };
-      },
-      r => {
-        const s = r.int(1, 20), P = [2, 3, 5, 7, 11, 13];
-        const t = [s];
-        for (const p of P) t.push(t[t.length - 1] + p);
-        return { t, why: 'The gaps are the prime numbers 2, 3, 5, 7, 11, so the next gap is 13.',
-          hint: 'Write down the gaps. What kind of numbers are they?' };
-      },
-      r => {
-        const s = r.int(1, 3);
-        const t = [s];
-        for (let i = 2; i <= 6; i++) t.push(t[t.length - 1] * i);
-        return { t, why: 'Multiply by 2, then 3, then 4, then 5, then 6.',
-          hint: 'Divide each term by the one before it.' };
+        return { t: [1, 2, 3, 4, 5, 6, 7].map(n => n ** 3 + k * n),
+          why: `Each term is n³ ${k > 0 ? '+' : '−'} ${Math.abs(k)}n: a cube plus a multiple of its position.`,
+          hint: 'Compare each term with the cubes 1, 8, 27, 64…' };
       },
     ],
   };
@@ -830,11 +870,44 @@ details.numbers summary { cursor: pointer; color: var(--muted); font-weight: 800
     ],
     hard: [
       r => {
-        const k = r.int(5, 9), s = r.int(12, 25);
-        const pos = [0, 1, 2, 3, 4, 5].map(i => s + k * i);
-        return { items: pos.slice(0, 5).map(L), ans: L(pos[5]), near: pos[5],
-          why: `Each step moves ${k} letters forward, wrapping round from Z back to A.`,
-          hint: 'The alphabet may loop: after Z comes A again.' };
+        const n0 = r.int(1, 3);
+        const pos = [0, 1, 2, 3, 4, 5, 6].map(i => (n0 + i) ** 2 - 1);
+        return { items: pos.slice(0, 6).map(L), ans: L(pos[6]), near: pos[6],
+          why: `As alphabet positions the letters are square numbers (${n0}², ${n0 + 1}², …), wrapping round past Z: ${(n0 + 6) ** 2} counts round to ${L(pos[6])}.`,
+          hint: 'Turn each letter into its place in the alphabet. When the numbers pass 26, keep counting from A again.' };
+      },
+      r => {
+        const s = r.int(0, 10);
+        const T = [0, 1, 3, 6, 10, 15, 21, 28];
+        const pos = T.map(x => s + x);
+        return { items: pos.slice(0, 7).map(L), ans: L(pos[7]), near: pos[7],
+          why: 'The steps grow by one each time (+1, +2, +3…) and wrap from Z back to A, so the last step is +7.',
+          hint: 'Count the steps between letters, and remember the alphabet loops.' };
+      },
+      r => {
+        const s = r.int(0, 4);
+        const up = [0, 1, 3, 6].map(x => s + x), down = [25, 23, 20, 16];
+        const pos = [];
+        for (let i = 0; i < 4; i++) { pos.push(up[i]); pos.push(down[i]); }
+        return { items: pos.slice(0, 7).map(L), ans: L(pos[7]), near: pos[7],
+          why: `Two series are interleaved: one steps forward by +1, +2, +3 from ${L(s)}; the other steps back from Z by −2, −3, −4.`,
+          hint: 'Read every other letter. Each half has growing steps.' };
+      },
+      r => {
+        const F = [1, 1, 2, 3, 5, 8, 13, 21, 34];
+        const k = r.int(0, 3);
+        const pos = F.map(f => f - 1 + k);
+        return { items: pos.slice(0, 8).map(L), ans: L(pos[8]), near: pos[8],
+          why: `As alphabet positions${k ? ` (shifted by ${k})` : ''} the letters follow 1, 1, 2, 3, 5, 8, 13, 21: each is the sum of the two before. The next is 34, which wraps round to ${L(pos[8])}.`,
+          hint: 'Convert letters to numbers and look for a famous series. It may go past Z.' };
+      },
+      r => {
+        const a = r.int(7, 11), b = r.int(2, 5), s = r.int(0, 25);
+        const pos = [s];
+        for (let i = 1; i < 7; i++) pos.push(pos[i - 1] + (i % 2 ? a : -b));
+        return { items: pos.slice(0, 6).map(L), ans: L(pos[6]), near: pos[6],
+          why: `The series alternates: forward ${a}, back ${b}, forward ${a}, back ${b}…, wrapping round the alphabet.`,
+          hint: 'Some steps go backwards, and the alphabet loops after Z.' };
       },
       r => {
         const P = [2, 3, 5, 7, 11, 13, 17, 19, 23], j = r.int(0, 3);
@@ -842,21 +915,6 @@ details.numbers summary { cursor: pointer; color: var(--muted); font-weight: 800
         return { items: pos.slice(0, 5).map(L), ans: L(pos[5]), near: pos[5],
           why: `The letters sit at prime-numbered places in the alphabet (${P.slice(j, j + 6).join(', ')}).`,
           hint: 'Turn each letter into its place in the alphabet: A = 1, B = 2…' };
-      },
-      r => {
-        const k = r.int(0, 4), F = [1, 2, 3, 5, 8, 13, 21];
-        const pos = F.map(f => f - 1 + k);
-        return { items: pos.slice(0, 6).map(L), ans: L(pos[6]), near: pos[6],
-          why: `As alphabet positions${k ? ` minus ${k}` : ''}, the letters follow 1, 2, 3, 5, 8, 13: each is the sum of the two before.`,
-          hint: 'Convert the letters to numbers and look for a famous series.' };
-      },
-      r => {
-        const a = r.int(2, 4), b = r.int(2, 3), s = r.int(0, 3);
-        const pos = [];
-        for (let i = 0; i < 4; i++) { pos.push(s + a * i); pos.push(25 - b * i); }
-        return { items: pos.slice(0, 7).map(L), ans: L(pos[7]), near: pos[7],
-          why: `Two series are interleaved: one goes forward ${a} at a time from ${L(s)}, the other goes backward ${b} at a time from Z.`,
-          hint: 'Read every other letter.' };
       },
     ],
   };
@@ -996,7 +1054,10 @@ details.numbers summary { cursor: pointer; color: var(--muted); font-weight: 800
         hint: 'Undo each step in reverse order.', why: `Reverse it: ${res} × ${d} = ${res * d}, minus ${s} is ${n * m}, divided by ${m} is ${n}.`, mono: true };
       return finalize(r, q, n, numDistractors(r, n, [Math.round(res * d / m), res * m - s]), 4);
     }
-    const kind = r.int(0, 4);
+    const kind = r.int(0, 6);
+    if (kind === 4) return genPipes(r);
+    if (kind === 5) return genRoundTrip(r);
+    if (kind === 6) return genClockAngle(r);
     if (kind === 0) return genMysteryOp(r, 'hard');
     if (kind === 1) return genSymbols(r, 'hard');
     if (kind === 2) {
@@ -1011,7 +1072,7 @@ details.numbers summary { cursor: pointer; color: var(--muted); font-weight: 800
       const ds = [a - b, net + 5, net - 5, net + 1, net - 2, -net, 0].map(v => Math.round(v * 10) / 10).map(f);
       return finalize(r, q, f(net), ds, 4);
     }
-    if (kind === 3) {
+    if (kind === 3 && r.chance(0.3)) {
       const k = r.pick([5, 7]), kind2 = r.pick(['odd', 'even', 'whole']);
       const step = kind2 === 'whole' ? 1 : 2;
       let mid = r.int(10, 60);
@@ -1031,6 +1092,57 @@ details.numbers summary { cursor: pointer; color: var(--muted); font-weight: 800
     return finalize(r, q, ans, numDistractors(r, ans, [y + x, 2 * (y + x), y * 2 - x, ans + x]), 4);
   }
 
+  const hm = mins => `${Math.floor(mins / 60)} h ${mins % 60} min`;
+  function genPipes(r) {
+    for (;;) {
+      const a = r.int(2, 8), b = r.int(a + 1, 12), c = r.int(4, 24);
+      const rate = 1 / a + 1 / b - 1 / c, mins = 60 / rate;
+      if (rate <= 0 || Math.abs(mins - Math.round(mins)) > 1e-9 || mins > 600 || c <= a) continue;
+      const ans = Math.round(mins), noDrain = 60 / (1 / a + 1 / b);
+      const q = {
+        prompt: `Pipe A fills a tank in ${a} hours and pipe B fills it in ${b} hours. A drain empties a full tank in ${c} hours. Starting empty with all three open, how long does the tank take to fill?`,
+        stem: null,
+        hint: 'Work in "tanks per hour": add the filling rates and subtract the draining rate.',
+        why: `Per hour: 1/${a} + 1/${b} − 1/${c} of the tank, which is ${rate.toFixed(4)} tanks per hour. So it takes 1 ÷ that = ${(mins / 60).toFixed(3)} hours, or ${hm(ans)}.`,
+        mono: false,
+      };
+      const ds = [Math.round(noDrain), ans + 10, ans - 10, Math.round(60 * (a + b) / 2 + 60), Math.round(60 / (1 / a + 1 / b + 1 / c)), ans + 30].filter(x => x > 0).map(hm);
+      return finalize(r, q, hm(ans), ds, 4);
+    }
+  }
+  function genRoundTrip(r) {
+    const pairs = [[30, 60, 40], [40, 60, 48], [20, 30, 24], [60, 90, 72], [45, 90, 60], [36, 45, 40], [30, 70, 42], [40, 120, 60], [35, 140, 56], [60, 40, 48], [50, 75, 60], [12, 24, 16]];
+    const [v1, v2, ans] = r.pick(pairs), dist = r.pick([60, 90, 120, 180, 240]);
+    const q = {
+      prompt: `You drive ${dist} km to a town at ${v1} km/h and straight back at ${v2} km/h. What is your average speed for the whole trip?`,
+      stem: null,
+      hint: 'Average speed is total distance ÷ total time, not the average of the two speeds.',
+      why: `Out: ${dist}/${v1} = ${dist / v1} h. Back: ${dist}/${v2} = ${dist / v2} h. Total ${2 * dist} km in ${dist / v1 + dist / v2} h gives ${ans} km/h. (The tempting ${(v1 + v2) / 2} km/h is wrong: you spend longer at the slower speed.)`,
+      mono: true,
+    };
+    const ds = [(v1 + v2) / 2, ans + 2, ans - 2, Math.round(Math.sqrt(v1 * v2)), ans + 5].filter(Number.isInteger).map(x => `${x} km/h`);
+    return finalize(r, q, `${ans} km/h`, ds, 4);
+  }
+  function genClockAngle(r) {
+    for (;;) {
+      const h = r.int(1, 11), m = r.int(1, 59);
+      let d = Math.abs(30 * h - 5.5 * m) % 360;
+      if (d > 180) d = 360 - d;
+      if (d === 0) continue;
+      const f = x => `${Number.isInteger(x) ? x : x.toFixed(1)}°`;
+      let naive = Math.abs(30 * h - 6 * m) % 360; if (naive > 180) naive = 360 - naive;
+      const q = {
+        prompt: `What is the smaller angle between the hour and minute hands of a clock at ${h}:${String(m).padStart(2, '0')}?`,
+        stem: null,
+        hint: 'The hour hand also moves: half a degree for every minute.',
+        why: `The minute hand is at ${6 * m}°. The hour hand is at ${30 * h}° + ${m} × 0.5° = ${30 * h + 0.5 * m}°. The difference is ${f(Math.abs(30 * h - 5.5 * m))}${Math.abs(30 * h - 5.5 * m) > 180 ? `, and the smaller angle is 360° minus that, ${f(d)}` : ''}.`,
+        mono: true,
+      };
+      const ds = [naive, d + 5.5, d - 5.5, 180 - d, d + 30, d + 2.5, d - 30, d + 11, d - 11, d + 1].filter(x => x > 0 && x <= 180 && x !== d).map(f);
+      return finalize(r, q, f(d), ds, 4);
+    }
+  }
+
   /* ---------- Logic ---------- */
   const NAMES = ['Ava', 'Ben', 'Cleo', 'Dev', 'Esme', 'Finn', 'Hana', 'Jude', 'Kai', 'Lola', 'Omar', 'Rosa'];
   const RELS = [
@@ -1039,7 +1151,7 @@ details.numbers summary { cursor: pointer; color: var(--muted); font-weight: 800
     { more: 'faster than', less: 'slower than', top: 'fastest', bottom: 'slowest' },
     { more: 'heavier than', less: 'lighter than', top: 'heaviest', bottom: 'lightest' },
   ];
-  const ORD = ['', 'second', 'third', 'fourth'];
+  const ORD = ['', 'second', 'third', 'fourth', 'fifth'];
   function perms(n) {
     const out = [], a = [...Array(n).keys()];
     (function go(k) {
@@ -1095,6 +1207,12 @@ details.numbers summary { cursor: pointer; color: var(--muted); font-weight: 800
       () => ({ text: 'Exactly one of us is a knight.', f: K => K.filter(Boolean).length === 1 }),
       (s, o) => ({ text: `Either I am a knave or ${names[o]} is a knight.`, f: K => !K[s] || K[o] }),
     ];
+    if (n >= 3) makers.push(
+      () => ({ text: 'Exactly two of us are knaves.', f: K => K.filter(x => !x).length === 2 }),
+      (s, o) => ({ text: `If I am a knight, then ${names[o]} is a knave.`, f: K => !K[s] || !K[o] }),
+      (s, o) => { const t = others(s).find(x => x !== o); return { text: `${names[o]} and ${names[t]} are the same kind.`, f: K => K[o] === K[t] }; },
+      (s, o) => { const t = others(s).find(x => x !== o); return { text: `At least one of ${names[o]} and ${names[t]} is a knight.`, f: K => K[o] || K[t] }; },
+    );
     const assigns = [];
     for (let m = 0; m < 1 << n; m++) assigns.push([...Array(n).keys()].map(i => !!(m >> i & 1)));
     for (let tries = 0; tries < 500; tries++) {
@@ -1147,7 +1265,67 @@ details.numbers summary { cursor: pointer; color: var(--muted); font-weight: 800
   function genLogic(r, diff) {
     if (diff === 'easy') return r.chance(0.55) ? genOrdering(r, 3) : genDays(r, 'easy');
     if (diff === 'medium') { const k = r.int(0, 2); return k === 0 ? genOrdering(r, 4) : k === 1 ? genKnights(r, 2) : genDays(r, 'medium'); }
-    return r.chance(0.5) ? genOrdering(r, 5) : genKnights(r, 3);
+    const k = r.int(0, 2);
+    return k === 0 ? genOrdering(r, 6) : k === 1 ? genKnights(r, 3) : genHouses(r);
+  }
+  // Einstein-style deduction: four houses in a row, each with one person, colour and pet.
+  const COLOURS = ['red', 'blue', 'green', 'yellow'], PETS = ['cat', 'dog', 'fish', 'bird'];
+  let PERM4 = null;
+  function genHouses(r) {
+    PERM4 = PERM4 || perms(4);
+    const names = r.shuffle(NAMES).slice(0, 4);
+    // A world: home[p] = house of person p, col[h] / pet[h] = colour / pet of house h (0 = leftmost).
+    const sol = { home: r.pick(PERM4), col: r.pick(PERM4), pet: r.pick(PERM4) };
+    const all = [];
+    for (const home of PERM4) for (const col of PERM4) for (const pet of PERM4) all.push({ home, col, pet });
+    const houseOf = (w, kind, v) => kind === 'p' ? w.home[v] : (kind === 'c' ? w.col : w.pet).indexOf(v);
+    const label = (kind, v) => kind === 'p' ? names[v] : kind === 'c' ? `the ${COLOURS[v]} house` : `the ${PETS[v]} owner`;
+    const cap = t => t[0].toUpperCase() + t.slice(1);
+    // Candidate clues, each true in the solution.
+    const things = [];
+    for (let v = 0; v < 4; v++) { things.push(['p', v]); things.push(['c', v]); things.push(['t', v]); }
+    const clues = [];
+    for (const [k1, v1] of things) for (const [k2, v2] of things) {
+      if (k1 === k2) continue;
+      const h1 = houseOf(sol, k1, v1), h2 = houseOf(sol, k2, v2);
+      const subj = k1 === 'c' ? `The ${COLOURS[v1]} house` : cap(label(k1, v1));
+      const obj = k2 === 'p' ? names[v2] : label(k2, v2);
+      if (h1 === h2 && k1 !== 'c') clues.push({ text: k2 === 'c' ? `${subj} lives in the ${COLOURS[v2]} house.` : k2 === 't' ? `${subj} owns the ${PETS[v2]}.` : `${subj} is ${obj}.`, f: w => houseOf(w, k1, v1) === houseOf(w, k2, v2) });
+      if (h1 !== h2 && k1 !== 'c' && k2 !== 'p') clues.push({ text: k2 === 'c' ? `${subj} does not live in the ${COLOURS[v2]} house.` : `${subj} does not own the ${PETS[v2]}.`, f: w => houseOf(w, k1, v1) !== houseOf(w, k2, v2) });
+      const verb = k1 === 'c' ? 'is' : 'lives', it = k2 === 'c' ? 'it' : 'them';
+      if (h2 === h1 + 1) clues.push({ text: `${subj} ${verb} directly left of ${k2 === 'c' ? `the ${COLOURS[v2]} house` : obj}.`, f: w => houseOf(w, k2, v2) === houseOf(w, k1, v1) + 1 });
+      if (Math.abs(h1 - h2) === 1 && k1 < k2) clues.push({ text: `${subj} ${k1 === 'c' ? 'is' : 'lives'} next to ${k2 === 'c' ? `the ${COLOURS[v2]} house` : obj}.`, f: w => Math.abs(houseOf(w, k1, v1) - houseOf(w, k2, v2)) === 1 });
+      if (h1 < h2 - 1) clues.push({ text: `${subj} ${verb} somewhere left of ${k2 === 'c' ? `the ${COLOURS[v2]} house` : obj}, but not next to ${it}.`, f: w => houseOf(w, k1, v1) < houseOf(w, k2, v2) - 1 });
+    }
+    for (const [k1, v1] of things) {
+      const h = houseOf(sol, k1, v1), subj = k1 === 'c' ? `The ${COLOURS[v1]} house` : cap(label(k1, v1));
+      if (h === 0 || h === 3) clues.push({ text: `${subj} ${k1 === 'c' ? 'is' : 'lives'} at one end of the row.`, f: w => [0, 3].includes(houseOf(w, k1, v1)) });
+      if (h === 1 || h === 2) clues.push({ text: `${subj} ${k1 === 'c' ? 'is not' : 'does not live'} at either end of the row.`, f: w => [1, 2].includes(houseOf(w, k1, v1)) });
+    }
+    // Prefer relational clues: give each a weight and draw without replacement.
+    let pool = r.shuffle(clues), chosen = [], live = all;
+    while (live.length > 1 && pool.length) {
+      const c = pool.shift();
+      const next = live.filter(c.f);
+      if (next.length < live.length) { chosen.push(c); live = next; }
+    }
+    if (live.length !== 1) return genHouses(r); // ran out of clues before the answer was certain
+    // Drop any clue the others already imply, so every clue matters.
+    for (const c of r.shuffle(chosen.slice())) {
+      const rest = chosen.filter(x => x !== c);
+      if (all.filter(w => rest.every(x => x.f(w))).length === 1) chosen = rest;
+    }
+    const ask = r.int(0, 1) ? ['t', r.int(0, 3)] : ['c', r.int(0, 3)];
+    const h = houseOf(sol, ask[0], ask[1]);
+    const ansP = sol.home.indexOf(h);
+    const table = [0, 1, 2, 3].map(x => `House ${x + 1}: ${names[sol.home.indexOf(x)]}, ${COLOURS[sol.col[x]]}, ${PETS[sol.pet[x]]}`).join('. ');
+    const q = {
+      prompt: ask[0] === 't' ? `Four houses stand in a row, numbered 1 to 4 from the left. Who owns the ${PETS[ask[1]]}?` : `Four houses stand in a row, numbered 1 to 4 from the left. Who lives in the ${COLOURS[ask[1]]} house?`,
+      stem: { kind: 'lines', items: ['Each house has one person, one colour and one pet, all different.'].concat(r.shuffle(chosen).map(c => c.text)) },
+      hint: 'Draw a table with four columns for the houses and rows for person, colour and pet. Start with clues that pin something to one exact place.',
+      why: `${table}. Every clue fits only this arrangement.`,
+    };
+    return finalize(r, q, names[ansP], r.shuffle(names), 4);
   }
 
   /* ---------- Pattern matrices ---------- */
@@ -1165,16 +1343,17 @@ details.numbers summary { cursor: pointer; color: var(--muted); font-weight: 800
       let type;
       if (diff === 'easy') type = r.pick(['across', 'down']);
       else if (diff === 'medium') type = i === 0 ? 'latin' : r.pick(['across', 'down']);
-      else type = i === 2 ? r.pick(['across', 'down']) : 'latin';
+      else type = a === 'count' ? 'sum' : 'latin';
       const vals = a === 'count' && type !== 'latin' ? [1, 2, 3] : r.shuffle(DOMAIN[a]).slice(0, 3);
-      spec[a] = { type, vals, shift: r.pick([1, 2]) };
+      // 'sum': the third cell in each row holds as many shapes as the first two together.
+      spec[a] = { type, vals, shift: r.pick([1, 2]), rows: r.shuffle([[1, 1, 2], [1, 2, 3], [2, 1, 3]]) };
     });
     attrs.filter(a => !vary.includes(a)).forEach(a => { spec[a] = { type: 'const', v: r.pick(DOMAIN[a]) }; });
     const at = (row, col) => {
       const c = {};
       for (const a of attrs) {
         const s = spec[a];
-        c[a] = s.type === 'const' ? s.v : s.type === 'across' ? s.vals[col] : s.type === 'down' ? s.vals[row] : s.vals[(col + row * s.shift) % 3];
+        c[a] = s.type === 'const' ? s.v : s.type === 'across' ? s.vals[col] : s.type === 'down' ? s.vals[row] : s.type === 'sum' ? s.rows[row][col] : s.vals[(col + row * s.shift) % 3];
       }
       return c;
     };
@@ -1195,6 +1374,7 @@ details.numbers summary { cursor: pointer; color: var(--muted); font-weight: 800
     const rules = attrs.map(a => {
       const s = spec[a], name = ATTRNAME[a];
       if (s.type === 'const') return a === 'count' ? `Every cell has ${s.v} shape${s.v > 1 ? 's' : ''}.` : `Every shape is ${a === 'shape' ? 'a ' + s.v : FILLWORD[s.v]}.`;
+      if (s.type === 'sum') return 'In each row, the third cell has as many shapes as the first two cells put together.';
       const list = s.vals.map(v => vword(a, v));
       if (s.type === 'latin') return `Each row has one of each ${name === 'number of shapes' ? 'count' : name}: ${list[0]}, ${list[1]} and ${list[2]}, in a shifting order.`;
       return `The ${name} changes ${s.type === 'across' ? 'across each row, left to right' : 'down each column, top to bottom'}: ${list.join(' → ')}.`;
@@ -1202,7 +1382,7 @@ details.numbers summary { cursor: pointer; color: var(--muted); font-weight: 800
     const q = {
       prompt: 'Which cell completes the grid?',
       stem: { kind: 'matrix', cells: cells.slice(0, 8) },
-      hint: nv === 1 ? 'Only one feature changes. Find it.' : 'Take one feature at a time (shape, number, shading) and check each row.',
+      hint: nv === 1 ? 'Only one feature changes. Find it.' : diff === 'hard' ? 'Take one feature at a time. For the number of shapes, try adding across each row.' : 'Take one feature at a time (shape, number, shading) and check each row.',
       why: rules.join(' ') + ` So the missing cell has ${describeCell(ans)}.`,
       visual: true,
     };
@@ -1246,6 +1426,16 @@ details.numbers summary { cursor: pointer; color: var(--muted); font-weight: 800
     ['hard', 'compound', ['BOARD', 'NOTE', 'HOLE'], 'KEY', ['BLACK', 'FOOT', 'PORT'], 'Keyboard, keynote, keyhole.'],
     ['hard', 'compound', ['FALL', 'MELON', 'PROOF'], 'WATER', ['RAIN', 'SUN', 'FIRE'], 'Waterfall, watermelon, waterproof.'],
     ['hard', 'compound', ['LIGHT', 'BURN', 'FLOWER'], 'SUN', ['MOON', 'MAY', 'CORN'], 'Sunlight, sunburn, sunflower.'],
+    ['hard', 'analogy', ['Lachrymose', 'Tears', 'Somnolent'], 'Sleep', ['Night', 'Dreams', 'Silence'], 'Lachrymose means inclined to tears; somnolent means inclined to sleep.'],
+    ['hard', 'analogy', ['Myopia', 'Sight', 'Amnesia'], 'Memory', ['Brain', 'Illness', 'Sleep'], 'Myopia is a defect of sight; amnesia is a loss of memory.'],
+    ['hard', 'analogy', ['Carnivore', 'Meat', 'Frugivore'], 'Fruit', ['Plants', 'Insects', 'Seeds'], 'A carnivore eats meat; a frugivore eats fruit.'],
+    ['hard', 'analogy', ['Verbose', 'Concise', 'Opaque'], 'Transparent', ['Murky', 'Dense', 'Hidden'], 'Verbose is the opposite of concise; opaque is the opposite of transparent.'],
+    ['hard', 'analogy', ['Parsimonious', 'Money', 'Taciturn'], 'Words', ['Time', 'Silence', 'Food'], 'A parsimonious person is mean with money; a taciturn person is mean with words.'],
+    ['hard', 'odd', ['Sonnet', 'Haiku', 'Limerick', 'Novella'], 'Novella', [], 'A novella is prose fiction; the rest are forms of poem.'],
+    ['hard', 'odd', ['Equilateral', 'Isosceles', 'Scalene', 'Obtuse'], 'Obtuse', [], 'Obtuse describes a triangle by its angles; the others describe it by its sides.'],
+    ['hard', 'odd', ['Ephemeral', 'Transient', 'Fleeting', 'Perennial'], 'Perennial', [], 'Perennial means lasting; the rest mean short-lived.'],
+    ['hard', 'compound', ['MARK', 'WORM', 'CASE'], 'BOOK', ['BOARD', 'LAND', 'BENCH'], 'Bookmark, bookworm, bookcase.'],
+    ['hard', 'compound', ['LINE', 'SCAPE', 'LORD'], 'LAND', ['SKY', 'SEA', 'WAR'], 'Landline, landscape, landlord.'],
   ];
   function genVerbal(r, diff, avoid) {
     const pool = VERBAL.filter(v => v[0] === diff);
@@ -1294,7 +1484,7 @@ details.numbers summary { cursor: pointer; color: var(--muted); font-weight: 800
     return normP(cells);
   }
   function genSpatial(r, diff) {
-    const n = { easy: 5, medium: 6, hard: 8 }[diff], nOpts = diff === 'hard' ? 5 : 4;
+    const n = { easy: 5, medium: 6, hard: 9 }[diff], nOpts = diff === 'hard' ? 6 : 4;
     for (let tries = 0; ; tries++) {
       const shape = polyomino(r, n, diff === 'hard' ? 4 : 3 + (n > 5 ? 1 : 0));
       const rots = [0, 1, 2, 3].map(k => keyP(turns(shape, k)));
@@ -1356,7 +1546,7 @@ details.numbers summary { cursor: pointer; color: var(--muted); font-weight: 800
 
   /* ---------- Daily Grid: a number-placement puzzle with exactly one solution ---------- */
   // Easy is 6×6 with 2×3 boxes; Medium and Hard are 9×9 with 3×3 boxes and fewer givens.
-  const GRID = { easy: { n: 6, br: 2, bc: 3, givens: 14 }, medium: { n: 9, br: 3, bc: 3, givens: 34 }, hard: { n: 9, br: 3, bc: 3, givens: 26 } };
+  const GRID = { easy: { n: 6, br: 2, bc: 3, givens: 14 }, medium: { n: 9, br: 3, bc: 3, givens: 34 }, hard: { n: 9, br: 3, bc: 3, givens: 23 } };
   function gridPeers(n, br, bc) {
     const peers = [];
     for (let i = 0; i < n * n; i++) {
@@ -1407,7 +1597,315 @@ details.numbers summary { cursor: pointer; color: var(--muted); font-weight: 800
     return { n, br: cfg.br, bc: cfg.bc, diff, puzzle: puzzle.join(''), solution: solution.join(''), peers };
   }
 
-  root.QEngine = { generate, daily, fingerprint, makeGrid, countSolutions, hashStr, CATEGORIES, DIFFS, TARGET, describeCell };
+  root.QEngine = { generate, daily, fingerprint, makeGrid, countSolutions, rng, hashStr, CATEGORIES, DIFFS, TARGET, describeCell };
+})(typeof window !== 'undefined' ? window : globalThis);
+</script>
+
+<script id="challenges">
+/* Challenge of the Day: one deep problem a day, meant to take five minutes or more.
+   Each template draws fresh numbers from the date. Answers are typed, not chosen, and
+   check.mjs confirms every template against an independent method (simulation,
+   brute-force search or numerical integration). */
+(function (root) {
+  'use strict';
+  const g = 9.81;
+  const num = (x, dp = 2) => String(+(+x).toFixed(dp));
+  const deg = x => x * 180 / Math.PI;
+  const sq = x => x * x;
+  const gcd = (a, b) => (b ? gcd(b, a % b) : Math.abs(a));
+  function choose(n, k) { if (k < 0 || k > n) return 0; let c = 1; for (let i = 1; i <= k; i++) c = c * (n - k + i) / i; return Math.round(c); }
+  function powmod(a, b, m) { let r = 1n, x = BigInt(a) % BigInt(m), e = BigInt(b), M = BigInt(m); while (e > 0n) { if (e & 1n) r = r * x % M; x = x * x % M; e >>= 1n; } return Number(r); }
+  function bisect(f, lo, hi, it = 200) { let flo = f(lo); for (let i = 0; i < it; i++) { const mid = (lo + hi) / 2, fm = f(mid); if ((fm > 0) === (flo > 0)) { lo = mid; flo = fm; } else hi = mid; } return (lo + hi) / 2; }
+  function golden(f, lo, hi, it = 200) { const k = (Math.sqrt(5) - 1) / 2; let a = lo, b = hi, c = b - k * (b - a), d = a + k * (b - a); for (let i = 0; i < it; i++) { if (f(c) < f(d)) { b = d; } else { a = c; } c = b - k * (b - a); d = a + k * (b - a); } return (a + b) / 2; }
+  const frac = (p, q) => `${p}/${q}`;
+
+  const T = [
+    /* ---------------- Physics ---------------- */
+    { id: 'cliff', field: 'Physics', gen(r) {
+      const h = r.pick([10, 15, 20, 25, 30, 40, 50, 60, 80]), v = r.int(8, 30);
+      const u = Math.sqrt(v * v + 2 * g * h), th = deg(Math.atan(v / u)), R = v * u / g;
+      return { p: { h, v }, title: 'The cliff-top throw',
+        text: `A ball is thrown from the edge of a cliff ${h} m high at ${v} m/s. Ignoring air resistance (g = 9.81 m/s²), at what angle above the horizontal should it be thrown to land as far as possible from the foot of the cliff?`,
+        hint: 'Calculus optimisation. Write the horizontal distance as a function of the launch angle (the flight time comes from a quadratic), then maximise. There is also an elegant shortcut using the landing speed.',
+        answer: th, unit: '°', dp: 1, tol: { abs: 0.3 },
+        steps: [`It is not 45°: the extra drop rewards a flatter throw.`, `The landing speed is u = √(v² + 2gh) = √(${v}² + 2·9.81·${h}) = ${num(u)} m/s.`, `At the best angle the launch and landing velocities are perpendicular, which gives tan θ = v/u = ${num(v / u, 4)}.`, `θ = ${num(th, 1)}°, and the ball lands ${num(R, 1)} m out.`] };
+    } },
+    { id: 'ladder', field: 'Physics', gen(r) {
+      const L = r.pick([5, 6, 8, 10, 12, 13]), x = +(L * (0.3 + 0.55 * r.f())).toFixed(1), u = r.pick([0.2, 0.3, 0.4, 0.5, 0.6, 0.8, 1]);
+      const y = Math.sqrt(L * L - x * x), vy = x * u / y, vm = u * L / (2 * y);
+      return { p: { L, x, u }, title: 'The sliding ladder',
+        text: `A ${L} m ladder leans against a vertical wall. Its foot is pulled straight away from the wall along the floor at a steady ${u} m/s, so the top slides down the wall. How fast is the midpoint of the ladder moving at the instant the foot is ${x} m from the wall?`,
+        hint: 'Related rates: Pythagoras links the two ends; differentiate it with respect to time. The midpoint has both a horizontal and a vertical velocity.',
+        answer: vm, unit: 'm/s', dp: 3, tol: { rel: 0.01 },
+        steps: [`The top is at height y = √(${L}² − ${x}²) = ${num(y, 3)} m.`, `From x² + y² = L², 2x·dx/dt + 2y·dy/dt = 0, so dy/dt = −(x/y)·u = −${num(vy, 3)} m/s.`, `The midpoint is (x/2, y/2), so its speed is ½√(u² + (dy/dt)²) = u·L/(2y) = ${num(vm, 3)} m/s.`, `Fun fact: the midpoint travels along a circle of radius L/2 around the corner.`] };
+    } },
+    { id: 'river', field: 'Physics', gen(r) {
+      const w = r.pick([50, 60, 80, 100, 120, 150, 200]), c = r.pick([2, 2.5, 3, 3.5, 4]);
+      const b = r.pick([1, 1.2, 1.5, 1.8, 2, 2.4, 3].filter(x => x <= c - 0.5));
+      const drift = w * Math.sqrt(c * c - b * b) / b, phi = deg(Math.asin(b / c));
+      return { p: { w, c, b }, title: 'The slow boat',
+        text: `A river ${w} m wide flows at ${c} m/s. Your boat moves at only ${b} m/s relative to the water, so you cannot avoid being carried downstream. You can point the boat in any direction. What is the shortest possible distance downstream from your starting point at which you can land on the far bank?`,
+        hint: 'Vectors and optimisation. Write the drift as a function of the heading angle and minimise it, or draw the boat-speed circle on the tip of the current vector and find the tangent.',
+        answer: drift, unit: 'm', dp: 1, tol: { rel: 0.01 },
+        steps: [`Point the boat at angle φ upstream from straight across. Ground velocity: (${c} − ${b} sin φ) downstream, ${b} cos φ across.`, `Drift = ${w}·(${c} − ${b} sin φ)/(${b} cos φ). Setting its derivative to zero gives sin φ = b/c = ${num(b / c, 3)}, so φ = ${num(phi, 1)}°.`, `Minimum drift = w·√(c² − b²)/b = ${num(drift, 1)} m.`] };
+    } },
+    { id: 'dome', field: 'Physics', gen(r) {
+      const R = r.pick([0.5, 0.8, 1, 1.5, 2, 2.5, 3, 4, 5, 6]), v0 = r.pick([0, 0.5, 1, 1.5, 2, 2.5, 3].filter(v => v * v < 0.8 * g * R));
+      const h = (v0 * v0 / g + 2 * R) / 3;
+      return { p: { R, v0 }, title: 'Off the dome',
+        text: `A small block sits on top of a smooth, frictionless hemisphere of radius ${R} m, fixed with its flat face on the ground. The block is given a horizontal push of ${v0} m/s and slides down the curved surface. At what height above the ground does it lose contact with the hemisphere? (g = 9.81 m/s²)`,
+        hint: 'Energy conservation plus circular motion. The block leaves when the normal force drops to zero, that is when gravity alone provides exactly the centripetal force.',
+        answer: h, unit: 'm', dp: 3, tol: { rel: 0.005 },
+        steps: [`At angle θ from the top, height h = R cos θ and v² = v₀² + 2g(R − h).`, `Contact is lost when g cos θ = v²/R, i.e. g·h/R = (v₀² + 2gR − 2gh)/R.`, `So 3gh = v₀² + 2gR and h = (v₀²/g + 2R)/3 = ${num(h, 3)} m.`] };
+    } },
+    { id: 'balls', field: 'Physics', gen(r) {
+      const M = r.pick([0.4, 0.45, 0.5, 0.6, 0.62, 0.8]), m = r.pick([0.04, 0.05, 0.057, 0.06, 0.08, 0.1]), h = r.pick([0.8, 1, 1.2, 1.5, 2, 2.5]);
+      const k = (3 * M - m) / (M + m), H = h * k * k;
+      return { p: { M, m, h }, title: 'The stacked-ball bounce',
+        text: `A small ball (${m} kg) rests on top of a large ball (${M} kg) and the pair is dropped from ${h} m onto a hard floor. Treat the balls as tiny compared with the drop, all collisions as perfectly elastic, and assume the big ball bounces off the floor an instant before the small ball hits it. How high does the small ball rise above the point where they collide?`,
+        hint: 'Momentum and energy conservation for an elastic collision. It is easiest in the big ball\'s frame of reference.',
+        answer: H, unit: 'm', dp: 2, tol: { rel: 0.01 },
+        steps: [`Both hit at v = √(2gh). The big ball rebounds at +v and meets the small ball still moving at −v.`, `Elastic collision: the small ball leaves at v' = v(3M − m)/(M + m) = ${num(k, 3)}v.`, `Height scales with speed squared: H = h·(${num(k, 3)})² = ${num(H, 2)} m.`] };
+    } },
+    { id: 'ladder-net', field: 'Physics', gen(r) {
+      const R1 = r.int(1, 10), R2 = r.int(2, 20);
+      const R = (R1 + Math.sqrt(R1 * R1 + 4 * R1 * R2)) / 2;
+      return { p: { R1, R2 }, title: 'The endless ladder',
+        text: `An infinitely long ladder of resistors is built like this: from the input terminals, a ${R1} Ω resistor runs along the top rail, then a ${R2} Ω resistor drops to the bottom rail, then another ${R1} Ω along the top, another ${R2} Ω down, and so on forever. The bottom rail is a plain wire. What resistance is measured between the two input terminals?`,
+        hint: 'Self-similarity. Adding one more section to an infinite ladder doesn\'t change it, which gives a quadratic for the total resistance.',
+        answer: R, unit: 'Ω', dp: 3, tol: { rel: 0.003 },
+        steps: [`Call the answer R. The network is R1 in series with (R2 in parallel with the rest of the ladder), and the rest is also R.`, `R = R1 + R2·R/(R2 + R) → R² − R1·R − R1·R2 = 0.`, `R = (R1 + √(R1² + 4R1R2))/2 = ${num(R, 3)} Ω.`] };
+    } },
+    { id: 'loop', field: 'Physics', gen(r) {
+      const shapes = [['solid ball', 2 / 5, '2/5'], ['hollow ball', 2 / 3, '2/3'], ['solid cylinder', 1 / 2, '1/2'], ['thin hoop', 1, '1']];
+      const [name, k, kt] = r.pick(shapes), rad = r.pick([0.2, 0.25, 0.3, 0.35, 0.4, 0.5, 0.6, 0.75, 0.8, 1, 1.2, 1.5, 1.8, 2, 2.5]);
+      const h = 2 * rad + (1 + k) * rad / 2;
+      return { p: { k, rad }, title: 'Loop the loop',
+        text: `A ${name} rolls without slipping, from rest, down a track and into a vertical loop of radius ${rad} m. Treat the object as small compared with the loop. What is the minimum starting height, measured from the bottom of the loop, for it to stay on the track all the way round?`,
+        hint: 'Energy conservation including rotational kinetic energy (moment of inertia), plus the condition for just staying on the track at the top of the loop.',
+        answer: h, unit: 'm', dp: 3, tol: { rel: 0.005 },
+        steps: [`At the top the track just stops pushing, so g = v²/r and v² = g·r.`, `A rolling ${name} has I = ${kt}·m·radius², so its kinetic energy is ½(1 + ${kt})mv².`, `Energy: g·h = g·2r + ½(1 + ${kt})·g·r → h = 2r + (1 + ${kt})r/2 = ${num(h, 3)} m.`, `Rotation makes it harder: a sliding block would only need 2.5r.`] };
+    } },
+    { id: 'orbit', field: 'Physics', gen(r) {
+      const Mm = r.pick([0.4, 0.6, 0.8, 1.5, 2, 3, 5]), Rr = r.pick([0.7, 0.9, 1.1, 1.3, 1.6, 2]), hrs = r.int(10, 40);
+      const G = 6.674e-11, M = Mm * 5.972e24, R = Rr * 6371, Tsec = hrs * 3600;
+      const rad = Math.cbrt(G * M * Tsec * Tsec / (4 * Math.PI * Math.PI)) / 1000, alt = rad - R;
+      const ms = M.toExponential(2).replace('e+', ' × 10^');
+      return { p: { M, R, Tsec }, title: 'A stationary satellite',
+        text: `A planet has mass ${ms} kg, radius ${Math.round(R)} km and spins once every ${hrs} hours. At what altitude above its surface must a satellite orbit (in a circle above the equator) so that it stays above the same spot? Use G = 6.674 × 10⁻¹¹ N·m²/kg².`,
+        hint: 'Newton\'s law of gravitation set equal to the centripetal force, which leads to Kepler\'s third law. Mind the units: hours to seconds, metres to kilometres.',
+        answer: alt, unit: 'km', dp: 0, tol: { rel: 0.01 },
+        steps: [`The orbit period must equal the day: T = ${Tsec} s.`, `GMm/r² = mω²r with ω = 2π/T gives r³ = GMT²/(4π²), so r = ${num(rad, 0)} km from the centre.`, `Altitude = r − R = ${num(rad, 0)} − ${Math.round(R)} = ${num(alt, 0)} km.`] };
+    } },
+    { id: 'ice', field: 'Physics', gen(r) {
+      const cw = 4.18, ci = 2.09, Lf = 334;
+      for (;;) {
+        const mw = r.pick([200, 250, 300, 400, 500]), Tw = r.int(50, 90), mi = r.pick([20, 30, 40, 50, 60, 80, 100]), Ti = r.pick([0, -5, -10, -15, -20]);
+        const need = mi * (ci * -Ti + Lf), have = mw * cw * Tw;
+        if (have <= need * 1.15) continue;
+        const Tf = (have - need) / (cw * (mw + mi));
+        return { p: { mw, Tw, mi, Ti }, title: 'Ice in the mug',
+          text: `${mi} g of ice at ${Ti} °C is dropped into ${mw} g of water at ${Tw} °C in an insulated cup. What is the final temperature once everything has settled? Use: water 4.18 J/(g·°C), ice 2.09 J/(g·°C), latent heat of melting 334 J/g. Ignore the cup.`,
+          hint: 'A heat balance. First check whether the water has enough heat to warm the ice to 0 °C and melt it all, then share out what is left over.',
+          answer: Tf, unit: '°C', dp: 1, tol: { abs: 0.2 },
+          steps: [`Warm the ice to 0 °C: ${mi}·2.09·${-Ti} = ${num(mi * ci * -Ti, 0)} J. Melt it: ${mi}·334 = ${mi * Lf} J. Total ${num(need, 0)} J.`, `Cooling the water to 0 °C would release ${mw}·4.18·${Tw} = ${num(have, 0)} J, which is more, so all the ice melts.`, `The remaining ${num(have - need, 0)} J warms all ${mw + mi} g of water: T = ${num(have - need, 0)}/(4.18·${mw + mi}) = ${num(Tf, 1)} °C.`] };
+      }
+    } },
+    { id: 'lifeguard', field: 'Physics', gen(r) {
+      const a = r.int(10, 50), b = r.int(10, 50), d = r.int(30, 120), v1 = r.pick([5, 6, 7, 8]), v2 = r.pick([1, 1.2, 1.5, 2]);
+      const T = x => Math.hypot(a, x) / v1 + Math.hypot(b, d - x) / v2;
+      const x = golden(T, 0, d);
+      return { p: { a, b, d, v1, v2 }, title: 'The lifeguard\'s dash',
+        text: `A lifeguard stands ${a} m back from a straight shoreline. A swimmer in trouble is ${b} m out from the shore and ${d} m further along it. The lifeguard runs at ${v1} m/s on sand and swims at ${v2} m/s. To reach the swimmer as fast as possible, how far along the shore from the point directly in front of them should the lifeguard enter the water?`,
+        hint: 'Calculus optimisation: total time T(x) = √(a² + x²)/v₁ + √(b² + (d − x)²)/v₂. Setting T\'(x) = 0 gives Snell\'s law of refraction. The equation has no neat closed form, so solve it numerically.',
+        answer: x, unit: 'm', dp: 1, tol: { abs: 0.3 },
+        steps: [`T'(x) = 0 gives sin(angle on sand)/v₁ = sin(angle in water)/v₂, exactly how light bends between materials.`, `Solving numerically: x = ${num(x, 1)} m along the shore.`, `The fastest route takes ${num(T(x), 1)} s, compared with ${num(T(d * a / (a + b)), 1)} s for the straight-line route.`] };
+    } },
+    { id: 'chain', field: 'Physics', gen(r) {
+      const L = r.pick([0.8, 1, 1.2, 1.5, 2, 2.5, 3, 3.5, 4, 5]), f = r.pick([0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.5]), x0 = +(L * f).toFixed(2);
+      const v = Math.sqrt(g * (L * L - x0 * x0) / L);
+      return { p: { L, x0 }, title: 'The slipping chain',
+        text: `A uniform chain ${L} m long lies straight on a smooth (frictionless) table, at right angles to the edge, with ${x0} m of it hanging over. It is released from rest. How fast is the chain moving at the moment its last link leaves the table? (g = 9.81 m/s²)`,
+        hint: 'Energy conservation: track the height of the centre of mass of the hanging part. Alternatively, solve the differential equation x\'\' = (g/L)·x.',
+        answer: v, unit: 'm/s', dp: 2, tol: { rel: 0.01 },
+        steps: [`At the start the hanging part (fraction x₀/L of the mass) has its centre x₀/2 below the table. At the end the whole chain hangs with its centre L/2 below.`, `Energy released = Mg(L² − x₀²)/(2L) = ½Mv².`, `v = √(g(L² − x₀²)/L) = ${num(v, 2)} m/s.`] };
+    } },
+    { id: 'spring', field: 'Physics', gen(r) {
+      const m = r.pick([0.5, 1, 2, 3, 5]), h = r.pick([0.2, 0.5, 1, 1.5, 2]), k = r.pick([200, 400, 500, 800, 1000, 1500, 2000]);
+      const x = (m * g + Math.sqrt(sq(m * g) + 2 * k * m * g * h)) / k;
+      return { p: { m, h, k }, title: 'Dropped on a spring',
+        text: `A ${m} kg block is dropped from rest ${h} m above the top of a vertical spring (spring constant ${k} N/m) standing on the floor. It lands on the spring and compresses it. What is the maximum compression, in centimetres? Ignore the spring's mass and air resistance. (g = 9.81 m/s²)`,
+        hint: 'Energy conservation, measuring heights from the lowest point. Gravity keeps doing work during the compression, which gives a quadratic equation.',
+        answer: x * 100, unit: 'cm', dp: 1, tol: { rel: 0.01 },
+        steps: [`At maximum compression x the block is momentarily still. It has fallen h + x in total.`, `mg(h + x) = ½kx² → ½kx² − mgx − mgh = 0.`, `x = (mg + √((mg)² + 2kmgh))/k = ${num(x, 4)} m = ${num(x * 100, 1)} cm.`] };
+    } },
+    { id: 'tank', field: 'Physics', gen(r) {
+      const H = r.pick([0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 5]), ratio = r.pick([50, 100, 150, 200, 250, 400, 500, 800, 1000]);
+      const t = ratio * Math.sqrt(2 * H / g);
+      return { p: { H, ratio }, title: 'The draining tank',
+        text: `An open cylindrical tank holds water ${H} m deep. A small hole in the bottom has an area 1/${ratio} of the tank's cross-section. Water leaves the hole at Torricelli's speed √(2gy), where y is the current depth. How long does the tank take to empty completely, in seconds? (g = 9.81 m/s²)`,
+        hint: 'A separable differential equation: the rate the level falls equals (hole area/tank area) × outflow speed.',
+        answer: t, unit: 's', dp: 0, tol: { rel: 0.01 },
+        steps: [`A·dy/dt = −a·√(2gy), so dy/√y = −(a/A)√(2g)·dt.`, `Integrate from y = H down to 0: 2√H = (a/A)√(2g)·t.`, `t = (A/a)·√(2H/g) = ${ratio}·√(${2 * H}/9.81) = ${num(t, 0)} s, about ${num(t / 60, 1)} minutes.`] };
+    } },
+
+    /* ---------------- Probability ---------------- */
+    { id: 'doors', field: 'Probability', gen(r) {
+      const n = r.int(4, 20), k = r.int(1, n - 2);
+      const P = (n - 1) / (n * (n - k - 1)) * 100;
+      return { p: { n, k }, title: 'Many doors',
+        text: `A game show has ${n} doors: a car behind one and goats behind the rest. You pick a door. The host, who knows where the car is, then opens ${k} of the other doors, always revealing goats. You switch to one of the other unopened doors (not your original one), chosen at random. What is your chance of winning the car, as a percentage?`,
+        hint: 'Conditional probability. Your first pick is right with probability 1/n, and the host\'s reveal doesn\'t change that. Share the rest out over the doors you could switch to.',
+        answer: P, unit: '%', dp: 1, tol: { abs: 0.15 },
+        steps: [`Your first door hides the car with probability 1/${n}, so the car is elsewhere with probability ${n - 1}/${n}.`, `After the host opens ${k} goat doors, ${n - k - 1} doors are left to switch to, and the car is equally likely to be behind any of them.`, `P(win) = (${n - 1}/${n}) × 1/${n - k - 1} = ${num(P, 1)}%.`] };
+    } },
+    { id: 'coupon', field: 'Probability', gen(r) {
+      const n = r.int(4, 20), m = r.chance(0.4) ? n : r.int(Math.ceil(n / 2), n - 1);
+      let E = 0; for (let i = 0; i < m; i++) E += n / (n - i);
+      const all = m === n;
+      return { p: { n, m }, title: all ? 'Every face' : 'Most of the faces',
+        text: all ? `You roll a fair ${n}-sided die over and over until every face has appeared at least once. On average, how many rolls does this take?` : `You roll a fair ${n}-sided die over and over until ${m} different faces have appeared. On average, how many rolls does this take?`,
+        hint: 'Expected value and linearity. Split the process into stages: once you have seen i different faces, how many rolls does the next new face take on average?',
+        answer: E, unit: 'rolls', dp: 2, tol: { rel: 0.005 },
+        steps: [`With i faces seen, a new face turns up with probability (${n} − i)/${n}, so it takes ${n}/(${n} − i) rolls on average.`, `Add up the stages for i = 0 to ${m - 1}: ${n}/${n} + ${n}/${n - 1} + … + ${n}/${n - m + 1}.`, `= ${num(E, 2)} rolls.`] };
+    } },
+    { id: 'streak', field: 'Probability', gen(r) {
+      const k = r.int(2, 8), [pn, pd] = r.pick([[1, 2], [2, 3], [1, 3], [3, 5], [2, 5], [3, 4], [1, 4], [4, 5], [5, 6]].filter(([a, b]) => (1 - (a / b) ** k) / ((1 - a / b) * (a / b) ** k) < 5000)), p = pn / pd;
+      const E = (1 - p ** k) / ((1 - p) * p ** k);
+      return { p: { k, p }, title: 'Heads in a row',
+        text: `A coin lands heads with probability ${frac(pn, pd)}. You flip it until you get ${k} heads in a row. What is the expected number of flips?`,
+        hint: 'Set up a recurrence on your current streak length (a Markov chain): from each streak, one flip either extends it or resets you to zero.',
+        answer: E, unit: 'flips', dp: 2, tol: { rel: 0.005 },
+        steps: [`Let Eᵢ be the expected flips still needed with a streak of i. Then Eᵢ = 1 + p·Eᵢ₊₁ + (1 − p)·E₀, with E${k} = 0.`, `Solving the chain gives E₀ = (1 − p^${k})/((1 − p)·p^${k}).`, `With p = ${frac(pn, pd)}: E = ${num(E, 2)} flips.`] };
+    } },
+    { id: 'ruin', field: 'Probability', gen(r) {
+      const a = r.int(3, 8), N = a + r.int(3, 10), p = r.pick([0.45, 0.47, 0.48, 0.52, 0.55]), q = 1 - p, rho = q / p;
+      const P = (1 - rho ** a) / (1 - rho ** N) * 100;
+      return { p: { a, N, p }, title: 'Walking away a winner',
+        text: `You start with $${a} and keep betting $1 at a time on a game you win with probability ${p} (otherwise you lose the dollar). You stop as soon as you reach $${N} or go broke. What is the probability, as a percentage, that you reach $${N}?`,
+        hint: 'A recurrence relation: the chance of success from $i is p × (chance from $i+1) + q × (chance from $i−1). It solves like a geometric series in q/p.',
+        answer: P, unit: '%', dp: 1, tol: { abs: 0.15 },
+        steps: [`Let Pᵢ be the chance of reaching $${N} from $i: Pᵢ = ${p}·Pᵢ₊₁ + ${num(q, 2)}·Pᵢ₋₁, with P₀ = 0 and P${N} = 1.`, `The solution is Pᵢ = (1 − ρⁱ)/(1 − ρ^${N}) with ρ = q/p = ${num(rho, 4)}.`, `P${a} = ${num(P, 1)}%.`] };
+    } },
+    { id: 'ballot', field: 'Probability', gen(r) {
+      const a = r.int(6, 20), b = r.int(2, a - 1);
+      return { p: { a, b }, title: 'Ahead all night',
+        text: `In an election, candidate A gets ${a} votes and candidate B gets ${b}. The ballots are counted one at a time in a random order. What is the probability, as a percentage, that A is strictly ahead of B after every single ballot is counted, from the first to the last?`,
+        hint: 'Bertrand\'s ballot theorem. Or count the bad orderings with the reflection principle on lattice paths.',
+        answer: (a - b) / (a + b) * 100, unit: '%', dp: 1, tol: { abs: 0.15 },
+        steps: [`Picture the count as a path that steps up for A and down for B. A must stay strictly above zero throughout.`, `Reflection principle: the bad paths are those starting with a B vote, plus those that touch zero later, and these two groups are equal in number.`, `P = (a − b)/(a + b) = ${a - b}/${a + b} = ${num((a - b) / (a + b) * 100, 1)}%.`] };
+    } },
+
+    /* ---------------- Geometry ---------------- */
+    { id: 'goat', field: 'Geometry', gen(r) {
+      const R = r.pick([10, 15, 20, 25, 30, 35, 40, 45, 50, 60]), [fn, fd] = r.pick([[1, 5], [1, 4], [1, 3], [1, 2], [2, 3], [3, 4]]);
+      const A = x => x * x * Math.acos(x / (2 * R)) + R * R * Math.acos(1 - x * x / (2 * R * R)) - 0.5 * x * Math.sqrt(4 * R * R - x * x);
+      const target = fn / fd * Math.PI * R * R, rope = bisect(x => A(x) - target, 0, 2 * R);
+      return { p: { R, f: fn / fd }, title: 'The grazing goat',
+        text: `A goat is tied to a post on the fence of a circular field of radius ${R} m (the post is on the boundary). How long must its rope be for it to graze exactly ${frac(fn, fd)} of the field's area? Ignore anything outside the field.`,
+        hint: 'Geometry of two overlapping circles. Use the lens-area formula for circles of radius R and r whose centres are R apart, then solve the equation numerically (bisection or Newton). There is no neat closed form.',
+        answer: rope, unit: 'm', dp: 2, tol: { rel: 0.003 },
+        steps: [`The grazed region is the overlap of the field (radius R) and the rope circle (radius r, centred on the fence).`, `Overlap area A(r) = r²·acos(r/2R) + R²·acos(1 − r²/2R²) − ½·r·√(4R² − r²).`, `Solve A(r) = ${frac(fn, fd)}·πR² numerically: r = ${num(rope, 2)} m, which is ${num(rope / R, 4)} times the field's radius.`] };
+    } },
+    { id: 'alley', field: 'Geometry', gen(r) {
+      const a = r.int(8, 15), b = a + r.int(2, 8), w0 = +(2 + r.f() * (a - 4)).toFixed(1);
+      const x = Math.sqrt(a * a - w0 * w0), y = Math.sqrt(b * b - w0 * w0), h = +(x * y / (x + y)).toFixed(2);
+      const w = bisect(W => 1 / Math.sqrt(a * a - W * W) + 1 / Math.sqrt(b * b - W * W) - 1 / h, 0.01, a - 1e-6);
+      return { p: { a, b, h }, title: 'The crossed ladders',
+        text: `Two ladders lean across an alley between two vertical walls. One is ${a} m long: its foot is at the base of the left wall and its top rests on the right wall. The other is ${b} m long: its foot is at the base of the right wall and its top rests on the left wall. They cross at a point ${h} m above the ground. How wide is the alley?`,
+        hint: 'Similar triangles give 1/h = 1/x + 1/y, where x and y are the heights the ladders reach. Combine that with Pythagoras for each ladder and solve the resulting equation numerically.',
+        answer: w, unit: 'm', dp: 2, tol: { rel: 0.005 },
+        steps: [`If the alley is w wide, the ladders reach heights x = √(${a}² − w²) and y = √(${b}² − w²).`, `Similar triangles: the crossing height satisfies 1/h = 1/x + 1/y.`, `Solve 1/√(${a * a} − w²) + 1/√(${b * b} − w²) = 1/${h} numerically: w = ${num(w, 2)} m.`] };
+    } },
+    { id: 'clock', field: 'Logic', gen(r) {
+      for (;;) {
+        const h = r.int(1, 11), th = r.pick([30, 45, 60, 75, 90, 100, 120, 135, 150, 165, 180]);
+        if (Math.min(30 * h, 360 - 30 * h) === th) continue; // already true on the hour: ambiguous
+        let best = null;
+        for (const sgn of [1, -1]) for (let k = -2; k <= 2; k++) {
+          const m = (30 * h + sgn * th + 360 * k) / 5.5;
+          if (m > 1e-9 && m < 60 && (best === null || m < best)) best = m;
+        }
+        if (best === null) continue;
+        return { p: { h, th }, title: 'Hands apart',
+          text: `After ${h}:00, when do the hour and minute hands of a clock first form an angle of exactly ${th}°? Give the number of minutes past ${h} o'clock, to two decimal places.`,
+          hint: 'Relative angular speed: the minute hand turns 6° a minute and the hour hand 0.5°, so the gap changes by 5.5° a minute. Watch for the case where the minute hand passes the hour hand first.',
+          answer: best, unit: 'minutes past', dp: 2, tol: { abs: 0.02 },
+          steps: [`At ${h}:00 the hour hand leads by ${30 * h}°. The minute hand gains 5.5° per minute.`, `The angle is ${th}° when 5.5m = ${30 * h} ± ${th} (plus or minus whole turns of 360°).`, `The first such time after ${h}:00 is m = ${num(best, 2)} minutes.`] };
+      }
+    } },
+
+    /* ---------------- Combinatorics and number theory ---------------- */
+    { id: 'paths', field: 'Combinatorics', gen(r) {
+      for (;;) {
+        const W = r.int(5, 8), H = r.int(4, 7);
+        const x1 = r.int(1, W - 1), y1 = r.int(1, H - 1), x2 = r.int(1, W - 1), y2 = r.int(1, H - 1);
+        if (x1 === x2 && y1 === y2) continue;
+        const P = (x, y) => (x < 0 || y < 0 ? 0 : choose(x + y, x));
+        const tot = P(W, H), t1 = P(x1, y1) * P(W - x1, H - y1), t2 = P(x2, y2) * P(W - x2, H - y2);
+        const [ax, ay, bx, by] = x1 <= x2 && y1 <= y2 ? [x1, y1, x2, y2] : [x2, y2, x1, y1];
+        const both = ax <= bx && ay <= by ? P(ax, ay) * P(bx - ax, by - ay) * P(W - bx, H - by) : 0;
+        const ans = tot - t1 - t2 + both;
+        if (ans <= 0) continue;
+        return { p: { W, H, x1, y1, x2, y2 }, title: 'Roadworks',
+          text: `A city grid is ${W} blocks wide and ${H} blocks tall. You walk from the bottom-left corner to the top-right corner, always moving either right or up along the streets. Two intersections are closed: one ${x1} blocks right and ${y1} up from the start, the other ${x2} right and ${y2} up. How many different routes avoid both closed intersections?`,
+          hint: 'Combinatorics. Count lattice paths with binomial coefficients, then subtract the routes through each closed corner, adding back the routes through both (inclusion–exclusion).',
+          answer: ans, unit: 'routes', dp: 0, tol: { abs: 0 },
+          steps: [`All routes: C(${W + H}, ${W}) = ${tot}.`, `Through the first closure: C(${x1 + y1}, ${x1}) × C(${W - x1 + H - y1}, ${W - x1}) = ${t1}. Through the second: ${t2}.`, `Through both (only possible if one is up-and-right of the other): ${both}.`, `Routes avoiding both: ${tot} − ${t1} − ${t2} + ${both} = ${ans}.`] };
+      }
+    } },
+    { id: 'digits', field: 'Number theory', gen(r) {
+      let a; do { a = r.int(3, 97); } while (a % 10 === 0);
+      const b = r.int(100000, 999999999), ans = powmod(a, b, 100), r4 = powmod(a, b, 4), r25 = powmod(a, b, 25);
+      return { p: { a, b }, title: 'The last two digits',
+        text: `What are the last two digits of ${a}^${b}? Give your answer as a number from 0 to 99 (so if it ends …07, type 7).`,
+        hint: 'Modular arithmetic. Work mod 4 and mod 25 separately (Euler\'s theorem, with φ(25) = 20, cuts the huge exponent down), then combine the two with the Chinese remainder theorem.',
+        answer: ans, unit: '', dp: 0, tol: { abs: 0 },
+        steps: [`Mod 4: ${a}^${b} ≡ ${r4}.`, gcd(a, 5) === 1 ? `Mod 25: since ${a} shares no factor with 25, exponents repeat every 20; ${b} mod 20 = ${b % 20}, so ${a}^${b} ≡ ${a}^${b % 20} ≡ ${r25}.` : `Mod 25: ${a} is a multiple of 5, so any power from the 2nd up is ≡ 0.`, `The only number from 0 to 99 that is ≡ ${r4} mod 4 and ≡ ${r25} mod 25 is ${ans}.`] };
+    } },
+    { id: 'escalator', field: 'Logic', gen(r) {
+      for (;;) {
+        const s2 = r.pick([2, 3]), e = r.pick([0.5, 1, 1.5, 2, 3]), N = r.int(30, 200);
+        const a = N / (1 + e), b = N * s2 / (s2 + e);
+        if (!Number.isInteger(a) || !Number.isInteger(b) || a === b) continue;
+        return { p: { a, b, s2 }, title: 'The moving staircase',
+          text: `You walk up an escalator that is also moving up. Walking at 1 step per second, you step on ${a} steps to reach the top. The next day you walk at ${s2} steps per second and step on ${b} steps. How many steps are visible on the escalator, from bottom to top?`,
+          hint: 'Set up two equations in two unknowns, the number of visible steps and the escalator\'s speed, one for each trip.',
+          answer: N, unit: 'steps', dp: 0, tol: { abs: 0 },
+          steps: [`Let N be the visible steps and e the escalator's speed in steps per second. Trip 1 takes ${a} s, trip 2 takes ${b}/${s2} s.`, `N = ${a} + e·${a} and N = ${b} + e·${b}/${s2}.`, `Subtracting gives e = ${num(e, 2)} steps/s, so N = ${a}·(1 + ${num(e, 2)}) = ${N}.`] };
+      }
+    } },
+  ];
+
+  // One template per day in a fixed shuffled order; the numbers come from the date itself.
+  function forDay(dayIndex, keyAt, E) {
+    const order = E.rng(E.hashStr('challenge-order')).shuffle(T.map((_, i) => i));
+    const slot = ((dayIndex % T.length) + T.length) % T.length, t = T[order[slot]];
+    const seen = new Set();
+    let c = null;
+    for (let d = slot; d <= Math.max(slot, dayIndex); d += T.length) {
+      for (let k = 0; k < 40; k++) {
+        c = t.gen(E.rng(E.hashStr('challenge:' + keyAt(d) + (k ? ':' + k : ''))));
+        if (!seen.has(c.text)) break;
+      }
+      seen.add(c.text);
+    }
+    return Object.assign({ id: t.id, field: t.field }, c);
+  }
+  // Accepts plain numbers, commas, a leading/trailing unit, fractions (3/4) and percentages.
+  function parse(text) {
+    const s = String(text).replace(/,/g, '').replace(/[−–]/g, '-').trim();
+    const f = s.match(/^\s*(-?\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)/);
+    if (f) return Number(f[1]) / Number(f[2]);
+    const m = s.match(/-?\d*\.?\d+(?:e-?\d+)?/i);
+    return m ? Number(m[0]) : NaN;
+  }
+  function isRight(c, value) {
+    if (!isFinite(value)) return false;
+    if (c.tol.rel !== undefined) return Math.abs(value - c.answer) <= c.tol.rel * Math.abs(c.answer) + 1e-9;
+    return Math.abs(value - c.answer) <= c.tol.abs + 1e-9;
+  }
+  root.QChallenges = { T, forDay, parse, isRight, num };
 })(typeof window !== 'undefined' ? window : globalThis);
 </script>
 
@@ -1568,7 +2066,7 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
   /* ---------- state + storage ---------- */
   // log rows: [time, catIndex, diffIndex, correct, seconds, usedHint, mode (0 daily, 1 practice), scoreAfter, catScoreAfter]
   const LS = 'quotient.v1';
-  const blank = () => ({ v: 1, updatedAt: 0, daily: {}, words: {}, cats: {}, diffs: {}, best: 0, xp: 0, R: 1000, rc: {}, n: 0, log: [], base: null, workouts: {}, bests: {}, tests: [], grids: {}, gridProg: {}, xpWeek: {},
+  const blank = () => ({ v: 1, updatedAt: 0, daily: {}, words: {}, cats: {}, diffs: {}, best: 0, xp: 0, R: 1000, rc: {}, n: 0, log: [], base: null, workouts: {}, bests: {}, tests: [], grids: {}, gridProg: {}, challenges: {}, xpWeek: {},
     prefs: { diff: 'medium', cat: 'all', sound: true } });
   const hydrate = s => { const b = blank(); const out = Object.assign(b, s); out.prefs = Object.assign(blank().prefs, s.prefs || {}); return out; };
   let state = blank();
@@ -1972,10 +2470,11 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
     const host = $('view-daily');
     host.textContent = '';
     if (dailySheet) dailySheet.stop();
-    const kHost = el('div', ''), qHost = el('div', ''), gHost = el('div', ''), wHost = el('div', ''), bHost = el('div', '');
-    [qHost, gHost, wHost, bHost].forEach(h => { h.style.marginTop = '22px'; });
-    host.append(kHost, qHost, gHost, wHost, bHost);
+    const kHost = el('div', ''), qHost = el('div', ''), gHost = el('div', ''), cHost = el('div', ''), wHost = el('div', ''), bHost = el('div', '');
+    [qHost, gHost, cHost, wHost, bHost].forEach(h => { h.style.marginTop = '22px'; });
+    host.append(kHost, qHost, gHost, cHost, wHost, bHost);
     renderGridCard(gHost);
+    renderChallenge(cHost);
     board.mount(bHost);
     workoutCard(kHost);
     const q = dailyQuestion();
@@ -2027,6 +2526,7 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
     for (const k of Object.keys(state.words)) if (k < cutoff) delete state.words[k];
     for (const k of Object.keys(state.workouts)) if (k < cutoff) delete state.workouts[k];
     for (const k of Object.keys(state.grids)) if (k < cutoff) delete state.grids[k];
+    for (const k of Object.keys(state.challenges)) if (k < cutoff) delete state.challenges[k];
     for (const k of Object.keys(state.gridProg)) if (k.slice(0, 10) < dkey(addDays(parseKey(todayKey), -2))) delete state.gridProg[k];
   }
 
@@ -2162,6 +2662,13 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
         SFX.tap();
       }, 650);
     });
+  }
+  // Briefly colours the button that was pressed, so every tap is visibly counted.
+  function tapFlash(b, ok) {
+    b.classList.remove('tap-good', 'tap-bad'); void b.offsetWidth;
+    b.classList.add(ok ? 'tap-good' : 'tap-bad');
+    clearTimeout(b._flash);
+    b._flash = setTimeout(() => b.classList.remove('tap-good', 'tap-bad'), 180);
   }
   function countdownBar(body) {
     const cd = el('div', 'countdown'), bar = el('i');
@@ -2364,25 +2871,35 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
       t0 = performance.now();
       api.iv = setInterval(tick, 100);
     }
+    let shown = 0;
     function next() {
-      const word = rnd(0, 3);
-      let ink = word;
-      if (Math.random() < tricky) while (ink === word) ink = rnd(0, 3);
-      const rule = flips && Math.random() < 0.3 ? 'word' : 'ink';
-      trial = { word, ink, want: rule === 'ink' ? ink : word };
+      // Never show the exact same word, ink and rule twice running: it would look as if the tap did nothing.
+      let word, ink, rule;
+      do {
+        word = rnd(0, 3);
+        ink = word;
+        if (Math.random() < tricky) while (ink === word) ink = rnd(0, 3);
+        rule = flips && Math.random() < 0.3 ? 'word' : 'ink';
+      } while (trial && word === trial.word && ink === trial.ink && rule === trial.rule);
+      trial = { word, ink, rule, want: rule === 'ink' ? ink : word };
       ruleEl.textContent = rule === 'ink' ? 'Tap the INK colour' : 'Tap the WORD';
       ruleEl.className = 'stroop-rule' + (rule === 'word' ? ' word' : '');
+      // A short blank between words, so every new word visibly arrives.
+      wordEl.style.visibility = 'hidden';
+      clearTimeout(shown);
+      shown = setTimeout(() => { wordEl.style.visibility = ''; }, 90);
       wordEl.textContent = INKS[word][0].toUpperCase();
       wordEl.style.color = `var(${INKS[ink][1]})`;
-      wordEl.classList.remove('flash-good'); void wordEl.offsetWidth;
       sc.textContent = '';
       const a = el('span', ''); a.appendChild(el('b', '', String(right))); a.appendChild(document.createTextNode(' right'));
       sc.appendChild(a);
     }
     function answer(i) {
       if (over || !trial) return;
-      if (i === trial.want) { right++; tone(820, .05, 'triangle', 0, .07); wordEl.classList.add('flash-good'); }
-      else { wrong++; tone(200, .12, 'sawtooth', 0, .04); btns[i].classList.remove('wrong'); void btns[i].offsetWidth; btns[i].style.animation = 'shake .3s'; setTimeout(() => { btns[i].style.animation = ''; }, 320); }
+      const ok = i === trial.want;
+      if (ok) { right++; tone(820, .05, 'triangle', 0, .07); }
+      else { wrong++; tone(200, .12, 'sawtooth', 0, .04); btns[i].style.animation = 'shake .3s'; setTimeout(() => { btns[i].style.animation = ''; }, 320); }
+      tapFlash(btns[i], ok);
       next();
     }
     function tick() {
@@ -2391,7 +2908,8 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
       if (left <= 0) finish();
     }
     function finish() {
-      over = true; api.done = true; clearInterval(api.iv);
+      over = true; api.done = true; clearInterval(api.iv); clearTimeout(shown);
+      wordEl.style.visibility = '';
       const acc = right + wrong ? right / (right + wrong) : 0;
       const s = acc * Math.min(1, right / (FOCUS_TARGET[o.diff] * o.secs / 30));
       g.body.textContent = '';
@@ -2616,6 +3134,7 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
       const ok = pair[i][1] > pair[1 - i][1];
       if (ok) { right++; tone(820, .05, 'triangle', 0, .07); }
       else { wrong++; tone(200, .12, 'sawtooth', 0, .04); btns[i].style.animation = 'shake .3s'; setTimeout(() => { btns[i].style.animation = ''; }, 320); }
+      tapFlash(btns[i], ok);
       next();
     }
     function finish() {
@@ -2672,6 +3191,7 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
     const api = { done: false, iv: 0, key: () => false, stop() { clearInterval(api.iv); } };
     const set = SYM_SETS[o.diff], n = SYM_LEN[o.diff];
     let right = 0, wrong = 0, trial = null, over = false, rowA, rowB, sc;
+    const choiceBtns = {};
     countIn(g.body, 'Same or different?', `Two rows of symbols appear. Decide as fast as you can whether they are exactly the same. ${o.secs} seconds. Keys: S for same, D for different.`, play, api, o.why);
     function play() {
       g.body.textContent = '';
@@ -2682,7 +3202,7 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
       pairBox.append(rowA, rowB);
       g.body.appendChild(pairBox);
       const two = el('div', 'two-btns');
-      [['Same', true], ['Different', false]].forEach(([l, v]) => { const b = el('button', 'press', l); b.type = 'button'; b.addEventListener('click', () => answer(v)); two.appendChild(b); });
+      [['Same', true], ['Different', false]].forEach(([l, v]) => { const b = el('button', 'press', l); b.type = 'button'; b.addEventListener('click', () => answer(v)); two.appendChild(b); choiceBtns[v] = b; });
       g.body.appendChild(two);
       next();
       timed(api, o.secs, setBar, finish);
@@ -2700,6 +3220,7 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
       if (over || !trial) return;
       if (v === trial.same) { right++; tone(820, .05, 'triangle', 0, .07); }
       else { wrong++; tone(200, .12, 'sawtooth', 0, .04); }
+      tapFlash(choiceBtns[v], v === trial.same);
       next();
     }
     function finish() {
@@ -2725,7 +3246,8 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
     const g = gameShell(host, item, o.label);
     const api = { done: false, iv: 0, key: () => false, stop() { clearInterval(api.iv); } };
     const n = o.diff === 'hard' ? 7 : 5, same = { easy: 0.5, medium: 0.3, hard: 0.25 }[o.diff];
-    let right = 0, wrong = 0, trial = null, over = false, row, sc;
+    let right = 0, wrong = 0, trial = null, over = false, row, sc, blink = 0;
+    const dirBtns = {};
     countIn(g.body, 'Which way does the middle arrow point?', `A row of arrows appears. Only the one in the middle counts; ignore the others. ${o.secs} seconds. Arrow keys work too.`, play, api, o.why);
     function play() {
       g.body.textContent = '';
@@ -2735,7 +3257,7 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
       row.setAttribute('aria-live', 'polite');
       g.body.appendChild(row);
       const two = el('div', 'two-btns');
-      [[-1, 'Left'], [1, 'Right']].forEach(([d, l]) => { const b = el('button', 'press'); b.type = 'button'; b.innerHTML = ARROW(d); b.appendChild(document.createTextNode(l)); b.addEventListener('click', () => answer(d)); two.appendChild(b); });
+      [[-1, 'Left'], [1, 'Right']].forEach(([d, l]) => { const b = el('button', 'press'); b.type = 'button'; b.innerHTML = ARROW(d); b.appendChild(document.createTextNode(l)); b.addEventListener('click', () => answer(d)); two.appendChild(b); dirBtns[d] = b; });
       g.body.appendChild(two);
       next();
       timed(api, o.secs, setBar, finish);
@@ -2743,6 +3265,10 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
     function next() {
       const mid = Math.random() < 0.5 ? -1 : 1, flank = Math.random() < same ? mid : -mid;
       trial = { mid };
+      // A short blank between rows, so a repeat of the same arrows still visibly changes.
+      row.style.visibility = 'hidden';
+      clearTimeout(blink);
+      blink = setTimeout(() => { row.style.visibility = ''; }, 90);
       row.innerHTML = Array.from({ length: n }, (_, i) => ARROW(i === (n - 1) / 2 ? mid : flank)).join('');
       row.setAttribute('aria-label', `Middle arrow points ${mid < 0 ? 'left' : 'right'}`);
       row.style.transform = o.diff === 'hard' ? `translateX(${rnd(-30, 30)}px)` : '';
@@ -2752,10 +3278,11 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
       if (over || !trial) return;
       if (d === trial.mid) { right++; tone(820, .05, 'triangle', 0, .07); }
       else { wrong++; tone(200, .12, 'sawtooth', 0, .04); }
+      tapFlash(dirBtns[d], d === trial.mid);
       next();
     }
     function finish() {
-      over = true; api.done = true;
+      over = true; api.done = true; clearTimeout(blink);
       const s = timedResult(g, right, wrong, o.secs, FLANK_TARGET[o.diff] * o.secs / 30);
       o.onDone({ item, s, secs: o.secs, summary: `${right} right`, best: [`arrows-${o.diff}-${o.secs}`, right], after: g.after });
     }
@@ -3280,6 +3807,124 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
   }
 
 
+
+  /* ---------- Challenge of the Day ---------- */
+  // One deep problem a day, typed answer, hint names the kind of maths only.
+  const C = window.QChallenges;
+  const FIELD_COLOUR = { Physics: 'sequences', Probability: 'logic', Geometry: 'spatial', Combinatorics: 'letters', 'Number theory': 'matrices', Logic: 'verbal' };
+  let chalCache = null, chalTimer = 0;
+  function dailyChallenge() {
+    if (chalCache && chalCache.key === todayKey) return chalCache.c;
+    const c = C.forDay(Math.max(0, dayIndex(todayKey)), i => dkey(addDays(parseKey(START), i)), E);
+    chalCache = { key: todayKey, c };
+    return c;
+  }
+  const tolText = c => (c.tol.rel !== undefined ? `Answers within ${+(c.tol.rel * 100).toFixed(1)}% count.` : c.tol.abs ? `Answers within ${c.tol.abs}${c.unit === '°' ? '°' : ' ' + c.unit} count.` : 'The answer is an exact whole number.');
+  const showAns = c => `${C.num(c.answer, c.dp)}${c.unit === '°' || c.unit === '%' ? c.unit : c.unit ? ' ' + c.unit : ''}`;
+  function renderChallenge(host) {
+    clearInterval(chalTimer);
+    host.textContent = '';
+    const c = dailyChallenge(), st = state.challenges[todayKey];
+    const card = el('article', 'sheet');
+    host.appendChild(card);
+    const meta = el('div', 'meta'), left = el('div', 'left');
+    left.appendChild(el('span', '', `Challenge of the Day · No. ${dayIndex(todayKey) + 1}`));
+    const tag = el('span', 'cat-tag', c.field); tag.style.background = `var(--c-${FIELD_COLOUR[c.field] || 'sequences'})`;
+    left.appendChild(tag);
+    left.appendChild(el('span', 'dtag hard', 'Deep'));
+    meta.appendChild(left);
+    const clock = el('span', 'timer'); clock.innerHTML = CLOCK; const cnum = el('span', ''); clock.appendChild(cnum);
+    meta.appendChild(clock);
+    card.appendChild(meta);
+    card.appendChild(el('h2', 'prompt', c.title));
+    if (!st) {
+      card.appendChild(el('p', 'note', 'One hard problem a day, the kind that needs a pen, paper and some real thought. Most people need 5 to 20 minutes. The timer starts when you open it.'));
+      card.appendChild(whyBox('Trains sustained reasoning: turning a word problem into equations, picking the right tool, and carrying a multi-step argument through without losing the thread.'));
+      const go = el('button', 'press btn primary', 'Open the challenge');
+      go.type = 'button';
+      go.style.alignSelf = 'flex-start';
+      go.addEventListener('click', () => { SFX.tap(); state.challenges[todayKey] = { start: Date.now(), tries: 0, hint: false }; save(); renderChallenge(host); Peanut.say('Big one today. Read it twice, sketch it out, and take your time. I believe in you.', 'think', 2400); });
+      card.appendChild(go);
+      clock.hidden = true;
+      return;
+    }
+    card.appendChild(el('p', 'chal-text', c.text));
+    const done = st.ok || st.gaveUp;
+    const elapsed = () => Math.round(((done ? st.end : Date.now()) - st.start) / 1000);
+    const tick = () => { cnum.textContent = fmtTime(elapsed()); };
+    tick();
+    if (!done) chalTimer = setInterval(tick, 1000);
+    const hintBox = el('p', 'hint'); hintBox.textContent = 'The kind of maths: ' + c.hint; hintBox.hidden = !st.hint;
+    card.appendChild(hintBox);
+    if (done) {
+      const v = el('div', 'verdict ' + (st.ok ? 'good' : 'bad'));
+      const h = el('h3', '', st.ok ? `Solved in ${fmtTime(elapsed())}!` : `The answer is ${showAns(c)}`);
+      if (st.xp) h.appendChild(el('span', 'xp-gain', `+${st.xp} XP`));
+      v.appendChild(h);
+      if (st.ok) v.appendChild(el('p', '', `Your answer: ${st.last}. The exact answer is ${showAns(c)}.${st.tries > 1 ? ` It took ${st.tries} tries.` : ' First try!'}`));
+      const ol = el('ol', 'chal-steps');
+      c.steps.forEach(t => ol.appendChild(el('li', '', t)));
+      v.appendChild(ol);
+      const a = el('div', 'actions'); a.appendChild(shareButton());
+      a.appendChild(el('span', 'session', 'A new challenge arrives tomorrow.'));
+      v.appendChild(a);
+      card.appendChild(v);
+      return;
+    }
+    const row = el('div', 'chal-answer');
+    const inp = el('input'); inp.type = 'text'; inp.id = 'chal-input'; inp.inputMode = 'decimal'; inp.autocomplete = 'off';
+    inp.placeholder = `Your answer${c.dp ? `, to ${c.dp} decimal place${c.dp > 1 ? 's' : ''}` : ''}`;
+    inp.setAttribute('aria-label', 'Your answer');
+    row.appendChild(inp);
+    if (c.unit) row.appendChild(el('span', 'unit', c.unit));
+    const check = el('button', 'press btn primary', 'Check'); check.type = 'button';
+    row.appendChild(check);
+    card.appendChild(row);
+    card.appendChild(el('p', 'note', tolText(c) + (st.tries ? ` Tries so far: ${st.tries}.` : '')));
+    const fb = el('p', 'chal-feedback'); fb.hidden = true; fb.setAttribute('aria-live', 'polite');
+    card.appendChild(fb);
+    const tools = el('div', 'actions');
+    const hintBtn = el('button', 'btn quiet', 'What kind of maths?'); hintBtn.type = 'button'; hintBtn.hidden = st.hint;
+    hintBtn.addEventListener('click', () => { st.hint = true; save(); hintBox.hidden = false; hintBtn.hidden = true; SFX.hint(); Peanut.say('Here is the tool for the job. The thinking is still yours.', 'think', 2000); });
+    const giveUp = el('button', 'btn quiet', 'Show the solution'); giveUp.type = 'button';
+    tools.append(hintBtn, giveUp);
+    card.appendChild(tools);
+    const confirm = el('div', 'chal-confirm'); confirm.hidden = true;
+    confirm.appendChild(el('span', '', 'Give up and see the worked solution? It counts as not solved.'));
+    const yes = el('button', 'press btn', 'Show it'); yes.type = 'button';
+    const no = el('button', 'press btn primary', 'Keep thinking'); no.type = 'button';
+    confirm.append(yes, no);
+    card.appendChild(confirm);
+    giveUp.addEventListener('click', () => { confirm.hidden = false; });
+    no.addEventListener('click', () => { confirm.hidden = true; inp.focus(); });
+    yes.addEventListener('click', () => {
+      st.gaveUp = true; st.end = Date.now(); st.xp = gainXP(5);
+      save(); board.push(); renderChallenge(host);
+      Peanut.say('No shame in that. Work through the solution: tomorrow\'s will feel easier.', 'sad', 2400);
+    });
+    const submit = () => {
+      const val = C.parse(inp.value);
+      if (!isFinite(val)) { fb.hidden = false; fb.className = 'chal-feedback bad'; fb.textContent = 'Type a number, like 12.5 or 3/4.'; return; }
+      st.tries++;
+      if (C.isRight(c, val)) {
+        st.ok = true; st.end = Date.now(); st.last = inp.value.trim();
+        st.xp = gainXP(Math.max(30, 100 - 10 * (st.tries - 1)) - (st.hint ? 20 : 0));
+        save(); board.push(); renderChallenge(host);
+        SFX.level(); burst(); setTimeout(() => burst(innerWidth / 4, innerHeight / 2, 50), 250);
+        Peanut.say(`Yes! ${showAns(c)}. That was a real brain-burner, solved in ${fmtTime(elapsed())}.`, 'happy', 3000);
+      } else {
+        save();
+        fb.hidden = false; fb.className = 'chal-feedback bad';
+        fb.textContent = `${inp.value.trim()} isn't it. Check your units, your rounding and each step, then try again.`;
+        SFX.wrong();
+        inp.select();
+        Peanut.say(pick(['Not quite. Re-read the question: is it asking for exactly what you worked out?', 'Close the gap: check each step and the units.', 'Keep going. Sketch it again from the start if you need to.']), 'think', 2200);
+      }
+    };
+    check.addEventListener('click', submit);
+    inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); submit(); } });
+  }
+
   /* ---------- Daily Grid ---------- */
   // Three puzzles a day (6×6 Easy, 9×9 Medium and Hard), the same for everyone.
   const GRID_XP = { easy: 20, medium: 35, hard: 50 };
@@ -3465,6 +4110,8 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
     const gs = state.grids[todayKey] || {};
     const best = ['hard', 'medium', 'easy'].find(x => gs[x]);
     if (best) lines.push(`🔢 Daily Grid: ✅ ${DIFF_LABEL[best]} ${fmtTime(gs[best].secs)}`);
+    const ch = state.challenges[todayKey];
+    if (ch && (ch.ok || ch.gaveUp)) lines.push(`🧪 Challenge: ${ch.ok ? `✅ ${fmtTime(Math.round((ch.end - ch.start) / 1000))}${ch.hint ? ' 💡' : ''}` : '❌'}`);
     const w = state.words[todayKey];
     if (w) lines.push(`📖 Word: ${w.ok ? '✅' : '❌'}`);
     const wk = state.workouts[todayKey];
@@ -3515,6 +4162,7 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
         const k = dkey(addDays(parseKey(todayKey), -i)), e = {};
         const q = state.daily[k]; if (q) e.q = [q.correct ? 1 : 0, q.secs];
         const gs = state.grids[k]; if (gs) e.g = Object.fromEntries(Object.entries(gs).map(([df, v]) => [df, v.secs]));
+        const ch = state.challenges[k]; if (ch && (ch.ok || ch.gaveUp)) e.c = [ch.ok ? 1 : 0, Math.round((ch.end - ch.start) / 1000)];
         if (Object.keys(e).length) d[k] = e;
       }
       const w = {};
@@ -3533,13 +4181,15 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
     // Points for a day: the question, plus the hardest grid solved, each with a speed bonus.
     const GRID_PTS = { easy: 60, medium: 100, hard: 150 };
     function dayPoints(e) {
-      let pts = 0, q = null, g = null;
+      let pts = 0, q = null, g = null, c = null;
+      // The challenge: 150 points plus a speed bonus; under a minute is not believable.
+      if (e && e.c && e.c[1] >= 60) { c = e.c; if (c[0]) pts += 150 + Math.max(0, 50 - Math.floor(c[1] / 36)); }
       if (e && e.q && e.q[1] >= 3) { q = e.q; if (q[0]) pts += 100 + Math.max(0, 50 - Math.floor(q[1] / 6)); }
       if (e && e.g) {
         const best = ['hard', 'medium', 'easy'].find(df => e.g[df] >= 20);
         if (best) { g = [best, e.g[best]]; pts += GRID_PTS[best] + Math.max(0, 50 - Math.floor(e.g[best] / 12)); }
       }
-      return { pts, q, g };
+      return { pts, q, g, c };
     }
     async function draw() {
       if (!host || !document.body.contains(host)) return;
@@ -3553,7 +4203,7 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
         p.appendChild(el('div', 'empty', off ? 'Sign in to claude.ai to see the leaderboard and save your scores to it.' : 'Connecting to the leaderboard…'));
         return;
       }
-      p.appendChild(el('p', 'sub', tab === 'today' ? 'Today: 100 points for the question, 60–150 for the hardest grid solved, plus a speed bonus' : `This week's XP, Monday to today`));
+      p.appendChild(el('p', 'sub', tab === 'today' ? 'Today: 100 points for the question, 60–150 for the hardest grid solved, 150 for the challenge, each plus a speed bonus' : `This week's XP, Monday to today`));
       const chips = el('div', 'rangebar');
       [['today', 'Today'], ['week', 'This week']].forEach(([k, l]) => {
         const b = el('button', 'press chip', l); b.type = 'button';
@@ -3566,7 +4216,7 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
       let rows = docs.map(dc => {
         if (tab === 'today') { const r = dayPoints(dc.d && dc.d[todayKey]); return { id: dc.id, ...r, sortKey: r.pts }; }
         return { id: dc.id, xp: (dc.w && dc.w[wk]) || 0, sortKey: (dc.w && dc.w[wk]) || 0 };
-      }).filter(r => r.sortKey > 0 || (tab === 'today' && r.q));
+      }).filter(r => r.sortKey > 0 || (tab === 'today' && (r.q || r.c)));
       rows.sort((a, b) => b.sortKey - a.sortKey);
       if (!rows.length) {
         p.appendChild(el('div', 'empty', tab === 'today' ? 'Nobody has scored today yet. Answer the Question of the Day or solve a grid to take first place.' : 'No XP earned this week yet.'));
@@ -3588,6 +4238,7 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
             const res = el('td', 'sm');
             res.appendChild(el('div', '', `Question ${r.q ? `${r.q[0] ? '✅' : '❌'} ${fmtTime(r.q[1])}` : '–'}`));
             res.appendChild(el('div', '', `Grid ${r.g ? `✅ ${DIFF_LABEL[r.g[0]]} ${fmtTime(r.g[1])}` : '–'}`));
+            if (r.c) res.appendChild(el('div', '', `Challenge ${r.c[0] ? `✅ ${fmtTime(r.c[1])}` : '❌'}`));
             tr.appendChild(res);
             tr.appendChild(el('td', 'pts', String(r.pts)));
           } else tr.appendChild(el('td', 'pts', String(r.xp)));
