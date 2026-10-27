@@ -109,20 +109,26 @@ check(await sk(() => __SK.S.keys.has('music')), 'the MELODY KEY appears and can 
 await go('storage', 1, 7, 'left'); await settle();
 await move('ArrowLeft');
 check(await room() === 'storage', 'the Dark Maze is blocked without a light');
-await put(11, 7, 'up'); await move('ArrowUp');
-check(await sk(() => __SK.S.lantern), 'the lantern can be picked up in Storage');
-await put(1, 7, 'left'); await move('ArrowLeft'); await page.waitForTimeout(500); await settle();
+await go('attic', 15, 10, 'up'); await settle();
+await tap('Space'); await settle();
+check(await sk(() => __SK.S.lantern), 'searching the right crate in the Attic finds the lantern');
+await go('storage', 1, 7, 'left'); await settle(); await move('ArrowLeft'); await page.waitForTimeout(500); await settle();
 check(await room() === 'darkmaze', 'with the lantern you can enter the Dark Maze');
 
 // open the chest
 await sk(() => { for (const k of __SK.KEYS) __SK.S.keys.add(k.id); });
 await go('hall', 9, 3, 'up'); await settle();
 await tap('Space'); await settle();
-await page.waitForTimeout(1500);
-check(await sk(() => __SK.S.mode) === 'ending', 'seven keys open the chest and finish the game');
+check(await sk(() => __SK.S.flags.opened && __SK.S.mode === 'play'), 'seven keys open the chest');
+await put(15, 2, 'up'); await move('ArrowUp');
+check(await sk(() => __SK.S.mode === 'play'), 'the front door stays shut until it is unlocked');
+await tap('Space'); await settle();
+check(await sk(() => __SK.S.flags.doorOpen), 'the golden key opens the front door');
+await move('ArrowUp'); await page.waitForTimeout(2500);
+check(await sk(() => __SK.S.mode) === 'ending', 'walking out the front door finishes the game');
 
 const finish = await sk(() => [__SK.S.finalTime, __SK.S.playTime]);
-check(finish[0] > 5 && finish[0] === finish[1], 'the clock ran during play and stopped at the chest (' + finish[0].toFixed(1) + 's)');
+check(finish[0] > 5 && finish[0] === finish[1], 'the clock ran during play and stopped at the front door (' + finish[0].toFixed(1) + 's)');
 await page.waitForTimeout(1500); await tap('Space'); await page.waitForTimeout(500);
 const b = await sk(() => ({ mode: __SK.S.mode, rows: __SK.board.rows.length, scope: __SK.board.scope }));
 check(b.mode === 'board' && b.rows === 1 && b.scope === 'device', 'the finished run shows on the best-times board (' + b.scope + ')');

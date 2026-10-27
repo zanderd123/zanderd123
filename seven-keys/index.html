@@ -353,8 +353,8 @@ const DECOR = {
 //  H pillar M organ  E telescope  n pew  A altar  D desk  k stove  u counter
 //  t tree   F fountain  X the great chest
 const DEFS = [
-  { id:'hall', name:'Great Hall', gx:2, gy:2, theme:'hall', doors:'WES',
-    decor:{ 2:'window', 5:'painting', 7:'banner', 11:'banner', 13:'painting', 16:'window' },
+  { id:'hall', name:'Great Hall', gx:2, gy:2, theme:'hall', doors:'WES', frontDoor:[15, 16],
+    decor:{ 2:'window', 5:'painting', 7:'banner', 11:'banner', 13:'painting' },
     map:[
       'P.....S.X.S.....P',
       '.......RRR.......',
@@ -438,7 +438,7 @@ const DEFS = [
            '15,1':'A statue of a cat. It looks just like Pip!' } },
 
   { id:'attic', name:'Attic', gx:0, gy:0, theme:'dusty', doors:'E',
-    decor:{ 5:'window', 12:'shelf' },
+    decor:{ 5:'window', 12:'shelf' }, hidden:{ '14,7':'lantern' },
     map:[
       'CCO.........OOCCC',
       'C..............CC',
@@ -630,7 +630,7 @@ const DEFS = [
       '.................',
       't...............t',
       'tt......s......tt' ],
-    text:{ '8,10':'THE FRONT GATE is just past this wall, sealed with a giant padlock. Maybe the chest in the Great Hall holds the key out...',
+    text:{ '8,10':'Over the high garden wall you can see the road home. The only way out is the padlocked FRONT DOOR in the Great Hall...',
            '8,3':'The fountain water is cold and sparkly.' } },
 
   { id:'spikes', name:'Spike Hall', gx:1, gy:4, theme:'stone', doors:'E',
@@ -655,13 +655,14 @@ const DEFS = [
       'C...............C',
       '....CC.....O.....',
       '....C............',
-      '..........L......',
+      '..........s......',
       '.................',
       '..O.........CC...',
       '............C....',
       'C..............OO',
       'CC..............O',
-      'CCC...........OOO' ] },
+      'CCC...........OOO' ],
+    text:{ '10,4':'A note is tacked to this post: "I borrowed the lantern for some late-night reading, then packed it away in one of the old crates up in the ATTIC.  -- Prof. Q"' } },
 
   { id:'darkmaze', name:'Dark Maze', gx:0, gy:3, theme:'dark', doors:'E', dark:true, needsLantern:true,
     decor:{},
@@ -710,8 +711,11 @@ function buildRoom(def) {
     grid.push(row);
   }
   for (const d of def.doors) { const [x, y] = DOORPOS[d]; grid[y][x] = '>'; }
+  for (const x of def.frontDoor || []) grid[1][x] = 'Z';
   const r = Object.assign({}, def, { base:grid.map(r => r.slice()), grid, theme:THEMES[def.theme], cv:mk(VW, VH), dirty:true, text:{} });
   for (const k in def.text || {}) { const [ix, iy] = k.split(',').map(Number); r.text[(ix + 1) + ',' + (iy + 2)] = def.text[k]; }
+  r.hidden = {};
+  for (const k in def.hidden || {}) { const [ix, iy] = k.split(',').map(Number); r.hidden[(ix + 1) + ',' + (iy + 2)] = def.hidden[k]; }
   r.keySpot = null; r.items = [];
   for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) {
     const ch = grid[y][x];
@@ -756,6 +760,7 @@ function drawStatic(r) {
       }
       continue;
     }
+    if (ch === 'Z') { drawWallFace(T, px, py, x); continue; }   // the front door itself is drawn live
     if (ch === '>') {
       if (y === 1) {
         drawWallFace(T, px, py, x);
@@ -1077,6 +1082,7 @@ const boulderAt = (x, y) => boulders.find(b => b.x === x && b.y === y);
 function blocked(x, y) {
   const ch = tileAt(S.room, x, y);
   if (ch === 'G') return !S.flags.gate;
+  if (ch === 'Z') return !S.flags.doorOpen;
   if (!WALK.has(ch)) return true;
   return !!(boulderAt(x, y) || npcAtProf(x, y) || catAt(x, y));
 }
@@ -1100,6 +1106,7 @@ function tryStep(d) {
     }
     P.exiting = door; startMove(nx, ny, fast ? 0.13 : 0.2); return;
   }
+  if (ch === 'Z' && S.flags.doorOpen) { P.exiting = 'front'; startMove(nx, ny, 0.3); return; }
   const bo = boulderAt(nx, ny);
   if (bo) { pushBoulder(bo, dx, dy); return; }
   if (blocked(nx, ny)) {
@@ -1130,7 +1137,7 @@ function checkPlates() {
 
 function onArrive() {
   const r = S.room, ch = tileAt(r, P.x, P.y);
-  if (P.exiting) { const d = P.exiting; P.exiting = null; goThrough(d); return; }
+  if (P.exiting) { const d = P.exiting; P.exiting = null; if (d === 'front') finishGame(); else goThrough(d); return; }
   P.jump = false;
   // pick-ups
   const k = KEYBYROOM[r.id];
@@ -1366,7 +1373,7 @@ function catHintFor(id) {
     case 'spikes': return 'The Spike Hall is past the Courtyard. Go south twice, then west. One touch of a spike and you\'ll be right back here with me!';
     case 'ice': return 'The Ice Room is north of the Chapel, way over on the east side. Before you slide, think about where you will stop!';
     case 'boulder': return 'South of the Kitchen there\'s a room full of boulders. Push them onto the stone plates. Stuck? Leave and come back.';
-    case 'dark': return S.lantern ? 'The Dark Maze is west of the Storage room. Your lantern will light the way!' : 'The Dark Maze is west of the Storage room, but you\'ll need a light. Search the Storage room!';
+    case 'dark': return S.lantern ? 'The Dark Maze is west of the Storage room. Your lantern will light the way!' : 'The Dark Maze is west of the Storage room, but you\'ll need a light. Someone left a note about a lantern in the Storage room...';
     case 'music': return 'The Music Room is north of the East Hall. Listen closely to the old organ and remember the colors!';
     case 'chasm': return 'The Chasm is south of the Greenhouse. Your ' + tool + ' can get you across the narrow gaps!';
   }
@@ -1376,7 +1383,10 @@ function talkCat() {
     sfx('blip'); tone(midi(84), 0.08, 'triangle', 0.05, 0.05); tone(midi(79), 0.12, 'triangle', 0.05, 0.13);
     const missing = KEYS.filter(k => !S.keys.has(k.id));
     if (!S.flags.metCat) { S.flags.metCat = true; await say('PIP THE CAT: Meow! Hello there. I\'m Pip.', 'I\'ve lived in this old house for ages. Talk to me any time and I\'ll give you a hint!'); }
-    if (!missing.length) { await say('PIP: Meow! You have all seven keys! Go open that big chest!'); return; }
+    if (!missing.length) {
+      await say(S.flags.opened ? 'PIP: Meow! Use that golden key on the FRONT DOOR. I\'ll miss you!' : 'PIP: Meow! You have all seven keys! Go open that big chest!');
+      return;
+    }
     const k = missing[S.hintIx++ % missing.length];
     await say('PIP: ' + catHintFor(k.id));
   });
@@ -1397,6 +1407,15 @@ function interact() {
   if (npcAtProf(tx, ty)) { talkProf(); return; }
   if (catAt(tx, ty)) { talkCat(); return; }
   if (ch === 'X') { openChest(); return; }
+  if (ch === 'Z') { frontDoor(); return; }
+  if (r.hidden[tx + ',' + ty] === 'lantern' && !S.lantern) {
+    run(async () => {
+      await say('You dig through the dusty old crate...');
+      S.lantern = true; save(); sfx('item');
+      await say('You found a LANTERN!', 'Now you can see in dark places.');
+    });
+    return;
+  }
   if (ch === 'M') { playOrgan(); return; }
   if (ch === '~') { useTool(); return; }
   const t = r.text[tx + ',' + ty];
@@ -1413,13 +1432,34 @@ function openChest() {
       await say('A giant treasure chest with SEVEN keyholes.', n ? `You have ${n} of the 7 keys. Find ${7 - n} more!` : 'It\'s locked tight. You need to find all seven keys!');
       return;
     }
-    S.clock = false; S.finalTime = S.playTime;
-    S.recordP = recordRun();
     await say('You have all seven keys!', 'You slide them into the keyholes, one by one...');
     S.inserted = 0;
     for (let i = 0; i < 7; i++) { S.inserted = i + 1; sfx('click'); await wait(0.32); }
     await wait(0.3); S.flags.opened = true; sfx('open'); await wait(1.0);
-    await say('*CREEEAK* The great chest swings open!', 'Inside is a shining golden key and a note:', '"Well done, brave explorer! This key opens the front gate. You are free to go home!"');
+    save();
+    await say('*CREEEAK* The great chest swings open!', 'Inside is a shining golden key and a note:',
+      '"Well done, brave explorer! This golden key opens the FRONT DOOR. You are free to go home!"');
+  });
+}
+function frontDoor() {
+  run(async () => {
+    if (S.flags.doorOpen) { await say('Sunlight pours in through the open door. Home is just a few steps away!'); return; }
+    if (!S.flags.opened) {
+      await say('The FRONT DOOR. A giant padlock holds it shut tight.',
+        S.keys.size < 7 ? 'The key must be hidden somewhere... maybe inside that big chest?' : 'You have all seven keys. Open the chest!');
+      return;
+    }
+    await say('You push the golden key into the giant padlock and turn it...');
+    sfx('click'); await wait(0.35); sfx('click'); await wait(0.35);
+    S.flags.unlocking = true; sfx('gate'); await wait(0.7);
+    S.flags.doorOpen = true; sfx('open'); save(); await wait(0.8);
+    await say('*CLUNK!* The padlock drops to the floor and the front door swings open!', 'Sunlight pours in. Walk through the door to go home!');
+  });
+}
+function finishGame() {
+  run(async () => {
+    S.clock = false; S.finalTime = S.playTime;
+    S.recordP = recordRun();
     await fadeTo(1, 1.2);
     S.mode = 'ending'; S.endT = 0; clearSave(); sfx('fanfare');
     await fadeTo(0, 0.8);
@@ -1454,7 +1494,7 @@ function newGame(kind) {
     await say('. . .', 'Ugh... my head... Where am I?');
     await fadeTo(0, 1.4);
     await say('You wake up on the cold floor of a huge, strange old building.', 'You have no idea how you got here.',
-      'In front of you sits an enormous chest with SEVEN keyholes.', 'A note is pinned to it. It says:',
+      'In front of you sits an enormous chest with SEVEN keyholes.', 'Next to it is a huge FRONT DOOR, sealed with a giant padlock.', 'A note is pinned to the chest. It says:',
       '"Seven keys are hidden in seven rooms of this house. Find them all and the chest will open... and so will your way out."', ctl);
     popup = { text:'Great Hall', t:0 };
     S.clock = true;
@@ -1619,6 +1659,7 @@ function render() {
       if (c.t > 0.4) rr(px + 1, py + 1, 14, 14, 'rgba(10,8,16,' + ((c.t - 0.4) * 1.6).toFixed(2) + ')');
     }
   }
+  if (r.frontDoor) drawFrontDoor(r.frontDoor[0] * TS, TS, t);
   // gate glow torch flicker in face row
   if (r.decor) for (const k in r.decor) if (r.decor[k] === 'torch' && Math.sin(t * 9 + +k) > 0.2) rr(+k * TS + 7, TS + 2, 2, 1, '#fff4b0');
 
@@ -1676,6 +1717,24 @@ function render() {
   drawDialog();
   if (S.menu) drawMenu();
 }
+function drawFrontDoor(x, y, t) {
+  rr(x - 1, y - 2, 34, 18, '#4a4252'); rr(x, y - 1, 32, 17, '#8a8296'); rr(x, y - 1, 32, 1, '#a49cb0');
+  rr(x + 2, y + 1, 28, 15, '#2a1a10');
+  if (S.flags.doorOpen) {
+    rr(x + 3, y + 2, 26, 14, '#ffe8a8'); rr(x + 3, y + 2, 26, 4, '#fff6d4'); rr(x + 3, y + 12, 26, 4, '#a8d870');
+    rr(x + 3, y + 2, 4, 14, '#7a4a24'); rr(x + 25, y + 2, 4, 14, '#7a4a24');
+    if (Math.floor(t * 2) % 2) rr(x + 12, y + 18, 8, 1, '#fff2c0');
+    return;
+  }
+  for (const dx of [3, 16]) {
+    rr(x + dx, y + 2, 13, 14, '#8a5428'); for (let i = 3; i < 13; i += 3) rr(x + dx + i, y + 2, 1, 14, '#6a3c1c');
+    rr(x + dx, y + 4, 13, 2, '#3a3a44'); rr(x + dx, y + 12, 13, 2, '#3a3a44');
+  }
+  rr(x + 15, y + 2, 2, 14, '#2a1a10');
+  const drop = S.flags.unlocking ? 5 : 0;
+  rr(x + 13, y + 4 + drop, 6, 1, '#b0b0bc'); rr(x + 13, y + 4 + drop, 1, 4, '#b0b0bc'); rr(x + 18, y + 4 + drop, 1, S.flags.unlocking ? 2 : 4, '#b0b0bc');
+  blob([[x + 11, y + 7 + drop, 10, 7]], '#e0b040'); rr(x + 11, y + 7 + drop, 10, 2, '#f4d468'); rr(x + 15, y + 10 + drop, 2, 3, OUT);
+}
 function drawTool(px, py, e) {
   const f = toolFx, mx = f.mx * TS + 8, my = f.my * TS + 8;
   if (S.kind === 'boy') {            // staff planted in the middle of the gap
@@ -1724,7 +1783,7 @@ function keyIcon(x, y, col, on) {
   sc.fillStyle = o; sc.fillRect(x + 1, y + 1, 1, 1);
 }
 function drawHUD() {
-  const w = 82, x = VW - w - 3, y = 3;
+  const w = 82, x = VW - w - 3, y = 1;
   srr(x, y, w, 13, '#120e1cdd'); srr(x, y + 12, w, 1, '#00000055');
   KEYS.forEach((k, i) => keyIcon(x + 4 + i * 11, y + 4, k.color, S.keys.has(k.id)));
   let cx = x;
@@ -1840,8 +1899,8 @@ function renderSelect() {
     txt(k === 'boy' ? 'BOY' : 'GIRL', cx, 156, on ? '#ffffff' : '#8f86a3', 8, 'center', '#000');
     if (on && Math.floor(t * 3) % 2) { sc.fillStyle = '#f0c040'; sc.beginPath(); sc.moveTo(cx - 5, 50); sc.lineTo(cx + 5, 50); sc.lineTo(cx, 56); sc.fill(); }
   });
-  const desc = selKind ? ['Long blond hair', 'Trusty backpack', 'A leather WHIP to swing across gaps']
-                       : ['Red bandana', 'Trusty backpack', 'A wooden STAFF to vault over gaps'];
+  const desc = selKind ? ['Long blond hair', 'A backpack over her shoulder', 'A long traveler WHIP at her side']
+                       : ['A bright red bandana', 'A backpack full of supplies', 'A sturdy wooden STAFF in hand'];
   srr(16, 172, VW - 32, 44, '#0e0a18cc');
   desc.forEach((d, i) => txt(d, VW / 2, 178 + i * 12, i === 2 ? '#f0c040' : '#d8d0e8', 8, 'center', '#000'));
   drawFade();

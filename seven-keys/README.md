@@ -25,7 +25,7 @@ title screen.
 ## Clock and best times
 
 A clock in the top-right corner starts when the intro story ends and stops the
-moment you open the chest. **Best Times** on the title screen (and after the
+moment you walk out of the front door. **Best Times** on the title screen (and after the
 ending) shows the fastest runs:
 
 - Played as the published claude.ai page, it is one shared board: each
@@ -35,8 +35,8 @@ ending) shows the fastest runs:
 
 ## The explorers
 
-- **Boy**: red bandana, backpack, wooden staff. He vaults over gaps with the staff.
-- **Girl**: long blond hair, backpack, leather whip. She swings over gaps with the whip.
+- **Boy**: bright red bandana, a backpack full of supplies, a sturdy wooden staff in hand. He vaults over gaps with the staff.
+- **Girl**: long blond hair, a backpack over her shoulder, a long traveler whip at her side. She swings over gaps with the whip.
 
 ## Map
 
@@ -53,8 +53,12 @@ ending) shows the fastest runs:
  y=4                 SPIKE HALL ──── Courtyard    BOULDER ROOM     THE CHASM
 ```
 
-The Great Hall is the starting room. The chest sits against its front wall and
-it has three doorways (west, east, south). Capitals are the seven key rooms.
+The Great Hall is the starting room. The chest sits against its front wall,
+with the padlocked FRONT DOOR to its right, and the hall has three doorways
+(west, east, south). Capitals are the seven key rooms.
+
+The ending: the seven keys open the chest, the chest holds a golden key, the
+golden key opens the front door, and walking out of it ends the run.
 
 ## The seven obstacles
 
@@ -64,7 +68,7 @@ it has three doorways (west, east, south). Capitals are the seven key rooms.
 | Spike Key | Spike Hall | A maze of spikes, some popping up and down on a timer. One touch sends you back to the Great Hall. |
 | Frost Key | Ice Room | Sliding-ice puzzle: you slide until you hit a rock (8 moves to solve). |
 | Stone Key | Boulder Room | Push two boulders onto two pressure plates to open an iron gate. Leave and re-enter to reset. |
-| Shadow Key | Dark Maze | A pitch-black maze. You need the lantern from the Storage room first. |
+| Shadow Key | Dark Maze | A pitch-black maze. You need a lantern first: a note in the Storage room says it was packed into one of the many crates in the Attic. |
 | Melody Key | Music Room | The organ plays a 5-note tune on coloured floor tiles; repeat it by stepping on them. |
 | Sky Key | The Chasm | Cross gaps with your staff or whip; cracked tiles crumble a moment after you step on them. |
 
