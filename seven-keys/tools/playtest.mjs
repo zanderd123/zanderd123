@@ -75,6 +75,11 @@ await go('ice', 9, 12, 'up'); await settle();
 for (const k of ['ArrowLeft', 'ArrowLeft', 'ArrowUp', 'ArrowRight', 'ArrowUp', 'ArrowRight', 'ArrowUp', 'ArrowRight']) { await move(k); }
 check(await sk(() => __SK.S.keys.has('ice')), 'sliding the ice puzzle reaches the FROST KEY');
 
+// dark maze needs the lantern, which waits behind the boulder gate
+await go('storage', 1, 7, 'left'); await settle();
+await move('ArrowLeft');
+check(await room() === 'storage', 'the Dark Maze is blocked without a light');
+
 // boulders onto both plates
 await go('boulder', 9, 2, 'down'); await settle();
 const push = async (x, y, dir, key, n) => { await put(x, y, dir); for (let i = 0; i < n; i++) { await tap(key, 40); await page.waitForTimeout(320); } };
@@ -83,7 +88,23 @@ await push(12, 3, 'down', 'ArrowDown', 3); await push(11, 7, 'right', 'ArrowRigh
 await settle();
 check(await sk(() => __SK.S.flags.gate), 'two boulders on the plates open the gate');
 await put(9, 8, 'down'); for (let i = 0; i < 3; i++) await move('ArrowDown');
-check(await sk(() => __SK.S.keys.has('boulder')), 'walking through the gate reaches the STONE KEY');
+check(await sk(() => __SK.S.lantern), 'walking through the gate picks up the LANTERN');
+
+// mirrors: turn four mirrors to steer the sunbeam into the crystal
+await go('mirrors', 1, 7, 'right'); await settle();
+for (const [x, y] of [[4, 5], [10, 5], [10, 10], [15, 10]]) { await put(x, y, 'left'); await tap('Space'); await settle(); }
+check(await sk(() => __SK.S.flags.mirror), 'turning the right mirrors lights the crystal');
+await put(16, 4, 'up'); await move('ArrowUp');
+check(await sk(() => __SK.S.keys.has('mirror')), 'the PRISM KEY drops out of the case and can be picked up');
+
+// the secret shelf in the Archives
+await go('archives', 17, 3, 'up'); await settle();
+await tap('Space'); await settle();
+check(await sk(() => __SK.S.flags.mamaw && __SK.mamaw.on), 'the right-most top shelf in the Archives reveals Mamaw');
+await move('ArrowDown'); await move('ArrowLeft');
+check(await sk(() => __SK.mamaw.x === 18 - 1 && __SK.mamaw.y === 4), 'Mamaw follows one step behind');
+await go('hall', 9, 9, 'up'); await settle();
+check(await sk(() => __SK.mamaw.on && __SK.mamaw.x === 9 && __SK.mamaw.y === 10), 'Mamaw comes along into the next room');
 
 // chasm: vault a gap, then fall through a crumbling tile
 await go('chasm', 9, 2, 'down'); await settle();
@@ -105,13 +126,7 @@ check(await sk(() => __SK.S.flags.music), 'repeating the organ tune (' + seq.joi
 await put(13, 8, 'down'); await move('ArrowDown');
 check(await sk(() => __SK.S.keys.has('music')), 'the MELODY KEY appears and can be picked up');
 
-// dark maze needs the lantern
-await go('storage', 1, 7, 'left'); await settle();
-await move('ArrowLeft');
-check(await room() === 'storage', 'the Dark Maze is blocked without a light');
-await go('attic', 15, 10, 'up'); await settle();
-await tap('Space'); await settle();
-check(await sk(() => __SK.S.lantern), 'searching the right crate in the Attic finds the lantern');
+// with the lantern, into the Dark Maze
 await go('storage', 1, 7, 'left'); await settle(); await move('ArrowLeft'); await page.waitForTimeout(500); await settle();
 check(await room() === 'darkmaze', 'with the lantern you can enter the Dark Maze');
 

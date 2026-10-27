@@ -2,7 +2,7 @@
 
 A top-down pixel-art exploration game in the style of the classic Game Boy
 Advance Pokémon games. You wake up inside a strange old building with a giant
-chest that has seven keyholes. Explore 20 rooms, get past seven obstacles,
+chest that has seven keyholes. Explore 22 rooms, get past seven obstacles,
 collect all seven keys and open the chest to escape.
 
 Open `index.html` in a browser to play. It is one self-contained file with no
@@ -41,16 +41,16 @@ ending) shows the fastest runs:
 ## Map
 
 ```
-            x=0           x=1           x=2           x=3            x=4
- y=0     Attic ─────── Gallery                    Observatory
-                          │                            │
- y=1    LIBRARY ─────── Study                     MUSIC ROOM      ICE ROOM
-                          │                            │              │
- y=2                  West Hall ──── GREAT HALL ── East Hall ────── Chapel
-                          │              │             │              │
- y=3   DARK MAZE ──── Storage ────── South Foyer ─── Kitchen ──── Greenhouse
-                                         │             │              │
- y=4                 SPIKE HALL ──── Courtyard    BOULDER ROOM     THE CHASM
+            x=0           x=1           x=2              x=3            x=4
+ y=0     Attic ─────── Gallery ──── HALL OF MIRRORS   Observatory
+                          │                               │
+ y=1    LIBRARY ─────── Study                          MUSIC ROOM      ICE ROOM
+                          │                               │               │
+ y=2    Archives ──── West Hall ──── GREAT HALL ──── East Hall ─────── Chapel
+                          │              │                │               │
+ y=3   DARK MAZE ──── Storage ────── South Foyer ───── Kitchen ──── Greenhouse
+                                         │                │               │
+ y=4                 SPIKE HALL ──── Courtyard      Boulder Room      THE CHASM
 ```
 
 The Great Hall is the starting room. The chest sits against its front wall,
@@ -67,13 +67,21 @@ golden key opens the front door, and walking out of it ends the run.
 | Riddle Key | Library | Professor Quill asks 3 riddles. Get one wrong and he runs off to a random room; find him and try again. |
 | Spike Key | Spike Hall | A maze of spikes, some popping up and down on a timer. One touch sends you back to the Great Hall. |
 | Frost Key | Ice Room | Sliding-ice puzzle: you slide until you hit a rock (8 moves to solve). |
-| Stone Key | Boulder Room | Push two boulders onto two pressure plates to open an iron gate. Leave and re-enter to reset. |
-| Shadow Key | Dark Maze | A pitch-black maze. You need a lantern first: a note in the Storage room says it was packed into one of the many crates in the Attic. |
+| Prism Key | Hall of Mirrors | A sunbeam bounces off standing mirrors. Turn mirrors (press A beside one) to steer the light into a crystal; the glass case opens and the key drops out. |
+| Shadow Key | Dark Maze | A pitch-black maze. You need the lantern first, and it is locked behind the iron gate in the Boulder Room: push two boulders onto two plates to open it (leave and re-enter to reset). A note in the Storage room points the way. |
 | Melody Key | Music Room | The organ plays a 5-note tune on coloured floor tiles; repeat it by stepping on them. |
 | Sky Key | The Chasm | Cross gaps with your staff or whip; cracked tiles crumble a moment after you step on them. |
 
 Pip the cat in the Great Hall gives hints, including which room Professor Quill
 ran off to.
+
+## Secrets
+
+The Archives (west of the West Hall) are where Professor Quill likes to hide
+between the shelves. One book on the right-most shelf of the top wall sticks
+out a little. Pull it and the shelf swings open to reveal **Mamaw**, a calico
+cat who follows you for the rest of the game (and out of the front door). She
+is just company: she does not block anything or change the game.
 
 ## Checks
 

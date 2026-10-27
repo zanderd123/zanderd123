@@ -245,6 +245,8 @@ const THEMES = {
   garden:  { floor:'grass', alt:'path', top:'#24401e', lip:'#3a6030', wall:'hedge', c1:'#3e8a3a', c2:'#2e7030', trim:'#5aa848', base:'#24481e' },
   glass:   { floor:'flag',  alt:'grass', top:'#2a3a3a', lip:'#4a6060', wall:'glass', c1:'#a8dcea', c2:'#8cc8dc', trim:'#e8f4f8', base:'#4a6a5a' },
   ice:     { floor:'snow',     top:'#1c2a44', lip:'#34486a', wall:'brick', c1:'#9cbcdc', c2:'#84a6cc', trim:'#d8ecfa', base:'#4a6488' },
+  mirror:  { floor:'mirrorfloor', top:'#2a2440', lip:'#463e66', wall:'paper', c1:'#5a5486', c2:'#4e4878', trim:'#d8d8f0', base:'#2a2440' },
+  archive: { floor:'darkwood', top:'#22161a', lip:'#3a2a2e', wall:'paper', c1:'#5a3a3a', c2:'#4e3232', trim:'#c8a24a', base:'#2a1a12' },
   dark:    { floor:'darkstone', top:'#121018', lip:'#221e2c', wall:'brick', c1:'#3a3646', c2:'#2e2a38', trim:'#4a4658', base:'#1a1822' },
 };
 
@@ -289,6 +291,10 @@ const FLOORS = {
   flag(x, y, tx, ty) {
     rr(x, y, 16, 16, '#9a9078'); rr(x + 1, y + 1, 6, 6, '#c8bc9c'); rr(x + 9, y + 1, 6, 6, '#c0b494');
     rr(x + 1, y + 9, 6, 6, '#c0b494'); rr(x + 9, y + 9, 6, 6, '#c8bc9c'); speck(x, y, tx, ty, 2, '#6a9a4a');
+  },
+  mirrorfloor(x, y, tx, ty) {
+    rr(x, y, 16, 16, (tx + ty) % 2 ? '#cfcfe4' : '#b4b4d0'); rr(x, y, 16, 1, '#9a9abc'); rr(x, y, 1, 16, '#9a9abc');
+    if ((tx * 3 + ty) % 5 === 0) rr(x + 3, y + 3, 4, 1, '#f4f4ff');
   },
   snow(x, y, tx, ty) { rr(x, y, 16, 16, '#dde8f2'); speck(x, y, tx, ty, 5, '#c6d6e6'); speck(x, y, tx, ty, 3, '#f8fbff', 2); },
 };
@@ -337,6 +343,8 @@ const DECOR = {
   shelf(x, y) { rr(x + 1, y + 8, 14, 2, '#6a4428'); rr(x + 2, y + 4, 3, 4, '#c84a4a'); rr(x + 6, y + 5, 3, 3, '#4ab0d8'); rr(x + 10, y + 3, 3, 5, '#e8d070'); },
   banner(x, y) { rr(x + 4, y + 1, 8, 11, '#a82838'); rr(x + 4, y + 1, 8, 1, '#d8b048'); rr(x + 5, y + 12, 2, 2, '#a82838'); rr(x + 9, y + 12, 2, 2, '#a82838'); rr(x + 7, y + 4, 2, 4, '#d8b048'); },
   pots(x, y) { rr(x + 2, y + 7, 4, 5, '#b5603a'); rr(x + 10, y + 7, 4, 5, '#b5603a'); rr(x + 2, y + 3, 4, 4, '#3f9a4a'); rr(x + 10, y + 2, 4, 5, '#3f9a4a'); },
+  tallmirror(x, y) { rr(x + 3, y + 1, 10, 12, '#d8d8f0'); rr(x + 4, y + 2, 8, 10, '#a8c8e8'); rr(x + 5, y + 3, 2, 6, '#eef8ff'); },
+  sunwindow(x, y) { rr(x + 2, y + 1, 12, 13, '#6a5a3a'); rr(x + 3, y + 2, 10, 12, '#fff0a0'); rr(x + 3, y + 2, 10, 3, '#fffad8'); rr(x + 7, y + 2, 2, 12, '#6a5a3a'); },
   sun(x, y) { rr(x + 4, y + 3, 8, 8, '#f8d860'); rr(x + 5, y + 4, 3, 2, '#fff4b0'); },
 };
 
@@ -352,6 +360,7 @@ const DECOR = {
 //  B shelf  T table  c chair  P plant  C crate  O barrel  s sign  S statue
 //  H pillar M organ  E telescope  n pew  A altar  D desk  k stove  u counter
 //  t tree   F fountain  X the great chest
+//  q d mirrors (\ and /)  y crystal  Y glass key case  z the open secret bookshelf
 const DEFS = [
   { id:'hall', name:'Great Hall', gx:2, gy:2, theme:'hall', doors:'WES', frontDoor:[15, 16],
     decor:{ 2:'window', 5:'painting', 7:'banner', 11:'banner', 13:'painting' },
@@ -369,7 +378,7 @@ const DEFS = [
       'P......RRR......P' ],
     text:{ '6,0':'A stone guardian stands watch beside the chest.', '10,0':'A stone guardian stands watch beside the chest.' } },
 
-  { id:'westhall', name:'West Hall', gx:1, gy:2, theme:'wood', doors:'ENS',
+  { id:'westhall', name:'West Hall', gx:1, gy:2, theme:'wood', doors:'ENSW',
     decor:{ 3:'painting', 6:'window', 12:'window', 15:'painting' },
     map:[
       'PP......R......PP',
@@ -383,7 +392,7 @@ const DEFS = [
       '........R........',
       '........R........',
       'PP......R......PP' ],
-    text:{ '10,3':'WEST WING.  North: the Study.  South: the Storage room.  East: the Great Hall.' } },
+    text:{ '10,3':'WEST WING.  North: the Study.  South: the Storage room.  East: the Great Hall.  West: the Archives.' } },
 
   { id:'study', name:'Study', gx:1, gy:1, theme:'wood', doors:'SWN',
     decor:{ 3:'clock', 14:'window' },
@@ -416,7 +425,7 @@ const DEFS = [
       'c..............c.',
       'PP.............PP' ] },
 
-  { id:'gallery', name:'Gallery', gx:1, gy:0, theme:'hall', doors:'SW',
+  { id:'gallery', name:'Gallery', gx:1, gy:0, theme:'hall', doors:'SWE',
     decor:{ 2:'painting', 4:'painting', 6:'painting', 8:'painting', 10:'painting', 12:'painting', 14:'painting', 16:'painting' },
     map:[
       '.................',
@@ -431,14 +440,14 @@ const DEFS = [
       '.P.............P.',
       '.................' ],
     text:{ '3,3':'A brass plaque: "On ICE, you slide until something stops you. Plan your stops before you move."',
-           '13,3':'A brass plaque: "STONE on stone opens the iron gate. Leave the room and come back if the boulders get stuck."',
+           '13,3':'A brass plaque: "STONE on stone opens the iron gate, and light waits behind it. Leave the room and come back if the boulders get stuck."',
            '1,1':'A statue of a knight holding up a lantern. The plaque reads: "Even the darkest maze is easy with a light."',
            '5,1':'A statue of a girl playing a flute. The plaque reads: "Listen first, then follow the tune."',
            '11,1':'A statue of an old man reading a book. He looks a lot like Professor Quill!',
            '15,1':'A statue of a cat. It looks just like Pip!' } },
 
   { id:'attic', name:'Attic', gx:0, gy:0, theme:'dusty', doors:'E',
-    decor:{ 5:'window', 12:'shelf' }, hidden:{ '14,7':'lantern' },
+    decor:{ 5:'window', 12:'shelf' },
     map:[
       'CCO.........OOCCC',
       'C..............CC',
@@ -596,7 +605,7 @@ const DEFS = [
       '.................',
       '########G########',
       '#######...#######',
-      '#######.K.#######',
+      '#######.L.#######',
       '#################' ] },
 
   { id:'foyer', name:'South Foyer', gx:2, gy:3, theme:'hall', doors:'NEWS',
@@ -662,7 +671,41 @@ const DEFS = [
       'C..............OO',
       'CC..............O',
       'CCC...........OOO' ],
-    text:{ '10,4':'A note is tacked to this post: "I borrowed the lantern for some late-night reading, then packed it away in one of the old crates up in the ATTIC.  -- Prof. Q"' } },
+    text:{ '10,4':'A note is tacked to this post: "I locked my lantern behind the iron gate in the BOULDER ROOM, south of the Kitchen, so nobody wanders into the Dark Maze by accident.  -- Prof. Q"' } },
+
+  { id:'mirrors', name:'Hall of Mirrors', gx:2, gy:0, theme:'mirror', doors:'W',
+    decor:{ 3:'sunwindow', 6:'tallmirror', 9:'tallmirror', 12:'tallmirror', 16:'tallmirror' },
+    map:[
+      'H..............Y.',
+      '...............K.',
+      '.................',
+      '..d.....d........',
+      '.............y...',
+      '.................',
+      '.....d...........',
+      '.................',
+      '...q....d....q...',
+      '.................',
+      'H...............H' ],
+    text:{ '15,0':'A glass case on a stand. A rainbow-colored key glitters inside, but the case is sealed tight.',
+           '13,4':'A blue crystal on a pedestal. It looks like it wants to soak up some light.' } },
+
+  { id:'archives', name:'Archives', gx:0, gy:2, theme:'archive', doors:'E',
+    decor:{},
+    map:[
+      'BBBBBBBBBBBBBBBBB',
+      '.................',
+      '.B.B.B.B.B.......',
+      '.B.B.B.B.B...D...',
+      '.B.B.B.B.B.......',
+      '.................',
+      '.B.B.B.B.B.......',
+      '.B.B.B.B.B.......',
+      '.B.B.B.B.B.......',
+      '...........TT.c..',
+      'P...........s...P' ],
+    text:{ '13,3':'A card file full of notes about Professor Quill. One card says: "Loves riddles. Hates loud noises. Hides between bookshelves."',
+           '12,10':'THE ARCHIVES.  Old records of the house.  Please keep quiet!' } },
 
   { id:'darkmaze', name:'Dark Maze', gx:0, gy:3, theme:'dark', doors:'E', dark:true, needsLantern:true,
     decor:{},
@@ -684,7 +727,7 @@ const KEYS = [
   { id:'quiz',    name:'RIDDLE KEY', color:'#b070e0', room:'library' },
   { id:'spikes',  name:'SPIKE KEY',  color:'#d8e0ec', room:'spikes' },
   { id:'ice',     name:'FROST KEY',  color:'#70d0f8', room:'ice' },
-  { id:'boulder', name:'STONE KEY',  color:'#c8a070', room:'boulder' },
+  { id:'mirror',  name:'PRISM KEY',  color:'#c8b0ff', room:'mirrors' },
   { id:'dark',    name:'SHADOW KEY', color:'#8a70e0', room:'darkmaze' },
   { id:'music',   name:'MELODY KEY', color:'#f080b0', room:'music' },
   { id:'chasm',   name:'SKY KEY',    color:'#f0c040', room:'chasm' },
@@ -692,7 +735,7 @@ const KEYS = [
 const KEYBYROOM = {}; for (const k of KEYS) KEYBYROOM[k.room] = k;
 
 const WALK = new Set('.RgfiabpQ%1234KLx^'.split(''));
-const PROPS = new Set('BTcPCOsSHMEnADkutFrX'.split(''));
+const PROPS = new Set('BTcPCOsSHMEnADkutFrXqdyYz'.split(''));
 const DIRV = { up:[0, -1], down:[0, 1], left:[-1, 0], right:[1, 0] };
 const DOORPOS = { N:[9, 1], S:[9, MH - 1], W:[0, 7], E:[MW - 1, 7] };
 const ARRIVE = { N:{ x:9, y:2, dir:'down' }, S:{ x:9, y:MH - 2, dir:'up' }, W:{ x:1, y:7, dir:'right' }, E:{ x:MW - 2, y:7, dir:'left' } };
@@ -714,8 +757,6 @@ function buildRoom(def) {
   for (const x of def.frontDoor || []) grid[1][x] = 'Z';
   const r = Object.assign({}, def, { base:grid.map(r => r.slice()), grid, theme:THEMES[def.theme], cv:mk(VW, VH), dirty:true, text:{} });
   for (const k in def.text || {}) { const [ix, iy] = k.split(',').map(Number); r.text[(ix + 1) + ',' + (iy + 2)] = def.text[k]; }
-  r.hidden = {};
-  for (const k in def.hidden || {}) { const [ix, iy] = k.split(',').map(Number); r.hidden[(ix + 1) + ',' + (iy + 2)] = def.hidden[k]; }
   r.keySpot = null; r.items = [];
   for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) {
     const ch = grid[y][x];
@@ -838,6 +879,7 @@ const PROPDRAW = {
       while (bx < x + 15) { const w = 1 + Math.floor(hash(tx * 9 + i, ty * 3 + s) * 3), h = 4 + Math.floor(hash(tx + i, ty + s, 2) * 2); if (bx + w > x + 15) break; rr(bx, sy + 6 - h, w, h, cols[Math.floor(hash(tx, i, ty + s) * 7)]); bx += w; i++; }
       rr(x + 1, sy + 6, 14, 1, '#a06a3a');
     }
+    if (S.room && S.room.id === 'archives' && tx === SECRET_SHELF.x && ty === SECRET_SHELF.y) rr(x + 9, y - 1, 2, 7, '#d8b048');
   },
   T(x, y) { blob([[x + 1, y + 1, 14, 10]], '#b07038'); rr(x + 1, y + 1, 14, 2, '#c88a50'); rr(x + 1, y + 10, 14, 2, '#7a4a22'); rr(x + 2, y + 12, 2, 3, '#5a3418'); rr(x + 12, y + 12, 2, 3, '#5a3418'); rr(x + 6, y - 1, 4, 5, '#4a7ad8'); rr(x + 6, y - 3, 1, 2, '#f05a6a'); rr(x + 9, y - 2, 1, 2, '#f8e060'); },
   c(x, y) { blob([[x + 4, y + 1, 8, 6], [x + 4, y + 7, 8, 5]], '#9a6234'); rr(x + 5, y + 2, 6, 1, '#b8804a'); rr(x + 4, y + 12, 2, 3, '#5a3418'); rr(x + 10, y + 12, 2, 3, '#5a3418'); },
@@ -890,6 +932,32 @@ const PROPDRAW = {
     }
   },
 };
+function drawMirror(x, y, flip) {
+  rr(x + 3, y + 12, 10, 3, '#4a4258');
+  for (let i = 0; i < 11; i++) { const px = flip ? x + 12 - i : x + 2 + i; rr(px, y + 1 + i, 3, 2, '#f0f4fc'); rr(px + (flip ? 0 : 2), y + 2 + i, 1, 1, '#7a80a0'); }
+  rr(x + 7, y + 10, 2, 4, '#3a3444');
+}
+Object.assign(PROPDRAW, {
+  q(x, y) { drawMirror(x, y, false); },
+  d(x, y) { drawMirror(x, y, true); },
+  y(x, y, tx, ty, r, t) {
+    const lit = r.beamHit;
+    blob([[x + 4, y + 9, 8, 6]], '#8a8296');
+    blob([[x + 5, y + 1, 6, 8], [x + 6, y - 1, 4, 2]], lit ? '#fff6a0' : '#7ad8e8'); rr(x + 6, y + 2, 2, 4, lit ? '#ffffff' : '#e8fcff');
+    if (lit && Math.sin(t * 8) > 0) { rr(x + 2, y + 1, 1, 1, '#ffffff'); rr(x + 13, y + 4, 1, 1, '#ffffff'); }
+  },
+  Y(x, y) {
+    blob([[x + 2, y + 9, 12, 6]], '#6a4a2a'); rr(x + 2, y + 9, 12, 2, '#8a6a40');
+    const lift = S.flags.mirror ? 6 : 0;
+    if (!S.flags.mirror) { blob([[x + 5, y + 2, 4, 4], [x + 9, y + 3, 4, 2], [x + 11, y + 5, 1, 2]], '#d0b8ff'); rr(x + 6, y + 3, 1, 1, '#ff8ad8'); rr(x + 7, y + 4, 1, 1, '#8ad8ff'); }
+    rr(x + 3, y - 4 - lift, 10, 13, 'rgba(210,235,255,.35)');
+    rr(x + 3, y - 5 - lift, 10, 1, '#e8f4ff'); rr(x + 3, y - 4 - lift, 1, 13, '#e8f4ff'); rr(x + 12, y - 4 - lift, 1, 13, '#c8dcf0'); rr(x + 4, y - 3 - lift, 1, 5, '#ffffff');
+  },
+  z(x, y) {   // the secret bookshelf, swung open onto a cushioned nook
+    blob([[x, y - 8, 16, 24]], '#7a4a26'); rr(x + 2, y - 6, 12, 21, '#2a1a12'); rr(x + 2, y - 6, 12, 3, '#1a100a');
+    rr(x + 3, y + 8, 10, 5, '#c84a5a'); rr(x + 3, y + 8, 10, 1, '#e86a7a'); rr(x + 4, y + 10, 1, 1, '#f0c040'); rr(x + 11, y + 10, 1, 1, '#f0c040');
+  },
+});
 const TALLPROP = { B:8, H:15, M:12, S:7, P:5, t:13, X:16, E:5, O:2, k:6, F:9 };
 
 // ---------------------------------------------------------------------------
@@ -1002,7 +1070,6 @@ const P = { x:9, y:9, fx:9, fy:9, dir:'up', moving:false, t:0, dur:0.22, walkT:0
 const prof = { room:'library', x:9, y:7, fx:9, fy:9, dir:'down', path:null, t:0, met:false, gone:false };
 let boulders = [], crumble = {}, music = { phase:'idle', seq:[], idx:0 }, padLit = {};
 let locks = 0, popup = null, toolFx = null, bumpT = 0;
-const DEV = {};                    // tools/mockups.mjs draws extra things through DEV.after
 const timers = [];
 const wait = s => new Promise(r => timers.push({ t:s, r }));
 let fadeTween = null;
@@ -1069,12 +1136,15 @@ function resetRoomState(r) {
     if (r.grid[y][x] === 'p') plates.push({ x, y });
   }
   if (r.id === 'boulder' && S.flags.gate) boulders.forEach((b, i) => { if (plates[i]) { b.x = b.fx = plates[i].x; b.y = b.fy = plates[i].y; } });
+  if (r.id === 'mirrors' && S.flags.mirrorCells) for (const [x, y, c] of S.flags.mirrorCells) r.grid[y][x] = c;
+  if (r.id === 'archives' && S.flags.mamaw) r.grid[SECRET_SHELF.y][SECRET_SHELF.x] = 'z';
   r.pitHint = false;
 }
 function enterRoom(id, x, y, dir) {
   const r = ROOM[id]; S.room = r; resetRoomState(r);
   Object.assign(P, { x, y, fx:x, fy:y, dir, moving:false, sliding:false, jump:false, exiting:null, t:0, fall:0, wasMoving:false });
   popup = { text:r.name, t:0 };
+  placeMamaw();
   save();
 }
 const npcAtProf = (x, y) => !prof.gone && prof.room === S.room.id && prof.x === x && prof.y === y;
@@ -1090,9 +1160,13 @@ function blocked(x, y) {
 function keyVisible(k) {
   if (S.keys.has(k.id) || k.id === 'quiz') return false;
   if (k.id === 'music') return !!S.flags.music;
+  if (k.id === 'mirror') return !!S.flags.mirror;
   return true;
 }
-function startMove(nx, ny, dur) { P.fx = P.x; P.fy = P.y; P.x = nx; P.y = ny; P.t = 0; P.dur = dur; P.moving = true; }
+function startMove(nx, ny, dur) {
+  if (mamaw.on) Object.assign(mamaw, { fx:mamaw.x, fy:mamaw.y, x:P.x, y:P.y, t:0, dur, dir:P.dir });
+  P.fx = P.x; P.fy = P.y; P.x = nx; P.y = ny; P.t = 0; P.dur = dur; P.moving = true;
+}
 function bump() { if (bumpT <= 0) { sfx('bump'); bumpT = 0.3; } }
 
 function tryStep(d) {
@@ -1174,7 +1248,8 @@ function goThrough(door) {
 const FIRST = {
   spikes: () => ['Sharp spikes cover the floor!', 'Touch even one and you\'ll be sent all the way back to the Great Hall. Some spikes pop up and down, so watch the timing!'],
   ice: () => ['The whole floor is solid ice!', 'Once you start sliding you can\'t stop until you bump into something.'],
-  boulder: () => ['Two heavy boulders... and two stone plates in the floor.', 'If a boulder gets stuck, leave the room and come back to reset them.'],
+  boulder: () => ['Two heavy boulders... and two stone plates in the floor. Behind the iron gate, something glows.', 'If a boulder gets stuck, leave the room and come back to reset them.'],
+  mirrors: () => ['Sunlight pours in through a high window and bounces off a standing mirror.', 'Walk up to a mirror and press ' + (TOUCH ? 'A' : 'SPACE') + ' to turn it. Can you steer the light into the crystal?'],
   darkmaze: () => ['It\'s so dark in here! Good thing you brought the lantern.'],
   music: () => ['A grand old organ stands against the wall.', 'Four colored tiles glow faintly in the middle of the floor.'],
   chasm: () => ['A huge chasm splits the floor in pieces!', toolHint(), 'Careful: cracked tiles crumble a moment after you step on them. Keep moving!'],
@@ -1230,6 +1305,62 @@ function useTool() {
   toolFx = { t:0, mx:P.x + dx * (gap + 1) / 2, my:P.y + dy * (gap + 1) / 2 };
   P.jump = true; startMove(lx, ly, 0.45 + gap * 0.08);
 }
+
+// Hall of Mirrors -----------------------------------------------------------------
+// The sunbeam enters through the window above column 3 and travels down. A '\'
+// mirror swaps (dx,dy) to (dy,dx); a '/' mirror swaps it to (-dy,-dx).
+function beamPath(r) {
+  let x = 3, y = 2, dx = 0, dy = 1;
+  const pts = [[x * TS + 8, TS + 12]];
+  for (let n = 0; n < 200; n++) {
+    const ch = r.grid[y][x];
+    if (ch === 'q' || ch === 'd') { pts.push([x * TS + 8, y * TS + 8]); [dx, dy] = ch === 'q' ? [dy, dx] : [-dy, -dx]; }
+    else if (ch === 'y') { pts.push([x * TS + 8, y * TS + 5]); return { pts, hit:true }; }
+    else if (!WALK.has(ch)) { pts.push([x * TS + 8 - dx * 8, y * TS + 8 - dy * 8]); return { pts, hit:false }; }
+    x += dx; y += dy;
+  }
+  return { pts, hit:false };
+}
+function turnMirror(x, y) {
+  const r = S.room; r.grid[y][x] = r.grid[y][x] === 'q' ? 'd' : 'q'; r.dirty = true;
+  tone(midi(88), 0.06, 'triangle', 0.05); tone(midi(83), 0.08, 'triangle', 0.04, 0.05);
+  if (!S.flags.mirror && beamPath(r).hit) {
+    S.flags.mirror = true;
+    S.flags.mirrorCells = [];
+    r.grid.forEach((row, yy) => row.forEach((c, xx) => { if (c === 'q' || c === 'd') S.flags.mirrorCells.push([xx, yy, c]); }));
+    save();
+    run(async () => { await wait(0.3); sfx('open'); await wait(0.7); await say('The crystal blazes with light!', 'With a soft chime, the glass case lifts open and the key drops to the floor!'); });
+  }
+}
+
+// Mamaw, the secret calico ------------------------------------------------------
+const SECRET_SHELF = { x:17, y:2 };          // the right-most shelf on the Archives' top wall
+const mamaw = { on:false, x:0, y:0, fx:0, fy:0, t:1, dur:0.2, dir:'down' };
+function placeMamaw() {
+  mamaw.on = !!S.flags.mamaw;
+  if (!mamaw.on) return;
+  const [dx, dy] = DIRV[P.dir], bx = P.x - dx, by = P.y - dy;
+  const ok = WALK.has(tileAt(S.room, bx, by)) && !blocked(bx, by);
+  Object.assign(mamaw, { x:ok ? bx : P.x, y:ok ? by : P.y, t:1, dir:P.dir });
+  mamaw.fx = mamaw.x; mamaw.fy = mamaw.y;
+}
+function openSecretShelf() {
+  run(async () => {
+    await say('One book on this shelf sticks out a little farther than the others...', 'You pull it. *CLICK*');
+    S.room.grid[SECRET_SHELF.y][SECRET_SHELF.x] = 'z'; S.room.dirty = true; sfx('gate');
+    await wait(0.8);
+    tone(midi(84), 0.1, 'triangle', 0.06); tone(midi(88), 0.14, 'triangle', 0.06, 0.12);
+    await say('The bookshelf swings open like a door! Behind it is a cozy hidden nook with a cushion...',
+      '...and a fluffy calico cat! Her collar tag says MAMAW.', 'MAMAW: Mrrrow!', 'Mamaw has decided to follow you everywhere you go!');
+    S.flags.mamaw = true;
+    // she hops down out of the nook and lands beside you
+    const spot = [[-1, 0], [1, 0], [0, 1]].map(([dx, dy]) => [P.x + dx, P.y + dy]).find(([x, y]) => !blocked(x, y)) || [P.x, P.y];
+    Object.assign(mamaw, { on:true, x:spot[0], y:spot[1], fx:SECRET_SHELF.x, fy:SECRET_SHELF.y, t:0, dur:0.4, dir:'down' });
+    save();
+  });
+}
+const PURRS = ['Mamaw purrs and rubs against your leg.', 'Mamaw blinks slowly at you. That means she loves you!', 'Mamaw rolls over for a belly rub. Purrrr...', 'Mamaw yawns a big, toothy yawn.'];
+function petMamaw() { run(async () => { tone(midi(79), 0.12, 'triangle', 0.05); await say(PURRS[rnd(PURRS.length)]); }); }
 
 // Music room --------------------------------------------------------------------
 function lightPad(n, d = 0.35) { padLit[n] = d; tone(PADNOTE[n], 0.3, 'square', 0.07); }
@@ -1335,7 +1466,7 @@ function bfs(r, sx, sy, isGoal, passable) {
   }
   return null;
 }
-const FLEE = ['attic', 'gallery', 'observatory', 'study', 'westhall', 'easthall', 'kitchen', 'greenhouse', 'courtyard', 'foyer', 'chapel', 'storage'];
+const FLEE = ['archives', 'attic', 'gallery', 'observatory', 'study', 'westhall', 'easthall', 'kitchen', 'greenhouse', 'courtyard', 'foyer', 'chapel', 'storage'];
 function profFlee() {
   return new Promise(res => {
     const r = S.room;
@@ -1373,8 +1504,8 @@ function catHintFor(id) {
                                                 : 'I saw Professor Quill run off toward the ' + ROOM[prof.room].name.toUpperCase() + '! Go find him and try his riddles again.';
     case 'spikes': return 'The Spike Hall is past the Courtyard. Go south twice, then west. One touch of a spike and you\'ll be right back here with me!';
     case 'ice': return 'The Ice Room is north of the Chapel, way over on the east side. Before you slide, think about where you will stop!';
-    case 'boulder': return 'South of the Kitchen there\'s a room full of boulders. Push them onto the stone plates. Stuck? Leave and come back.';
-    case 'dark': return S.lantern ? 'The Dark Maze is west of the Storage room. Your lantern will light the way!' : 'The Dark Maze is west of the Storage room, but you\'ll need a light. Someone left a note about a lantern in the Storage room...';
+    case 'mirror': return 'The Hall of Mirrors is east of the Gallery, at the very top of the house. Turn the mirrors to steer the sunbeam into the crystal!';
+    case 'dark': return S.lantern ? 'The Dark Maze is west of the Storage room. Your lantern will light the way!' : 'The Dark Maze is west of the Storage room, but you\'ll need a light. The lantern is locked up in the Boulder Room, south of the Kitchen. Push the boulders onto the plates!';
     case 'music': return 'The Music Room is north of the East Hall. Listen closely to the old organ and remember the colors!';
     case 'chasm': return 'The Chasm is south of the Greenhouse. Your ' + tool + ' can get you across the narrow gaps!';
   }
@@ -1409,14 +1540,9 @@ function interact() {
   if (catAt(tx, ty)) { talkCat(); return; }
   if (ch === 'X') { openChest(); return; }
   if (ch === 'Z') { frontDoor(); return; }
-  if (r.hidden[tx + ',' + ty] === 'lantern' && !S.lantern) {
-    run(async () => {
-      await say('You dig through the dusty old crate...');
-      S.lantern = true; save(); sfx('item');
-      await say('You found a LANTERN!', 'Now you can see in dark places.');
-    });
-    return;
-  }
+  if (mamaw.on && mamaw.x === tx && mamaw.y === ty && !P.moving) { petMamaw(); return; }
+  if (ch === 'q' || ch === 'd') { turnMirror(tx, ty); return; }
+  if (r.id === 'archives' && tx === SECRET_SHELF.x && ty === SECRET_SHELF.y && ch === 'B') { openSecretShelf(); return; }
   if (ch === 'M') { playOrgan(); return; }
   if (ch === '~') { useTool(); return; }
   const t = r.text[tx + ',' + ty];
@@ -1468,7 +1594,7 @@ function finishGame() {
 }
 
 // Save / load ---------------------------------------------------------------------
-const SAVEKEY = 'seven-keys-save-v1';
+const SAVEKEY = 'seven-keys-save-v2';     // v2: Prism Key replaced the Stone Key
 function save() {
   if (S.mode !== 'play' || !S.room) return;
   try {
@@ -1563,6 +1689,7 @@ function update(dt) {
   for (const k in padLit) { padLit[k] -= dt; if (padLit[k] <= 0) delete padLit[k]; }
   if (toolFx) { toolFx.t += dt; if (toolFx.t > 0.6) toolFx = null; }
 
+  if (mamaw.on && mamaw.t < mamaw.dur) mamaw.t += dt;
   // boulders
   for (const b of boulders) if (b.t < 1) { b.t = Math.min(1, b.t + dt / b.d); if (b.t >= 1) checkPlates(); }
 
@@ -1628,6 +1755,27 @@ function drawLanternItem(x, y, t) {
   shadow(x, y);
   blob([[x + 5, y + 4, 6, 9]], '#3a3a44'); rr(x + 6, y + 6, 4, 5, Math.sin(t * 8) > 0 ? '#ffe070' : '#ffd040'); rr(x + 7, y + 1, 2, 3, '#3a3a44');
 }
+// Mamaw: a little calico, white with orange and black patches.
+function drawCalico(x, y, dir, step, t) {
+  C.fillStyle = 'rgba(20,10,30,.25)'; C.fillRect(x + 4, y + 13, 8, 2);
+  const side = dir === 'left' || dir === 'right', fl = dir === 'left';
+  const R = (a, b, w, h, c) => rr(fl ? x + 16 - a - w : x + a, y + b, w, h, c);
+  if (side) {
+    blob([[fl ? x + 16 - 3 - 9 : x + 3, y + 8, 9, 5], [fl ? x + 16 - 9 - 6 : x + 9, y + 4, 6, 6]], '#f4f0e8');
+    R(4, 8, 3, 3, '#e08a3a'); R(8, 9, 2, 3, '#2a2a30'); R(10, 4, 2, 2, '#e08a3a'); R(13, 4, 2, 2, '#2a2a30');
+    R(9, 3, 1, 1, '#2a2a30'); R(13, 3, 1, 1, '#e08a3a');
+    R(12, 6, 1, 1, '#3ac860');
+    R(4, 13, 2, step ? 1 : 2, '#f4f0e8'); R(10, 13, 2, step ? 2 : 1, '#f4f0e8');
+    const wag = Math.floor(t * 3) % 2; R(1, 5 + wag, 2, 5, '#e08a3a'); R(1, 5 + wag, 2, 1, '#2a2a30');
+  } else {
+    const up = dir === 'up';
+    blob([[x + 4, y + 7, 8, 7], [x + 4, y + 2, 8, 6], [x + 4, y, 2, 2], [x + 10, y, 2, 2]], '#f4f0e8');
+    rr(x + 4, y + 2, 3, 3, '#e08a3a'); rr(x + 9, y + 2, 3, 2, '#2a2a30'); rr(x + 4, y + 9, 3, 3, '#2a2a30'); rr(x + 9, y + 8, 3, 4, '#e08a3a');
+    if (!up) { rr(x + 6, y + 4, 1, 2, '#3ac860'); rr(x + 9, y + 4, 1, 2, '#3ac860'); rr(x + 7, y + 6, 2, 1, '#f0a0b0'); }
+    rr(x + 5, y + 14, 2, step ? 1 : 2, '#f4f0e8'); rr(x + 9, y + 14, 2, step ? 2 : 1, '#f4f0e8');
+    const wag = Math.floor(t * 3) % 2; if (up) rr(x + 7 + wag, y + 10, 2, 6, '#e08a3a'); else rr(x + 12, y + 8 + wag, 2, 5, '#e08a3a');
+  }
+}
 function drawCat(x, y, t) {
   shadow(x, y);
   const tail = Math.floor(t * 2) % 2;
@@ -1661,6 +1809,14 @@ function render() {
     }
   }
   if (r.frontDoor) drawFrontDoor(r.frontDoor[0] * TS, TS, t);
+  if (r.id === 'mirrors') {
+    const b = beamPath(r); r.beamHit = b.hit;
+    for (const [w, col] of [[5, 'rgba(255,230,120,.35)'], [2, '#fff4b0']]) {
+      g.strokeStyle = col; g.lineWidth = w; g.beginPath(); g.moveTo(b.pts[0][0], b.pts[0][1]);
+      for (const p of b.pts.slice(1)) g.lineTo(p[0], p[1]);
+      g.stroke();
+    }
+  }
   // gate glow torch flicker in face row
   if (r.decor) for (const k in r.decor) if (r.decor[k] === 'torch' && Math.sin(t * 9 + +k) > 0.2) rr(+k * TS + 7, TS + 2, 2, 1, '#fff4b0');
 
@@ -1677,6 +1833,10 @@ function render() {
   if (k && r.keySpot && keyVisible(k)) list.push({ y:r.keySpot.y * TS + 14, f:() => drawKeyItem(r.keySpot.x * TS, r.keySpot.y * TS, k.color, t) });
   if (r.lanternSpot && !S.lantern) list.push({ y:r.lanternSpot.y * TS + 14, f:() => drawLanternItem(r.lanternSpot.x * TS, r.lanternSpot.y * TS, t) });
   if (r.catSpot) list.push({ y:r.catSpot.y * TS + 15, f:() => drawCat(r.catSpot.x * TS, r.catSpot.y * TS, t) });
+  if (mamaw.on) {
+    const e = Math.min(1, mamaw.t / mamaw.dur), mx = lerp(mamaw.fx, mamaw.x, e) * TS, my = lerp(mamaw.fy, mamaw.y, e) * TS;
+    list.push({ y:my + 15.4, f:() => drawCalico(mx, my, mamaw.dir, e < 1 ? Math.floor(t * 10) % 2 : 0, t) });
+  }
   for (const b of boulders) {
     const e = b.t, bx = lerp(b.fx, b.x, e) * TS, by = lerp(b.fy, b.y, e) * TS;
     list.push({ y:by + 15, f:() => { blob([[bx + 1, by + 2, 14, 13], [bx + 3, by, 10, 2]], '#a08a6a'); rr(bx + 3, by + 2, 5, 3, '#c0aa88'); rr(bx + 9, by + 6, 1, 4, '#6a5a44'); rr(bx + 6, by + 9, 4, 1, '#6a5a44'); rr(bx + 1, by + 12, 14, 3, '#7a6a50'); } });
@@ -1707,7 +1867,6 @@ function render() {
   }
   list.sort((a, b) => a.y - b.y);
   for (const d of list) d.f();
-  if (DEV.after) DEV.after(t, g);
 
   if (r.dark) drawDarkness(t);
   if (P.flash > 0) { g.fillStyle = 'rgba(220,40,40,' + (P.flash * 0.35).toFixed(2) + ')'; g.fillRect(0, 0, VW, VH); }
@@ -1715,7 +1874,6 @@ function render() {
   present();
   drawHUD();
   drawPopup();
-  if (DEV.ui) DEV.ui(t);
   drawFade();
   drawDialog();
   if (S.menu) drawMenu();
@@ -1928,6 +2086,7 @@ function renderEnding() {
   shadow(144, py);
   C.drawImage(SPR[S.kind].down[walking ? WALKCYCLE[Math.floor(t * 6) % 4] : 0], 142, Math.round(py) - 8);
   if (!walking && Math.floor(t * 3) % 2) { rr(141, py - 14, 1, 3, '#ffffff'); rr(160, py - 12, 1, 3, '#ffffff'); }
+  if (S.flags.mamaw) drawCalico(162, py - 2, walking ? 'down' : 'left', walking ? Math.floor(t * 8) % 2 : 0, t);
   present();
   txt('YOU ESCAPED!', VW / 2, 14, '#ffffff', 16, 'center', '#a04a20');
   txt('THE END', VW / 2, 38, '#7a3a14', 8, 'center', null);
@@ -2022,8 +2181,8 @@ resize();
 const go = () => requestAnimationFrame(t => { last = t; frame(t); });
 (document.fonts && document.fonts.load ? Promise.race([document.fonts.load('8px "Press Start 2P"'), new Promise(r => setTimeout(r, 1500))]) : Promise.resolve()).then(go, go);
 
-// Hooks for the automated checks and room mockups in tools/.
-window.__SK = { DEV, txt, srr, buildRoom, THEMES, FLOORS, DECOR, PROPDRAW, PROPS, rr, blob, openDialog, S, P, ROOM, DEFS, KEYS, QUESTIONS, prof, dlg, enterRoom, newGame, giveKey, get boulders() { return boulders; }, get music() { return music; }, get locks() { return locks; }, board, WALK, MW, MH };
+// Hooks for the automated checks in tools/.
+window.__SK = { mamaw, S, P, ROOM, DEFS, KEYS, QUESTIONS, prof, dlg, enterRoom, newGame, giveKey, get boulders() { return boulders; }, get music() { return music; }, get locks() { return locks; }, board, WALK, MW, MH };
 })();
 </script>
 </body>

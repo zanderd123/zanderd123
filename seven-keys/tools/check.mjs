@@ -124,6 +124,29 @@ const walk = c => WALK.includes(c);
   back > 0 ? ok(`chasm way back in ${back} moves (after the bridge)`) : fail('no way back from the chasm key');
 }
 
+{ // mirrors: every mirror can be flipped between \ and /; find the fewest flips that light the crystal
+  const m = room('mirrors').map(r => [...r]);
+  const cells = []; m.forEach((r, y) => r.forEach((c, x) => { if (c === 'q' || c === 'd') cells.push([x, y]); }));
+  const lit = grid => {
+    let x = 2, y = 0, dx = 0, dy = 1;
+    for (let n = 0; n < 200; n++) {
+      const c = cell(grid, x, y);
+      if (c === 'q') [dx, dy] = [dy, dx]; else if (c === 'd') [dx, dy] = [-dy, -dx];
+      else if (c === 'y') return true; else if (!walk(c)) return false;
+      x += dx; y += dy;
+    }
+    return false;
+  };
+  let best = -1;
+  for (let mask = 0; mask < 1 << cells.length; mask++) {
+    const grid = m.map(r => r.slice()); let flips = 0;
+    cells.forEach(([x, y], i) => { if (mask >> i & 1) { grid[y][x] = grid[y][x] === 'q' ? 'd' : 'q'; flips++; } });
+    if (lit(grid.map(r => r.join(''))) && (best < 0 || flips < best)) best = flips;
+  }
+  if (best === 0) fail('mirror room starts already solved');
+  else best > 0 ? ok(`mirror room solvable in ${best} mirror turns`) : fail('mirror room has no solution');
+}
+
 // --- run the real game a little ---------------------------------------------------
 await page.keyboard.press('Space');            // title -> select
 await page.waitForTimeout(200);
