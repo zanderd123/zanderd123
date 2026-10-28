@@ -286,6 +286,16 @@ const World = {
     set(2, 9, T.SIGN);
     m.signs.set(m.idx(ox + 2, oy + 9), town.sign);
 
+    // a recruitable ally waits in town
+    for (const [id, A] of Object.entries(ALLIES)) {
+      if (A.town !== ti || A.home) continue;
+      let sx = 19, sy = 13;
+      for (let tries = 0; tries < 30 && get(sx, sy) !== T.GROUND; tries++) { sx = 18 + (tries % 6); sy = 12 + Math.floor(tries / 6); }
+      const n = makeNPC({ x: ox + sx, y: oy + sy });
+      n.palObj = A.pal; n.look = A.look || null; n.ally = id;
+      n.talk = () => Scripts.recruit(id, n);
+      m.npcs.push(n);
+    }
     // outdoor wanderers
     const folk = TOWNFOLK[ti].out;
     const spots = [[8, 12], [20, 8], [24, 12]];
@@ -320,6 +330,7 @@ const World = {
   },
 
   refreshGates() {
+    for (const n of this.maps.world.npcs) if (n.ally) n.hidden = Crew.has(n.ally);
     for (const g of this.gates) {
       const open = Game.gateOpen(g.ri);
       g.cone.hidden = open;

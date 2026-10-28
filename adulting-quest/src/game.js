@@ -52,17 +52,14 @@ const Game = {
     return {
       name, path: null, level: 5, xp: Stats.xpFor(5), sanity: 30, energy: 20, status: null,
       known: ['wing_it'], equipped: ['wing_it'], items: {}, money: 0, debt: 0, karma: 50,
-      badges: [], flags: {}, outfit: PALS.player.c, repel: 0, steps: 0, playTime: 0,
+      badges: [], flags: {}, outfit: PALS.player.c, crew: [], lead: 'me', repel: 0, steps: 0, playTime: 0,
       respawn: { map: 'house-0-0', x: 10, y: 6, dir: 'right' },
       map: 'house-0-0', x: 2, y: 3, dir: 'down',
     };
   },
   stats() { return Stats.of(this.p); },
   age() { return 20 + Math.floor(this.p.badges.length * 1.5); },
-  fullHeal() {
-    const s = this.stats();
-    this.p.sanity = s.maxSanity; this.p.energy = s.maxEnergy; this.p.status = null;
-  },
+  fullHeal() { Crew.healAll(); },
   fmt(t) { return String(t).replace(/\{NAME\}/g, this.p ? this.p.name : 'YOU'); },
   karmaLabel(k = this.p.karma) {
     return k < 20 ? 'Menace' : k < 40 ? 'Sketchy' : k < 65 ? 'Decent' : k < 85 ? 'Good Egg' : 'Saint';
@@ -488,16 +485,17 @@ const Menu = {
     Audio2.sfx('select');
     let start = 0;
     while (true) {
-      const opts = ['SKILLS', 'BAG', 'PROFILE', 'MAP', 'WHAT BEATS WHAT', 'SAVE', 'SOUND: ' + (Audio2.muted ? 'OFF' : 'ON'), 'CLOSE'];
+      const opts = ['SKILLS', 'CREW', 'BAG', 'PROFILE', 'MAP', 'WHAT BEATS WHAT', 'SAVE', 'SOUND: ' + (Audio2.muted ? 'OFF' : 'ON'), 'CLOSE'];
       const i = await UI.choose(opts, { cls: 'side', start });
-      if (i < 0 || i === 7) return;
+      if (i < 0 || i === 8) return;
       start = i;
       if (i === 0) await this.skills();
-      if (i === 1) await this.bag(false);
-      if (i === 2) await this.profile();
-      if (i === 3) await this.map();
-      if (i === 4) await this.chart();
-      if (i === 5) {
+      if (i === 1) await this.crew();
+      if (i === 2) await this.bag(false);
+      if (i === 3) await this.profile();
+      if (i === 4) await this.map();
+      if (i === 5) await this.chart();
+      if (i === 6) {
         if (await UI.confirm('Save your progress?')) {
           const ok = Game.save();
           if (ok) Audio2.sfx('save');
@@ -505,7 +503,7 @@ const Menu = {
         }
         UI.closeDialog();
       }
-      if (i === 6) Audio2.setMuted(!Audio2.muted);
+      if (i === 7) Audio2.setMuted(!Audio2.muted);
     }
   },
 
@@ -536,6 +534,29 @@ const Menu = {
           const j = await UI.choose(p.equipped.map((e) => 'Swap out ' + SKILLS[e].name), { cls: 'side' });
           if (j >= 0) p.equipped[j] = id;
         }
+        return 'keep';
+      },
+    });
+  },
+
+  async crew() {
+    const p = Game.p;
+    const list = () => Crew.members();
+    const rows = () => list().map((r) => {
+      const st = Crew.stats(r);
+      return {
+        label: Crew.name(r) + (Crew.isMe(r) ? '' : ' · ' + ALLIES[r.id].title), right: (Crew.key(r) === p.lead ? 'LEAD ' : '') + (r.sanity > 0 ? `${r.sanity}/${st.maxSanity}` : 'OUT'),
+        desc: `Best with <b style="color:${(SKILL_TYPES[Crew.boost(r)] || SKILL_TYPES.BASIC).color}">${Crew.boost(r) || '-'}</b> · EN ${r.energy}/${st.maxEnergy}<br>` +
+          Crew.skills(r).map((id) => `<span style="color:${SKILL_TYPES[SKILLS[id].type].color}">${SKILLS[id].name}</span>`).join(' · '),
+      };
+    });
+    await UI.list(rows, {
+      title: 'CREW', hint: '', empty: '',
+      footer: () => p.crew.length ? 'A: make leader (fights first) · B: back' : 'Recruit friends around the world. They\'ll fight with you.',
+      onAct: async (k) => {
+        const r = list()[k];
+        p.lead = Crew.key(r);
+        UI.toast(`${Crew.name(r)} will lead`);
         return 'keep';
       },
     });
@@ -637,29 +658,39 @@ const Menu = {
 const Items = {
   // returns 'used' | 'no'
   async use(id, inBattle) {
-    const p = Game.p, it = ITEMS[id], s = Game.stats();
+    const p = Game.p, it = ITEMS[id];
+    // who gets it: the fighter in battle, or anyone in the field
+    const target = async (msg, filter) => {
+      if (inBattle && it.use !== 'revive') return filter(Battle.s.cur) ? Battle.s.cur : null;
+      return Crew.pick(msg, filter);
+    };
     switch (it.use) {
-      case 'sanity': {
-        if (p.sanity >= s.maxSanity) { await UI.say('Your Sanity is already full.'); UI.closeDialog(); return 'no'; }
-        const before = p.sanity;
-        p.sanity = Math.min(s.maxSanity, p.sanity + it.amt);
+      case 'sanity': case 'full': {
+        const r = await target('Who gets it?', (m) => m.sanity > 0 && (m.sanity < Crew.stats(m).maxSanity || (it.use === 'full' && m.status)));
+        if (!r) { await UI.say(inBattle ? 'Sanity is already full.' : 'Nobody needs that right now.'); UI.closeDialog(); return 'no'; }
+        const st = Crew.stats(r), before = r.sanity;
+        r.sanity = it.use === 'full' ? st.maxSanity : Math.min(st.maxSanity, r.sanity + it.amt);
+        if (it.use === 'full') r.status = null;
         Game.take(id); Audio2.sfx('heal');
-        await UI.say(`{NAME} had some ${it.name}. Recovered ${p.sanity - before} Sanity!`);
+        await UI.say(`${Crew.name(r)} had some ${it.name}. Recovered ${r.sanity - before} Sanity!`);
         break;
       }
       case 'energy': {
-        if (p.energy >= s.maxEnergy) { await UI.say('Your Energy is already full.'); UI.closeDialog(); return 'no'; }
-        const before = p.energy;
-        p.energy = Math.min(s.maxEnergy, p.energy + it.amt);
+        const r = await target('Who gets it?', (m) => m.sanity > 0 && m.energy < Crew.stats(m).maxEnergy);
+        if (!r) { await UI.say(inBattle ? 'Energy is already full.' : 'Nobody needs that right now.'); UI.closeDialog(); return 'no'; }
+        const st = Crew.stats(r), before = r.energy;
+        r.energy = Math.min(st.maxEnergy, r.energy + it.amt);
         Game.take(id); Audio2.sfx('heal');
-        await UI.say(`{NAME} downed a ${it.name}. Recovered ${p.energy - before} Energy!`);
+        await UI.say(`${Crew.name(r)} downed a ${it.name}. Recovered ${r.energy - before} Energy!`);
         break;
       }
-      case 'full': {
-        if (p.sanity >= s.maxSanity && !p.status) { await UI.say('You\'re doing okay right now. Save it.'); UI.closeDialog(); return 'no'; }
-        p.sanity = s.maxSanity; p.status = null;
+      case 'revive': {
+        const r = await Crew.pick('Who needs a pep talk?', (m) => m.sanity <= 0);
+        if (!r) { await UI.say('Nobody needs a pep talk right now. Everyone\'s hanging in there.'); UI.closeDialog(); return 'no'; }
+        r.sanity = Math.floor(Crew.stats(r).maxSanity / 2);
         Game.take(id); Audio2.sfx('heal');
-        await UI.say('{NAME} talked it through. Sanity fully restored!');
+        await UI.say(`"You've got this!" ${Crew.name(r)} is back up with ${r.sanity} Sanity.`);
+        if (inBattle) Battle.refresh();
         break;
       }
       case 'repel':

@@ -56,6 +56,9 @@ const SKILLS = {
   therapy_talk: { name: 'Unpack It', type: 'CHILL', power: 80, cost: 7, acc: 95, desc: '"And how does that make you feel?"' },
   gaslight:     { name: 'Gaslight', type: 'SHADY', power: 60, cost: 3, acc: 90, fx: { anxious: 0.4, karma: -4 }, desc: '"That issue? It never happened." May confuse it. Costs Karma.' },
   passive_aggro:{ name: 'Per My Last Email', type: 'SHADY', power: 50, cost: 2, acc: 100, fx: { foeDef: -1, karma: -2 }, desc: 'Lowers the issue\'s Resistance. Costs Karma.' },
+  hype_up:      { name: 'Hype Up', type: 'SOCIAL', power: 0, cost: 3, acc: 100, fx: { selfAtk: 2 }, desc: '"You got this!" Sharply raises Confidence.' },
+  guilt_trip:   { name: 'Guilt Trip', type: 'SHADY', power: 65, cost: 3, acc: 95, fx: { anxious: 0.3 }, desc: '"After everything I\'ve done for you?" Moms don\'t lose Karma.' },
+  packed_lunch: { name: 'Packed Lunch', type: 'CHILL', power: 0, cost: 4, acc: 100, fx: { heal: 0.45 }, desc: 'With a note in it. Restores a lot of Sanity.' },
   ghosting:     { name: 'Ghosting', type: 'SHADY', power: 0, cost: 2, acc: 100, fx: { flee: true, karma: -3 }, desc: 'Just stop responding. Escapes any wild issue. Costs Karma.' },
 };
 
@@ -185,6 +188,7 @@ const ITEMS = {
   comfort_food:  { name: 'Comfort Food', price: 8, use: 'sanity', amt: 25, battle: true, desc: 'Restores 25 Sanity. Mac and cheese, obviously.' },
   pizza:         { name: 'Pizza Night', price: 20, use: 'sanity', amt: 60, battle: true, desc: 'Restores 60 Sanity. Pineapple optional.' },
   therapy:       { name: 'Therapy Session', price: 45, use: 'full', battle: true, desc: 'Fully restores Sanity and cures your status.' },
+  pep_talk:      { name: 'Pep Talk', price: 20, use: 'revive', battle: true, desc: 'Gets a crew member who ran out of Sanity back up with half.' },
   headphones:    { name: 'Noise-Cancelling Headphones', price: 15, use: 'repel', amt: 150, desc: 'Weak issues leave you alone for 150 steps.' },
   uber:          { name: 'Rideshare Home', price: 25, use: 'escape', battle: true, desc: 'Escape a wild issue, or ride back to the last hospital you used.' },
   scratch:       { name: 'Scratch-Off Ticket', price: 5, use: 'scratch', desc: 'Could win $50! (Could also not.)' },
@@ -202,10 +206,10 @@ const ITEMS = {
 };
 // Stock grows as you travel; index = town id, later towns sell everything.
 const SHOP_STOCK = [
-  ['coffee', 'comfort_food', 'headphones', 'book_google', 'book_diy', 'book_meditate', 'book_breathe', 'scratch', 'outfit'],
-  ['coffee', 'energy_drink', 'comfort_food', 'headphones', 'scratch', 'book_diy', 'book_haggle', 'book_exit'],
-  ['coffee', 'energy_drink', 'comfort_food', 'pizza', 'uber', 'headphones', 'scratch', 'outfit', 'book_meditate', 'book_no'],
-  ['coffee', 'energy_drink', 'pizza', 'therapy', 'uber', 'headphones', 'scratch', 'book_friends', 'book_excel', 'book_manual'],
+  ['coffee', 'comfort_food', 'pep_talk', 'headphones', 'book_google', 'book_diy', 'book_meditate', 'book_breathe', 'scratch', 'outfit'],
+  ['coffee', 'energy_drink', 'comfort_food', 'pep_talk', 'headphones', 'scratch', 'book_diy', 'book_haggle', 'book_exit'],
+  ['coffee', 'energy_drink', 'comfort_food', 'pizza', 'pep_talk', 'uber', 'headphones', 'scratch', 'outfit', 'book_meditate', 'book_no'],
+  ['coffee', 'energy_drink', 'pizza', 'therapy', 'pep_talk', 'uber', 'headphones', 'scratch', 'book_friends', 'book_excel', 'book_manual'],
 ];
 const OUTFIT_COLORS = [
   ['Classic Red', '#d8403a'], ['Ocean Blue', '#3a78d8'], ['Forest Green', '#3a9a52'],
@@ -461,4 +465,55 @@ const PALS = {
   old:     { h: '#e8e8e8', s: '#e8c0a0', c: '#8a6a4a', p: '#5a4a3a', b: '#3a2a1a', style: 'bald' },
   suit:    { h: '#1a1a1a', s: '#c89070', c: '#3a4050', p: '#2a3040', b: '#1a1a1a', style: 'short', tie: '#c83a3a' },
   musician:{ h: '#6a3a1a', s: '#d8a078', c: '#c0302a', p: '#3a3a5a', b: '#5a3a1a', style: 'long' },
+};
+
+// ---------------------------------------------------------------- crew
+// Allies you recruit. They level with you; `learn` is [level, skill] and an
+// ally fights with the last four skills it has learned.
+const ALLIES = {
+  jordan: {
+    name: 'JORDAN', title: 'Best Friend', town: 0, need: 0, cost: 0, boost: 'SOCIAL',
+    pal: { h: '#2a1a0a', s: '#c08860', c: '#3a9ad8', p: '#3a3a58', b: '#e8e8e8', style: 'short' },
+    base: { san: 66, conf: 60, comp: 52, hus: 62, energy: 2 },
+    learn: [[1, 'small_talk'], [1, 'touch_grass'], [1, 'hype_up'], [12, 'networking']],
+    noPath: ['Go see Dr. Street first! Then we roll.'],
+    pitch: ['You picked a path? Adulting? ALONE? Absolutely not.', 'I\'m coming with you. I\'m great with people. Mostly. Sometimes.'],
+    after: 'Best friends don\'t let best friends adult alone.',
+  },
+  sam: {
+    name: 'SAM', title: 'Roommate', town: 1, need: 0, cost: 50, boost: 'GRIT',
+    pal: { h: '#c86a2a', s: '#f0c8a0', c: '#6a8a3a', p: '#4a5a7a', b: '#5a3a1a', style: 'bun' },
+    base: { san: 74, conf: 62, comp: 60, hus: 48, energy: 0 },
+    learn: [[1, 'elbow_grease'], [1, 'fix_it'], [1, 'power_nap'], [14, 'hustle'], [20, 'all_nighter']],
+    pitch: ['I need a roommate. Desperately. Rent out here is cheap, but not THAT cheap.', 'Split the deposit with me and I\'ll fight your dishes. Literally.'],
+    decline: 'Fine. I\'ll put up another flyer. "Must love cacti."',
+    after: 'I labeled all my food in the fridge. Don\'t touch the hummus.',
+  },
+  pat: {
+    name: 'PAT', title: 'Mentor', town: 2, need: 1, cost: 0, boost: 'BRAINS', look: 'glasses',
+    pal: { h: '#8a8a8a', s: '#a87050', c: '#8a4a8a', p: '#3a3a4a', b: '#1a1a1a', style: 'short', tie: '#e8c040' },
+    base: { san: 64, conf: 66, comp: 54, hus: 52, energy: 4 },
+    learn: [[1, 'googling'], [1, 'read_manual'], [1, 'small_talk'], [12, 'spreadsheet'], [18, 'write_off']],
+    notYet: ['I mentor winners. Beat a Life Leader and come find me.'],
+    pitch: ['I heard you handled Car Trouble. Impressive.', 'I\'ve been adulting for thirty years. Let me mentor you. I\'m basically a walking spreadsheet.'],
+    after: 'Remember: pay yourself first. Then pay me back for that coffee.',
+  },
+  kim: {
+    name: 'DR. KIM', title: 'Therapist', town: 3, need: 2, cost: 40, boost: 'CHILL', look: 'glasses',
+    pal: { h: '#1a1a2a', s: '#e8c0a0', c: '#4aa8a0', p: '#3a3a5a', b: '#2a2a2a', style: 'long' },
+    base: { san: 70, conf: 58, comp: 64, hus: 50, energy: 4 },
+    learn: [[1, 'touch_grass'], [1, 'deep_breaths'], [1, 'boundaries'], [1, 'therapy_talk']],
+    notYet: ['I\'m Dr. Kim. My calendar is full until you\'ve got two Life Milestones. Come back then.'],
+    pitch: ['You\'ve been through a lot. Car trouble. The gym. That\'s a lot of feelings.', 'First session is the fee. After that, I\'ll come with you. Insurance is... complicated.'],
+    decline: 'That\'s okay. Boundaries are healthy. I\'m proud of you.',
+    after: 'And how does that make you feel? ...Great. Let\'s go.',
+  },
+  mom: {
+    name: 'MOM', title: 'On Speed Dial', town: 0, home: true, need: 1, cost: 0, boost: 'SHADY',
+    pal: { h: '#8a4a2a', s: '#f0c8a0', c: '#7aa04a', p: '#5a5a7a', b: '#4a3a2a', style: 'long' },
+    base: { san: 82, conf: 54, comp: 70, hus: 46, energy: 2 },
+    learn: [[1, 'guilt_trip'], [1, 'packed_lunch'], [1, 'small_talk'], [16, 'networking']],
+    pitch: ['A real Life Milestone! Look at you!', 'Put me on speed dial. I\'m coming to your battles. Don\'t argue.'],
+    after: 'Did you eat? You didn\'t eat. Here.',
+  },
 };

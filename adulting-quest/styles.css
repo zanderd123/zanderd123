@@ -254,3 +254,11 @@ body {
 .chart2 td { padding: calc(3 * var(--u)) calc(2 * var(--u)) calc(3 * var(--u)) 0; border-bottom: var(--u) solid #e0dce8; vertical-align: top; }
 .chart2 td em { display: inline-block; margin: 0 calc(2 * var(--u)) calc(2 * var(--u)) 0; }
 .chart2 .eg { color: #9890a8; font-size: calc(4 * var(--u)); margin-top: calc(2 * var(--u)); text-shadow: none; }
+
+/* crew pips: who's still standing */
+.h-crew, .bhud .pips { display: flex; gap: calc(1.5 * var(--u)); }
+.h-crew i, .bhud .pips i { width: calc(4 * var(--u)); height: calc(4 * var(--u)); background: #3ec46d; box-shadow: 0 0 0 calc(0.6 * var(--u)) #000; display: block; }
+.h-crew i.out, .bhud .pips i.out { background: #5a5468; }
+.bhud .pips { position: absolute; right: calc(6 * var(--u)); top: calc(-8 * var(--u)); }
+.bhud .pips i.cur { background: #f0c040; }
+.p-desc em { font-style: normal; }

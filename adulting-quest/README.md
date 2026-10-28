@@ -34,6 +34,13 @@ dialog panels, 20x24 outlined characters and full-screen 19x14 rooms.
   issues come in 5 types (PEOPLE, PAPERWORK, MONEY, CHORE, STRESS). See the
   TYPE CHART in the menu. Skills cost Energy. Sanity is your HP. SHADY skills
   (Gaslight, Per My Last Email, Ghosting) are strong but cost Karma.
+- **Crew.** Five allies join you: JORDAN (best friend, Maple Grove), SAM
+  (roommate, Dusty Gulch, $50 deposit), PAT (mentor, Sunnyside Beach, after 1
+  milestone), DR. KIM (therapist, Frostpeak, $40, after 2) and MOM (talk to
+  her at home after 1). Each levels with you and is best with one skill type.
+  In battle, CREW swaps who's fighting (uses your turn); when someone runs
+  out of Sanity the next person tags in, and you lose only when everyone is
+  out. MENU > CREW picks who fights first. Pep Talks revive a crew member.
 - **Money.** $1 and $5 bills appear in the tall grass and respawn. Spend it on
   items, skill books, outfits, scratch-offs, hospital copays, chapel donations
   and street musicians.

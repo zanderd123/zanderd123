@@ -266,6 +266,14 @@ body {
 .chart2 td em { display: inline-block; margin: 0 calc(2 * var(--u)) calc(2 * var(--u)) 0; }
 .chart2 .eg { color: #9890a8; font-size: calc(4 * var(--u)); margin-top: calc(2 * var(--u)); text-shadow: none; }
 
+/* crew pips: who's still standing */
+.h-crew, .bhud .pips { display: flex; gap: calc(1.5 * var(--u)); }
+.h-crew i, .bhud .pips i { width: calc(4 * var(--u)); height: calc(4 * var(--u)); background: #3ec46d; box-shadow: 0 0 0 calc(0.6 * var(--u)) #000; display: block; }
+.h-crew i.out, .bhud .pips i.out { background: #5a5468; }
+.bhud .pips { position: absolute; right: calc(6 * var(--u)); top: calc(-8 * var(--u)); }
+.bhud .pips i.cur { background: #f0c040; }
+.p-desc em { font-style: normal; }
+
 </style>
 <div id="screen">
   <canvas id="cv" width="304" height="224" aria-label="Adulting Quest game screen"></canvas>
@@ -398,6 +406,9 @@ const SKILLS = {
   therapy_talk: { name: 'Unpack It', type: 'CHILL', power: 80, cost: 7, acc: 95, desc: '"And how does that make you feel?"' },
   gaslight:     { name: 'Gaslight', type: 'SHADY', power: 60, cost: 3, acc: 90, fx: { anxious: 0.4, karma: -4 }, desc: '"That issue? It never happened." May confuse it. Costs Karma.' },
   passive_aggro:{ name: 'Per My Last Email', type: 'SHADY', power: 50, cost: 2, acc: 100, fx: { foeDef: -1, karma: -2 }, desc: 'Lowers the issue\'s Resistance. Costs Karma.' },
+  hype_up:      { name: 'Hype Up', type: 'SOCIAL', power: 0, cost: 3, acc: 100, fx: { selfAtk: 2 }, desc: '"You got this!" Sharply raises Confidence.' },
+  guilt_trip:   { name: 'Guilt Trip', type: 'SHADY', power: 65, cost: 3, acc: 95, fx: { anxious: 0.3 }, desc: '"After everything I\'ve done for you?" Moms don\'t lose Karma.' },
+  packed_lunch: { name: 'Packed Lunch', type: 'CHILL', power: 0, cost: 4, acc: 100, fx: { heal: 0.45 }, desc: 'With a note in it. Restores a lot of Sanity.' },
   ghosting:     { name: 'Ghosting', type: 'SHADY', power: 0, cost: 2, acc: 100, fx: { flee: true, karma: -3 }, desc: 'Just stop responding. Escapes any wild issue. Costs Karma.' },
 };
 
@@ -527,6 +538,7 @@ const ITEMS = {
   comfort_food:  { name: 'Comfort Food', price: 8, use: 'sanity', amt: 25, battle: true, desc: 'Restores 25 Sanity. Mac and cheese, obviously.' },
   pizza:         { name: 'Pizza Night', price: 20, use: 'sanity', amt: 60, battle: true, desc: 'Restores 60 Sanity. Pineapple optional.' },
   therapy:       { name: 'Therapy Session', price: 45, use: 'full', battle: true, desc: 'Fully restores Sanity and cures your status.' },
+  pep_talk:      { name: 'Pep Talk', price: 20, use: 'revive', battle: true, desc: 'Gets a crew member who ran out of Sanity back up with half.' },
   headphones:    { name: 'Noise-Cancelling Headphones', price: 15, use: 'repel', amt: 150, desc: 'Weak issues leave you alone for 150 steps.' },
   uber:          { name: 'Rideshare Home', price: 25, use: 'escape', battle: true, desc: 'Escape a wild issue, or ride back to the last hospital you used.' },
   scratch:       { name: 'Scratch-Off Ticket', price: 5, use: 'scratch', desc: 'Could win $50! (Could also not.)' },
@@ -544,10 +556,10 @@ const ITEMS = {
 };
 // Stock grows as you travel; index = town id, later towns sell everything.
 const SHOP_STOCK = [
-  ['coffee', 'comfort_food', 'headphones', 'book_google', 'book_diy', 'book_meditate', 'book_breathe', 'scratch', 'outfit'],
-  ['coffee', 'energy_drink', 'comfort_food', 'headphones', 'scratch', 'book_diy', 'book_haggle', 'book_exit'],
-  ['coffee', 'energy_drink', 'comfort_food', 'pizza', 'uber', 'headphones', 'scratch', 'outfit', 'book_meditate', 'book_no'],
-  ['coffee', 'energy_drink', 'pizza', 'therapy', 'uber', 'headphones', 'scratch', 'book_friends', 'book_excel', 'book_manual'],
+  ['coffee', 'comfort_food', 'pep_talk', 'headphones', 'book_google', 'book_diy', 'book_meditate', 'book_breathe', 'scratch', 'outfit'],
+  ['coffee', 'energy_drink', 'comfort_food', 'pep_talk', 'headphones', 'scratch', 'book_diy', 'book_haggle', 'book_exit'],
+  ['coffee', 'energy_drink', 'comfort_food', 'pizza', 'pep_talk', 'uber', 'headphones', 'scratch', 'outfit', 'book_meditate', 'book_no'],
+  ['coffee', 'energy_drink', 'pizza', 'therapy', 'pep_talk', 'uber', 'headphones', 'scratch', 'book_friends', 'book_excel', 'book_manual'],
 ];
 const OUTFIT_COLORS = [
   ['Classic Red', '#d8403a'], ['Ocean Blue', '#3a78d8'], ['Forest Green', '#3a9a52'],
@@ -803,6 +815,57 @@ const PALS = {
   old:     { h: '#e8e8e8', s: '#e8c0a0', c: '#8a6a4a', p: '#5a4a3a', b: '#3a2a1a', style: 'bald' },
   suit:    { h: '#1a1a1a', s: '#c89070', c: '#3a4050', p: '#2a3040', b: '#1a1a1a', style: 'short', tie: '#c83a3a' },
   musician:{ h: '#6a3a1a', s: '#d8a078', c: '#c0302a', p: '#3a3a5a', b: '#5a3a1a', style: 'long' },
+};
+
+// ---------------------------------------------------------------- crew
+// Allies you recruit. They level with you; `learn` is [level, skill] and an
+// ally fights with the last four skills it has learned.
+const ALLIES = {
+  jordan: {
+    name: 'JORDAN', title: 'Best Friend', town: 0, need: 0, cost: 0, boost: 'SOCIAL',
+    pal: { h: '#2a1a0a', s: '#c08860', c: '#3a9ad8', p: '#3a3a58', b: '#e8e8e8', style: 'short' },
+    base: { san: 66, conf: 60, comp: 52, hus: 62, energy: 2 },
+    learn: [[1, 'small_talk'], [1, 'touch_grass'], [1, 'hype_up'], [12, 'networking']],
+    noPath: ['Go see Dr. Street first! Then we roll.'],
+    pitch: ['You picked a path? Adulting? ALONE? Absolutely not.', 'I\'m coming with you. I\'m great with people. Mostly. Sometimes.'],
+    after: 'Best friends don\'t let best friends adult alone.',
+  },
+  sam: {
+    name: 'SAM', title: 'Roommate', town: 1, need: 0, cost: 50, boost: 'GRIT',
+    pal: { h: '#c86a2a', s: '#f0c8a0', c: '#6a8a3a', p: '#4a5a7a', b: '#5a3a1a', style: 'bun' },
+    base: { san: 74, conf: 62, comp: 60, hus: 48, energy: 0 },
+    learn: [[1, 'elbow_grease'], [1, 'fix_it'], [1, 'power_nap'], [14, 'hustle'], [20, 'all_nighter']],
+    pitch: ['I need a roommate. Desperately. Rent out here is cheap, but not THAT cheap.', 'Split the deposit with me and I\'ll fight your dishes. Literally.'],
+    decline: 'Fine. I\'ll put up another flyer. "Must love cacti."',
+    after: 'I labeled all my food in the fridge. Don\'t touch the hummus.',
+  },
+  pat: {
+    name: 'PAT', title: 'Mentor', town: 2, need: 1, cost: 0, boost: 'BRAINS', look: 'glasses',
+    pal: { h: '#8a8a8a', s: '#a87050', c: '#8a4a8a', p: '#3a3a4a', b: '#1a1a1a', style: 'short', tie: '#e8c040' },
+    base: { san: 64, conf: 66, comp: 54, hus: 52, energy: 4 },
+    learn: [[1, 'googling'], [1, 'read_manual'], [1, 'small_talk'], [12, 'spreadsheet'], [18, 'write_off']],
+    notYet: ['I mentor winners. Beat a Life Leader and come find me.'],
+    pitch: ['I heard you handled Car Trouble. Impressive.', 'I\'ve been adulting for thirty years. Let me mentor you. I\'m basically a walking spreadsheet.'],
+    after: 'Remember: pay yourself first. Then pay me back for that coffee.',
+  },
+  kim: {
+    name: 'DR. KIM', title: 'Therapist', town: 3, need: 2, cost: 40, boost: 'CHILL', look: 'glasses',
+    pal: { h: '#1a1a2a', s: '#e8c0a0', c: '#4aa8a0', p: '#3a3a5a', b: '#2a2a2a', style: 'long' },
+    base: { san: 70, conf: 58, comp: 64, hus: 50, energy: 4 },
+    learn: [[1, 'touch_grass'], [1, 'deep_breaths'], [1, 'boundaries'], [1, 'therapy_talk']],
+    notYet: ['I\'m Dr. Kim. My calendar is full until you\'ve got two Life Milestones. Come back then.'],
+    pitch: ['You\'ve been through a lot. Car trouble. The gym. That\'s a lot of feelings.', 'First session is the fee. After that, I\'ll come with you. Insurance is... complicated.'],
+    decline: 'That\'s okay. Boundaries are healthy. I\'m proud of you.',
+    after: 'And how does that make you feel? ...Great. Let\'s go.',
+  },
+  mom: {
+    name: 'MOM', title: 'On Speed Dial', town: 0, home: true, need: 1, cost: 0, boost: 'SHADY',
+    pal: { h: '#8a4a2a', s: '#f0c8a0', c: '#7aa04a', p: '#5a5a7a', b: '#4a3a2a', style: 'long' },
+    base: { san: 82, conf: 54, comp: 70, hus: 46, energy: 2 },
+    learn: [[1, 'guilt_trip'], [1, 'packed_lunch'], [1, 'small_talk'], [16, 'networking']],
+    pitch: ['A real Life Milestone! Look at you!', 'Put me on speed dial. I\'m coming to your battles. Don\'t argue.'],
+    after: 'Did you eat? You didn\'t eat. Here.',
+  },
 };
 
 // ---- src/art.js
@@ -2088,7 +2151,7 @@ const UI = {
           if (b === 'up' && its.length) { i = (i + its.length - 1) % its.length; Audio2.sfx('move'); its = render(); }
           else if (b === 'down' && its.length) { i = (i + 1) % its.length; Audio2.sfx('move'); its = render(); }
           else if (b === 'A') act(i);
-          else if (b === 'B') { Audio2.sfx('back'); done(-1); }
+          else if (b === 'B' && !o.noCancel) { Audio2.sfx('back'); done(-1); }
           return 'stop';
         },
       };
@@ -2123,14 +2186,14 @@ const UI = {
     h.classList.toggle('hidden', !show);
     if (!show) return;
     const st = Game.stats();
-    const key = [p.money, p.level, p.sanity, p.energy, p.badges.length, p.status, st.maxSanity].join('|');
+    const key = [p.money, p.level, p.sanity, p.energy, p.badges.length, p.status, st.maxSanity, p.crew.map((r) => r.sanity > 0).join()].join('|');
     if (key === this._hudKey) return;
     this._hudKey = key;
     const pct = (a, b) => Math.round(U.clamp(a / b, 0, 1) * 100);
     const sr = p.sanity / st.maxSanity;
     h.innerHTML = `<span class="h-cash">${U.money(p.money)}</span><span>LV${p.level}</span>
       <span class="h-bars"><i class="hs"><b style="width:${pct(p.sanity, st.maxSanity)}%;background:${sr > 0.5 ? '#3ec46d' : sr > 0.2 ? '#f0c030' : '#e8483a'}"></b></i><i class="he"><b style="width:${pct(p.energy, st.maxEnergy)}%"></b></i></span>
-      <span class="h-star">★${p.badges.length}</span>${p.status === 'burnout' ? '<span class="h-bo">BURNT OUT</span>' : ''}`;
+      <span class="h-star">★${p.badges.length}</span>${p.crew.length ? `<span class="h-crew">${Crew.members().map((r) => `<i class="${r.sanity <= 0 ? 'out' : ''}"></i>`).join('')}</span>` : ''}${p.status === 'burnout' ? '<span class="h-bo">BURNT OUT</span>' : ''}`;
   },
 
   toast(text, ms = 1600) {
@@ -2458,6 +2521,16 @@ const World = {
     set(2, 9, T.SIGN);
     m.signs.set(m.idx(ox + 2, oy + 9), town.sign);
 
+    // a recruitable ally waits in town
+    for (const [id, A] of Object.entries(ALLIES)) {
+      if (A.town !== ti || A.home) continue;
+      let sx = 19, sy = 13;
+      for (let tries = 0; tries < 30 && get(sx, sy) !== T.GROUND; tries++) { sx = 18 + (tries % 6); sy = 12 + Math.floor(tries / 6); }
+      const n = makeNPC({ x: ox + sx, y: oy + sy });
+      n.palObj = A.pal; n.look = A.look || null; n.ally = id;
+      n.talk = () => Scripts.recruit(id, n);
+      m.npcs.push(n);
+    }
     // outdoor wanderers
     const folk = TOWNFOLK[ti].out;
     const spots = [[8, 12], [20, 8], [24, 12]];
@@ -2492,6 +2565,7 @@ const World = {
   },
 
   refreshGates() {
+    for (const n of this.maps.world.npcs) if (n.ally) n.hidden = Crew.has(n.ally);
     for (const g of this.gates) {
       const open = Game.gateOpen(g.ri);
       g.cone.hidden = open;
@@ -2711,17 +2785,14 @@ const Game = {
     return {
       name, path: null, level: 5, xp: Stats.xpFor(5), sanity: 30, energy: 20, status: null,
       known: ['wing_it'], equipped: ['wing_it'], items: {}, money: 0, debt: 0, karma: 50,
-      badges: [], flags: {}, outfit: PALS.player.c, repel: 0, steps: 0, playTime: 0,
+      badges: [], flags: {}, outfit: PALS.player.c, crew: [], lead: 'me', repel: 0, steps: 0, playTime: 0,
       respawn: { map: 'house-0-0', x: 10, y: 6, dir: 'right' },
       map: 'house-0-0', x: 2, y: 3, dir: 'down',
     };
   },
   stats() { return Stats.of(this.p); },
   age() { return 20 + Math.floor(this.p.badges.length * 1.5); },
-  fullHeal() {
-    const s = this.stats();
-    this.p.sanity = s.maxSanity; this.p.energy = s.maxEnergy; this.p.status = null;
-  },
+  fullHeal() { Crew.healAll(); },
   fmt(t) { return String(t).replace(/\{NAME\}/g, this.p ? this.p.name : 'YOU'); },
   karmaLabel(k = this.p.karma) {
     return k < 20 ? 'Menace' : k < 40 ? 'Sketchy' : k < 65 ? 'Decent' : k < 85 ? 'Good Egg' : 'Saint';
@@ -3147,16 +3218,17 @@ const Menu = {
     Audio2.sfx('select');
     let start = 0;
     while (true) {
-      const opts = ['SKILLS', 'BAG', 'PROFILE', 'MAP', 'WHAT BEATS WHAT', 'SAVE', 'SOUND: ' + (Audio2.muted ? 'OFF' : 'ON'), 'CLOSE'];
+      const opts = ['SKILLS', 'CREW', 'BAG', 'PROFILE', 'MAP', 'WHAT BEATS WHAT', 'SAVE', 'SOUND: ' + (Audio2.muted ? 'OFF' : 'ON'), 'CLOSE'];
       const i = await UI.choose(opts, { cls: 'side', start });
-      if (i < 0 || i === 7) return;
+      if (i < 0 || i === 8) return;
       start = i;
       if (i === 0) await this.skills();
-      if (i === 1) await this.bag(false);
-      if (i === 2) await this.profile();
-      if (i === 3) await this.map();
-      if (i === 4) await this.chart();
-      if (i === 5) {
+      if (i === 1) await this.crew();
+      if (i === 2) await this.bag(false);
+      if (i === 3) await this.profile();
+      if (i === 4) await this.map();
+      if (i === 5) await this.chart();
+      if (i === 6) {
         if (await UI.confirm('Save your progress?')) {
           const ok = Game.save();
           if (ok) Audio2.sfx('save');
@@ -3164,7 +3236,7 @@ const Menu = {
         }
         UI.closeDialog();
       }
-      if (i === 6) Audio2.setMuted(!Audio2.muted);
+      if (i === 7) Audio2.setMuted(!Audio2.muted);
     }
   },
 
@@ -3195,6 +3267,29 @@ const Menu = {
           const j = await UI.choose(p.equipped.map((e) => 'Swap out ' + SKILLS[e].name), { cls: 'side' });
           if (j >= 0) p.equipped[j] = id;
         }
+        return 'keep';
+      },
+    });
+  },
+
+  async crew() {
+    const p = Game.p;
+    const list = () => Crew.members();
+    const rows = () => list().map((r) => {
+      const st = Crew.stats(r);
+      return {
+        label: Crew.name(r) + (Crew.isMe(r) ? '' : ' · ' + ALLIES[r.id].title), right: (Crew.key(r) === p.lead ? 'LEAD ' : '') + (r.sanity > 0 ? `${r.sanity}/${st.maxSanity}` : 'OUT'),
+        desc: `Best with <b style="color:${(SKILL_TYPES[Crew.boost(r)] || SKILL_TYPES.BASIC).color}">${Crew.boost(r) || '-'}</b> · EN ${r.energy}/${st.maxEnergy}<br>` +
+          Crew.skills(r).map((id) => `<span style="color:${SKILL_TYPES[SKILLS[id].type].color}">${SKILLS[id].name}</span>`).join(' · '),
+      };
+    });
+    await UI.list(rows, {
+      title: 'CREW', hint: '', empty: '',
+      footer: () => p.crew.length ? 'A: make leader (fights first) · B: back' : 'Recruit friends around the world. They\'ll fight with you.',
+      onAct: async (k) => {
+        const r = list()[k];
+        p.lead = Crew.key(r);
+        UI.toast(`${Crew.name(r)} will lead`);
         return 'keep';
       },
     });
@@ -3296,29 +3391,39 @@ const Menu = {
 const Items = {
   // returns 'used' | 'no'
   async use(id, inBattle) {
-    const p = Game.p, it = ITEMS[id], s = Game.stats();
+    const p = Game.p, it = ITEMS[id];
+    // who gets it: the fighter in battle, or anyone in the field
+    const target = async (msg, filter) => {
+      if (inBattle && it.use !== 'revive') return filter(Battle.s.cur) ? Battle.s.cur : null;
+      return Crew.pick(msg, filter);
+    };
     switch (it.use) {
-      case 'sanity': {
-        if (p.sanity >= s.maxSanity) { await UI.say('Your Sanity is already full.'); UI.closeDialog(); return 'no'; }
-        const before = p.sanity;
-        p.sanity = Math.min(s.maxSanity, p.sanity + it.amt);
+      case 'sanity': case 'full': {
+        const r = await target('Who gets it?', (m) => m.sanity > 0 && (m.sanity < Crew.stats(m).maxSanity || (it.use === 'full' && m.status)));
+        if (!r) { await UI.say(inBattle ? 'Sanity is already full.' : 'Nobody needs that right now.'); UI.closeDialog(); return 'no'; }
+        const st = Crew.stats(r), before = r.sanity;
+        r.sanity = it.use === 'full' ? st.maxSanity : Math.min(st.maxSanity, r.sanity + it.amt);
+        if (it.use === 'full') r.status = null;
         Game.take(id); Audio2.sfx('heal');
-        await UI.say(`{NAME} had some ${it.name}. Recovered ${p.sanity - before} Sanity!`);
+        await UI.say(`${Crew.name(r)} had some ${it.name}. Recovered ${r.sanity - before} Sanity!`);
         break;
       }
       case 'energy': {
-        if (p.energy >= s.maxEnergy) { await UI.say('Your Energy is already full.'); UI.closeDialog(); return 'no'; }
-        const before = p.energy;
-        p.energy = Math.min(s.maxEnergy, p.energy + it.amt);
+        const r = await target('Who gets it?', (m) => m.sanity > 0 && m.energy < Crew.stats(m).maxEnergy);
+        if (!r) { await UI.say(inBattle ? 'Energy is already full.' : 'Nobody needs that right now.'); UI.closeDialog(); return 'no'; }
+        const st = Crew.stats(r), before = r.energy;
+        r.energy = Math.min(st.maxEnergy, r.energy + it.amt);
         Game.take(id); Audio2.sfx('heal');
-        await UI.say(`{NAME} downed a ${it.name}. Recovered ${p.energy - before} Energy!`);
+        await UI.say(`${Crew.name(r)} downed a ${it.name}. Recovered ${r.energy - before} Energy!`);
         break;
       }
-      case 'full': {
-        if (p.sanity >= s.maxSanity && !p.status) { await UI.say('You\'re doing okay right now. Save it.'); UI.closeDialog(); return 'no'; }
-        p.sanity = s.maxSanity; p.status = null;
+      case 'revive': {
+        const r = await Crew.pick('Who needs a pep talk?', (m) => m.sanity <= 0);
+        if (!r) { await UI.say('Nobody needs a pep talk right now. Everyone\'s hanging in there.'); UI.closeDialog(); return 'no'; }
+        r.sanity = Math.floor(Crew.stats(r).maxSanity / 2);
         Game.take(id); Audio2.sfx('heal');
-        await UI.say('{NAME} talked it through. Sanity fully restored!');
+        await UI.say(`"You've got this!" ${Crew.name(r)} is back up with ${r.sanity} Sanity.`);
+        if (inBattle) Battle.refresh();
         break;
       }
       case 'repel':
@@ -3373,6 +3478,69 @@ const Items = {
   },
 };
 
+// ---- src/crew.js
+'use strict';
+// The crew: you plus the allies you've recruited. Every member is a plain
+// object with sanity / energy / status; the player object is the first one.
+
+const Crew = {
+  isMe(r) { return r === Game.p; },
+  def(r) { return ALLIES[r.id]; },
+  // everyone, lead first
+  members() {
+    const p = Game.p, all = [p, ...(p.crew || [])];
+    const i = all.findIndex((r) => this.key(r) === p.lead);
+    if (i > 0) all.unshift(...all.splice(i, 1));
+    return all;
+  },
+  key(r) { return this.isMe(r) ? 'me' : r.id; },
+  alive() { return this.members().filter((r) => r.sanity > 0); },
+  has(id) { return (Game.p.crew || []).some((r) => r.id === id); },
+
+  name(r) { return this.isMe(r) ? Game.p.name : this.def(r).name; },
+  boost(r) { return this.isMe(r) ? (PATHS[Game.p.path] || {}).boost : this.def(r).boost; },
+  pal(r) { return this.isMe(r) ? { ...PALS.player, c: Game.p.outfit } : this.def(r).pal; },
+  look(r) { return this.isMe(r) ? null : this.def(r).look || null; },
+  stats(r) {
+    if (this.isMe(r)) return Game.stats();
+    const b = this.def(r).base, L = Game.p.level;
+    return {
+      maxSanity: Math.floor(4 * b.san * L / 100) + 3 * L + 20,
+      conf: Math.floor(2 * b.conf * L / 100) + 5,
+      comp: Math.floor(2 * b.comp * L / 100) + 5,
+      hus: Math.floor(2 * b.hus * L / 100) + 5,
+      maxEnergy: 18 + 2 * L + b.energy,
+    };
+  },
+  skills(r) {
+    if (this.isMe(r)) return Game.p.equipped;
+    return this.def(r).learn.filter(([lv]) => lv <= Game.p.level).map(([, id]) => id).slice(-4);
+  },
+
+  add(id) {
+    const r = { id, sanity: 0, energy: 0, status: null };
+    const s = this.stats(r);
+    r.sanity = s.maxSanity; r.energy = s.maxEnergy;
+    Game.p.crew.push(r);
+    return r;
+  },
+  healAll() {
+    for (const r of this.members()) {
+      const s = this.stats(r);
+      r.sanity = s.maxSanity; r.energy = s.maxEnergy; r.status = null;
+    }
+  },
+  // pick a crew member (for items); filter decides who can be chosen
+  async pick(prompt, filter) {
+    const list = this.members().filter(filter);
+    if (!list.length) return null;
+    if (this.members().length === 1) return list[0];
+    await UI.say(prompt, { noWait: true });
+    const i = await UI.choose(list.map((r) => { const s = this.stats(r); return `${this.name(r)} ${r.sanity}/${s.maxSanity}`; }), { cls: 'side' });
+    return i < 0 ? null : list[i];
+  },
+};
+
 // ---- src/scripts.js
 'use strict';
 // Everything people say and do when you talk to them.
@@ -3424,11 +3592,40 @@ const Scripts = {
       Game.earn(20); Audio2.sfx('coin');
       await say('{NAME} received $20!');
     }
+    if (p.badges.length >= 1 && !Crew.has('mom')) {
+      await Scripts.recruit('mom', npc);
+      if (!Crew.has('mom')) return;
+    }
     await say('You look exhausted. Sit down, I\'ll make you a sandwich.', { name: 'MOM' });
     Game.fullHeal(); Audio2.sfx('heal');
     p.respawn = { map: Game.map.id, x: 10, y: 6, dir: 'right' };
     await say(['{NAME} ate a sandwich and took a nap. Sanity and Energy fully restored!',
       'MOM: "Go get \'em. And call me. You won\'t, but call me."']);
+  },
+
+  // ---------------------------------------------------------- crew
+  async recruit(id, npc) {
+    const A = ALLIES[id], p = Game.p, nm = { name: A.name };
+    if (Crew.has(id)) { await say(A.after, nm); return; }
+    if (!p.path) { await say(A.noPath || ['Go see Dr. Street first.'], nm); return; }
+    if (p.badges.length < A.need) { await say(A.notYet, nm); return; }
+    await say(A.pitch, nm);
+    if (A.cost) {
+      if (!(await UI.confirm(`Pay $${A.cost} so ${A.name} joins your crew?`))) { await say(A.decline || 'Maybe later.', nm); return; }
+      if (p.money < A.cost) { await say(`You check your wallet. You have ${U.money(p.money)}. That's not $${A.cost}.`); return; }
+      p.money -= A.cost; Audio2.sfx('coin');
+    } else if (!(await UI.confirm(`Add ${A.name} to your crew?`))) { await say('Okay. Offer stands!', nm); return; }
+    Crew.add(id);
+    Audio2.sfx('badge');
+    await say(`${A.name} (${A.title}) joined your crew!`);
+    await say(`${A.name} is best with ${A.boost} skills: ${Crew.skills(p.crew[p.crew.length - 1]).map((k) => SKILLS[k].name).join(', ')}.`);
+    if (!p.flags.crewTip) {
+      p.flags.crewTip = true;
+      await say(['TIP: In battle, pick CREW to tag in whoever has the right skill. If someone runs out of Sanity, the next person steps up. You only lose if EVERYONE is out.',
+        'Pick who fights first in MENU > CREW. Hospitals, Mom and Pep Talks get everyone back on their feet.']);
+    }
+    if (!A.home) npc.hidden = true;
+    Game.autosave();
   },
 
   // ---------------------------------------------------------- Dr. Street
@@ -3698,9 +3895,11 @@ const Battle = {
       team: o.foes.map(([id, l]) => ({ id, l })), ti: 0, foe: null,
       stages: { atk: 0, def: 0 }, meAnx: 0, cashMult: 1, escapes: 0, escaped: null,
       a: { foeX: 0, foeY: 0, meX: 0, foeBlink: 0, meBlink: 0, shake: 0, slide: 1, foeGone: 0, leaderX: 0, showLeader: !!o.leader, foeVis: !o.leader },
-      disp: { foe: 1, me: p.sanity, en: p.energy },
+      disp: { foe: 1, me: 0, en: 0 },
     };
     const s = this.s;
+    s.cur = Crew.alive()[0] || p;
+    s.disp.me = s.cur.sanity;
     this.active = true;
     Audio2.music(s.leader ? 'leader' : 'battle');
     Audio2.sfx('encounter');
@@ -3732,8 +3931,7 @@ const Battle = {
         `This one is ${s.foe.type}. ${this.advice(s.foe.type)}`]);
     }
     result = await this.loop();
-    // wrap up
-    p.status = p.status === 'burnout' ? 'burnout' : null;
+    // wrap up (anxiety and stat changes end with the battle; burnout doesn't)
     await Game.fadeTo(1, 300);
     this.teardown();
     Game.mode = 'world';
@@ -3780,7 +3978,6 @@ const Battle = {
     const s = this.s;
     while (true) {
       const act = await this.chooseAction();
-      if (act.kind === 'assess') { await this.assess(); continue; }
       if (act.kind === 'none') continue;
       const r = await this.turn(act);
       if (r) return r;
@@ -3789,8 +3986,8 @@ const Battle = {
 
   async chooseAction() {
     const p = Game.p;
-    await UI.say(`What will\n{NAME} do?`, { noWait: true });
-    const i = await this.grid(['SKILLS', 'BAG', 'ASSESS', 'AVOID'], 'actmenu', this.lastAct || 0, false);
+    await UI.say(`What will\n${Crew.name(this.s.cur)} do?`, { noWait: true });
+    const i = await this.grid(['SKILLS', 'BAG', 'CREW', 'AVOID'], 'actmenu', this.lastAct || 0, false);
     this.lastAct = i;
     if (i === 0) {
       const id = await this.chooseSkill();
@@ -3804,13 +4001,16 @@ const Battle = {
       if (this.s.escaped) return { kind: 'escaped' };
       return { kind: 'item', id: used };
     }
-    if (i === 2) return { kind: 'assess' };
+    if (i === 2) {
+      const r = await this.crewMenu(false);
+      return r ? { kind: 'swap', to: r } : { kind: 'none' };
+    }
     return { kind: 'run' };
   },
 
   chooseSkill() {
-    const p = Game.p, s = this.s;
-    const ids = p.equipped;
+    const s = this.s, p = s.cur;
+    const ids = Crew.skills(p);
     const box = UI.el('div', 'skillmenu');
     let i = Math.min(this.lastSkill || 0, ids.length - 1);
     const render = () => {
@@ -3865,7 +4065,7 @@ const Battle = {
     const m = sk.power ? EFF[sk.type][f.type] : 1;
     const eff = !sk.power ? 'Support' : m > 1 ? '<b class="se">2× damage!</b>' : m < 1 ? '<b class="nve">½ damage</b>' : 'Normal damage';
     return `<div class="sk-info"><div><b style="color:${t.color}">${t.label}</b></div>
-      <div>EN <b>${sk.cost}</b> / ${Game.p.energy}</div><div>${sk.power ? 'PWR ' + sk.power : ''}</div><div>${eff}</div></div>`;
+      <div>EN <b>${sk.cost}</b> / ${this.s.cur.energy}</div><div>${sk.power ? 'PWR ' + sk.power : ''}</div><div>${eff}</div></div>`;
   },
 
   // generic 2x2 menu used for the action grid
@@ -3906,8 +4106,11 @@ const Battle = {
   // Advice based on the skills you actually have, not just type names.
   advice(type) {
     const p = Game.p, good = (id) => SKILLS[id].power > 0 && EFF[SKILLS[id].type][type] > 1;
-    const eq = p.equipped.filter(good);
+    const cur = this.s ? this.s.cur : p;
+    const eq = Crew.skills(cur).filter(good);
     if (eq.length) return `Try ${eq.map((id) => SKILLS[id].name.toUpperCase()).join(' or ')}!`;
+    const mate = Crew.members().find((r) => r !== cur && r.sanity > 0 && Crew.skills(r).some(good));
+    if (mate) return `${Crew.name(mate)} has ${SKILLS[Crew.skills(mate).find(good)].name.toUpperCase()}. Tag them in with CREW!`;
     const known = p.known.filter(good);
     if (known.length) return `Your ${SKILLS[known[0]].name.toUpperCase()} would hit hard, but it isn't equipped. Swap it in from MENU > SKILLS.`;
     const book = Object.keys(ITEMS).find((id) => ITEMS[id].use === 'book' && good(ITEMS[id].skill));
@@ -3916,21 +4119,9 @@ const Battle = {
     return `You don't have a ${this.counters(type).join(' or ')} skill yet. WING IT works on anything.${where}`;
   },
 
-  async assess() {
-    const f = this.s.foe, d = f.def;
-    const strong = [], weak = [];
-    for (const k of Object.keys(EFF)) {
-      if (k === 'BASIC') continue;
-      if (EFF[k][f.type] > 1) strong.push(k);
-      if (EFF[k][f.type] < 1) weak.push(k);
-    }
-    await UI.say(`${d.name.toUpperCase()}: "${d.dex}"`);
-    await UI.say(`It's a ${f.type} issue. Hits hard: ${strong.join(', ')}. Barely lands: ${weak.join(', ')}.`);
-  },
-
   // ------------------------------------------------------------ turns
   async turn(act) {
-    const s = this.s, p = Game.p, st = Game.stats(), f = s.foe;
+    const s = this.s, p = s.cur, st = Crew.stats(p), f = s.foe;
     if (act.kind === 'escaped') {
       await UI.say('{NAME} called a rideshare and bailed. Five stars.');
       return 'ran';
@@ -3939,8 +4130,12 @@ const Battle = {
       if (!s.wild) { await UI.say(`There's no avoiding ${LEADERS[s.leader].title}. It always finds you.`); return null; }
       s.escapes++;
       const ch = U.clamp(0.5 + (st.hus - f.spd) / (2 * f.spd) + 0.15 * (s.escapes - 1), 0.25, 1);
-      if (Math.random() < ch) { Audio2.sfx('back'); await UI.say('{NAME} avoided the problem... for now.'); return 'ran'; }
+      if (Math.random() < ch) { Audio2.sfx('back'); await UI.say('Everyone avoided the problem... for now.'); return 'ran'; }
       await UI.say('Couldn\'t get away! It\'s still there. Staring.');
+      return (await this.foeAct()) || (await this.endTurn());
+    }
+    if (act.kind === 'swap') {
+      await this.swapIn(act.to, `${Crew.name(p)}, come back! ${Crew.name(act.to)}, you're up!`);
       return (await this.foeAct()) || (await this.endTurn());
     }
     if (act.kind === 'item') {
@@ -3960,14 +4155,14 @@ const Battle = {
   },
 
   async endTurn() {
-    const p = Game.p, st = Game.stats();
+    const p = this.s.cur, st = Crew.stats(p), nm = Crew.name(p);
     if (p.status === 'burnout') {
       const d = Math.max(1, Math.floor(st.maxSanity / 12));
       p.sanity = Math.max(0, p.sanity - d);
       this.s.a.meBlink = 0.4;
-      await UI.say(`{NAME} is burnt out... (-${d} Sanity)`, { auto: 700 });
+      await UI.say(`${nm} is burnt out... (-${d} Sanity)`, { auto: 700 });
       await this.settle();
-      if (p.sanity <= 0) return this.lose();
+      if (p.sanity <= 0) return this.fighterDown();
     }
     p.energy = Math.min(st.maxEnergy, p.energy + 2);
     this.refresh();
@@ -3975,18 +4170,18 @@ const Battle = {
   },
 
   async playerAct(id) {
-    const s = this.s, p = Game.p, st = Game.stats(), f = s.foe, sk = SKILLS[id], fx = sk.fx || {};
+    const s = this.s, p = s.cur, st = Crew.stats(p), f = s.foe, sk = SKILLS[id], fx = sk.fx || {}, nm = Crew.name(p);
     if (s.meAnx > 0) {
       s.meAnx--;
-      if (Math.random() < 0.35) { await UI.say('{NAME} is overthinking it and freezes up!'); return null; }
-      if (s.meAnx === 0) await UI.say('{NAME} calmed down a little.', { auto: 600 });
+      if (Math.random() < 0.35) { await UI.say(`${nm} is overthinking it and freezes up!`); return null; }
+      if (s.meAnx === 0) await UI.say(`${nm} calmed down a little.`, { auto: 600 });
     }
     p.energy = Math.max(0, p.energy - sk.cost);
     this.refresh();
-    await UI.say(`{NAME} used ${sk.name.toUpperCase()}!`, { auto: 450 });
+    await UI.say(`${nm} used ${sk.name.toUpperCase()}!`, { auto: 450 });
     if (fx.flee) {
-      if (fx.karma) this.karma(fx.karma);
-      if (s.wild) { await UI.say('{NAME} simply stopped responding. The issue drifts off, confused.'); s.escaped = 'ghost'; return 'ran'; }
+      if (fx.karma && Crew.isMe(p)) this.karma(fx.karma);
+      if (s.wild) { await UI.say(`${nm} simply stopped responding. The issue drifts off, confused.`); s.escaped = 'ghost'; return 'ran'; }
       await UI.say('You can\'t ghost a Life Leader. They WILL follow up.');
       return null;
     }
@@ -3994,9 +4189,9 @@ const Battle = {
     if (targetsFoe && Math.random() * 100 >= sk.acc) { Audio2.sfx('miss'); await UI.say('But it didn\'t land...'); return null; }
     if (sk.power > 0) {
       const m = EFF[sk.type][f.type];
-      const boost = PATHS[p.path] && PATHS[p.path].boost === sk.type ? 1.2 : 1;
+      const boost = Crew.boost(p) === sk.type ? 1.2 : 1;
       const crit = Math.random() < 1 / 16 ? 1.5 : 1;
-      const dmg = this.damage(p.level, sk.power, st.conf * stage(s.stages.atk), f.dfn * stage(f.st.def), m * boost * crit);
+      const dmg = this.damage(Game.p.level, sk.power, st.conf * stage(s.stages.atk), f.dfn * stage(f.st.def), m * boost * crit);
       await this.lunge('me');
       f.hp = Math.max(0, f.hp - dmg);
       s.a.foeBlink = 0.5;
@@ -4010,20 +4205,20 @@ const Battle = {
       if (fx.recoil) {
         const rc = Math.max(1, Math.floor(dmg * fx.recoil));
         p.sanity = Math.max(0, p.sanity - rc); s.a.meBlink = 0.4; this.refresh();
-        await UI.say(`{NAME} is running on fumes! (-${rc} Sanity)`, { auto: 700 });
+        await UI.say(`${nm} is running on fumes! (-${rc} Sanity)`, { auto: 700 });
         await this.settle();
       }
     }
     if (fx.heal) {
       const before = p.sanity;
       p.sanity = Math.min(st.maxSanity, p.sanity + Math.floor(st.maxSanity * fx.heal));
-      if (p.sanity > before) { Audio2.sfx('heal'); this.refresh(); await this.settle(); await UI.say(`{NAME} recovered ${p.sanity - before} Sanity.`, { auto: 700 }); }
+      if (p.sanity > before) { Audio2.sfx('heal'); this.refresh(); await this.settle(); await UI.say(`${nm} recovered ${p.sanity - before} Sanity.`, { auto: 700 }); }
     }
     if (fx.energy) {
       p.energy = Math.min(st.maxEnergy, p.energy + fx.energy); this.refresh();
-      await UI.say('{NAME} feels recharged! (+Energy)', { auto: 700 });
+      await UI.say(`${nm} feels recharged! (+Energy)`, { auto: 700 });
     }
-    if (fx.cure && (p.status || s.meAnx)) { p.status = null; s.meAnx = 0; this.refresh(); await UI.say('{NAME} feels grounded again. Status cured!', { auto: 700 }); }
+    if (fx.cure && (p.status || s.meAnx)) { p.status = null; s.meAnx = 0; this.refresh(); await UI.say(`${nm} feels grounded again. Status cured!`, { auto: 700 }); }
     if (fx.selfAtk) await this.stageMsg('me', 'atk', fx.selfAtk);
     if (fx.selfDef) await this.stageMsg('me', 'def', fx.selfDef);
     if (fx.foeAtk && f.hp > 0) await this.stageMsg('foe', 'atk', fx.foeAtk);
@@ -4033,13 +4228,13 @@ const Battle = {
       await UI.say(`${f.name} is second-guessing itself!`, { auto: 800 });
     }
     if (fx.cash) s.cashMult = Math.max(s.cashMult, fx.cash);
-    if (fx.karma) this.karma(fx.karma);
+    if (fx.karma && Crew.isMe(p)) this.karma(fx.karma);
     if (f.hp <= 0) return this.foeDown();
     return null;
   },
 
   async foeAct() {
-    const s = this.s, p = Game.p, st = Game.stats(), f = s.foe;
+    const s = this.s, p = s.cur, st = Crew.stats(p), f = s.foe, nm = Crew.name(p);
     if (f.hp <= 0) return null;
     const pre = s.wild ? 'The wild ' : 'Foe ';
     if (f.anx > 0) {
@@ -4068,17 +4263,17 @@ const Battle = {
     if (fx.drain) {
       const d = Math.min(p.energy, fx.drain);
       p.energy -= d; this.refresh();
-      await UI.say(d ? `{NAME} lost ${d} Energy!` : '{NAME} has no Energy left to lose!', { auto: 700 });
+      await UI.say(d ? `${nm} lost ${d} Energy!` : `${nm} has no Energy left to lose!`, { auto: 700 });
     }
     if (fx.anxious) {
-      if (s.meAnx) await UI.say('{NAME} is already anxious.', { auto: 600 });
-      else if (Math.random() < fx.anxious) { s.meAnx = U.rand(2, 4); Audio2.sfx('debuff'); this.refresh(); await UI.say('{NAME} is feeling ANXIOUS!', { auto: 800 }); }
-      else if (mv.power === 0) await UI.say('{NAME} shrugs it off.', { auto: 600 });
+      if (s.meAnx) await UI.say(`${nm} is already anxious.`, { auto: 600 });
+      else if (Math.random() < fx.anxious) { s.meAnx = U.rand(2, 4); Audio2.sfx('debuff'); this.refresh(); await UI.say(`${nm} is feeling ANXIOUS!`, { auto: 800 }); }
+      else if (mv.power === 0) await UI.say(`${nm} shrugs it off.`, { auto: 600 });
     }
     if (fx.burnout) {
-      if (!p.status && Math.random() < fx.burnout) { p.status = 'burnout'; Audio2.sfx('debuff'); this.refresh(); await UI.say('{NAME} is BURNT OUT!', { auto: 800 }); }
+      if (!p.status && Math.random() < fx.burnout) { p.status = 'burnout'; Audio2.sfx('debuff'); this.refresh(); await UI.say(`${nm} is BURNT OUT!`, { auto: 800 }); }
     }
-    if (p.sanity <= 0) return this.lose();
+    if (p.sanity <= 0) return this.fighterDown();
     return null;
   },
 
@@ -4093,7 +4288,7 @@ const Battle = {
     const before = obj[stat];
     // you can be knocked down, but not into the floor
     obj[stat] = U.clamp(obj[stat] + n, who === 'me' ? -4 : -6, 6);
-    const name = who === 'me' ? Game.p.name : s.foe.name;
+    const name = who === 'me' ? Crew.name(s.cur) : s.foe.name;
     const label = who === 'me' ? (stat === 'atk' ? 'Confidence' : 'Composure') : (stat === 'atk' ? 'Pressure' : 'Resistance');
     if (obj[stat] === before) { await UI.say(`${name}'s ${label} won't go any ${n > 0 ? 'higher' : 'lower'}!`, { auto: 700 }); return; }
     Audio2.sfx(n > 0 ? 'buff' : 'debuff');
@@ -4115,7 +4310,7 @@ const Battle = {
     const path = PATHS[p.path] || PATHS.college;
     const xp = Math.max(1, Math.floor(d.xp * f.lvl / 7 * (s.leader ? 1.5 : 1) * path.xpMult));
     p.xp += xp;
-    await UI.say(`{NAME} gained ${xp} XP!`, { auto: 800 });
+    await UI.say(Game.p.crew.length ? `The crew gained ${xp} XP!` : `{NAME} gained ${xp} XP!`, { auto: 800 });
     await this.levelUps();
     if (s.wild) {
       const cash = Math.max(1, Math.floor(d.cash * f.lvl * path.cashMult * s.cashMult * (0.8 + Math.random() * 0.4)));
@@ -4134,7 +4329,7 @@ const Battle = {
     s.a.foeVis = true; s.a.foeY = -60; s.a.foeGone = 0;
     this.hud.foe.classList.remove('hidden');
     await UI.say(`${L.name} throws ${s.foe.name.toUpperCase()} at you!`);
-    if (shaken) await UI.say('{NAME} takes a breath and shakes off the last one. (Stat drops reset.)', { auto: 900 });
+    if (shaken) await UI.say(`${Crew.name(s.cur)} takes a breath and shakes off the last one. (Stat drops reset.)`, { auto: 900 });
     return null;
   },
 
@@ -4142,13 +4337,17 @@ const Battle = {
     const p = Game.p;
     while (p.level < 60 && p.xp >= Stats.xpFor(p.level + 1)) {
       const b = Game.stats();
+      const before = Crew.members().map((r) => [r, Crew.stats(r)]);
       p.level++;
       const a = Game.stats();
-      p.sanity += a.maxSanity - b.maxSanity;
-      p.energy += a.maxEnergy - b.maxEnergy;
+      for (const [r, bs] of before) {
+        const as = Crew.stats(r);
+        if (r.sanity > 0) r.sanity += as.maxSanity - bs.maxSanity;
+        r.energy += as.maxEnergy - bs.maxEnergy;
+      }
       Audio2.sfx('levelup');
       this.refresh();
-      await UI.say(`{NAME} grew to Level ${p.level}!`);
+      await UI.say(p.crew.length ? `The crew grew to Level ${p.level}!` : `{NAME} grew to Level ${p.level}!`);
       await UI.say(`Sanity +${a.maxSanity - b.maxSanity} · Confidence +${a.conf - b.conf} · Composure +${a.comp - b.comp} · Hustle +${a.hus - b.hus}`);
       const path = PATHS[p.path];
       const id = path && path.learn[p.level];
@@ -4156,6 +4355,10 @@ const Battle = {
         Game.learn(id);
         await UI.say(`{NAME} learned ${SKILLS[id].name.toUpperCase()}! ${SKILLS[id].desc}`);
         if (!p.equipped.includes(id)) await this.offerSkill(id);
+      }
+      for (const r of p.crew) {
+        const nu = ALLIES[r.id].learn.find(([lv]) => lv === p.level);
+        if (nu) await UI.say(`${ALLIES[r.id].name} learned ${SKILLS[nu[1]].name.toUpperCase()}!`);
       }
     }
   },
@@ -4176,11 +4379,54 @@ const Battle = {
     }
   },
 
-  async lose() {
+  // The active fighter is out of Sanity: tag someone in, or lose.
+  async fighterDown() {
+    const s = this.s, p = s.cur;
     Audio2.sfx('faint');
     this.refresh();
-    await UI.say('{NAME} is out of Sanity!');
-    return 'lose';
+    p.status = null;
+    await UI.say(`${Crew.name(p)} is out of Sanity and needs a break!`);
+    if (!Crew.alive().length) {
+      if (Game.p.crew.length) await UI.say('The whole crew is wiped...');
+      return 'lose';
+    }
+    let next = Crew.alive()[0];
+    if (Crew.alive().length > 1) {
+      next = await this.crewMenu(true);
+    }
+    await this.swapIn(next, `${Crew.name(next)}, tag in!`);
+    return null;
+  },
+
+  async swapIn(r, msg) {
+    const s = this.s, a = s.a;
+    for (let k = 0; k <= 8; k++) { a.meX = -k * 14; await new Promise((res) => requestAnimationFrame(res)); }
+    s.cur = r;
+    s.stages = { atk: 0, def: 0 }; s.meAnx = 0;
+    this.lastSkill = 0;
+    this.refresh(true);
+    await UI.say(msg, { auto: 500 });
+    for (let k = 8; k >= 0; k--) { a.meX = -k * 14; await new Promise((res) => requestAnimationFrame(res)); }
+    a.meX = 0;
+  },
+
+  // forced: someone must tag in (no cancel). Returns the chosen member or null.
+  async crewMenu(forced) {
+    const s = this.s, list = Crew.members();
+    if (list.length === 1) { await UI.say('No crew yet! Make some friends out there. Someone will want to come along.'); return null; }
+    UI.closeDialog();
+    let pick = null;
+    await UI.list(list.map((r) => {
+      const st = Crew.stats(r), ids = Crew.skills(r);
+      return {
+        label: Crew.name(r) + (r === s.cur ? ' (fighting)' : ''), right: r.sanity > 0 ? `${r.sanity}/${st.maxSanity}` : 'OUT',
+        disabled: r === s.cur || r.sanity <= 0,
+        desc: ids.map((id) => `<em style="color:${SKILL_TYPES[SKILLS[id].type].color}">${SKILLS[id].name}</em>`).join(' · ') + `<br>EN ${r.energy}/${st.maxEnergy}`,
+      };
+    }), { title: forced ? 'WHO TAGS IN?' : 'CREW', footer: () => forced ? 'A: tag in' : 'A: swap in (uses your turn) · B: back',
+      onAct: (k) => { pick = list[k]; }, noCancel: forced });
+    if (forced && !pick) pick = Crew.alive()[0];
+    return pick;
   },
 
   async lunge(who) {
@@ -4193,7 +4439,7 @@ const Battle = {
   async settle() {
     const t0 = performance.now();
     while (performance.now() - t0 < 1500) {
-      const s = this.s, p = Game.p;
+      const s = this.s, p = s.cur;
       const tf = s.foe.hp / s.foe.maxHp;
       if (Math.abs(s.disp.foe - tf) < 0.01 && Math.abs(s.disp.me - p.sanity) < 0.5) break;
       await new Promise((r) => requestAnimationFrame(r));
@@ -4207,7 +4453,7 @@ const Battle = {
     const me = UI.el('div', 'bhud me hidden', `<div class="bh-row"><span class="nm"></span><span class="lv"></span></div>
       <div class="bar"><span>SANITY</span><i><b></b></i></div><div class="num san"></div>
       <div class="bar en"><span>ENERGY</span><i><b></b></i></div><div class="num en"></div>
-      <div class="xp"><i></i></div><div class="st"></div>`);
+      <div class="xp"><i></i></div><div class="st"></div><div class="pips"></div>`);
     UI.root.appendChild(foe); UI.root.appendChild(me);
     this.hud = { foe, me };
   },
@@ -4218,7 +4464,7 @@ const Battle = {
     UI.closeDialog();
   },
   refresh(snap) {
-    const s = this.s, p = Game.p, st = Game.stats(), f = s.foe, h = this.hud;
+    const s = this.s, p = s.cur, st = Crew.stats(p), f = s.foe, h = this.hud;
     if (!h || !f) return;
     if (snap) { s.disp.foe = f.hp / f.maxHp; s.disp.me = p.sanity; }
     h.foe.querySelector('.nm').textContent = f.name.toUpperCase();
@@ -4227,13 +4473,14 @@ const Battle = {
     tc.textContent = f.type; tc.style.background = ISSUE_TYPES[f.type].color;
     h.foe.querySelector('.anx').textContent = f.anx ? 'CONFUSED' : '';
     h.foe.querySelector('.weak').innerHTML = 'WEAK TO ' + Battle.counters(f.type).map((k) => `<em style="background:${SKILL_TYPES[k].color}">${k}</em>`).join('');
-    h.me.querySelector('.nm').textContent = p.name;
-    h.me.querySelector('.lv').textContent = 'Lv' + p.level;
+    h.me.querySelector('.nm').textContent = Crew.name(p);
+    h.me.querySelector('.lv').textContent = 'Lv' + Game.p.level;
+    h.me.querySelector('.pips').innerHTML = Crew.members().length > 1 ? Crew.members().map((r) => `<i class="${r.sanity <= 0 ? 'out' : r === p ? 'cur' : ''}"></i>`).join('') : '';
     const en = h.me.querySelector('.bar.en b');
     en.style.width = (p.energy / st.maxEnergy * 100) + '%';
     h.me.querySelector('.num.en').textContent = `${p.energy}/${st.maxEnergy}`;
-    const cur = Stats.xpFor(p.level), nx = Stats.xpFor(p.level + 1);
-    h.me.querySelector('.xp i').style.width = (U.clamp((p.xp - cur) / (nx - cur), 0, 1) * 100) + '%';
+    const P = Game.p, cur = Stats.xpFor(P.level), nx = Stats.xpFor(P.level + 1);
+    h.me.querySelector('.xp i').style.width = (U.clamp((P.xp - cur) / (nx - cur), 0, 1) * 100) + '%';
     const tags = [];
     if (p.status === 'burnout') tags.push('<em class="bo">BURNT OUT</em>');
     if (s.meAnx) tags.push('<em class="ax">ANXIOUS</em>');
@@ -4241,7 +4488,7 @@ const Battle = {
     this.drawBars();
   },
   drawBars() {
-    const s = this.s, p = Game.p, st = Game.stats(), h = this.hud;
+    const s = this.s, st = Crew.stats(s.cur), h = this.hud;
     if (!h) return;
     const col = (r) => (r > 0.5 ? '#3ec46d' : r > 0.2 ? '#f0c030' : '#e8483a');
     const fb = h.foe.querySelector('.bar b');
@@ -4255,7 +4502,7 @@ const Battle = {
   update(dt) {
     const s = this.s;
     if (!s) return;
-    const a = s.a, p = Game.p;
+    const a = s.a, p = s.cur;
     a.foeBlink = Math.max(0, a.foeBlink - dt);
     a.meBlink = Math.max(0, a.meBlink - dt);
     a.shake = Math.max(0, a.shake - dt);
@@ -4263,7 +4510,7 @@ const Battle = {
     if (s.foe) {
       const tf = s.foe.hp / s.foe.maxHp;
       s.disp.foe += U.clamp(tf - s.disp.foe, -dt * 0.9, dt * 0.9);
-      const st = Game.stats();
+      const st = Crew.stats(p);
       const step = dt * st.maxSanity * 0.9;
       s.disp.me += U.clamp(p.sanity - s.disp.me, -step, step);
       this.drawBars();
@@ -4307,9 +4554,8 @@ const Battle = {
       }
     }
     // player (from behind)
-    const pal = { ...PALS.player, c: Game.p.outfit };
     if (!(a.meBlink > 0 && Math.floor(a.meBlink * 20) % 2 === 0)) {
-      x.drawImage(Art.portrait(pal, null, 'up'), 44 + slide + a.meX, 94);
+      x.drawImage(Art.portrait(Crew.pal(s.cur), Crew.look(s.cur), 'up'), 44 + slide + a.meX, 94);
     }
     x.restore();
   },

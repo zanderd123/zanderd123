@@ -48,11 +48,40 @@ const Scripts = {
       Game.earn(20); Audio2.sfx('coin');
       await say('{NAME} received $20!');
     }
+    if (p.badges.length >= 1 && !Crew.has('mom')) {
+      await Scripts.recruit('mom', npc);
+      if (!Crew.has('mom')) return;
+    }
     await say('You look exhausted. Sit down, I\'ll make you a sandwich.', { name: 'MOM' });
     Game.fullHeal(); Audio2.sfx('heal');
     p.respawn = { map: Game.map.id, x: 10, y: 6, dir: 'right' };
     await say(['{NAME} ate a sandwich and took a nap. Sanity and Energy fully restored!',
       'MOM: "Go get \'em. And call me. You won\'t, but call me."']);
+  },
+
+  // ---------------------------------------------------------- crew
+  async recruit(id, npc) {
+    const A = ALLIES[id], p = Game.p, nm = { name: A.name };
+    if (Crew.has(id)) { await say(A.after, nm); return; }
+    if (!p.path) { await say(A.noPath || ['Go see Dr. Street first.'], nm); return; }
+    if (p.badges.length < A.need) { await say(A.notYet, nm); return; }
+    await say(A.pitch, nm);
+    if (A.cost) {
+      if (!(await UI.confirm(`Pay $${A.cost} so ${A.name} joins your crew?`))) { await say(A.decline || 'Maybe later.', nm); return; }
+      if (p.money < A.cost) { await say(`You check your wallet. You have ${U.money(p.money)}. That's not $${A.cost}.`); return; }
+      p.money -= A.cost; Audio2.sfx('coin');
+    } else if (!(await UI.confirm(`Add ${A.name} to your crew?`))) { await say('Okay. Offer stands!', nm); return; }
+    Crew.add(id);
+    Audio2.sfx('badge');
+    await say(`${A.name} (${A.title}) joined your crew!`);
+    await say(`${A.name} is best with ${A.boost} skills: ${Crew.skills(p.crew[p.crew.length - 1]).map((k) => SKILLS[k].name).join(', ')}.`);
+    if (!p.flags.crewTip) {
+      p.flags.crewTip = true;
+      await say(['TIP: In battle, pick CREW to tag in whoever has the right skill. If someone runs out of Sanity, the next person steps up. You only lose if EVERYONE is out.',
+        'Pick who fights first in MENU > CREW. Hospitals, Mom and Pep Talks get everyone back on their feet.']);
+    }
+    if (!A.home) npc.hidden = true;
+    Game.autosave();
   },
 
   // ---------------------------------------------------------- Dr. Street
