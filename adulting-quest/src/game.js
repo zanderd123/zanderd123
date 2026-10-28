@@ -1,0 +1,668 @@
+'use strict';
+// Core game state: the player, overworld movement, rendering, field menus,
+// money, saving. Battles live in battle.js, NPC scripts in scripts.js.
+
+const VIEW_W = 240, VIEW_H = 160;
+const DIRS = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
+const OPP = { up: 'down', down: 'up', left: 'right', right: 'left' };
+const SAVE_KEY = 'adulting-quest-save-v1';
+
+// Stat formulas (Pokemon-style). Sanity = HP, Confidence = attack,
+// Composure = defence, Hustle = speed.
+const Stats = {
+  of(p) {
+    const b = (PATHS[p.path] || PATHS.college).base, L = p.level;
+    return {
+      maxSanity: Math.floor(4 * b.san * L / 100) + 3 * L + 20,
+      conf: Math.floor(2 * b.conf * L / 100) + 5,
+      comp: Math.floor(2 * b.comp * L / 100) + 5,
+      hus: Math.floor(2 * b.hus * L / 100) + 5,
+      maxEnergy: 18 + 2 * L + b.energy,
+    };
+  },
+  xpFor(L) { return Math.floor(0.8 * L * L * L); },
+  foe(id, L) {
+    const d = ISSUES[id], [h, a, df, s] = d.base;
+    return {
+      id, def: d, name: d.name, type: d.type, lvl: L,
+      maxHp: Math.floor(2 * h * L / 100) + L + 10,
+      atk: Math.floor(2 * a * L / 100) + 5,
+      dfn: Math.floor(2 * df * L / 100) + 5,
+      spd: Math.floor(2 * s * L / 100) + 5,
+    };
+  },
+};
+
+const Game = {
+  mode: 'boot',
+  p: null,
+  map: null,
+  pos: { x: 0, y: 0, dir: 'down', moving: false, mt: 0, tx: 0, ty: 0, parity: 0, turnT: 0, justArrived: false, bumpT: 0 },
+  busy: 0,
+  fade: 0,
+  flash: 0,
+  time: 0,
+  waterT: 0, waterF: 0,
+  lastRegion: -1,
+  titleCam: 0,
+  ctx: null,
+
+  // ------------------------------------------------------------ player
+  newPlayer(name) {
+    return {
+      name, path: null, level: 5, xp: Stats.xpFor(5), sanity: 30, energy: 20, status: null,
+      known: ['wing_it'], equipped: ['wing_it'], items: {}, money: 0, debt: 0, karma: 50,
+      badges: [], flags: {}, outfit: PALS.player.c, repel: 0, steps: 0, playTime: 0,
+      respawn: { map: 'house-0-0', x: 4, y: 5, dir: 'up' },
+      map: 'house-0-0', x: 2, y: 3, dir: 'down',
+    };
+  },
+  stats() { return Stats.of(this.p); },
+  age() { return 20 + Math.floor(this.p.badges.length * 1.5); },
+  fullHeal() {
+    const s = this.stats();
+    this.p.sanity = s.maxSanity; this.p.energy = s.maxEnergy; this.p.status = null;
+  },
+  fmt(t) { return String(t).replace(/\{NAME\}/g, this.p ? this.p.name : 'YOU'); },
+  karmaLabel(k = this.p.karma) {
+    return k < 20 ? 'Menace' : k < 40 ? 'Sketchy' : k < 65 ? 'Decent' : k < 85 ? 'Good Egg' : 'Saint';
+  },
+  addKarma(n) { this.p.karma = U.clamp(this.p.karma + n, 0, 100); },
+  priceOf(id) {
+    let pr = ITEMS[id].price;
+    if (this.p.karma < 30) pr = Math.ceil(pr * 1.25);
+    else if (this.p.karma >= 80) pr = Math.floor(pr * 0.9);
+    return pr;
+  },
+  give(id, n = 1) { this.p.items[id] = (this.p.items[id] || 0) + n; },
+  take(id, n = 1) { this.p.items[id] = Math.max(0, (this.p.items[id] || 0) - n); if (!this.p.items[id]) delete this.p.items[id]; },
+  // Earnings: 10% goes to any outstanding debt.
+  earn(amt) {
+    const p = this.p;
+    amt = Math.floor(amt);
+    let g = 0;
+    if (p.debt > 0) { g = Math.min(p.debt, Math.ceil(amt * 0.1)); p.debt -= g; }
+    p.money += amt - g;
+    return { net: amt - g, garnished: g };
+  },
+  learn(id) {
+    const p = this.p;
+    if (p.known.includes(id)) return false;
+    p.known.push(id);
+    if (p.equipped.length < 4) p.equipped.push(id);
+    return true;
+  },
+  gateOpen(ri) {
+    const r = ROUTES[ri];
+    if (r.gateFlag === 'path') return !!this.p.path;
+    return this.p.badges.length >= r.need;
+  },
+
+  // ------------------------------------------------------------ maps & warps
+  enter(mapId, x, y, dir) {
+    this.map = World.maps[mapId];
+    const P = this.pos;
+    Object.assign(P, { x, y, tx: x, ty: y, dir: dir || P.dir, moving: false, mt: 0 });
+    this.p.map = mapId; this.p.x = x; this.p.y = y; this.p.dir = P.dir;
+    this.lastRegion = -2;
+    this.updateMusic();
+    this.checkRegion();
+  },
+  updateMusic() {
+    if (this.mode !== 'world') return;
+    if (this.map.id !== 'world') { Audio2.music('inside'); return; }
+    const r = World.regions[this.map.regionAt(this.pos.x, this.pos.y)];
+    Audio2.music(r && r.kind === 'route' ? 'route' : 'town');
+  },
+  checkRegion() {
+    if (this.map.id !== 'world') { this.lastRegion = -1; return; }
+    const r = this.map.regionAt(this.pos.x, this.pos.y);
+    if (r !== this.lastRegion && r >= 0) {
+      const prev = this.lastRegion;
+      this.lastRegion = r;
+      void prev;
+      UI.banner(World.regions[r].name);
+      this.updateMusic();
+    }
+  },
+  async fadeTo(v, ms = 220) {
+    const from = this.fade, t0 = performance.now();
+    while (true) {
+      const k = Math.min(1, (performance.now() - t0) / ms);
+      this.fade = from + (v - from) * k;
+      if (k >= 1) break;
+      await new Promise((r) => requestAnimationFrame(r));
+    }
+  },
+  async warp(mapId, x, y, dir) {
+    this.busy++;
+    Audio2.sfx('door');
+    await this.fadeTo(1);
+    this.enter(mapId, x, y, dir);
+    if (mapId !== 'world') this.autosave();
+    await this.fadeTo(0);
+    this.busy--;
+  },
+
+  // ------------------------------------------------------------ scripts
+  async run(fn) {
+    this.busy++;
+    try { await fn(); }
+    catch (e) { console.error(e); }
+    finally { this.busy--; UI.closeDialog(); }
+  },
+
+  // ------------------------------------------------------------ update
+  tick(dt) {
+    this.time += dt;
+    this.waterT += dt;
+    if (this.waterT > 0.35) { this.waterT = 0; this.waterF = (this.waterF + 1) % 4; }
+    if (this.mode === 'title') { this.titleCam += dt * 14; return; }
+    if (this.mode === 'battle') { Battle.update(dt); return; }
+    if (this.mode !== 'world' || !this.map) return;
+    if (this.p) this.p.playTime += dt;
+    this.updateNPCs(dt);
+    this.updatePlayer(dt);
+  },
+
+  updateNPCs(dt) {
+    const m = this.map, P = this.pos;
+    for (const n of m.npcs) {
+      if (n.hidden) continue;
+      if (n.moving) {
+        n.mt += dt * 3.6;
+        if (n.mt >= 1) { n.x = n.tx; n.y = n.ty; n.moving = false; n.mt = 0; n.step ^= 1; }
+        continue;
+      }
+      if (!n.wander || this.busy || UI.busy) continue;
+      n.timer -= dt;
+      if (n.timer > 0) continue;
+      n.timer = 1.2 + Math.random() * 3;
+      const d = ['up', 'down', 'left', 'right'][U.rand(0, 3)];
+      n.dir = d;
+      const [dx, dy] = DIRS[d], nx = n.x + dx, ny = n.y + dy;
+      if (Math.abs(nx - n.home.x) > n.wander || Math.abs(ny - n.home.y) > n.wander) continue;
+      if (m.solid(nx, ny) || m.get(nx, ny) === T.DOOR || m.get(nx, ny) === T.EXIT || m.npcAt(nx, ny)) continue;
+      if ((nx === P.x && ny === P.y) || (nx === P.tx && ny === P.ty)) continue;
+      n.tx = nx; n.ty = ny; n.moving = true; n.mt = 0;
+    }
+  },
+
+  updatePlayer(dt) {
+    const P = this.pos, m = this.map;
+    P.bumpT = Math.max(0, P.bumpT - dt);
+    const running = Input.held.B;
+    // presses made mid-step are kept until the step ends
+    if (Input.hit('START') || Input.hit('ESC')) this.want = 'menu';
+    else if (Input.hit('A')) this.want = 'A';
+    if (P.moving) {
+      P.mt += dt * (running ? 7.8 : 4.4);
+      if (P.mt >= 1) {
+        P.x = P.tx; P.y = P.ty; P.moving = false; P.mt = 0; P.parity ^= 1;
+        this.onArrive();
+      }
+      return;
+    }
+    if (this.busy || UI.busy) { P.justArrived = false; this.want = null; return; }
+    const want = this.want; this.want = null;
+    if (want === 'menu') { this.run(() => Menu.open()); return; }
+    if (want === 'A') { this.interact(); return; }
+    const d = Input.dir();
+    if (!d) { P.justArrived = false; P.turnT = 0; return; }
+    if (d !== P.dir) {
+      P.dir = d;
+      P.turnT = P.justArrived ? 0 : 0.09;
+      if (P.turnT > 0) return;
+    }
+    if (P.turnT > 0) { P.turnT -= dt; return; }
+    P.justArrived = false;
+    const [dx, dy] = DIRS[d], nx = P.x + dx, ny = P.y + dy;
+    const t = m.get(nx, ny);
+    if (t === T.DOOR) {
+      const door = m.doors.get(m.idx(nx, ny));
+      if (door && door.locked) { this.run(() => UI.say(door.locked)); return; }
+    }
+    if (m.solid(nx, ny) || m.npcAt(nx, ny)) {
+      if (P.bumpT <= 0) { Audio2.sfx('bump'); P.bumpT = 0.3; }
+      return;
+    }
+    P.tx = nx; P.ty = ny; P.moving = true; P.mt = 0;
+  },
+
+  onArrive() {
+    const P = this.pos, m = this.map, p = this.p;
+    P.justArrived = true;
+    p.x = P.x; p.y = P.y; p.dir = P.dir;
+    p.steps++;
+    if (p.repel > 0) { p.repel--; if (p.repel === 0) this.run(() => UI.say('Your headphones died. The world is loud again.')); }
+    const t = m.get(P.x, P.y), i = m.idx(P.x, P.y);
+    if (t === T.DOOR) {
+      const door = m.doors.get(i);
+      const im = World.maps[door.to];
+      this.warp(door.to, im.entry.x, im.entry.y, 'up');
+      return;
+    }
+    if (t === T.EXIT && m.exit) { this.warp(m.exit.map, m.exit.x, m.exit.y, 'down'); return; }
+    if (m.items.has(i)) {
+      const it = m.items.get(i);
+      m.items.delete(i);
+      const amt = it.amt;
+      this.run(async () => {
+        Audio2.sfx('coin');
+        const r = this.earn(amt);
+        await UI.say(amt >= 5 ? `You found a crumpled $5 bill in the grass!` : `You found a $1 bill in the grass!`);
+        if (r.garnished) await UI.say(`(Your loan servicer somehow took $${r.garnished} of it.)`);
+      });
+      return;
+    }
+    // respawn bills over time
+    if (m.id === 'world' && p.steps % 30 === 0) {
+      for (let ri = 0; ri < ROUTES.length; ri++) if (World.billsInRoute(m, ri) < 5) World.spawnBill(m, ri, P);
+    }
+    this.checkRegion();
+    if (t === T.GRASS) this.rollEncounter();
+  },
+
+  rollEncounter() {
+    const m = this.map, P = this.pos;
+    const reg = World.regions[m.regionAt(P.x, P.y)];
+    if (!reg || reg.kind !== 'route') return;
+    if (Math.random() > 0.11) return;
+    const r = ROUTES[reg.route];
+    const id = r.enc[U.rand(0, r.enc.length - 1)];
+    const lvl = U.rand(r.lv[0], r.lv[1]);
+    if (this.p.repel > 0 && lvl <= this.p.level) return;
+    this.run(() => Battle.start({ foes: [[id, lvl]], wild: true, biome: BIOME_IDS[m.bio[m.idx(P.x, P.y)]] }));
+  },
+
+  interact() {
+    const P = this.pos, m = this.map;
+    const [dx, dy] = DIRS[P.dir];
+    let fx = P.x + dx, fy = P.y + dy;
+    let n = m.npcAt(fx, fy);
+    if (!n && m.get(fx, fy) === T.COUNTER) n = m.npcAt(fx + dx, fy + dy);
+    if (n && n.talk) {
+      if (n.kind === 'person') n.dir = OPP[P.dir];
+      this.run(() => n.talk(n));
+      return;
+    }
+    const i = m.idx(fx, fy);
+    if (m.signs.has(i)) { this.run(() => UI.say(m.signs.get(i))); return; }
+    if (m.acts.has(i)) { this.run(() => m.acts.get(i)()); return; }
+    const t = m.get(fx, fy);
+    const flavour = {
+      [T.TV]: 'It\'s a cooking show. Someone is making a $90 sandwich.',
+      [T.BOOKS]: 'Self-help books. "Atomic Habits," "Atomic Habits 2," "Why You Didn\'t Finish Atomic Habits."',
+      [T.SHELF]: 'Shelves of snacks. Talk to the clerk at the counter to buy things.',
+      [T.MACHINE]: 'It beeps reassuringly. Nobody knows what it does.',
+      [T.BED]: 'A bed. It is calling your name. You must resist.',
+      [T.HBED]: 'A hospital bed. The sheets are suspiciously crisp.',
+      [T.STATUE]: 'A trophy engraved: "I SURVIVED."',
+      [T.ALTAR]: 'A quiet, peaceful place.',
+    }[t];
+    if (flavour) this.run(() => UI.say(flavour));
+  },
+
+  async blackout() {
+    const p = this.p;
+    const lost = Math.floor(p.money / 2);
+    p.money -= lost;
+    await UI.say(`{NAME} had a full-on meltdown!`);
+    if (lost) await UI.say(`In the panic, {NAME} dropped ${U.money(lost)}...`);
+    await this.fadeTo(1, 500);
+    this.mode = 'world';
+    const r = p.respawn;
+    this.enter(r.map, r.x, r.y, r.dir);
+    this.fullHeal();
+    await this.fadeTo(0, 500);
+    await UI.say(this.map.isHome ? 'Mom: "Oh, honey. Sit down. I made soup."' : 'Nurse: "We patched you up. Try to pace yourself out there, okay?"');
+  },
+
+  // ------------------------------------------------------------ save
+  save() {
+    const p = this.p;
+    p.map = this.map.id; p.x = this.pos.x; p.y = this.pos.y; p.dir = this.pos.dir;
+    try { localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 1, p })); return true; }
+    catch (e) { return false; }
+  },
+  autosave() { if (this.p && this.p.path) this.save(); },
+  loadSave() {
+    try {
+      const raw = localStorage.getItem(SAVE_KEY);
+      if (!raw) return null;
+      const d = JSON.parse(raw);
+      return d && d.p ? d.p : null;
+    } catch (e) { return null; }
+  },
+
+  // ------------------------------------------------------------ render
+  render() {
+    const x = this.ctx;
+    x.imageSmoothingEnabled = false;
+    if (this.mode === 'battle') { Battle.render(x); this.drawFade(x); return; }
+    x.fillStyle = '#000';
+    x.fillRect(0, 0, VIEW_W, VIEW_H);
+    if (this.mode === 'title') { this.renderTitle(x); return; }
+    if (this.mode === 'intro') { Intro.render(x); this.drawFade(x); return; }
+    if (!this.map) return;
+    this.renderMap(x);
+    this.drawFade(x);
+  },
+  drawFade(x) {
+    if (this.fade > 0) { x.fillStyle = `rgba(0,0,0,${this.fade})`; x.fillRect(0, 0, VIEW_W, VIEW_H); }
+    if (this.flash > 0) { x.fillStyle = `rgba(255,255,255,${this.flash})`; x.fillRect(0, 0, VIEW_W, VIEW_H); }
+  },
+  renderTitle(x) {
+    const m = World.maps.world;
+    const span = (m.w * 16 - VIEW_W);
+    const t = this.titleCam % (span * 2);
+    const cx = t < span ? t : span * 2 - t;
+    this.renderMap(x, { cam: [cx, 4 * 16 + 40], noPlayer: true, map: m });
+    x.fillStyle = 'rgba(10,20,40,0.35)';
+    x.fillRect(0, 0, VIEW_W, VIEW_H);
+  },
+
+  camera(m) {
+    const P = this.pos;
+    const px_ = (P.moving ? P.x + (P.tx - P.x) * P.mt : P.x) * 16;
+    const py_ = (P.moving ? P.y + (P.ty - P.y) * P.mt : P.y) * 16;
+    let cx = px_ + 8 - VIEW_W / 2, cy = py_ + 8 - VIEW_H / 2;
+    const mw = m.w * 16, mh = m.h * 16;
+    cx = mw <= VIEW_W ? (mw - VIEW_W) / 2 : U.clamp(cx, 0, mw - VIEW_W);
+    cy = mh <= VIEW_H ? (mh - VIEW_H) / 2 : U.clamp(cy, 0, mh - VIEW_H);
+    return [Math.round(cx), Math.round(cy), px_, py_];
+  },
+
+  renderMap(x, o = {}) {
+    const m = o.map || this.map;
+    let cx, cy, ppx, ppy;
+    if (o.cam) [cx, cy] = o.cam; else [cx, cy, ppx, ppy] = this.camera(m);
+    const x0 = Math.floor(cx / 16), y0 = Math.floor(cy / 16);
+    for (let ty = y0; ty <= y0 + 11; ty++) for (let tx = x0; tx <= x0 + 15; tx++) {
+      if (!m.in(tx, ty)) continue;
+      let id = m.get(tx, ty);
+      if (id === T.BUILD || id === T.DOOR) id = T.GROUND;
+      const theme = m.themeAt(tx, ty);
+      let v;
+      if (m.theme) v = (id === T.WALL || id === T.WWALL) ? ((m.get(tx, ty + 1) !== T.WALL && m.get(tx, ty + 1) !== T.WWALL) ? 1 : 0) : (tx + ty) % 2;
+      else v = U.hash(tx, ty) % 8;
+      x.drawImage(Art.tile(id, theme, v, this.waterF), tx * 16 - cx, ty * 16 - cy);
+      const pr = m.props.get(m.idx(tx, ty));
+      if (pr) x.drawImage(Art.prop(pr), tx * 16 - cx, ty * 16 - cy - 2);
+    }
+    for (const b of m.buildings) {
+      const bx = b.x * 16 - cx, by = b.y * 16 - cy;
+      if (bx > VIEW_W || by > VIEW_H || bx + b.w * 16 < 0 || by + b.h * 16 < 0) continue;
+      x.drawImage(Art.building(b, b.theme), bx, by);
+    }
+    const blink = Math.floor(this.time * 3);
+    for (const [i, it] of m.items) {
+      const ix = (i % m.w) * 16 - cx, iy = Math.floor(i / m.w) * 16 - cy;
+      if (ix < -16 || iy < -16 || ix > VIEW_W || iy > VIEW_H) continue;
+      x.drawImage(Art.bill(it.amt, blink), ix, iy - 2);
+    }
+    // y-sorted entities
+    const ents = [];
+    for (const n of m.npcs) {
+      if (n.hidden) continue;
+      const nx = (n.moving ? n.x + (n.tx - n.x) * n.mt : n.x) * 16, ny = (n.moving ? n.y + (n.ty - n.y) * n.mt : n.y) * 16;
+      if (nx - cx < -16 || ny - cy < -16 || nx - cx > VIEW_W || ny - cy > VIEW_H) continue;
+      ents.push({ y: ny, draw: () => this.drawEntity(x, n, nx - cx, ny - cy, m) });
+    }
+    if (!o.noPlayer && this.p) {
+      const P = this.pos;
+      ents.push({ y: ppy, draw: () => this.drawPlayer(x, ppx - cx, ppy - cy, m) });
+    }
+    ents.sort((a, b) => a.y - b.y).forEach((e) => e.draw());
+  },
+
+  drawEntity(x, n, sx, sy, m) {
+    if (n.kind === 'cone') { x.drawImage(Art.cone(), sx, sy - 2); return; }
+    const pal = n.palObj || PALS[n.pal] || PALS.dude;
+    const fr = n.moving && n.mt > 0.25 && n.mt < 0.8 ? 1 + n.step : 0;
+    x.drawImage(Art.character(pal, n.look)[n.dir][fr], sx, sy - 4);
+    this.grassOver(x, m, n.moving ? n.tx : n.x, n.moving ? n.ty : n.y, sx, sy, n.moving);
+  },
+  drawPlayer(x, sx, sy, m) {
+    const P = this.pos;
+    const pal = { ...PALS.player, c: this.p.outfit };
+    const fr = P.moving && P.mt > 0.2 && P.mt < 0.85 ? 1 + P.parity : 0;
+    const bob = P.moving && fr ? -1 : 0;
+    x.drawImage(Art.character(pal, null)[P.dir][fr], Math.round(sx), Math.round(sy) - 4 + bob);
+    this.grassOver(x, m, P.moving ? P.tx : P.x, P.moving ? P.ty : P.y, Math.round(sx), Math.round(sy), P.moving && P.mt < 0.5);
+  },
+  grassOver(x, m, tx, ty, sx, sy, skip) {
+    if (skip || m.get(tx, ty) !== T.GRASS) return;
+    const tile = Art.tile(T.GRASS, m.themeAt(tx, ty), U.hash(tx, ty) % 8, 0);
+    x.drawImage(tile, 0, 9, 16, 7, sx, sy + 9, 16, 7);
+  },
+};
+
+// ---------------------------------------------------------------- field menu
+const Menu = {
+  async open() {
+    Audio2.sfx('select');
+    let start = 0;
+    while (true) {
+      const opts = ['SKILLS', 'BAG', 'PROFILE', 'MAP', 'TYPE CHART', 'SAVE', 'SOUND: ' + (Audio2.muted ? 'OFF' : 'ON'), 'CLOSE'];
+      const i = await UI.choose(opts, { cls: 'side', start });
+      if (i < 0 || i === 7) return;
+      start = i;
+      if (i === 0) await this.skills();
+      if (i === 1) await this.bag(false);
+      if (i === 2) await this.profile();
+      if (i === 3) await this.map();
+      if (i === 4) await this.chart();
+      if (i === 5) {
+        if (await UI.confirm('Save your progress?')) {
+          const ok = Game.save();
+          if (ok) Audio2.sfx('save');
+          await UI.say(ok ? 'Progress saved!' : 'Couldn\'t save here (your browser is blocking storage).');
+        }
+        UI.closeDialog();
+      }
+      if (i === 6) Audio2.setMuted(!Audio2.muted);
+    }
+  },
+
+  skillRow(id) {
+    const s = SKILLS[id], t = SKILL_TYPES[s.type];
+    return `<b style="color:${t.color}">${t.label}</b> · ${s.power ? 'Power ' + s.power : 'Support'} · ${s.cost} Energy<br>${U.esc(s.desc)}`;
+  },
+
+  async skills() {
+    const p = Game.p;
+    const rows = () => p.known.map((id) => ({
+      label: SKILLS[id].name,
+      right: p.equipped.includes(id) ? '<span class="eq">EQUIPPED</span>' : '',
+      desc: this.skillRow(id),
+      icon: `<i class="dot" style="background:${SKILL_TYPES[SKILLS[id].type].color}"></i>`,
+    }));
+    await UI.list(rows, {
+      title: 'SKILLS', hint: 'Up to 4 skills can be equipped for battle.',
+      footer: () => `A: equip / unequip · B: back · ${p.equipped.length}/4 equipped`,
+      onAct: async (k) => {
+        const id = p.known[k];
+        if (p.equipped.includes(id)) {
+          if (p.equipped.length === 1) { UI.toast('You need at least one skill!'); return 'keep'; }
+          p.equipped = p.equipped.filter((e) => e !== id);
+        } else if (p.equipped.length < 4) {
+          p.equipped.push(id);
+        } else {
+          const j = await UI.choose(p.equipped.map((e) => 'Swap out ' + SKILLS[e].name), { cls: 'side' });
+          if (j >= 0) p.equipped[j] = id;
+        }
+        return 'keep';
+      },
+    });
+  },
+
+  // inBattle: returns the item id used (or null). Field use happens here.
+  async bag(inBattle) {
+    const p = Game.p;
+    let used = null;
+    const ids = () => Object.keys(p.items).filter((id) => p.items[id] > 0);
+    const rows = () => ids().map((id) => ({
+      label: ITEMS[id].name, right: '×' + p.items[id], desc: ITEMS[id].desc,
+      disabled: inBattle && !ITEMS[id].battle,
+    }));
+    await UI.list(rows, {
+      title: 'BAG', empty: 'Your bag is empty. Even the gum is gone.',
+      headRight: () => U.money(p.money),
+      onAct: async (k) => {
+        const id = ids()[k];
+        const r = await Items.use(id, inBattle);
+        if (r === 'used' && inBattle) { used = id; return 'close'; }
+        return inBattle ? 'keep' : 'keep';
+      },
+    });
+    return used;
+  },
+
+  async profile() {
+    const p = Game.p, s = Game.stats();
+    const next = Stats.xpFor(p.level + 1), cur = Stats.xpFor(p.level);
+    const xpPct = U.clamp((p.xp - cur) / (next - cur), 0, 1) * 100;
+    const badges = LEADER_ORDER.map((k) => {
+      const L = LEADERS[k], got = p.badges.includes(k);
+      return `<div class="bdg${got ? ' got' : ''}" title="${L.title}"><img src="${Art.iconURL(L.badgeIcon, 2)}"><span>${got ? L.title : '???'}</span></div>`;
+    }).join('');
+    const hrs = Math.floor(p.playTime / 3600), mins = Math.floor(p.playTime / 60) % 60;
+    const path = PATHS[p.path];
+    await UI.panel(`<div class="p-title">LIFE ID CARD</div>
+      <div class="card">
+        <div class="card-top">
+          <img class="card-face" src="${Art.portrait({ ...PALS.player, c: p.outfit }, null).toDataURL()}">
+          <div class="card-info">
+            <div class="big">${U.esc(p.name)}</div>
+            <div>Age ${Game.age()} · ${path ? path.name : 'No path yet'}</div>
+            <div>Level ${p.level} <span class="xpbar"><i style="width:${xpPct}%"></i></span></div>
+            <div>Cash <b>${U.money(p.money)}</b>${p.debt ? ` · Debt <b class="neg">${U.money(p.debt)}</b>` : ''}</div>
+            <div>Karma <b>${p.karma}</b> (${Game.karmaLabel()})</div>
+          </div>
+        </div>
+        <div class="statgrid">
+          <span>Sanity</span><b>${p.sanity}/${s.maxSanity}</b><span>Energy</span><b>${p.energy}/${s.maxEnergy}</b>
+          <span>Confidence</span><b>${s.conf}</b><span>Composure</span><b>${s.comp}</b>
+          <span>Hustle</span><b>${s.hus}</b><span>Played</span><b>${hrs}h ${mins}m</b>
+        </div>
+        <div class="p-sub">LIFE MILESTONES ${p.badges.length}/8</div>
+        <div class="badges">${badges}</div>
+      </div>`, { cls: 'profile' });
+  },
+
+  async map() {
+    const m = World.maps.world;
+    const [c, x] = U.canvas(m.w, m.h);
+    for (let y = 0; y < m.h; y++) for (let X = 0; X < m.w; X++) {
+      const t = m.get(X, y), b = BIO[m.themeAt(X, y)];
+      let col = b.ground[0];
+      if (t === T.TREE) col = U.shade(b.canopy[0], -0.1);
+      else if (t === T.WATER) col = b.water[0];
+      else if (t === T.PATH) col = b.path[0];
+      else if (t === T.GRASS) col = b.grass[1];
+      else if (t === T.BUILD || t === T.DOOR) col = '#e8e0d0';
+      x.fillStyle = col; x.fillRect(X, y, 1, 1);
+    }
+    const P = Game.pos;
+    let me = null;
+    if (Game.map.id === 'world') me = [P.x, P.y];
+    else if (Game.map.exit) me = [Game.map.exit.x, Game.map.exit.y];
+    const labels = TOWNS.map((t, i) => {
+      const [ox, oy] = World.townOrigin(i);
+      return `<span class="mlabel" style="left:${(ox + TW / 2) / m.w * 100}%;top:${(oy + (TOWNS[i].row ? TH + 1 : -1)) / m.h * 100}%">${t.name}</span>`;
+    }).join('');
+    const dot = me ? `<span class="mdot" style="left:${(me[0] + 0.5) / m.w * 100}%;top:${(me[1] + 0.5) / m.h * 100}%"></span>` : '';
+    await UI.panel(`<div class="p-title">MAP</div><div class="mapwrap"><img src="${c.toDataURL()}">${labels}${dot}</div>`, { cls: 'mappanel' });
+  },
+
+  async chart() {
+    const sk = Object.keys(SKILL_TYPES).filter((k) => k !== 'BASIC'), is = Object.keys(ISSUE_TYPES);
+    const cell = (m) => m > 1 ? '<td class="se">2×</td>' : m < 1 ? '<td class="nve">½</td>' : '<td>·</td>';
+    const html = `<div class="p-title">TYPE CHART</div><table class="chart"><tr><th>skill ↓ / issue →</th>${is.map((i) => `<th style="color:${ISSUE_TYPES[i].color}">${i}</th>`).join('')}</tr>
+      ${sk.map((s) => `<tr><th style="color:${SKILL_TYPES[s].color}">${s}</th>${is.map((i) => cell(EFF[s][i])).join('')}</tr>`).join('')}</table>
+      <div class="p-desc">2× = really hits home · ½ = doesn't land. SHADY skills are strong but cost Karma.</div>`;
+    await UI.panel(html, { cls: 'chartpanel' });
+  },
+};
+
+// ---------------------------------------------------------------- items
+const Items = {
+  // returns 'used' | 'no'
+  async use(id, inBattle) {
+    const p = Game.p, it = ITEMS[id], s = Game.stats();
+    switch (it.use) {
+      case 'sanity': {
+        if (p.sanity >= s.maxSanity) { await UI.say('Your Sanity is already full.'); UI.closeDialog(); return 'no'; }
+        const before = p.sanity;
+        p.sanity = Math.min(s.maxSanity, p.sanity + it.amt);
+        Game.take(id); Audio2.sfx('heal');
+        await UI.say(`{NAME} had some ${it.name}. Recovered ${p.sanity - before} Sanity!`);
+        break;
+      }
+      case 'energy': {
+        if (p.energy >= s.maxEnergy) { await UI.say('Your Energy is already full.'); UI.closeDialog(); return 'no'; }
+        const before = p.energy;
+        p.energy = Math.min(s.maxEnergy, p.energy + it.amt);
+        Game.take(id); Audio2.sfx('heal');
+        await UI.say(`{NAME} downed a ${it.name}. Recovered ${p.energy - before} Energy!`);
+        break;
+      }
+      case 'full': {
+        if (p.sanity >= s.maxSanity && !p.status) { await UI.say('You\'re doing okay right now. Save it.'); UI.closeDialog(); return 'no'; }
+        p.sanity = s.maxSanity; p.status = null;
+        Game.take(id); Audio2.sfx('heal');
+        await UI.say('{NAME} talked it through. Sanity fully restored!');
+        break;
+      }
+      case 'repel':
+        if (inBattle) return 'no';
+        p.repel = it.amt; Game.take(id);
+        await UI.say('{NAME} put on the headphones. Weak issues will leave you alone for a while.');
+        break;
+      case 'escape':
+        if (inBattle) {
+          if (!Battle.s.wild) { await UI.say('You can\'t ride away from this one.'); return 'no'; }
+          Game.take(id);
+          Battle.s.escaped = 'uber';
+          return 'used';
+        }
+        if (!(await UI.confirm('Ride back to the last place you recovered?'))) { UI.closeDialog(); return 'no'; }
+        Game.take(id);
+        UI.closeDialog();
+        await Game.warp(p.respawn.map, p.respawn.x, p.respawn.y, p.respawn.dir);
+        await UI.say('Your driver had a lot of opinions about traffic. You made it, though.');
+        break;
+      case 'book': {
+        if (inBattle) return 'no';
+        const sk = SKILLS[it.skill];
+        if (p.known.includes(it.skill)) { await UI.say(`You already know ${sk.name}. You skim it anyway. Still good.`); UI.closeDialog(); return 'no'; }
+        Game.take(id); Game.learn(it.skill); Audio2.sfx('levelup');
+        await UI.say(`{NAME} read the whole thing. In one sitting! {NAME} learned ${sk.name}!`);
+        if (!p.equipped.includes(it.skill)) await UI.say('Equip it from the SKILLS menu.');
+        break;
+      }
+      case 'outfit': {
+        if (inBattle) return 'no';
+        const k = await UI.choose(OUTFIT_COLORS.map((o) => o[0]), { cls: 'side' });
+        if (k < 0) return 'no';
+        p.outfit = OUTFIT_COLORS[k][1]; Game.take(id);
+        await UI.say(`Looking sharp in ${OUTFIT_COLORS[k][0]}!`);
+        break;
+      }
+      case 'scratch': {
+        if (inBattle) return 'no';
+        Game.take(id);
+        const r = Math.random();
+        const win = r < 0.02 ? 50 : r < 0.1 ? 10 : r < 0.3 ? 2 : 0;
+        await UI.say('{NAME} scratches furiously with a coin...');
+        if (win) { Audio2.sfx('coin'); Game.earn(win); await UI.say(`WINNER! {NAME} won $${win}!`); }
+        else await UI.say(['Nothing. Classic.', 'So close. (It was not close.)', 'You won... the experience.'][U.rand(0, 2)]);
+        break;
+      }
+      default: return 'no';
+    }
+    UI.closeDialog();
+    return 'used';
+  },
+};

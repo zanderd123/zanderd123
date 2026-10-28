@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Adulting Quest</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="app">
+  <header class="top">
+    <h1>Adulting Quest</h1>
+    <button id="muteBtn" type="button">♪ on</button>
+  </header>
+  <div id="console">
+    <div id="screen">
+      <canvas id="cv" width="240" height="160"></canvas>
+      <div id="ui"></div>
+    </div>
+    <div id="pad">
+      <div id="dpad" aria-label="Directional pad"><span class="u"></span><span class="d"></span><span class="l"></span><span class="r"></span><span class="c"></span></div>
+      <div class="sys"><button type="button" data-btn="START">START</button></div>
+      <div class="ab"><button type="button" data-btn="B" class="b">B</button><button type="button" data-btn="A" class="a">A</button></div>
+    </div>
+  </div>
+  <p class="keys">Arrows / WASD: move · Z, Space or Enter: A · X or Shift: B (hold to run) · M or Esc: menu</p>
+</div>
+<!-- scripts: order matters (see build.mjs) -->
+<script src="src/util.js"></script>
+<script src="src/data.js"></script>
+<script src="src/art.js"></script>
+<script src="src/audio.js"></script>
+<script src="src/ui.js"></script>
+<script src="src/world.js"></script>
+<script src="src/game.js"></script>
+<script src="src/scripts.js"></script>
+<script src="src/battle.js"></script>
+<script src="src/main.js"></script>
+</body>
+</html>
