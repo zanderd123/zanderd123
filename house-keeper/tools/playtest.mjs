@@ -1,5 +1,5 @@
 // Plays through every obstacle in House Keeper with real key presses and
-// checks the game reacts the right way.   node seven-keys/tools/playtest.mjs
+// checks the game reacts the right way.   node house-keeper/tools/playtest.mjs
 import { createRequire } from 'node:module';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';

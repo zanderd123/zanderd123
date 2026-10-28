@@ -2,7 +2,7 @@
 // solved, and that the page runs without errors. Saves a screenshot of every
 // room so the art can be eyeballed.
 //
-//   node seven-keys/tools/check.mjs [screenshot-dir]
+//   node house-keeper/tools/check.mjs [screenshot-dir]
 import { createRequire } from 'node:module';
 const { chromium } = createRequire(import.meta.url)('playwright');
 import { mkdirSync } from 'node:fs';

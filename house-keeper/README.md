@@ -5,7 +5,8 @@ Advance Pokémon games. You wake up inside a strange old building with a giant
 chest that has seven keyholes. Explore 22 rooms, get past seven obstacles,
 collect all seven keys and open the chest to escape.
 
-Open `index.html` in a browser to play. It is one self-contained file with no
+**Play online:** https://zanderd123.github.io/zanderd123/house-keeper/
+(served by GitHub Pages, see below), or open `index.html` in a browser. It is one self-contained file with no
 build step. All the art is drawn in code, and all sound comes from a tiny
 built-in synthesizer.
 
@@ -35,8 +36,8 @@ ending) shows the fastest runs:
 
 ## The explorers
 
-- **Boy**: bright red bandana, a backpack full of supplies, a sturdy wooden staff in hand. He vaults over gaps with the staff.
-- **Girl**: a brave adventurer with an amulet, a backpack over her shoulder, a fearless whip at her side. She swings over gaps with the whip.
+- **Boy**: a tough adventurer with a red bandana and a backpack, and a sturdy staff in hand. He vaults over gaps with the staff.
+- **Girl**: a brave adventurer with an amulet and a backpack, and a fearless whip at her side. She swings over gaps with the whip.
 
 ## Map
 
@@ -83,11 +84,22 @@ out a little. Pull it and the shelf swings open to reveal **Mamaw**, a calico
 cat who follows you for the rest of the game (and out of the front door). She
 is just company: she does not block anything or change the game.
 
+## Hosting on GitHub Pages
+
+The repository root has a `.nojekyll` file so GitHub Pages serves the files
+exactly as they are. To turn hosting on (once): repository **Settings →
+Pages**, under *Build and deployment* pick **Deploy from a branch**, choose
+the branch that holds this folder and `/ (root)`, and save. After a minute
+the game is at `https://zanderd123.github.io/zanderd123/house-keeper/`.
+
+On GitHub Pages the leaderboard keeps each player's best times on their own
+device; the shared leaderboard only works on the claude.ai page.
+
 ## Checks
 
 ```
-node seven-keys/tools/check.mjs [screenshot-dir]   # map shapes, doors, puzzle solvers, screenshots
-node seven-keys/tools/playtest.mjs                 # plays every obstacle with real key presses
+node house-keeper/tools/check.mjs [screenshot-dir]   # map shapes, doors, puzzle solvers, screenshots
+node house-keeper/tools/playtest.mjs                 # plays every obstacle with real key presses
 ```
 
 Both use the Playwright that is already installed in the dev environment.
