@@ -1,4 +1,4 @@
-// Recruit Jordan by talking to him, then check swapping, forced tag-ins and
+// Recruit Corbin by talking to him, then check swapping, forced tag-ins and
 // a team leader fight.
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
@@ -22,7 +22,7 @@ const mash = async (n, until, extra) => {
   }
   return st();
 };
-// stand below Jordan, facing up, and talk
+// stand below Corbin, facing up, and talk
 const pos = await page.evaluate(() => {
   const { Game, World, UI } = window.__game;
   UI.stack.length = 0; document.querySelectorAll('.titlecard,.menu').forEach((e) => e.remove());
@@ -30,7 +30,7 @@ const pos = await page.evaluate(() => {
   Object.assign(Game.p, { path: 'college', known: ['wing_it', 'googling', 'small_talk'], equipped: ['wing_it', 'googling', 'small_talk'], money: 100 });
   Game.give('comfort_food', 3); Game.give('pep_talk', 1);
   Game.fullHeal(); Game.mode = 'world'; World.refreshGates();
-  const n = World.maps.world.npcs.find((n) => n.ally === 'jordan');
+  const n = World.maps.world.npcs.find((n) => n.ally === 'corbin');
   n.wander = 0;
   Game.enter('world', n.x, n.y + 1, 'up');
   return [n.x, n.y];

@@ -33,7 +33,8 @@ const Crew = {
   },
   skills(r) {
     if (this.isMe(r)) return Game.p.equipped;
-    return this.def(r).learn.filter(([lv]) => lv <= Game.p.level).map(([, id]) => id).slice(-4);
+    // Wing It is always there, so nobody is stuck at 0 Energy
+    return ['wing_it', ...this.def(r).learn.filter(([lv]) => lv <= Game.p.level).map(([, id]) => id).slice(-3)];
   },
 
   add(id) {

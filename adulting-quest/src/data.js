@@ -469,15 +469,15 @@ const PALS = {
 
 // ---------------------------------------------------------------- crew
 // Allies you recruit. They level with you; `learn` is [level, skill] and an
-// ally fights with the last four skills it has learned.
+// ally fights with Wing It plus the last three skills it has learned.
 const ALLIES = {
-  jordan: {
-    name: 'JORDAN', title: 'Best Friend', town: 0, need: 0, cost: 0, boost: 'SOCIAL',
+  corbin: {
+    name: 'CORBIN', title: 'Best Friend', town: 0, need: 0, cost: 0, boost: 'SOCIAL', meet: true,
     pal: { h: '#2a1a0a', s: '#c08860', c: '#3a9ad8', p: '#3a3a58', b: '#e8e8e8', style: 'short' },
     base: { san: 66, conf: 60, comp: 52, hus: 62, energy: 2 },
     learn: [[1, 'small_talk'], [1, 'touch_grass'], [1, 'hype_up'], [12, 'networking']],
     noPath: ['Go see Dr. Street first! Then we roll.'],
-    pitch: ['You picked a path? Adulting? ALONE? Absolutely not.', 'I\'m coming with you. I\'m great with people. Mostly. Sometimes.'],
+    pitch: ['{NAME}! There you are! I saw you go into Dr. Street\'s lab.', 'So? You picked a path? You\'re ADULTING now?', 'Adulting alone? Absolutely not. I\'m coming with you. I\'m great with people. Mostly. Sometimes.'],
     after: 'Best friends don\'t let best friends adult alone.',
   },
   sam: {

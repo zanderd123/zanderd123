@@ -290,6 +290,7 @@ const World = {
     for (const [id, A] of Object.entries(ALLIES)) {
       if (A.town !== ti || A.home) continue;
       let sx = 19, sy = 13;
+      if (A.meet) { sx = 25; sy = 19; }   // by the lab door
       for (let tries = 0; tries < 30 && get(sx, sy) !== T.GROUND; tries++) { sx = 18 + (tries % 6); sy = 12 + Math.floor(tries / 6); }
       const n = makeNPC({ x: ox + sx, y: oy + sy });
       n.palObj = A.pal; n.look = A.look || null; n.ally = id;
@@ -330,7 +331,7 @@ const World = {
   },
 
   refreshGates() {
-    for (const n of this.maps.world.npcs) if (n.ally) n.hidden = Crew.has(n.ally);
+    for (const n of this.maps.world.npcs) if (n.ally) n.hidden = Crew.has(n.ally) || (ALLIES[n.ally].meet && !Game.p.path);
     for (const g of this.gates) {
       const open = Game.gateOpen(g.ri);
       g.cone.hidden = open;

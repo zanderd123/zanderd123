@@ -60,6 +60,34 @@ const Scripts = {
   },
 
   // ---------------------------------------------------------- crew
+  // Leaving the lab with a path: Corbin walks up from the road and joins.
+  async meetCorbin() {
+    const A = ALLIES.corbin, P = Game.pos, m = Game.map;
+    const n = m.npcs.find((k) => k.ally === 'corbin');
+    if (!n) return;
+    n.hidden = false; n.wander = 0;
+    n.x = P.x; n.y = P.y + 3; n.dir = 'up';
+    await say('"HEY! {NAME}!"');
+    // walk up the path to stand in front of you
+    for (let k = 0; k < 2; k++) {
+      n.tx = n.x; n.ty = n.y - 1; n.moving = true; n.mt = 0;
+      while (n.moving) await new Promise((r) => requestAnimationFrame(r));
+    }
+    P.dir = 'down';
+    await say(A.pitch, { name: A.name });
+    Crew.add('corbin');
+    Audio2.sfx('badge');
+    await say(`${A.name} (${A.title}) joined your crew!`);
+    await say(`${A.name} is best with ${A.boost} skills: ${Crew.skills(Game.p.crew[Game.p.crew.length - 1]).map((k) => SKILLS[k].name).join(', ')}.`);
+    if (!Game.p.flags.crewTip) {
+      Game.p.flags.crewTip = true;
+      await say(['TIP: In battle, pick CREW to tag in whoever has the right skill. If someone runs out of Sanity, the next person steps up. You only lose if EVERYONE is out.',
+        'Pick who fights first in MENU > CREW. More people will want to join you out there.']);
+    }
+    n.hidden = true;
+    Game.autosave();
+  },
+
   async recruit(id, npc) {
     const A = ALLIES[id], p = Game.p, nm = { name: A.name };
     if (Crew.has(id)) { await say(A.after, nm); return; }

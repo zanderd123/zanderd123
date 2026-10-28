@@ -133,11 +133,16 @@ const Game = {
   },
   async warp(mapId, x, y, dir) {
     this.busy++;
+    const from = this.map && this.map.id;
     Audio2.sfx('door');
     await this.fadeTo(1);
     this.enter(mapId, x, y, dir);
     if (mapId !== 'world') this.autosave();
     await this.fadeTo(0);
+    // your best friend is waiting outside the lab
+    if (from === 'lab-0-0' && mapId === 'world' && this.p.path && !Crew.has('corbin')) {
+      try { await Scripts.meetCorbin(); } finally { UI.closeDialog(); }
+    }
     this.busy--;
   },
 

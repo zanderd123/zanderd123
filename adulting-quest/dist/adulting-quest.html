@@ -819,15 +819,15 @@ const PALS = {
 
 // ---------------------------------------------------------------- crew
 // Allies you recruit. They level with you; `learn` is [level, skill] and an
-// ally fights with the last four skills it has learned.
+// ally fights with Wing It plus the last three skills it has learned.
 const ALLIES = {
-  jordan: {
-    name: 'JORDAN', title: 'Best Friend', town: 0, need: 0, cost: 0, boost: 'SOCIAL',
+  corbin: {
+    name: 'CORBIN', title: 'Best Friend', town: 0, need: 0, cost: 0, boost: 'SOCIAL', meet: true,
     pal: { h: '#2a1a0a', s: '#c08860', c: '#3a9ad8', p: '#3a3a58', b: '#e8e8e8', style: 'short' },
     base: { san: 66, conf: 60, comp: 52, hus: 62, energy: 2 },
     learn: [[1, 'small_talk'], [1, 'touch_grass'], [1, 'hype_up'], [12, 'networking']],
     noPath: ['Go see Dr. Street first! Then we roll.'],
-    pitch: ['You picked a path? Adulting? ALONE? Absolutely not.', 'I\'m coming with you. I\'m great with people. Mostly. Sometimes.'],
+    pitch: ['{NAME}! There you are! I saw you go into Dr. Street\'s lab.', 'So? You picked a path? You\'re ADULTING now?', 'Adulting alone? Absolutely not. I\'m coming with you. I\'m great with people. Mostly. Sometimes.'],
     after: 'Best friends don\'t let best friends adult alone.',
   },
   sam: {
@@ -2525,6 +2525,7 @@ const World = {
     for (const [id, A] of Object.entries(ALLIES)) {
       if (A.town !== ti || A.home) continue;
       let sx = 19, sy = 13;
+      if (A.meet) { sx = 25; sy = 19; }   // by the lab door
       for (let tries = 0; tries < 30 && get(sx, sy) !== T.GROUND; tries++) { sx = 18 + (tries % 6); sy = 12 + Math.floor(tries / 6); }
       const n = makeNPC({ x: ox + sx, y: oy + sy });
       n.palObj = A.pal; n.look = A.look || null; n.ally = id;
@@ -2565,7 +2566,7 @@ const World = {
   },
 
   refreshGates() {
-    for (const n of this.maps.world.npcs) if (n.ally) n.hidden = Crew.has(n.ally);
+    for (const n of this.maps.world.npcs) if (n.ally) n.hidden = Crew.has(n.ally) || (ALLIES[n.ally].meet && !Game.p.path);
     for (const g of this.gates) {
       const open = Game.gateOpen(g.ri);
       g.cone.hidden = open;
@@ -2866,11 +2867,16 @@ const Game = {
   },
   async warp(mapId, x, y, dir) {
     this.busy++;
+    const from = this.map && this.map.id;
     Audio2.sfx('door');
     await this.fadeTo(1);
     this.enter(mapId, x, y, dir);
     if (mapId !== 'world') this.autosave();
     await this.fadeTo(0);
+    // your best friend is waiting outside the lab
+    if (from === 'lab-0-0' && mapId === 'world' && this.p.path && !Crew.has('corbin')) {
+      try { await Scripts.meetCorbin(); } finally { UI.closeDialog(); }
+    }
     this.busy--;
   },
 
@@ -3514,7 +3520,8 @@ const Crew = {
   },
   skills(r) {
     if (this.isMe(r)) return Game.p.equipped;
-    return this.def(r).learn.filter(([lv]) => lv <= Game.p.level).map(([, id]) => id).slice(-4);
+    // Wing It is always there, so nobody is stuck at 0 Energy
+    return ['wing_it', ...this.def(r).learn.filter(([lv]) => lv <= Game.p.level).map(([, id]) => id).slice(-3)];
   },
 
   add(id) {
@@ -3604,6 +3611,34 @@ const Scripts = {
   },
 
   // ---------------------------------------------------------- crew
+  // Leaving the lab with a path: Corbin walks up from the road and joins.
+  async meetCorbin() {
+    const A = ALLIES.corbin, P = Game.pos, m = Game.map;
+    const n = m.npcs.find((k) => k.ally === 'corbin');
+    if (!n) return;
+    n.hidden = false; n.wander = 0;
+    n.x = P.x; n.y = P.y + 3; n.dir = 'up';
+    await say('"HEY! {NAME}!"');
+    // walk up the path to stand in front of you
+    for (let k = 0; k < 2; k++) {
+      n.tx = n.x; n.ty = n.y - 1; n.moving = true; n.mt = 0;
+      while (n.moving) await new Promise((r) => requestAnimationFrame(r));
+    }
+    P.dir = 'down';
+    await say(A.pitch, { name: A.name });
+    Crew.add('corbin');
+    Audio2.sfx('badge');
+    await say(`${A.name} (${A.title}) joined your crew!`);
+    await say(`${A.name} is best with ${A.boost} skills: ${Crew.skills(Game.p.crew[Game.p.crew.length - 1]).map((k) => SKILLS[k].name).join(', ')}.`);
+    if (!Game.p.flags.crewTip) {
+      Game.p.flags.crewTip = true;
+      await say(['TIP: In battle, pick CREW to tag in whoever has the right skill. If someone runs out of Sanity, the next person steps up. You only lose if EVERYONE is out.',
+        'Pick who fights first in MENU > CREW. More people will want to join you out there.']);
+    }
+    n.hidden = true;
+    Game.autosave();
+  },
+
   async recruit(id, npc) {
     const A = ALLIES[id], p = Game.p, nm = { name: A.name };
     if (Crew.has(id)) { await say(A.after, nm); return; }
@@ -4686,6 +4721,9 @@ const Main = {
   async cont(p) {
     // fill in anything newer saves have that older ones lack
     Game.p = Object.assign(Game.newPlayer(p.name), p);
+    // Jordan was renamed Corbin
+    for (const r of Game.p.crew) if (r.id === 'jordan') r.id = 'corbin';
+    if (Game.p.lead === 'jordan') Game.p.lead = 'corbin';
     if (!World.maps[Game.p.map]) Object.assign(Game.p, { map: 'house-0-0', x: 2, y: 3 });
     await Game.fadeTo(1, 300);
     Game.mode = 'world';
