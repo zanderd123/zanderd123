@@ -821,8 +821,8 @@ const PALS = {
 // Allies you recruit. They level with you; `learn` is [level, skill] and an
 // ally fights with Wing It plus the last three skills it has learned.
 const ALLIES = {
-  corbin: {
-    name: 'CORBIN', title: 'Best Friend', town: 0, need: 0, cost: 0, boost: 'SOCIAL', meet: true,
+  chad: {
+    name: 'CHAD', title: 'Best Friend', town: 0, need: 0, cost: 0, boost: 'SOCIAL', meet: true,
     pal: { h: '#2a1a0a', s: '#c08860', c: '#3a9ad8', p: '#3a3a58', b: '#e8e8e8', style: 'short' },
     base: { san: 66, conf: 60, comp: 52, hus: 62, energy: 2 },
     learn: [[1, 'small_talk'], [1, 'touch_grass'], [1, 'hype_up'], [12, 'networking']],
@@ -2874,8 +2874,8 @@ const Game = {
     if (mapId !== 'world') this.autosave();
     await this.fadeTo(0);
     // your best friend is waiting outside the lab
-    if (from === 'lab-0-0' && mapId === 'world' && this.p.path && !Crew.has('corbin')) {
-      try { await Scripts.meetCorbin(); } finally { UI.closeDialog(); }
+    if (from === 'lab-0-0' && mapId === 'world' && this.p.path && !Crew.has('chad')) {
+      try { await Scripts.meetChad(); } finally { UI.closeDialog(); }
     }
     this.busy--;
   },
@@ -3611,10 +3611,10 @@ const Scripts = {
   },
 
   // ---------------------------------------------------------- crew
-  // Leaving the lab with a path: Corbin walks up from the road and joins.
-  async meetCorbin() {
-    const A = ALLIES.corbin, P = Game.pos, m = Game.map;
-    const n = m.npcs.find((k) => k.ally === 'corbin');
+  // Leaving the lab with a path: Chad walks up from the road and joins.
+  async meetChad() {
+    const A = ALLIES.chad, P = Game.pos, m = Game.map;
+    const n = m.npcs.find((k) => k.ally === 'chad');
     if (!n) return;
     n.hidden = false; n.wander = 0;
     n.x = P.x; n.y = P.y + 3; n.dir = 'up';
@@ -3626,7 +3626,7 @@ const Scripts = {
     }
     P.dir = 'down';
     await say(A.pitch, { name: A.name });
-    Crew.add('corbin');
+    Crew.add('chad');
     Audio2.sfx('badge');
     await say(`${A.name} (${A.title}) joined your crew!`);
     await say(`${A.name} is best with ${A.boost} skills: ${Crew.skills(Game.p.crew[Game.p.crew.length - 1]).map((k) => SKILLS[k].name).join(', ')}.`);
@@ -4721,9 +4721,9 @@ const Main = {
   async cont(p) {
     // fill in anything newer saves have that older ones lack
     Game.p = Object.assign(Game.newPlayer(p.name), p);
-    // Jordan was renamed Corbin
-    for (const r of Game.p.crew) if (r.id === 'jordan') r.id = 'corbin';
-    if (Game.p.lead === 'jordan') Game.p.lead = 'corbin';
+    // the best friend was called Jordan, then Corbin, before Chad
+    for (const r of Game.p.crew) if (r.id === 'jordan' || r.id === 'corbin') r.id = 'chad';
+    if (Game.p.lead === 'jordan' || Game.p.lead === 'corbin') Game.p.lead = 'chad';
     if (!World.maps[Game.p.map]) Object.assign(Game.p, { map: 'house-0-0', x: 2, y: 3 });
     await Game.fadeTo(1, 300);
     Game.mode = 'world';

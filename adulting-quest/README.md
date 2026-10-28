@@ -34,7 +34,7 @@ dialog panels, 20x24 outlined characters and full-screen 19x14 rooms.
   issues come in 5 types (PEOPLE, PAPERWORK, MONEY, CHORE, STRESS). See the
   TYPE CHART in the menu. Skills cost Energy. Sanity is your HP. SHADY skills
   (Gaslight, Per My Last Email, Ghosting) are strong but cost Karma.
-- **Crew.** Five allies join you: CORBIN (best friend, meets you outside the lab), SAM
+- **Crew.** Five allies join you: CHAD (best friend, meets you outside the lab), SAM
   (roommate, Dusty Gulch, $50 deposit), PAT (mentor, Sunnyside Beach, after 1
   milestone), DR. KIM (therapist, Frostpeak, $40, after 2) and MOM (talk to
   her at home after 1). Each levels with you and is best with one skill type.

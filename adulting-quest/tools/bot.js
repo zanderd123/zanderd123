@@ -315,7 +315,7 @@
       await walk(at(13, 5)); await talk('up');
       await walk(at(8, 6)); await talk('up');
       note(`chose ${path}`);
-      await leave();               // Corbin meets you outside
+      await leave();               // Chad meets you outside
       await waitIdle();
       note(`crew: ${Crew.members().map((r) => Crew.name(r)).join(', ')}`);
       await shop(0);

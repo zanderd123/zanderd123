@@ -140,8 +140,8 @@ const Game = {
     if (mapId !== 'world') this.autosave();
     await this.fadeTo(0);
     // your best friend is waiting outside the lab
-    if (from === 'lab-0-0' && mapId === 'world' && this.p.path && !Crew.has('corbin')) {
-      try { await Scripts.meetCorbin(); } finally { UI.closeDialog(); }
+    if (from === 'lab-0-0' && mapId === 'world' && this.p.path && !Crew.has('chad')) {
+      try { await Scripts.meetChad(); } finally { UI.closeDialog(); }
     }
     this.busy--;
   },

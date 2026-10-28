@@ -122,9 +122,9 @@ const Main = {
   async cont(p) {
     // fill in anything newer saves have that older ones lack
     Game.p = Object.assign(Game.newPlayer(p.name), p);
-    // Jordan was renamed Corbin
-    for (const r of Game.p.crew) if (r.id === 'jordan') r.id = 'corbin';
-    if (Game.p.lead === 'jordan') Game.p.lead = 'corbin';
+    // the best friend was called Jordan, then Corbin, before Chad
+    for (const r of Game.p.crew) if (r.id === 'jordan' || r.id === 'corbin') r.id = 'chad';
+    if (Game.p.lead === 'jordan' || Game.p.lead === 'corbin') Game.p.lead = 'chad';
     if (!World.maps[Game.p.map]) Object.assign(Game.p, { map: 'house-0-0', x: 2, y: 3 });
     await Game.fadeTo(1, 300);
     Game.mode = 'world';

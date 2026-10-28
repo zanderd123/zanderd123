@@ -60,10 +60,10 @@ const Scripts = {
   },
 
   // ---------------------------------------------------------- crew
-  // Leaving the lab with a path: Corbin walks up from the road and joins.
-  async meetCorbin() {
-    const A = ALLIES.corbin, P = Game.pos, m = Game.map;
-    const n = m.npcs.find((k) => k.ally === 'corbin');
+  // Leaving the lab with a path: Chad walks up from the road and joins.
+  async meetChad() {
+    const A = ALLIES.chad, P = Game.pos, m = Game.map;
+    const n = m.npcs.find((k) => k.ally === 'chad');
     if (!n) return;
     n.hidden = false; n.wander = 0;
     n.x = P.x; n.y = P.y + 3; n.dir = 'up';
@@ -75,7 +75,7 @@ const Scripts = {
     }
     P.dir = 'down';
     await say(A.pitch, { name: A.name });
-    Crew.add('corbin');
+    Crew.add('chad');
     Audio2.sfx('badge');
     await say(`${A.name} (${A.title}) joined your crew!`);
     await say(`${A.name} is best with ${A.boost} skills: ${Crew.skills(Game.p.crew[Game.p.crew.length - 1]).map((k) => SKILLS[k].name).join(', ')}.`);
