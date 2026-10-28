@@ -5,27 +5,24 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Adulting Quest</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-<div id="app">
-  <header class="top">
-    <h1>Adulting Quest</h1>
-    <button id="muteBtn" type="button">♪ on</button>
-  </header>
-  <div id="console">
-    <div id="screen">
-      <canvas id="cv" width="240" height="160"></canvas>
-      <div id="ui"></div>
-    </div>
-    <div id="pad">
-      <div id="dpad" aria-label="Directional pad"><span class="u"></span><span class="d"></span><span class="l"></span><span class="r"></span><span class="c"></span></div>
-      <div class="sys"><button type="button" data-btn="START">START</button></div>
-      <div class="ab"><button type="button" data-btn="B" class="b">B</button><button type="button" data-btn="A" class="a">A</button></div>
-    </div>
+<div id="screen">
+  <canvas id="cv" width="304" height="224" aria-label="Adulting Quest game screen"></canvas>
+  <div id="ui"></div>
+</div>
+<div id="hint"><b>Arrows/WASD</b> move · <b>Space</b> talk / A · <b>Shift</b> run / B · <b>Esc</b> menu · <b>M</b> music</div>
+<div id="pad">
+  <div class="dpad">
+    <button type="button" data-btn="up" class="u" aria-label="Up">&#9650;</button>
+    <button type="button" data-btn="left" class="l" aria-label="Left">&#9664;</button>
+    <button type="button" data-btn="right" class="r" aria-label="Right">&#9654;</button>
+    <button type="button" data-btn="down" class="d" aria-label="Down">&#9660;</button>
   </div>
-  <p class="keys">Arrows / WASD: move · Z, Space or Enter: A · X or Shift: B (hold to run) · M or Esc: menu</p>
+  <button type="button" data-btn="START" class="menubtn">MENU</button>
+  <div class="ab"><button type="button" data-btn="B" class="b" aria-label="B: run or back">B</button><button type="button" data-btn="A" class="a" aria-label="A: talk or confirm">A</button></div>
 </div>
 <!-- scripts: order matters (see build.mjs) -->
 <script src="src/util.js"></script>

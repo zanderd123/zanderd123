@@ -21,7 +21,7 @@ const body = html
   .slice(html.indexOf('<body>') + 6, html.lastIndexOf('</body>'))
   .replace(/<!-- scripts[\s\S]*$/, '')
   .trim();
-const fonts = '<link rel="preconnect" href="https://fonts.googleapis.com">\n<link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;600;700&display=swap" rel="stylesheet">';
+const fonts = '<link rel="preconnect" href="https://fonts.googleapis.com">\n<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">';
 
 const forArtifact = process.argv.includes('--artifact');
 const inner = `${fonts}\n<style>\n${css}\n</style>\n${body}\n<script>\n${js}\n</script>\n`;

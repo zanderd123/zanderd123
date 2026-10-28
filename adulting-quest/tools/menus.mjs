@@ -28,8 +28,8 @@ await page.waitForTimeout(400);
 await page.screenshot({ path: join(shots, 'm1-world.png') });
 const tap = async (sel, n = 1) => { for (let i = 0; i < n; i++) { await page.tap(sel); await page.waitForTimeout(160); } };
 // walk with the d-pad: hold right
-const pad = await page.$('#dpad'); const b = await pad.boundingBox();
-await page.mouse.move(b.x + b.width - 10, b.y + b.height / 2); await page.mouse.down(); await page.waitForTimeout(700); await page.mouse.up();
+const b = await (await page.$('[data-btn="right"]')).boundingBox();
+await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2); await page.mouse.down(); await page.waitForTimeout(700); await page.mouse.up();
 console.log('walked to', await page.evaluate(() => window.__game.Game.pos.x));
 await tap('[data-btn="START"]');
 await page.screenshot({ path: join(shots, 'm2-menu.png') });

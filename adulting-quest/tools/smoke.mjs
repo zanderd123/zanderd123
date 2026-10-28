@@ -34,7 +34,7 @@ await shot('03-house');
 console.log('after intro', await state());
 errors.length && console.log(errors.join('\n'));
 // teleport helper to test the rest quickly
-await page.evaluate(() => { const { Game } = window.__game; Game.enter('lab-0-0', 5, 5, 'up'); });
+await page.evaluate(() => { const { Game } = window.__game; Game.enter('lab-0-0', 8, 6, 'up'); });
 await page.waitForTimeout(300);
 await key('z'); // table at (5,4)
 await page.waitForTimeout(500);

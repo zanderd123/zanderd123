@@ -11,12 +11,12 @@ const Intro = {
     x.fillStyle = g; x.fillRect(0, 0, VIEW_W, VIEW_H);
     for (let i = 0; i < 30; i++) {
       x.fillStyle = 'rgba(255,255,255,0.5)';
-      x.fillRect((U.hash(i, 1) % VIEW_W), (U.hash(i, 2) % 90), 1, 1);
+      x.fillRect((U.hash(i, 1) % VIEW_W), (U.hash(i, 2) % 120), 1, 1);
     }
-    disc(x, 120, 102, 44, 9, 'rgba(0,0,0,0.25)');
+    disc(x, 152, 134, 40, 8, 'rgba(0,0,0,0.3)');
     const bob = Math.round(Math.sin(this.t * 2) * 1);
-    if (this.who === 'street') x.drawImage(Art.portrait(PALS.street, 'glasses'), 88, 40 + bob);
-    if (this.who === 'player') x.drawImage(Art.portrait({ ...PALS.player }, null), 88, 40 + bob);
+    if (this.who === 'street') x.drawImage(Art.portrait(PALS.street, 'glasses'), 122, 62 + bob);
+    if (this.who === 'player') x.drawImage(Art.portrait({ ...PALS.player }, null), 122, 62 + bob);
   },
 
   async run() {
@@ -53,10 +53,8 @@ const Main = {
     Input.init();
     UI.init();
     World.build();
-    document.getElementById('muteBtn')?.addEventListener('click', () => {
-      Audio2.unlock(); Audio2.setMuted(!Audio2.muted); this.syncMute();
-    });
-    this.syncMute();
+    this.resize();
+    window.addEventListener('resize', () => this.resize());
     let last = performance.now();
     const frame = (t) => {
       const dt = Math.min(0.05, (t - last) / 1000); last = t;
@@ -76,9 +74,15 @@ const Main = {
     this.title();
   },
 
-  syncMute() {
-    const b = document.getElementById('muteBtn');
-    if (b) b.textContent = Audio2.muted ? '♪ off' : '♪ on';
+  // Integer scale when there's room (crisp pixels), like House Keeper.
+  resize() {
+    const touch = matchMedia('(pointer: coarse)').matches;
+    const aw = window.innerWidth - 40, ah = window.innerHeight - (touch ? 190 : 34) - 24;
+    let s = Math.min(aw / VIEW_W, ah / VIEW_H);
+    s = s >= 1 ? Math.floor(s) : Math.max(0.5, s);
+    const el = document.getElementById('screen');
+    el.style.width = Math.round(VIEW_W * s) + 'px';
+    el.style.height = Math.round(VIEW_H * s) + 'px';
   },
 
   async title() {

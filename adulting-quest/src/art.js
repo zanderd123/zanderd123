@@ -8,12 +8,12 @@ const T = {
   // interiors
   FLOOR: 20, WALL: 21, WWALL: 22, COUNTER: 23, SHELF: 24, BED: 25, BEDB: 26, TABLE: 27,
   PLANT: 28, RUG: 29, EXIT: 30, PEW: 31, ALTAR: 32, MACHINE: 33, BOOKS: 34, TV: 35,
-  HBED: 36, STATUE: 37, MAT: 38, CHAIR: 39,
+  HBED: 36, STATUE: 37, MAT: 38, CHAIR: 39, BANNER: 40,
 };
 const SOLID = new Set([
   T.VOID, T.TREE, T.WATER, T.ROCK, T.FENCE, T.BUILD, T.CROP, T.SIGN, T.LAMP, T.DECO,
   T.WALL, T.WWALL, T.COUNTER, T.SHELF, T.BED, T.BEDB, T.TABLE, T.PLANT, T.PEW, T.ALTAR,
-  T.MACHINE, T.BOOKS, T.TV, T.HBED, T.STATUE, T.CHAIR,
+  T.MACHINE, T.BOOKS, T.TV, T.HBED, T.STATUE, T.CHAIR, T.BANNER,
 ]);
 
 const BIO = {
@@ -43,7 +43,7 @@ const BIO = {
     walls: ['#a8604a', '#8a8f9a'], roofs: ['#4a4f5a', '#3a3f4a', '#5a5f6a', '#6a5a5a'], flat: true, sky: ['#b8c8e0', '#e8eef8'], field: '#b4b4b8' },
 };
 
-const OUTLINE = '#282830';
+const OUTLINE = '#1e1626';
 
 const Art = {
   cache: new Map(),
@@ -318,38 +318,64 @@ function solidDeco(x, theme, v) {
 }
 
 // ---------------------------------------------------------------- interiors
+// Interior themes follow House Keeper's rooms: a dark wall top, a papered
+// face with a trim line and baseboard, then the floor.
 const THEMES = {
-  house:    { floor: ['#c89a6a', '#b8885a'], wall: ['#e8d8b8', '#d8c8a4'], trim: '#8a6a4a' },
-  store:    { floor: ['#e4ecf4', '#ccd8e4'], wall: ['#9ac4e8', '#88b4dc'], trim: '#3a6aa8' },
-  hospital: { floor: ['#f4f4f4', '#dce4ec'], wall: ['#f8e0e4', '#ecccd4'], trim: '#c84a5a' },
-  chapel:   { floor: ['#b8b0a4', '#a8a094'], wall: ['#f0ead8', '#e0d8c4'], trim: '#8a6a3a' },
-  lab:      { floor: ['#e8f0f4', '#d4e0e8'], wall: ['#d8e8e0', '#c4d8d0'], trim: '#4a8a7a' },
+  house:    { floor: 'wood',    top: '#3a2a26', lip: '#5a443c', c1: '#dccaa0', c2: '#cfbb8e', trim: '#b08c58', base: '#6a4428' },
+  store:    { floor: 'checker', top: '#1e2a40', lip: '#34466a', c1: '#a8cce8', c2: '#98bcdc', trim: '#e8f0f8', base: '#3a5a8a', tile: ['#ece6d6', '#7ab0d8'] },
+  hospital: { floor: 'checker', top: '#3a2430', lip: '#5a3a48', c1: '#f8e0e4', c2: '#ecccd4', trim: '#f8f4f4', base: '#a84a5a', tile: ['#f4f4f4', '#d8e4ec'] },
+  chapel:   { floor: 'stone',   top: '#26222e', lip: '#403a4c', c1: '#8a8296', c2: '#706a7c', trim: '#a49cb0', base: '#3e3848', brick: true },
+  lab:      { floor: 'checker', top: '#1e3430', lip: '#34524a', c1: '#d8e8e0', c2: '#c4d8d0', trim: '#f4fbf8', base: '#3a6a5e', tile: ['#eef4f2', '#b8d8cc'] },
 };
 function themeOf(theme) {
   if (theme.startsWith('hall:')) {
     const c = theme.slice(5);
-    return { floor: [U.shade(c, 0.55), U.shade(c, 0.4)], wall: [U.shade(c, 0.2), U.shade(c, 0.05)], trim: U.shade(c, -0.4), hall: c };
+    return { floor: 'marble', top: U.shade(c, -0.72), lip: U.shade(c, -0.55), c1: U.shade(c, -0.1), c2: U.shade(c, -0.22), trim: '#d6a84a', base: U.shade(c, -0.6), hall: c };
   }
   return THEMES[theme] || THEMES.house;
 }
 
 function drawInterior(x, id, theme, v) {
   const th = themeOf(theme);
+  const r = U.rng(v * 31 + 5);
   const floor = () => {
-    px(x, th.floor[0], 0, 0, 16, 16);
-    if (theme === 'house') { for (let i = 0; i < 16; i += 4) px(x, th.floor[1], 0, i + 3, 16, 1); px(x, th.floor[1], (v % 2) * 8 + 3, 0, 1, 3); }
-    else if (theme === 'chapel') { px(x, th.floor[1], 0, 15, 16, 1); px(x, th.floor[1], 15, 0, 1, 16); px(x, th.floor[1], 7, 0, 1, 8); }
-    else { px(x, th.floor[1], 0, 0, 8, 8); px(x, th.floor[1], 8, 8, 8, 8); }
-  };
-  if (id === T.WALL || id === T.WWALL) {
-    px(x, th.wall[0], 0, 0, 16, 16);
-    for (let i = 1; i < 16; i += 4) px(x, th.wall[1], i, 0, 1, 16);
-    if (v === 1) { px(x, th.trim, 0, 12, 16, 4); px(x, U.shade(th.trim, 0.3), 0, 12, 16, 1); }
-    if (id === T.WWALL && v === 0) {
-      px(x, OUTLINE, 2, 3, 12, 11); px(x, '#a8d8f8', 3, 4, 10, 9); px(x, '#d8f0ff', 3, 4, 4, 3); px(x, OUTLINE, 7, 4, 1, 9); px(x, OUTLINE, 3, 8, 10, 1);
+    if (th.floor === 'wood') {
+      px(x, '#b5773f', 0, 0, 16, 16);
+      for (let k = 0; k < 4; k++) { px(x, '#c4884e', 0, k * 4, 16, 1); px(x, '#8f5a2c', 0, k * 4 + 3, 16, 1); px(x, '#8f5a2c', Math.floor(r() * 15), k * 4, 1, 4); }
+    } else if (th.floor === 'marble') {
+      px(x, v % 2 ? '#e4dccb' : '#d2c6ae', 0, 0, 16, 16); px(x, '#bfb196', 0, 0, 16, 1); px(x, '#bfb196', 0, 0, 1, 16);
+      px(x, v % 2 ? '#d4cab6' : '#c4b89e', Math.floor(r() * 14), Math.floor(r() * 14), 2, 1);
+    } else if (th.floor === 'stone') {
+      px(x, '#6e6e7c', 0, 0, 16, 16);
+      for (let j = 0; j < 2; j++) for (let i = 0; i < 2; i++) {
+        const sx = i * 8, sy = j * 8;
+        px(x, '#8e8e9c', sx, sy, 7, 7); px(x, '#a2a2b0', sx, sy, 7, 1); px(x, '#a2a2b0', sx, sy, 1, 7); px(x, '#7a7a88', sx + 1, sy + 6, 6, 1);
+      }
+    } else {
+      const [a, b] = th.tile;
+      px(x, a, 0, 0, 8, 8); px(x, a, 8, 8, 8, 8); px(x, b, 8, 0, 8, 8); px(x, b, 0, 8, 8, 8); px(x, U.shade(a, -0.1), 0, 0, 16, 1);
     }
-    if (id === T.WWALL && v === 1 && th.hall) {
-      px(x, th.hall, 5, 0, 6, 10); px(x, '#f8e070', 7, 3, 2, 2);
+  };
+  if (id === T.WALL || id === T.WWALL || id === T.BANNER) {
+    if (v === 0) {           // seen from above: the top of the wall
+      px(x, th.top, 0, 0, 16, 16); px(x, th.lip, 0, 6, 4, 1); px(x, th.lip, 8, 6, 4, 1); px(x, th.lip, 0, 14, 16, 2);
+      return;
+    }
+    if (th.brick) {
+      px(x, th.c2, 0, 0, 16, 16);
+      for (let rw = 0; rw < 4; rw++) { const o = (rw % 2) * 4; for (let i = -4; i < 16; i += 8) { const bx = Math.max(0, i + o), bw = Math.min(16, i + o + 7) - bx; if (bw > 0) px(x, th.c1, bx, rw * 4, bw, 3); } }
+      px(x, th.base, 0, 14, 16, 2);
+    } else {
+      px(x, th.c1, 0, 0, 16, 16); for (let i = 0; i < 16; i += 4) px(x, th.c2, i, 0, 2, 16);
+      px(x, th.trim, 0, 0, 16, 2); px(x, th.base, 0, 12, 16, 4); px(x, th.trim, 0, 12, 16, 1);
+    }
+    if (id === T.WWALL) {
+      px(x, '#5a3a22', 2, 2, 12, 11); px(x, '#8ac8f0', 3, 3, 10, 9); px(x, '#a8daf8', 3, 3, 10, 3);
+      px(x, '#5a3a22', 7, 3, 2, 9); px(x, '#5a3a22', 3, 7, 10, 1); px(x, '#e8f8ff', 4, 4, 1, 2);
+    }
+    if (id === T.BANNER) {
+      const c = th.hall || '#a82838';
+      px(x, c, 4, 1, 8, 11); px(x, '#d8b048', 4, 1, 8, 1); px(x, c, 5, 12, 2, 2); px(x, c, 9, 12, 2, 2); px(x, '#d8b048', 7, 4, 2, 4);
     }
     return;
   }
@@ -359,7 +385,7 @@ function drawInterior(x, id, theme, v) {
   switch (id) {
     case T.RUG: ol = false; px(tx, '#b84a4a', 0, 0, 16, 16); px(tx, '#d8a040', 1, 1, 14, 1); px(tx, '#d8a040', 1, 14, 14, 1); px(tx, '#c85a5a', 3, 3, 10, 10); break;
     case T.MAT: ol = false; if (th.hall) { px(tx, th.hall, 2, 0, 12, 16); px(tx, U.shade(th.hall, 0.3), 4, 0, 1, 16); px(tx, U.shade(th.hall, 0.3), 11, 0, 1, 16); } break;
-    case T.EXIT: ol = false; px(tx, '#7a4a3a', 2, 4, 12, 9); px(tx, '#9a6a4a', 3, 5, 10, 7); for (let i = 4; i < 12; i += 2) px(tx, '#7a4a3a', i, 6, 1, 5); break;
+    case T.EXIT: ol = false; px(tx, '#8a3a2a', 2, 1, 12, 7); px(tx, '#a8503a', 3, 2, 10, 5); px(tx, 'rgba(0,0,0,.55)', 0, 10, 16, 6); break;
     case T.COUNTER: px(tx, '#a8784a', 0, 2, 16, 14); px(tx, '#d8a874', 0, 2, 16, 4); px(tx, '#8a5a34', 0, 10, 16, 1); break;
     case T.SHELF:
       px(tx, '#8a6a4a', 1, 0, 14, 16);
@@ -390,99 +416,140 @@ function drawInterior(x, id, theme, v) {
 }
 
 // ---------------------------------------------------------------- characters
-// Left halves of the 16x16 down/up sprites are mirrored to keep them symmetric.
-const SPR_DOWN = [
-  '........', '.....ooo', '....ohhh', '...ohhhh', '...ohhhh', '...ohsss', '...osess', '...ossss',
-  '....osss', '...occcc', '..oocccc', '..osCccc', '...oCccc', '...opppp', '....opp.', '....obb.',
-];
-const SPR_UP = [
-  '........', '.....ooo', '....ohhh', '...ohhhh', '...ohhhh', '...ohhhh', '...ohhhh', '...ohhhh',
-  '....ohhh', '...occcc', '..oocccc', '..osCccc', '...oCccc', '...opppp', '....opp.', '....obb.',
-];
-const SPR_SIDE = [
-  '................', '.....oooooo.....', '....ohhhhhho....', '...ohhhhhhhho...',
-  '...ohhhhhhhho...', '...ohhhhsssso...', '...ohhhsssseo...', '...ohhssssssso..',
-  '....ohsssssso...', '....occcccco....', '....occcccco....', '....oscCcco.....',
-  '....oCccccco....', '....oppppppo....', '.....oppppo.....', '.....obbbbo.....',
-];
-const SPR_SIDE_STEP = ['....opppopppo...', '...obbo..obbo...'];
+// 20x24 sprites built from outlined rectangles in layers (the House Keeper
+// method): each layer gets a 1px outline, then detail pixels go on top.
+const EYE = '#22182e';
 
-function mirrorRows(rows) { return rows.map((r) => r + r.split('').reverse().join('')); }
-
-function paintRows(x, rows, pal, ox = 0, oy = 0) {
-  const map = {
-    o: OUTLINE, h: pal.h, s: pal.s, e: '#202028', c: pal.c, C: U.shade(pal.c, -0.25),
-    p: pal.p, b: pal.b, w: '#ffffff', k: pal.k || pal.h,
+function charStyle(pal, look) {
+  const cf = {
+    skin: pal.s, skinS: U.shade(pal.s, -0.18), hair: pal.h, hairS: U.shade(pal.h, -0.28), hairL: U.shade(pal.h, 0.35),
+    shirt: pal.c, shirtS: U.shade(pal.c, -0.3), pants: pal.p, pantsS: U.shade(pal.p, -0.3), shoe: pal.b,
+    style: pal.style || 'short',
   };
-  rows.forEach((row, y) => {
-    for (let X = 0; X < row.length; X++) {
-      const ch = row[X];
-      if (ch === '.') continue;
-      x.fillStyle = map[ch] || '#f0f';
-      x.fillRect(ox + X, oy + y, 1, 1);
-    }
-  });
+  if (pal.pack) { cf.pack = pal.pack; cf.packS = U.shade(pal.pack, -0.3); }
+  if (look === 'cap') { cf.cap = '#c8402a'; cf.capS = '#8a2418'; }
+  if (look === 'headband') { cf.band = '#e8302a'; cf.bandS = '#a01c18'; }
+  if (look === 'glasses') cf.glasses = true;
+  if (look === 'collar') cf.collar = true;
+  if (pal.coat) cf.coat = pal.coat;
+  if (pal.tie) cf.tie = pal.tie;
+  return cf;
 }
 
-function charRows(dir, step) {
-  let rows;
+function buildChar(cf, dir, fr) {
+  const [cv, C] = U.canvas(20, 24);
+  const layers = [[]]; let cur = layers[0];
+  const layer = () => { cur = []; layers.push(cur); };
+  const R = (x, y, w, h, c) => cur.push([x + 2, y + 4, w, h, c]);
+  const det = [];
+  const D = (x, y, w, h, c) => det.push([x + 2, y + 4, w, h, c]);
+  const lift = fr === 1 ? 1 : fr === 2 ? 2 : 0;
+
   if (dir === 'down' || dir === 'up') {
-    rows = mirrorRows(dir === 'down' ? SPR_DOWN : SPR_UP);
-    if (step) {
-      rows = rows.slice();
-      const lift = (cols) => {
-        const r14 = rows[14].split(''), r15 = rows[15].split('');
-        for (const c of cols) { r14[c] = 'b'; r15[c] = '.'; }
-        rows[14] = r14.join(''); rows[15] = r15.join('');
-      };
-      lift(step === 1 ? [5, 6] : [9, 10]);
+    const front = dir === 'down';
+    if (cf.style === 'long' && front) { R(2, 4, 2, 10, cf.hair); R(12, 4, 2, 10, cf.hair); }
+    layer();
+    R(5, 16, 2, lift === 1 ? 2 : 3, cf.pants); R(9, 16, 2, lift === 2 ? 2 : 3, cf.pants);
+    D(5, lift === 1 ? 17 : 18, 2, 1, cf.shoe); D(9, lift === 2 ? 17 : 18, 2, 1, cf.shoe);
+    layer();
+    const body = cf.coat || cf.shirt;
+    R(4, 11, 8, 5, body);
+    R(2, 11, 2, lift === 2 ? 3 : 4, body); R(12, 11, 2, lift === 1 ? 3 : 4, body);
+    D(2, lift === 2 ? 13 : 14, 2, 1, cf.skin); D(12, lift === 1 ? 13 : 14, 2, 1, cf.skin);
+    D(4, 15, 8, 1, cf.coat ? U.shade(cf.coat, -0.2) : cf.shirtS);
+    if (front && cf.coat) { D(6, 11, 4, 4, cf.shirt); D(7, 11, 2, 4, cf.shirtS); }
+    if (front && cf.tie) D(7, 11, 2, 4, cf.tie);
+    if (front && cf.pack) { D(4, 11, 1, 4, cf.packS); D(11, 11, 1, 4, cf.packS); }
+    if (front && cf.collar) D(7, 11, 2, 1, '#ffffff');
+    layer();
+    if (front) {
+      R(3, 2, 10, 9, cf.skin);
+      if (cf.style === 'short' || cf.style === 'bun') {
+        R(3, 1, 10, 3, cf.hair); R(3, 4, 1, 3, cf.hair); R(12, 4, 1, 3, cf.hair); D(5, 1, 3, 1, cf.hairL);
+        if (cf.style === 'bun') R(6, -1, 4, 3, cf.hair);
+      } else if (cf.style === 'long') {
+        R(3, 1, 10, 4, cf.hair); R(3, 4, 1, 5, cf.hair); R(12, 4, 1, 5, cf.hair);
+        D(4, 5, 2, 1, cf.hair); D(7, 5, 1, 1, cf.hair); D(10, 5, 2, 1, cf.hair); D(5, 1, 4, 1, cf.hairL);
+        D(4, 9, 1, 1, '#f0a0a0'); D(11, 9, 1, 1, '#f0a0a0');
+      } else {
+        R(2, 5, 2, 3, cf.hair); R(12, 5, 2, 3, cf.hair);
+      }
+      if (cf.cap) { R(3, 1, 10, 3, cf.cap); R(2, 3, 12, 2, cf.cap); D(2, 4, 12, 1, cf.capS); D(5, 1, 3, 1, U.shade(cf.cap, 0.3)); }
+      if (cf.band) { R(3, 3, 10, 2, cf.band); R(13, 4, 2, 2, cf.band); D(3, 4, 10, 1, cf.bandS); }
+      D(5, 7, 1, 2, EYE); D(10, 7, 1, 2, EYE);
+      if (cf.glasses) { D(4, 6, 3, 3, '#30304a'); D(9, 6, 3, 3, '#30304a'); D(5, 7, 1, 1, '#cfe8ff'); D(10, 7, 1, 1, '#cfe8ff'); D(7, 7, 2, 1, '#30304a'); }
+      D(7, 9, 2, 1, '#c0605a');
+    } else {
+      if (cf.style === 'long') {
+        R(3, 1, 10, 4, cf.hair); R(2, 4, 12, 10, cf.hair); D(4, 2, 4, 1, cf.hairL); D(7, 4, 2, 9, cf.hairS);
+      } else if (cf.style === 'bald') {
+        R(3, 2, 10, 9, cf.skin); R(2, 5, 12, 3, cf.hair); D(6, 3, 3, 1, '#ffffff');
+      } else {
+        R(3, 2, 10, 9, cf.skin); R(3, 1, 10, 8, cf.hair); R(2, 6, 1, 2, cf.skin); R(13, 6, 1, 2, cf.skin);
+        D(5, 2, 4, 1, cf.hairL);
+        if (cf.style === 'bun') R(6, -1, 4, 3, cf.hair);
+      }
+      if (cf.cap) { R(3, 1, 10, 4, cf.cap); D(3, 4, 10, 1, cf.capS); }
+      if (cf.band) { R(3, 3, 10, 2, cf.band); D(3, 4, 10, 1, cf.bandS); D(7, 5, 2, 2, cf.band); }
     }
-  } else {
-    rows = SPR_SIDE.slice();
-    if (step) { rows[14] = SPR_SIDE_STEP[0]; rows[15] = SPR_SIDE_STEP[1]; }
+    layer();
+    if (!front && cf.pack) { R(4, 10, 8, 6, cf.pack); D(4, 10, 8, 2, cf.packS); D(7, 12, 2, 1, '#e0c060'); D(5, 14, 6, 1, cf.packS); }
+  } else { // facing right
+    if (cf.style === 'long') R(3, 4, 4, 10, cf.hair);
+    if (cf.pack) { R(2, 11, 4, 5, cf.pack); D(2, 11, 4, 1, cf.packS); D(3, 13, 2, 1, '#e0c060'); }
+    layer();
+    if (lift) {
+      R(4, 16, 2, 3, lift === 1 ? cf.pantsS : cf.pants); R(9, 16, 2, 3, lift === 1 ? cf.pants : cf.pantsS);
+      D(4, 18, 2, 1, cf.shoe); D(9, 18, 3, 1, cf.shoe);
+    } else { R(6, 16, 3, 3, cf.pants); D(6, 18, 4, 1, cf.shoe); }
+    layer();
+    const body = cf.coat || cf.shirt;
+    R(5, 11, 6, 5, body); D(5, 15, 6, 1, cf.coat ? U.shade(cf.coat, -0.2) : cf.shirtS);
+    if (cf.tie) D(10, 11, 1, 3, cf.tie);
+    const ax = lift === 1 ? 9 : lift === 2 ? 5 : 7;
+    layer();
+    R(ax, 12, 2, 3, body); D(ax, 14, 2, 1, cf.skin);
+    layer();
+    R(4, 2, 9, 9, cf.skin);
+    if (cf.style === 'short' || cf.style === 'bun') {
+      R(4, 1, 8, 3, cf.hair); R(4, 4, 3, 5, cf.hair); D(7, 6, 1, 2, cf.skinS); D(5, 1, 3, 1, cf.hairL);
+      if (cf.style === 'bun') R(3, 0, 3, 3, cf.hair);
+    } else if (cf.style === 'long') {
+      R(4, 1, 8, 4, cf.hair); R(3, 4, 4, 6, cf.hair); D(10, 4, 2, 1, cf.hair); D(5, 1, 4, 1, cf.hairL); D(11, 9, 1, 1, '#f0a0a0');
+    } else {
+      R(4, 5, 2, 4, cf.hair); D(6, 3, 3, 1, '#ffffff');
+    }
+    if (cf.cap) { R(4, 1, 8, 3, cf.cap); R(11, 3, 4, 1, cf.cap); D(4, 3, 8, 1, cf.capS); }
+    if (cf.band) { R(4, 3, 9, 2, cf.band); R(1, 4, 3, 2, cf.band); D(4, 4, 9, 1, cf.bandS); }
+    D(10, 7, 1, 2, EYE);
+    if (cf.glasses) { D(9, 6, 3, 3, '#30304a'); D(10, 7, 1, 1, '#cfe8ff'); }
+    D(11, 9, 1, 1, '#c0605a');
   }
-  return rows;
+  for (const L of layers) {
+    C.fillStyle = OUTLINE; for (const [x, y, w, h] of L) C.fillRect(x - 1, y - 1, w + 2, h + 2);
+    for (const [x, y, w, h, c] of L) { C.fillStyle = c; C.fillRect(x, y, w, h); }
+  }
+  for (const [x, y, w, h, c] of det) { C.fillStyle = c; C.fillRect(x, y, w, h); }
+  return cv;
 }
 
-// Accessory overlays for the leaders (and the player's look).
-function accessory(x, look, dir) {
-  if (!look) return;
-  if (look === 'cap') {
-    px(x, '#c8402a', 4, 1, 8, 3); px(x, '#c8402a', 3, 3, 10, 1);
-    if (dir === 'down') px(x, '#a8301a', 3, 4, 10, 1);
-    if (dir === 'right') px(x, '#a8301a', 10, 4, 4, 1);
-  } else if (look === 'headband') {
-    px(x, '#e8302a', 3, 4, 10, 1);
-  } else if (look === 'glasses' && dir === 'down') {
-    px(x, '#1a1a1a', 4, 6, 3, 1); px(x, '#1a1a1a', 9, 6, 3, 1); px(x, '#1a1a1a', 7, 6, 2, 1);
-  } else if (look === 'goggles' && dir === 'down') {
-    px(x, '#7ac8e8', 4, 6, 3, 1); px(x, '#7ac8e8', 9, 6, 3, 1); px(x, '#5a5a5a', 7, 6, 2, 1);
-  } else if (look === 'collar') {
-    if (dir === 'down') px(x, '#ffffff', 7, 9, 2, 1);
-  }
-}
-
-// Returns {down:[stand,stepA,stepB], up:[...], left:[...], right:[...]}.
+// Returns {down:[stand,stepA,stepB], up, left, right}; 20x24 canvases drawn
+// at (tileX - 2, tileY - 8).
 Art.character = function (pal, look) {
   const key = 'chr|' + JSON.stringify(pal) + '|' + look;
   return this.get(key, () => {
-    const out = {};
-    for (const dir of ['down', 'up', 'right']) {
-      out[dir] = [0, 1, 2].map((step) => {
-        const [c, x] = U.canvas(16, 16);
-        paintRows(x, charRows(dir, step === 0 ? 0 : step), pal);
-        accessory(x, look, dir);
-        return c;
-      });
-    }
+    const cf = charStyle(pal, look), out = {};
+    for (const dir of ['down', 'up', 'right']) out[dir] = [0, 1, 2].map((f) => buildChar(cf, dir, f));
     out.left = out.right.map((src) => {
-      const [c, x] = U.canvas(16, 16);
-      x.translate(16, 0); x.scale(-1, 1); x.drawImage(src, 0, 0);
+      const [c, x] = U.canvas(20, 24);
+      x.translate(20, 0); x.scale(-1, 1); x.drawImage(src, 0, 0);
       return c;
     });
     return out;
   });
 };
+const WALKCYCLE = [1, 0, 2, 0];
+function shadow(x, sx, sy) { x.fillStyle = 'rgba(20,10,30,.28)'; x.fillRect(sx + 4, sy + 13, 8, 3); x.fillRect(sx + 3, sy + 14, 10, 1); }
 
 Art.cone = function () {
   return this.get('cone', () => {
@@ -775,8 +842,8 @@ function drawFace(x, cx, cy, ink) {
 Art.portrait = function (pal, look, dir = 'down') {
   return this.get('portrait|' + JSON.stringify(pal) + '|' + look + '|' + dir, () => {
     const src = Art.character(pal, look)[dir][0];
-    const [c, x] = U.canvas(64, 64);
-    x.drawImage(src, 0, 0, 64, 64);
+    const [c, x] = U.canvas(60, 72);
+    x.drawImage(src, 0, 0, 60, 72);
     return c;
   });
 };

@@ -102,7 +102,7 @@ const Battle = {
 
   async chooseAction() {
     const p = Game.p;
-    await UI.say(`What will {NAME} do?`, { noWait: true });
+    await UI.say(`What will\n{NAME} do?`, { noWait: true });
     const i = await this.grid(['SKILLS', 'BAG', 'ASSESS', 'AVOID'], 'actmenu', this.lastAct || 0, false);
     this.lastAct = i;
     if (i === 0) {
@@ -571,38 +571,39 @@ const Battle = {
     const sh = a.shake > 0 ? Math.round((Math.random() - 0.5) * 6) : 0;
     x.save();
     x.translate(sh, 0);
-    // sky & ground bands
+    // sky, horizon and ground bands
     const [sky1, sky2] = b.sky;
-    for (let y = 0; y < 96; y += 8) { x.fillStyle = y < 48 ? (y % 16 ? sky2 : sky1) : sky2; x.fillRect(-4, y, VIEW_W + 8, 8); }
-    x.fillStyle = sky1; x.fillRect(-4, 0, VIEW_W + 8, 40);
-    x.fillStyle = U.shade(sky1, 0.15); x.fillRect(-4, 40, VIEW_W + 8, 8);
-    x.fillStyle = b.field; x.fillRect(-4, 80, VIEW_W + 8, 80);
+    const gr = x.createLinearGradient(0, 0, 0, 72);
+    gr.addColorStop(0, sky1); gr.addColorStop(1, sky2);
+    x.fillStyle = gr; x.fillRect(-4, 0, VIEW_W + 8, 72);
+    x.fillStyle = U.shade(b.field, 0.12); x.fillRect(-4, 64, VIEW_W + 8, 40);
+    x.fillStyle = U.shade(b.field, 0.22); x.fillRect(-4, 64, VIEW_W + 8, 2);
+    x.fillStyle = b.field; x.fillRect(-4, 104, VIEW_W + 8, VIEW_H - 104);
     x.fillStyle = U.shade(b.field, -0.08);
-    for (let y = 84; y < VIEW_H; y += 6) x.fillRect(-4, y, VIEW_W + 8, 2);
-    x.fillStyle = U.shade(b.field, 0.1); x.fillRect(-4, 48, VIEW_W + 8, 32);
+    for (let y = 108; y < VIEW_H; y += 6) x.fillRect(-4, y, VIEW_W + 8, 2);
     // platforms
-    const slide = a.slide * 200;
-    disc(x, 176 - slide, 64, 46, 10, U.shade(b.field, -0.22));
-    disc(x, 176 - slide, 63, 42, 8, U.shade(b.field, -0.1));
-    disc(x, 62 + slide, 114, 56, 11, U.shade(b.field, -0.22));
-    disc(x, 62 + slide, 113, 52, 9, U.shade(b.field, -0.1));
+    const slide = a.slide * 260;
+    disc(x, 230 - slide, 92, 48, 11, U.shade(b.field, -0.24));
+    disc(x, 230 - slide, 91, 44, 9, U.shade(b.field, -0.1));
+    disc(x, 74 + slide, 160, 60, 12, U.shade(b.field, -0.24));
+    disc(x, 74 + slide, 159, 56, 10, U.shade(b.field, -0.1));
     // foe / leader
     if (a.showLeader && s.leader) {
       const L = LEADERS[s.leader];
-      x.drawImage(Art.portrait(L.pal, L.look, 'down'), 144 - slide + a.leaderX, 2);
+      x.drawImage(Art.portrait(L.pal, L.look, 'down'), 200 - slide + a.leaderX, 20);
     }
     if (a.foeVis && s.foe && a.foeGone < 1) {
       const img = Art.issue(s.foe.id);
       const vis = !(a.foeBlink > 0 && Math.floor(a.foeBlink * 20) % 2 === 0);
       if (vis) {
         const h = Math.round(48 * (1 - a.foeGone));
-        x.drawImage(img, 0, 0, 48, h, 152 - slide + a.foeX, 17 + a.foeY + (48 - h), 48, h);
+        x.drawImage(img, 0, 0, 48, h, 206 - slide + a.foeX, 44 + a.foeY + (48 - h), 48, h);
       }
     }
     // player (from behind)
     const pal = { ...PALS.player, c: Game.p.outfit };
     if (!(a.meBlink > 0 && Math.floor(a.meBlink * 20) % 2 === 0)) {
-      x.drawImage(Art.portrait(pal, null, 'up'), 30 + slide + a.meX, 52);
+      x.drawImage(Art.portrait(pal, null, 'up'), 44 + slide + a.meX, 94);
     }
     x.restore();
   },

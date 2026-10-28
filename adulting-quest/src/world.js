@@ -367,24 +367,46 @@ function makeNPC(o) {
 }
 
 // ------------------------------------------------------------ interiors
+// Rooms are House Keeper sized: a 17x11 floor inside walls, filling the
+// 19x14 screen. `face` is the papered wall row (w window, N banner); the exit
+// mat sits in the middle of the bottom wall.
 const TEMPLATES = {
-  house: ['WwWWWWWWwW', 'WWWWWWWWWW', 'BKK.....PV', 'b.........', '...TT.....', '...TT.....', '..........', '....RR....', '....E.....'],
-  store: ['WwWWWWWWwW', 'WWWWWWWWWW', 'P........P', 'CCC..SS.SS', '..........', '.....SS.SS', '..........', '....E.....'],
-  hospital: ['WwWWWWWWWwW', 'WWWWWWWWWWW', 'H.H.....M.P', '...CCCCC...', '...........', 'cc.......cc', '...........', '.....E.....'],
-  chapel: ['WwWWWWWWWwW', 'WWWWWWWWWWW', 'P...AAA...P', '...........', '...........', 'UUU.....UUU', '...........', 'UUU.....UUU', '...........', '.....E.....'],
-  hall: ['WwWWWwWWWwW', 'WWWWWwWWWWW', 'X....G....X', '.....G.....', 'X....G....X', '.....G.....', 'X....G....X', '.....G.....', 'X....G....X', '.....G.....', '.....G.....', '.....G.....', '.....E.....'],
-  lab: ['WwWWWWWWWWwW', 'WWWWWWWWWWWW', 'MM.KK..KK.MM', '............', '....TTT.....', '............', 'P..........P', '............', '.....E......'],
+  house: { face: 'WwWWWwWWWWWwWWWwW', inner: [
+    'BKK..........PP.V', 'b................', '.................', '.....TT....c.....', '.....TT..........', '.................',
+    '.P.............P.', '.................', '......RRRRR......', '......RRRRR......', '.................'] },
+  store: { face: 'WwWWWWwWWWWwWWWWw', inner: [
+    'P...............P', '.................', 'CCC..SSS.SSS.SSS.', '.................', '.....SSS.SSS.SSS.', '.................',
+    '.....SSS.SSS.SSS.', '.................', '.P.............P.', '.................', '.................'] },
+  hospital: { face: 'WwWWWwWWWWWwWWWwW', inner: [
+    'H.H.H.......M.M.P', '.................', '.....CCCCCCC.....', '.................', '.................', 'cc.cc.......cc.cc',
+    '.................', '.................', '.P.............P.', '.................', '.................'] },
+  chapel: { face: 'WwWWwWWWNWWWwWWwW', inner: [
+    'P......AAA......P', '.................', '.................', '.UUUUUU...UUUUUU.', '.................', '.UUUUUU...UUUUUU.',
+    '.................', '.UUUUUU...UUUUUU.', '.................', '.................', 'P...............P'] },
+  hall: { face: 'WwWWNWWWNWWWNWWwW', inner: [
+    'X......GGG......X', '.......GGG.......', 'X......GGG......X', '.......GGG.......', 'X......GGG......X', '.......GGG.......',
+    'X......GGG......X', '.......GGG.......', '.......GGG.......', '.......GGG.......', '.......GGG.......'] },
+  lab: { face: 'WwWWWwWWWWWwWWWwW', inner: [
+    'MM.KKK.....KKK.MM', '.................', '.................', '......TTT........', '.................', '.................',
+    'P...............P', '..MM.........MM..', '.................', '.................', '.................'] },
 };
+const IN = (x, y) => ({ x: x + 1, y: y + 2 });   // inner coords -> room coords
+function roomRows(tpl) {
+  const rows = ['W'.repeat(19), 'W' + tpl.face + 'W'];
+  for (const r of tpl.inner) rows.push('W' + r + 'W');
+  rows.push('W'.repeat(9) + 'E' + 'W'.repeat(9));
+  return rows;
+}
 const TCHAR = {
   W: T.WALL, w: T.WWALL, '.': T.FLOOR, K: T.BOOKS, B: T.BED, b: T.BEDB, T: T.TABLE, P: T.PLANT, V: T.TV,
   R: T.RUG, E: T.EXIT, C: T.COUNTER, S: T.SHELF, H: T.HBED, U: T.PEW, A: T.ALTAR, M: T.MACHINE, X: T.STATUE,
-  G: T.MAT, c: T.CHAIR,
+  G: T.MAT, c: T.CHAIR, N: T.BANNER,
 };
 
 const Interiors = {
   create(b, ti, doorX, doorY) {
     const tplName = b.kind === 'house' ? 'house' : b.kind;
-    const tpl = TEMPLATES[tplName];
+    const tpl = roomRows(TEMPLATES[tplName]);
     const theme = b.kind === 'hall' ? 'hall:' + b.color : tplName;
     const id = `${b.kind}-${ti}-${b.slot ?? 0}`;
     const m = new GMap(id, tpl[0].length, tpl.length, theme);
@@ -399,12 +421,12 @@ const Interiors = {
   },
 
   populate(m, b, ti) {
-    const add = (o) => { const n = makeNPC(o); m.npcs.push(n); return n; };
+    const add = (o) => { const p = IN(o.x, o.y); const n = makeNPC({ ...o, ...p }); m.npcs.push(n); return n; };
     switch (b.kind) {
       case 'store': {
-        const n = add({ x: 1, y: 2, pal: 'clerk' });
+        const n = add({ x: 1, y: 1, pal: 'clerk' });
         n.talk = () => Scripts.shop(ti);
-        add({ x: 7, y: 4, pal: ['dude', 'lady', 'old', 'kid'][ti % 4], wander: 1, say: [
+        add({ x: 8, y: 3, pal: ['dude', 'lady', 'old', 'kid'][ti % 4], wander: 1, say: [
           ['They raised the price of coffee again. I\'m buying three.'],
           ['Self-help books are basically cheat codes. Read one, learn a skill!'],
           ['A Scratch-Off Ticket is a "tax on hope." I buy one every day.'],
@@ -413,32 +435,32 @@ const Interiors = {
         break;
       }
       case 'hospital': {
-        const n = add({ x: 5, y: 2, pal: 'nurse' });
+        const n = add({ x: 8, y: 1, pal: 'nurse' });
         n.talk = () => Scripts.hospital(ti);
-        add({ x: 1, y: 4, pal: 'old', dir: 'right', say: ['I\'ve been in this waiting room since Tuesday. Which Tuesday? Don\'t ask.'] });
+        add({ x: 2, y: 4, pal: 'old', dir: 'right', say: ['I\'ve been in this waiting room since Tuesday. Which Tuesday? Don\'t ask.'] });
         break;
       }
       case 'chapel': {
-        const n = add({ x: 5, y: 3, pal: 'pastor', look: 'collar' });
+        const n = add({ x: 8, y: 1, pal: 'pastor', look: 'collar' });
         n.talk = () => Scripts.chapel(ti);
-        add({ x: 9, y: 6, pal: 'lady', dir: 'up', say: ['A little kindness goes a long way. So does a little donation.'] });
+        add({ x: 8, y: 6, pal: 'lady', dir: 'up', say: ['A little kindness goes a long way. So does a little donation.'] });
         break;
       }
       case 'hall': {
         const L = LEADERS[b.leader];
-        const n = add({ x: 5, y: 3, pal: 'leader', look: L.look });
+        const n = add({ x: 8, y: 1, pal: 'leader', look: L.look });
         n.palObj = L.pal; n.leader = b.leader;
         n.talk = () => Scripts.leader(b.leader, n);
-        const g = add({ x: 3, y: 11, pal: 'guide', dir: 'right' });
+        const g = add({ x: 5, y: 9, pal: 'guide', dir: 'right' });
         g.talk = () => Scripts.guide(b.leader);
         break;
       }
       case 'lab': {
-        const st = add({ x: 8, y: 3, pal: 'street', look: 'glasses' });
+        const st = add({ x: 12, y: 2, pal: 'street', look: 'glasses' });
         st.talk = () => Scripts.street(st);
-        add({ x: 2, y: 6, pal: 'aide', wander: 1, say: ['Dr. Street once beat a parking ticket in court using only a PowerPoint.'] });
+        add({ x: 5, y: 9, pal: 'aide', wander: 1, say: ['Dr. Street once beat a parking ticket in court using only a PowerPoint.'] });
         ['diploma', 'wrench', 'badge'].forEach((k, i) => {
-          const idx = m.idx(4 + i, 4);
+          const t = IN(6 + i, 3), idx = m.idx(t.x, t.y);
           m.props.set(idx, k);
           m.acts.set(idx, () => Scripts.pathTable(k));
         });
@@ -447,13 +469,13 @@ const Interiors = {
       case 'house': {
         if (ti === 0 && b.slot === 0) {
           m.isHome = true;
-          const mom = add({ x: 6, y: 4, pal: 'mom', dir: 'left' });
+          const mom = add({ x: 10, y: 4, pal: 'mom', dir: 'left' });
           mom.talk = () => Scripts.mom(mom);
           break;
         }
         const def = TOWNFOLK[ti].houses[b.slot];
         if (def) {
-          const n = add({ x: 6, y: 4, pal: def.pal, wander: 1 });
+          const n = add({ x: 10, y: 4, pal: def.pal, wander: 1 });
           n.talk = () => Scripts.house(n, def, ti, b.slot);
         }
         break;

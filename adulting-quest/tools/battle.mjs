@@ -49,7 +49,7 @@ for (let fight = 0; fight < 4; fight++) {
 }
 await page.screenshot({ path: join(shots, 'b3-after.png') });
 // leader
-await page.evaluate(() => { const { Game } = window.__game; Game.p.level = 11; Game.p.xp = 1100; Game.fullHeal(); Game.enter('hall-1-0', 5, 4, 'up'); });
+await page.evaluate(() => { const { Game } = window.__game; Game.p.level = 11; Game.p.xp = 1100; Game.fullHeal(); Game.enter('hall-1-0', 9, 4, 'up'); });
 await page.waitForTimeout(300);
 await page.keyboard.press('z');
 let leaderShot = false;

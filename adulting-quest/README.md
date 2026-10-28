@@ -5,16 +5,20 @@ eight towns, fight everyday issues in the tall grass with life skills, and beat
 the eight Life Leaders to win at the game of life.
 
 Play: open `dist/adulting-quest.html` in any browser (double-click works, no
-server needed). Phones get an on-screen D-pad, A/B and START.
+server needed). Phones get an on-screen D-pad, A/B and MENU.
 
 ## Controls
 
 | | Keyboard | Phone |
 |---|---|---|
 | Move | Arrows / WASD | D-pad |
-| A (talk, confirm) | Z, Space, Enter | A |
-| B (back; hold to run) | X, Shift | B |
-| Menu | M or Esc | START |
+| A (talk, confirm) | Space, Z, Enter | A |
+| B (back; hold to run) | Shift, X | B |
+| Menu | Esc | MENU |
+| Music on/off | M | (in the menu) |
+
+The look follows House Keeper: a dark cabinet, Press Start 2P text, cream
+dialog panels, 20x24 outlined characters and full-screen 19x14 rooms.
 
 ## What's in v1
 

@@ -2,7 +2,7 @@
 // Core game state: the player, overworld movement, rendering, field menus,
 // money, saving. Battles live in battle.js, NPC scripts in scripts.js.
 
-const VIEW_W = 240, VIEW_H = 160;
+const VIEW_W = 304, VIEW_H = 224;
 const DIRS = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
 const OPP = { up: 'down', down: 'up', left: 'right', right: 'left' };
 const SAVE_KEY = 'adulting-quest-save-v1';
@@ -53,7 +53,7 @@ const Game = {
       name, path: null, level: 5, xp: Stats.xpFor(5), sanity: 30, energy: 20, status: null,
       known: ['wing_it'], equipped: ['wing_it'], items: {}, money: 0, debt: 0, karma: 50,
       badges: [], flags: {}, outfit: PALS.player.c, repel: 0, steps: 0, playTime: 0,
-      respawn: { map: 'house-0-0', x: 4, y: 5, dir: 'up' },
+      respawn: { map: 'house-0-0', x: 10, y: 6, dir: 'right' },
       map: 'house-0-0', x: 2, y: 3, dir: 'down',
     };
   },
@@ -344,6 +344,7 @@ const Game = {
     x.fillRect(0, 0, VIEW_W, VIEW_H);
     if (this.mode === 'title') { this.renderTitle(x); return; }
     if (this.mode === 'intro') { Intro.render(x); this.drawFade(x); return; }
+    if (this.scene && this.scene.kind === 'select') { this.renderSelect(x); this.drawFade(x); return; }
     if (!this.map) return;
     this.renderMap(x);
     this.drawFade(x);
@@ -352,14 +353,54 @@ const Game = {
     if (this.fade > 0) { x.fillStyle = `rgba(0,0,0,${this.fade})`; x.fillRect(0, 0, VIEW_W, VIEW_H); }
     if (this.flash > 0) { x.fillStyle = `rgba(255,255,255,${this.flash})`; x.fillRect(0, 0, VIEW_W, VIEW_H); }
   },
+  // Night over the suburbs, the city glowing behind: the twenties.
   renderTitle(x) {
-    const m = World.maps.world;
-    const span = (m.w * 16 - VIEW_W);
-    const t = this.titleCam % (span * 2);
-    const cx = t < span ? t : span * 2 - t;
-    this.renderMap(x, { cam: [cx, 4 * 16 + 40], noPlayer: true, map: m });
-    x.fillStyle = 'rgba(10,20,40,0.35)';
-    x.fillRect(0, 0, VIEW_W, VIEW_H);
+    const t = this.time;
+    const gr = x.createLinearGradient(0, 0, 0, VIEW_H);
+    gr.addColorStop(0, '#0a0820'); gr.addColorStop(1, '#3a2050');
+    x.fillStyle = gr; x.fillRect(0, 0, VIEW_W, VIEW_H);
+    for (let i = 0; i < 60; i++) {
+      const sx = U.hash(i, 1) % VIEW_W, sy = U.hash(i, 2) % 120;
+      if (Math.sin(t * 2 + i) > -0.6) px(x, i % 7 ? '#c8c0e8' : '#fff8c0', sx, sy, 1, 1);
+    }
+    disc(x, 252, 30, 9, 9, '#f4ecc8'); px(x, '#ddd2ac', 249, 27, 3, 3); px(x, '#ddd2ac', 255, 33, 2, 2);
+    // far skyline
+    const towers = [[150, 70, 16], [168, 54, 14], [184, 80, 20], [206, 62, 12], [220, 90, 18], [240, 72, 14], [256, 96, 22], [280, 78, 16]];
+    for (const [tx, h, w] of towers) {
+      px(x, '#1e1838', tx, 196 - h, w, h);
+      for (let wy = 196 - h + 4; wy < 190; wy += 6) for (let wx = tx + 2; wx < tx + w - 2; wx += 4) {
+        if (U.hash(wx, wy, Math.floor(t / 2)) % 10 < 4) px(x, '#f0c060', wx, wy, 2, 3);
+      }
+    }
+    // near houses
+    const houses = [[8, 46], [62, 52], [118, 44]];
+    for (const [hx, w] of houses) {
+      px(x, '#120c1e', hx, 150, w, 46);
+      for (let i = 0; i < w / 2 + 2; i++) px(x, '#120c1e', hx - 2 + i, 150 - i * 0.6, w + 4 - i * 2, 1);
+      for (let i = 0; i < 2; i++) px(x, U.hash(hx, i, Math.floor(t / 3)) % 10 < 6 ? '#f0c060' : '#2a2038', hx + 8 + i * (w - 24), 162, 8, 10);
+      px(x, '#2a1a10', hx + w / 2 - 4, 178, 8, 18);
+    }
+    px(x, '#1a1428', 0, 196, VIEW_W, 28);
+    px(x, '#2a2240', 0, 196, VIEW_W, 2);
+  },
+  // Dr. Street's path choice: three spotlights (the House Keeper select screen).
+  renderSelect(x) {
+    const t = this.time, sel = this.scene.i;
+    const gr = x.createLinearGradient(0, 0, 0, VIEW_H);
+    gr.addColorStop(0, '#1a1230'); gr.addColorStop(1, '#2e2048');
+    x.fillStyle = gr; x.fillRect(0, 0, VIEW_W, VIEW_H);
+    for (let y = 120; y < VIEW_H; y += 8) for (let X = 0; X < VIEW_W; X += 8) px(x, ((X + y) / 8) % 2 ? '#3a2a5a' : '#32244e', X, y, 8, 8);
+    ['diploma', 'wrench', 'badge'].forEach((k, i) => {
+      const cx = 52 + i * 100, on = i === sel;
+      x.fillStyle = on ? 'rgba(255,230,160,.18)' : 'rgba(255,255,255,.04)';
+      x.beginPath(); x.moveTo(cx - 8, 0); x.lineTo(cx + 8, 0); x.lineTo(cx + 38, 128); x.lineTo(cx - 38, 128); x.fill();
+      x.fillStyle = 'rgba(0,0,0,.3)'; x.beginPath(); x.ellipse(cx, 124, 26, 5, 0, 0, Math.PI * 2); x.fill();
+      const bob = on ? Math.round(Math.sin(t * 4) * 2) : 0;
+      x.globalAlpha = on ? 1 : 0.5;
+      x.drawImage(Art.icon(k, 3), cx - 24, 70 + bob);
+      x.globalAlpha = 1;
+      if (on && Math.floor(t * 3) % 2) { x.fillStyle = '#f0c040'; x.beginPath(); x.moveTo(cx - 5, 50); x.lineTo(cx + 5, 50); x.lineTo(cx, 56); x.fill(); }
+    });
   },
 
   camera(m) {
@@ -378,13 +419,13 @@ const Game = {
     let cx, cy, ppx, ppy;
     if (o.cam) [cx, cy] = o.cam; else [cx, cy, ppx, ppy] = this.camera(m);
     const x0 = Math.floor(cx / 16), y0 = Math.floor(cy / 16);
-    for (let ty = y0; ty <= y0 + 11; ty++) for (let tx = x0; tx <= x0 + 15; tx++) {
+    for (let ty = y0; ty <= y0 + VIEW_H / 16; ty++) for (let tx = x0; tx <= x0 + Math.ceil(VIEW_W / 16); tx++) {
       if (!m.in(tx, ty)) continue;
       let id = m.get(tx, ty);
       if (id === T.BUILD || id === T.DOOR) id = T.GROUND;
       const theme = m.themeAt(tx, ty);
       let v;
-      if (m.theme) v = (id === T.WALL || id === T.WWALL) ? ((m.get(tx, ty + 1) !== T.WALL && m.get(tx, ty + 1) !== T.WWALL) ? 1 : 0) : (tx + ty) % 2;
+      if (m.theme) v = (id === T.WALL || id === T.WWALL || id === T.BANNER) ? (ty === 0 || tx === 0 || tx === m.w - 1 || ty === m.h - 1 ? 0 : 1) : (id === T.FLOOR || id === T.MAT ? (tx + ty) % 2 + 2 * (U.hash(tx, ty) % 4) : (tx + ty) % 2);
       else v = U.hash(tx, ty) % 8;
       x.drawImage(Art.tile(id, theme, v, this.waterF), tx * 16 - cx, ty * 16 - cy);
       const pr = m.props.get(m.idx(tx, ty));
@@ -419,17 +460,19 @@ const Game = {
   drawEntity(x, n, sx, sy, m) {
     if (n.kind === 'cone') { x.drawImage(Art.cone(), sx, sy - 2); return; }
     const pal = n.palObj || PALS[n.pal] || PALS.dude;
-    const fr = n.moving && n.mt > 0.25 && n.mt < 0.8 ? 1 + n.step : 0;
-    x.drawImage(Art.character(pal, n.look)[n.dir][fr], sx, sy - 4);
+    const fr = n.moving ? WALKCYCLE[(n.step * 2 + Math.floor(n.mt * 2)) % 4] : 0;
+    shadow(x, sx, sy);
+    x.drawImage(Art.character(pal, n.look)[n.dir][fr], sx - 2, sy - 8);
     this.grassOver(x, m, n.moving ? n.tx : n.x, n.moving ? n.ty : n.y, sx, sy, n.moving);
   },
   drawPlayer(x, sx, sy, m) {
     const P = this.pos;
     const pal = { ...PALS.player, c: this.p.outfit };
-    const fr = P.moving && P.mt > 0.2 && P.mt < 0.85 ? 1 + P.parity : 0;
-    const bob = P.moving && fr ? -1 : 0;
-    x.drawImage(Art.character(pal, null)[P.dir][fr], Math.round(sx), Math.round(sy) - 4 + bob);
-    this.grassOver(x, m, P.moving ? P.tx : P.x, P.moving ? P.ty : P.y, Math.round(sx), Math.round(sy), P.moving && P.mt < 0.5);
+    const fr = P.moving ? WALKCYCLE[(P.parity * 2 + Math.floor(P.mt * 2)) % 4] : 0;
+    sx = Math.round(sx); sy = Math.round(sy);
+    shadow(x, sx, sy);
+    x.drawImage(Art.character(pal, null)[P.dir][fr], sx - 2, sy - 8);
+    this.grassOver(x, m, P.moving ? P.tx : P.x, P.moving ? P.ty : P.y, sx, sy, P.moving && P.mt < 0.5);
   },
   grassOver(x, m, tx, ty, sx, sy, skip) {
     if (skip || m.get(tx, ty) !== T.GRASS) return;

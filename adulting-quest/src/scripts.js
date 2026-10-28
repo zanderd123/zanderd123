@@ -50,7 +50,7 @@ const Scripts = {
     }
     await say('You look exhausted. Sit down, I\'ll make you a sandwich.', { name: 'MOM' });
     Game.fullHeal(); Audio2.sfx('heal');
-    p.respawn = { map: Game.map.id, x: 5, y: 4, dir: 'right' };
+    p.respawn = { map: Game.map.id, x: 10, y: 6, dir: 'right' };
     await say(['{NAME} ate a sandwich and took a nap. Sanity and Energy fully restored!',
       'MOM: "Go get \'em. And call me. You won\'t, but call me."']);
   },
@@ -171,7 +171,7 @@ const Scripts = {
     Game.fullHeal();
     await U.wait(700);
     await Game.fadeTo(0, 250);
-    p.respawn = { map: Game.map.id, x: 5, y: 4, dir: 'up' };
+    p.respawn = { map: Game.map.id, x: 9, y: 5, dir: 'up' };
     await say('All better! We hope to never see you again. (Kindly.)', { name: 'NURSE' });
   },
 
@@ -256,15 +256,15 @@ const PathPicker = {
   open(startKey) {
     const keys = ['college', 'trade', 'job'];
     let i = Math.max(0, keys.indexOf(startKey));
-    const box = UI.el('div', 'panel pathpick');
+    Game.scene = { kind: 'select', i };
+    const box = UI.el('div', 'pathpick');
     const render = () => {
-      box.innerHTML = `<div class="p-title">CHOOSE YOUR PATH</div><div class="pcards">${keys.map((k, n) => {
-        const P = PATHS[k];
-        return `<div class="pcard${n === i ? ' sel' : ''}" data-i="${n}">
-          <img src="${Art.iconURL(P.icon, 3)}"><div class="pc-name">${P.name}</div><div class="pc-blurb">${P.blurb}</div>
-          <ul class="pros">${P.pros.map((t) => `<li>${t}</li>`).join('')}</ul>
-          <ul class="cons">${P.cons.map((t) => `<li>${t}</li>`).join('')}</ul></div>`;
-      }).join('')}</div><div class="p-foot">◀ ▶ to look · A: choose · B: back</div>`;
+      Game.scene.i = i;
+      const P = PATHS[keys[i]];
+      box.innerHTML = `<div class="ps-title">CHOOSE YOUR PATH</div>
+        <div class="ps-cols">${keys.map((k, n) => `<div data-i="${n}"></div>`).join('')}</div>
+        <div class="ps-names">${keys.map((k, n) => `<span class="${n === i ? 'on' : ''}">${PATHS[k].name.toUpperCase()}</span>`).join('')}</div>
+        <div class="ps-desc"><div class="bl">${P.blurb}</div>${P.pros.map((t) => `<div class="pro">${t}</div>`).join('')}${P.cons.map((t) => `<div class="con">${t}</div>`).join('')}<div class="foot">A: CHOOSE</div></div>`;
     };
     render();
     UI.root.appendChild(box);
@@ -272,8 +272,10 @@ const PathPicker = {
       let asking = false;
       const pick = async () => {
         asking = true;
-        const ok = await UI.confirm(`Choose ${PATHS[keys[i]].name.toUpperCase()}? This decision follows you forever. (Kidding. Mostly.)`);
+        box.style.visibility = 'hidden';
+        const ok = await UI.confirm(`Choose ${PATHS[keys[i]].name.toUpperCase()}? This follows you forever. (Kidding. Mostly.)`);
         UI.closeDialog();
+        box.style.visibility = '';
         asking = false;
         if (ok) done(keys[i]);
       };
@@ -287,9 +289,9 @@ const PathPicker = {
           return 'stop';
         },
       };
-      const done = (v) => { UI.pop(w); box.remove(); resolve(v); };
+      const done = (v) => { UI.pop(w); box.remove(); Game.scene = null; resolve(v); };
       box.addEventListener('pointerdown', (e) => {
-        const c = e.target.closest('.pcard');
+        const c = e.target.closest('[data-i]');
         if (!c || UI.top() !== w) return;
         e.preventDefault();
         const n = +c.dataset.i;

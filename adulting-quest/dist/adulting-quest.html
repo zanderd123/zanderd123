@@ -7,289 +7,256 @@
 </head>
 <body>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
 <style>
+/* One dark game cabinet, matching House Keeper: the canvas is the whole show,
+   controls sit under it. Inside the screen, 1 game pixel = var(--u). */
 :root {
-  --page: #e9e4f2;
-  --page-ink: #2a2640;
-  --page-muted: #6a6488;
-  --shell: #5b4fa0;
-  --shell-hi: #7a6dc4;
-  --shell-lo: #3f3578;
-  --btn: #2a2440;
-  --btn-a: #c8384a;
-  --chrome: 120px;
-  /* in-game UI colours stay fixed (it's a screen inside the console) */
-  --box: #fbfaf4;
-  --box-ink: #262434;
-  --box-line: #3a4a7a;
-  --box-line2: #a9bde6;
-  --sel: #dfe8ff;
-  color-scheme: light;
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --page: #16141f; --page-ink: #e8e4f4; --page-muted: #9a94b8;
-    --shell: #3c3470; --shell-hi: #544a94; --shell-lo: #262050; --btn: #12101c;
-    color-scheme: dark;
-  }
-}
-:root[data-theme="dark"] {
-  --page: #16141f; --page-ink: #e8e4f4; --page-muted: #9a94b8;
-  --shell: #3c3470; --shell-hi: #544a94; --shell-lo: #262050; --btn: #12101c;
+  --bg: #0e0b16; --frame: #2a2140; --ink: #efe6d2; --dim: #8f86a3;
+  --btn: #352a4e; --btn-hi: #4f3f74; --accent: #e8b84a;
+  --font: "Press Start 2P", ui-monospace, Menlo, monospace;
+  /* in-game panels (House Keeper's dialog box) */
+  --p-out: #283058; --p-line: #6878b8; --p-fill: #f8f8f0; --p-hi: #d8d8e8; --p-ink: #303040; --p-shade: #c8c8d4;
+  --hud: #120e1cdd;
   color-scheme: dark;
 }
-@media (pointer: coarse), (max-width: 760px) {
-  :root { --chrome: 300px; }
-}
-
 * { box-sizing: border-box; }
-html, body { margin: 0; height: 100%; }
+html, body { height: 100%; margin: 0; background: var(--bg); color: var(--ink); }
 body {
-  background: var(--page);
-  color: var(--page-ink);
-  font-family: 'Pixelify Sans', ui-monospace, 'Courier New', monospace;
-  overscroll-behavior: none;
-  -webkit-user-select: none; user-select: none;
-  -webkit-tap-highlight-color: transparent;
-  touch-action: manipulation;
-}
-#app {
-  min-height: 100%; display: flex; flex-direction: column; align-items: center; gap: 8px;
-  padding-block: 10px 16px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;
   padding-left: max(16px, env(safe-area-inset-left, 0px));
   padding-right: max(16px, env(safe-area-inset-right, 0px));
-}
-.top { width: min(100%, 960px); display: flex; align-items: center; justify-content: space-between; }
-.top h1 { margin: 0; font-size: 20px; letter-spacing: 1px; }
-#muteBtn {
-  font: inherit; font-size: 14px; color: var(--page-ink); background: transparent;
-  border: 2px solid var(--page-muted); border-radius: 8px; padding: 4px 10px; cursor: pointer;
-}
-#console {
-  background: linear-gradient(180deg, var(--shell-hi), var(--shell) 30%, var(--shell-lo));
-  border-radius: 18px 18px 40px 40px;
-  padding: 14px;
-  box-shadow: 0 10px 30px rgba(20, 10, 60, 0.35), inset 0 2px 0 rgba(255, 255, 255, 0.25);
-  display: flex; flex-direction: column; align-items: center; gap: 14px;
-  max-width: 100%;
+  padding-block: 8px; overflow: hidden;
+  font-family: var(--font); -webkit-user-select: none; user-select: none;
+  -webkit-tap-highlight-color: transparent; touch-action: manipulation; overscroll-behavior: none;
 }
 #screen {
-  position: relative;
-  width: min(calc(100vw - 60px), calc((100dvh - var(--chrome)) * 1.5), 960px);
-  min-width: 240px;
-  aspect-ratio: 3 / 2;
-  container-type: inline-size;
-  background: #000;
-  border-radius: 6px;
-  overflow: hidden;
-  box-shadow: 0 0 0 4px #1a1630;
+  position: relative; width: 608px; height: 448px; flex: none;
+  container-type: inline-size; --u: calc(100cqw / 304);
+  background: #000; border-radius: 3px; overflow: hidden;
+  box-shadow: 0 0 0 4px var(--frame), 0 14px 40px rgba(0, 0, 0, 0.6);
 }
 #cv { width: 100%; height: 100%; display: block; image-rendering: pixelated; image-rendering: crisp-edges; }
-#ui { position: absolute; inset: 0; pointer-events: none; color: var(--box-ink); font-size: 3.2cqw; line-height: 1.3; }
+#ui {
+  position: absolute; inset: 0; pointer-events: none; color: var(--p-ink);
+  font-family: var(--font); font-size: calc(8 * var(--u)); line-height: calc(14 * var(--u));
+}
 #ui > * { pointer-events: auto; }
 .hidden { display: none !important; }
-.keys { margin: 0; font-size: 13px; color: var(--page-muted); text-align: center; }
+#hint { font-size: 8px; line-height: 1.8; color: var(--dim); text-align: center; letter-spacing: 0.04em; max-width: 100%; }
+#hint b { color: var(--ink); font-weight: 400; }
 
-/* ---------------------------------------------------------------- pad */
-#pad { display: none; width: 100%; max-width: 520px; align-items: center; justify-content: space-between; padding: 0 14px 0 2px; gap: 8px; }
-@media (pointer: coarse), (max-width: 760px) {
-  #pad { display: flex; }
-  .keys { display: none; }
+/* ---------------------------------------------------------------- touch pad */
+#pad { display: none; align-items: center; justify-content: space-between; width: 100%; max-width: 520px; gap: 8px; touch-action: none; }
+@media (pointer: coarse) { #pad { display: flex; } #hint { display: none; } }
+#pad button {
+  font-family: var(--font); color: var(--ink); background: var(--btn); border: 0; border-radius: 10px;
+  box-shadow: 0 4px 0 #1a1426; touch-action: none; -webkit-tap-highlight-color: transparent;
 }
-#dpad { position: relative; width: 132px; height: 132px; touch-action: none; flex: none; }
-#dpad span { position: absolute; background: var(--btn); }
-#dpad .u, #dpad .d { left: 44px; width: 44px; height: 46px; }
-#dpad .u { top: 0; border-radius: 8px 8px 0 0; }
-#dpad .d { bottom: 0; border-radius: 0 0 8px 8px; }
-#dpad .l, #dpad .r { top: 44px; height: 44px; width: 46px; }
-#dpad .l { left: 0; border-radius: 8px 0 0 8px; }
-#dpad .r { right: 0; border-radius: 0 8px 8px 0; }
-#dpad .c { left: 44px; top: 44px; width: 44px; height: 44px; }
-.sys button {
-  font: inherit; font-size: 12px; color: #e8e4f4; background: var(--btn); border: 0;
-  border-radius: 12px; padding: 8px 14px; transform: rotate(-20deg); touch-action: none;
-}
-.ab { display: flex; gap: 10px; align-items: center; transform: rotate(-20deg); }
-.ab button {
-  width: 56px; height: 56px; border-radius: 50%; border: 0; font: inherit; font-size: 22px; font-weight: 700;
-  color: #fff; background: var(--btn-a); box-shadow: 0 4px 0 rgba(0, 0, 0, 0.35); touch-action: none;
-}
-.ab .b { margin-top: 30px; background: #8a3448; }
-.ab button.on, .sys button.on { transform: translateY(3px); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.35); }
-
-/* ---------------------------------------------------------------- boxes */
-.dlg, .menu, .panel, .bhud, .skillmenu {
-  background: var(--box);
-  border: 0.6cqw solid var(--box-line);
-  border-radius: 1.4cqw;
-  box-shadow: inset 0 0 0 0.45cqw var(--box-line2), 0 0.6cqw 0 rgba(0, 0, 0, 0.25);
-}
-.dlg { position: absolute; left: 2%; right: 2%; bottom: 2.5%; height: 26%; padding: 2.4cqw 3.4cqw; font-size: 3.5cqw; line-height: 1.4; }
-.dlg-name {
-  position: absolute; top: -4.2cqw; left: 3cqw; background: var(--box-line); color: #fff;
-  font-size: 2.5cqw; padding: 0.5cqw 2cqw; border-radius: 1cqw 1cqw 0 0; letter-spacing: 0.1cqw;
-}
-.dlg-more { position: absolute; right: 2.6cqw; bottom: 1.4cqw; color: #d8403a; font-size: 2.4cqw; animation: bob 0.6s infinite alternate; }
-@keyframes bob { to { transform: translateY(0.6cqw); } }
-.dlg-text { white-space: pre-line; }
-
-.menu { position: absolute; padding: 1.2cqw 0; font-size: 3.2cqw; }
-.menu .opt { position: relative; padding: 0.7cqw 3.6cqw 0.7cqw 5cqw; cursor: pointer; white-space: nowrap; }
-.menu .opt.sel::before { content: '▶'; position: absolute; left: 1.6cqw; color: var(--box-line); }
-.choice { right: 2%; bottom: 31%; }
-.choice.side { top: 3%; bottom: auto; max-height: 92%; overflow: auto; }
-.titlemenu { left: 50%; bottom: 10%; transform: translateX(-50%); font-size: 3.8cqw; }
-
-.titlecard { position: absolute; left: 0; right: 0; top: 10%; text-align: center; pointer-events: none !important; }
-.titlecard .logo { display: flex; flex-direction: column; align-items: center; line-height: 0.95; }
-.titlecard .logo span {
-  font-weight: 700; font-size: 11cqw; color: #f8d040; letter-spacing: 0.6cqw;
-  text-shadow: 0.6cqw 0.6cqw 0 #c8402a, 1.2cqw 1.2cqw 0 #2a2050;
-}
-.titlecard .logo span + span { color: #fff; font-size: 9cqw; }
-.titlecard .tag { margin-top: 3cqw; color: #fff; font-size: 3.2cqw; text-shadow: 0.3cqw 0.3cqw 0 #000; }
-
-.toast {
-  position: absolute; top: 3%; left: 50%; transform: translateX(-50%); background: #262434; color: #fff;
-  font-size: 2.8cqw; padding: 1cqw 3cqw; border-radius: 3cqw; white-space: nowrap; pointer-events: none !important; z-index: 20;
-}
-.banner {
-  position: absolute; top: 3%; left: 3%; background: var(--box); border: 0.5cqw solid #8a6a3a; border-radius: 1cqw;
-  padding: 1cqw 3cqw; font-size: 3cqw; font-weight: 600; animation: drop 0.3s ease-out; pointer-events: none !important;
-  box-shadow: inset 0 0 0 0.4cqw #e8d4a8;
-}
-.banner.out { transition: transform 0.5s, opacity 0.5s; transform: translateY(-150%); opacity: 0; }
-@keyframes drop { from { transform: translateY(-150%); } }
+#pad button.on { background: var(--btn-hi); transform: translateY(2px); box-shadow: 0 2px 0 #1a1426; }
+#pad .dpad { display: grid; grid-template-columns: repeat(3, 52px); grid-template-rows: repeat(3, 52px); gap: 2px; }
+#pad .dpad button { font-size: 14px; }
+.dpad .u { grid-area: 1 / 2; } .dpad .l { grid-area: 2 / 1; } .dpad .r { grid-area: 2 / 3; } .dpad .d { grid-area: 3 / 2; }
+#pad .ab { display: flex; gap: 14px; align-items: center; }
+#pad .ab button { width: 62px; height: 62px; border-radius: 50%; font-size: 14px; }
+#pad .ab .a { background: #8a2f3c; margin-bottom: 28px; }
+#pad .menubtn { font-size: 8px; padding: 10px 8px; align-self: flex-end; }
 
 /* ---------------------------------------------------------------- panels */
-.panel { position: absolute; inset: 3%; display: flex; flex-direction: column; padding: 2cqw 2.6cqw; font-size: 3cqw; z-index: 5; }
-.p-title { font-weight: 700; font-size: 3.4cqw; color: var(--box-line); display: flex; justify-content: space-between; margin-bottom: 1cqw; letter-spacing: 0.15cqw; }
+/* House Keeper's box: navy edge, periwinkle line, cream fill, highlight row */
+.dlg, .menu, .panel, .bhud, .skillmenu {
+  background: var(--p-fill);
+  border: var(--u) solid var(--p-out);
+  box-shadow: inset 0 0 0 var(--u) var(--p-line), inset 0 calc(2 * var(--u)) 0 calc(var(--u)) var(--p-hi);
+  border-radius: 0;
+}
+.dlg, .menu, .panel, .bhud, .skillmenu, .titlemenu, .ps-desc { text-shadow: calc(var(--u)) calc(var(--u)) 0 var(--p-shade); }
+.dlg { position: absolute; left: calc(3 * var(--u)); right: calc(3 * var(--u)); bottom: calc(3 * var(--u)); height: calc(54 * var(--u)); padding: calc(9 * var(--u)) calc(10 * var(--u)); }
+.dlg-name {
+  position: absolute; top: calc(-13 * var(--u)); left: calc(6 * var(--u)); background: var(--p-out); color: #fff;
+  font-size: calc(6 * var(--u)); line-height: 1; padding: calc(3 * var(--u)) calc(5 * var(--u)); text-shadow: none;
+}
+.dlg-more {
+  position: absolute; right: calc(12 * var(--u)); bottom: calc(6 * var(--u)); width: 0; height: 0; font-size: 0;
+  border-left: calc(4 * var(--u)) solid transparent; border-right: calc(4 * var(--u)) solid transparent; border-top: calc(4 * var(--u)) solid #d83040;
+  animation: blinkon 0.66s steps(1) infinite;
+}
+@keyframes blinkon { 50% { opacity: 0; } }
+.dlg-text { white-space: pre; }
+
+.menu { position: absolute; padding: calc(5 * var(--u)) 0; }
+.menu .opt { position: relative; padding: 0 calc(10 * var(--u)) 0 calc(18 * var(--u)); line-height: calc(14 * var(--u)); cursor: pointer; white-space: nowrap; }
+.menu .opt.sel::before {
+  content: ''; position: absolute; left: calc(8 * var(--u)); top: calc(3 * var(--u));
+  border-top: calc(3.5 * var(--u)) solid transparent; border-bottom: calc(3.5 * var(--u)) solid transparent; border-left: calc(5 * var(--u)) solid var(--p-ink);
+}
+.choice { right: calc(3 * var(--u)); bottom: calc(59 * var(--u)); }
+.choice.side { top: calc(3 * var(--u)); bottom: auto; max-height: calc(218 * var(--u)); overflow: auto; }
+
+/* title */
+.titlecard { position: absolute; left: 0; right: 0; top: calc(22 * var(--u)); text-align: center; pointer-events: none !important; animation: hover 2s ease-in-out infinite; }
+@keyframes hover { 50% { transform: translateY(calc(2 * var(--u))); } }
+.titlecard .logo { display: flex; flex-direction: column; align-items: center; gap: calc(6 * var(--u)); }
+.titlecard .logo span { color: #f0c040; font-size: calc(16 * var(--u)); line-height: 1; text-shadow: calc(2 * var(--u)) calc(2 * var(--u)) 0 #5a2a10; }
+.titlecard .logo span + span { font-size: calc(24 * var(--u)); }
+.titlecard .tag { margin-top: calc(14 * var(--u)); color: #d8d0e8; font-size: calc(6 * var(--u)); line-height: 1.8; text-shadow: calc(var(--u)) calc(var(--u)) 0 #000; }
+.titlemenu {
+  left: 50%; right: auto; transform: translateX(-50%); bottom: calc(40 * var(--u)); background: #0e0a18cc; border: 0; box-shadow: none;
+  color: #8f86a3; text-shadow: calc(var(--u)) calc(var(--u)) 0 #000; padding: calc(6 * var(--u)) calc(8 * var(--u)); text-align: center;
+}
+.titlemenu .opt { line-height: calc(16 * var(--u)); padding: 0 calc(24 * var(--u)); }
+.titlemenu .opt.sel { color: #fff; }
+.titlemenu .opt.sel::before { border-left-color: #f0c040; left: calc(8 * var(--u)); top: calc(4.5 * var(--u)); animation: blinkon 0.66s steps(1) infinite; }
+
+/* HUD bits */
+.toast {
+  position: absolute; top: calc(2 * var(--u)); right: calc(3 * var(--u)); background: var(--hud); color: #fff;
+  font-size: calc(7 * var(--u)); line-height: 1; padding: calc(3 * var(--u)) calc(6 * var(--u)); white-space: nowrap; pointer-events: none !important; z-index: 20;
+}
+/* the wooden location sign */
+.banner {
+  position: absolute; top: calc(4 * var(--u)); left: calc(3 * var(--u)); color: #4a3420; line-height: 1;
+  background: #f0e0b8; padding: calc(5 * var(--u)) calc(9 * var(--u));
+  box-shadow: 0 0 0 var(--u) #c89858, 0 0 0 calc(2 * var(--u)) #4a3420;
+  animation: drop 0.25s ease-out; pointer-events: none !important;
+}
+.banner.out { transition: transform 0.3s, opacity 0.3s; transform: translateY(calc(-28 * var(--u))); opacity: 0; }
+@keyframes drop { from { transform: translateY(calc(-24 * var(--u))); } }
+
+/* ---------------------------------------------------------------- full panels */
+.panel { position: absolute; inset: calc(10 * var(--u)) calc(14 * var(--u)); display: flex; flex-direction: column; padding: calc(10 * var(--u)) calc(12 * var(--u)); z-index: 5; }
+.p-title { color: #4a3a70; display: flex; justify-content: space-between; margin-bottom: calc(6 * var(--u)); }
 .p-title span { color: #2a7a3a; }
-.p-sub { font-weight: 700; color: var(--box-line); margin: 1.4cqw 0 0.6cqw; font-size: 2.8cqw; }
-.p-desc { min-height: 8cqw; border-top: 0.3cqw dashed #c8c8d8; margin-top: 1cqw; padding-top: 1cqw; font-size: 2.7cqw; color: #4a4860; }
-.p-desc i { color: #7a7890; }
-.p-foot { font-size: 2.2cqw; color: #8a88a0; margin-top: auto; padding-top: 0.6cqw; text-align: right; }
+.p-sub { color: #4a3a70; margin: calc(6 * var(--u)) 0 calc(4 * var(--u)); font-size: calc(6 * var(--u)); }
+.p-desc { min-height: calc(30 * var(--u)); border-top: var(--u) solid #d0cce0; margin-top: calc(4 * var(--u)); padding-top: calc(5 * var(--u)); font-size: calc(6 * var(--u)); line-height: calc(10 * var(--u)); color: #6a6080; }
+.p-desc i { color: #9890a8; font-style: normal; }
+.p-foot { font-size: calc(6 * var(--u)); color: #9890a8; margin-top: auto; padding-top: calc(4 * var(--u)); text-align: center; text-shadow: none; }
 .list .rows { flex: 1; overflow-y: auto; min-height: 0; }
-.list .row { display: flex; align-items: center; gap: 1.4cqw; padding: 0.7cqw 1.4cqw; border-radius: 0.8cqw; cursor: pointer; }
-.list .row.sel { background: var(--sel); box-shadow: inset 0.5cqw 0 0 var(--box-line); }
-.list .row.dis { color: #a8a6b8; }
-.list .row .l { flex: 1; }
-.list .row .r { color: #4a6a3a; font-weight: 600; }
-.dot { display: inline-block; width: 1.8cqw; height: 1.8cqw; border-radius: 50%; flex: none; }
-.eq { font-size: 2.2cqw; background: var(--box-line); color: #fff; padding: 0.2cqw 1cqw; border-radius: 0.6cqw; }
+.list .row { display: flex; align-items: center; gap: calc(5 * var(--u)); padding: calc(2 * var(--u)) calc(4 * var(--u)) calc(2 * var(--u)) calc(14 * var(--u)); cursor: pointer; position: relative; font-size: calc(7 * var(--u)); }
+.list .row.sel::before {
+  content: ''; position: absolute; left: calc(4 * var(--u)); top: calc(4 * var(--u));
+  border-top: calc(3.5 * var(--u)) solid transparent; border-bottom: calc(3.5 * var(--u)) solid transparent; border-left: calc(5 * var(--u)) solid var(--p-ink);
+}
+.list .row.dis { color: #b0a8c0; }
+.list .row .l { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.list .row .r { color: #6a6080; }
+.dot { display: inline-block; width: calc(5 * var(--u)); height: calc(5 * var(--u)); flex: none; box-shadow: 0 0 0 var(--u) #1e1626; }
+.eq { font-size: calc(5 * var(--u)); background: var(--p-out); color: #fff; padding: calc(2 * var(--u)) calc(3 * var(--u)); text-shadow: none; }
 .se { color: #1a8a3a; }
 .nve { color: #b8402a; }
 
 /* profile */
-.card { flex: 1; overflow: auto; min-height: 0; }
-.card-top { display: flex; gap: 2.4cqw; align-items: center; }
-.card-face { width: 14cqw; height: 14cqw; image-rendering: pixelated; background: #dfe8ff; border-radius: 1cqw; flex: none; }
-.card-info .big { font-size: 4.4cqw; font-weight: 700; }
-.card-info b { color: #2a7a3a; }
+.card { flex: 1; overflow: auto; min-height: 0; font-size: calc(6 * var(--u)); line-height: calc(10 * var(--u)); }
+.card-top { display: flex; gap: calc(8 * var(--u)); align-items: center; }
+.card-face { width: calc(40 * var(--u)); height: calc(48 * var(--u)); image-rendering: pixelated; background: #e8e4f4; flex: none; box-shadow: 0 0 0 var(--u) var(--p-line); }
+.card-info .big { font-size: calc(8 * var(--u)); line-height: calc(14 * var(--u)); }
+.card-info b { color: #2a7a3a; font-weight: 400; }
 .card-info b.neg { color: #b8402a; }
-.xpbar { display: inline-block; width: 20cqw; height: 1.4cqw; background: #d8d8e4; border-radius: 1cqw; vertical-align: middle; overflow: hidden; }
+.xpbar { display: inline-block; width: calc(50 * var(--u)); height: calc(4 * var(--u)); background: #d8d8e4; vertical-align: middle; }
 .xpbar i { display: block; height: 100%; background: #4a8ae8; }
-.statgrid { display: grid; grid-template-columns: auto auto auto auto; gap: 0.3cqw 2cqw; margin-top: 1.4cqw; font-size: 2.7cqw; }
-.statgrid b { text-align: right; }
-.badges { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1cqw; }
-.bdg { display: flex; align-items: center; gap: 0.8cqw; font-size: 2.2cqw; color: #a8a6b8; background: #efeef4; border-radius: 1cqw; padding: 0.6cqw; }
-.bdg img { width: 4.6cqw; height: 4.6cqw; image-rendering: pixelated; filter: grayscale(1) opacity(0.35); }
-.bdg.got { color: var(--box-ink); background: #fff4d0; }
+.statgrid { display: grid; grid-template-columns: auto auto auto auto; gap: 0 calc(6 * var(--u)); margin-top: calc(5 * var(--u)); }
+.statgrid b { text-align: right; font-weight: 400; }
+.badges { display: grid; grid-template-columns: repeat(4, 1fr); gap: calc(3 * var(--u)); }
+.bdg { display: flex; align-items: center; gap: calc(2 * var(--u)); font-size: calc(4 * var(--u)); line-height: 1.3; color: #b0a8c0; background: #ece8f4; padding: calc(2 * var(--u)); overflow: hidden; }
+.bdg img { width: calc(12 * var(--u)); height: calc(12 * var(--u)); image-rendering: pixelated; filter: grayscale(1) opacity(0.35); flex: none; }
+.bdg.got { color: var(--p-ink); background: #fff4d0; }
 .bdg.got img { filter: none; }
 
 /* map */
 .mappanel .mapwrap { position: relative; flex: 1; min-height: 0; display: flex; align-items: center; }
-.mappanel img { width: 100%; image-rendering: pixelated; border-radius: 1cqw; }
-.mlabel { position: absolute; transform: translate(-50%, -50%); font-size: 2.2cqw; color: #fff; font-weight: 700; text-shadow: 0 0.3cqw 0 #000, 0.3cqw 0 0 #000, -0.3cqw 0 0 #000, 0 -0.3cqw 0 #000; white-space: nowrap; }
-.mdot { position: absolute; width: 2cqw; height: 2cqw; margin: -1cqw 0 0 -1cqw; background: #f03a3a; border: 0.4cqw solid #fff; border-radius: 50%; animation: blink 0.6s infinite alternate; }
-@keyframes blink { to { opacity: 0.2; } }
+.mappanel img { width: 100%; image-rendering: pixelated; box-shadow: 0 0 0 var(--u) #1e1626; }
+.mlabel { position: absolute; transform: translate(-50%, -50%); font-size: calc(3.6 * var(--u)); line-height: 1; color: #fff; text-shadow: calc(0.7 * var(--u)) calc(0.7 * var(--u)) 0 #000; white-space: nowrap; }
+.mdot { position: absolute; width: calc(5 * var(--u)); height: calc(5 * var(--u)); margin: calc(-2.5 * var(--u)) 0 0 calc(-2.5 * var(--u)); background: #f03a3a; box-shadow: 0 0 0 var(--u) #fff; animation: blinkon 0.6s steps(1) infinite; }
 
 /* type chart */
-.chart { width: 100%; border-collapse: collapse; font-size: 2.5cqw; text-align: center; }
-.chart th, .chart td { padding: 0.6cqw; border-bottom: 0.2cqw solid #e0dfe8; }
-.chart th:first-child { text-align: left; color: #8a88a0; font-weight: 400; }
-.chart td.se { background: #d8f4dc; font-weight: 700; }
-.chart td.nve { background: #f8dcd4; font-weight: 700; }
+.chart { width: 100%; border-collapse: collapse; font-size: calc(5 * var(--u)); text-align: center; }
+.chart th, .chart td { padding: calc(3 * var(--u)) calc(1 * var(--u)); border-bottom: var(--u) solid #e0dce8; font-weight: 400; }
+.chart th:first-child { text-align: left; color: #9890a8; }
+.chart td.se { background: #d8f4dc; }
+.chart td.nve { background: #f8dcd4; }
 
-/* path picker */
-.pathpick { inset: 2%; }
-.pcards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.4cqw; flex: 1; min-height: 0; }
-.pcard { border: 0.4cqw solid #d0d0dc; border-radius: 1.2cqw; padding: 1cqw; font-size: 1.95cqw; line-height: 1.2; cursor: pointer; overflow: hidden; background: #fff; }
-.pcard.sel { border-color: var(--box-line); background: var(--sel); transform: translateY(-0.5cqw); box-shadow: 0 0.8cqw 0 rgba(58, 74, 122, 0.25); }
-.pcard img { width: 6cqw; height: 6cqw; image-rendering: pixelated; display: block; margin: 0 auto; }
-.pc-name { font-weight: 700; font-size: 2.7cqw; white-space: nowrap; text-align: center; color: var(--box-line); }
-.pc-blurb { text-align: center; color: #6a6880; margin: 0.2cqw 0 0.6cqw; font-style: italic; }
-.pcard ul { margin: 0 0 0.6cqw; padding-left: 2.6cqw; }
-.pcard li { margin-bottom: 0.15cqw; }
-.pros li::marker { content: '+ '; color: #2a8a3a; font-weight: 700; }
-.cons li::marker { content: '− '; color: #c8402a; font-weight: 700; }
-.cons { color: #8a4a40; }
+/* path choice: the spotlight select screen is drawn on the canvas */
+.pathpick { position: absolute; inset: 0; pointer-events: auto; }
+.ps-title { position: absolute; top: calc(12 * var(--u)); width: 100%; text-align: center; color: #f0c040; text-shadow: calc(var(--u)) calc(var(--u)) 0 #000; }
+.ps-cols { position: absolute; top: calc(30 * var(--u)); left: 0; right: 0; height: calc(108 * var(--u)); display: grid; grid-template-columns: repeat(3, 1fr); cursor: pointer; }
+.ps-names { position: absolute; top: calc(132 * var(--u)); left: 0; right: 0; display: grid; grid-template-columns: repeat(3, 1fr); text-align: center; font-size: calc(6 * var(--u)); color: #8f86a3; text-shadow: calc(var(--u)) calc(var(--u)) 0 #000; }
+.ps-names .on { color: #fff; }
+.ps-desc {
+  position: absolute; left: calc(10 * var(--u)); right: calc(10 * var(--u)); bottom: calc(6 * var(--u)); height: calc(72 * var(--u));
+  background: #0e0a18cc; color: #d8d0e8; text-shadow: calc(var(--u)) calc(var(--u)) 0 #000;
+  padding: calc(6 * var(--u)) calc(8 * var(--u)); font-size: calc(5.5 * var(--u)); line-height: calc(9 * var(--u));
+}
+.ps-desc .bl { color: #f0c040; margin-bottom: calc(2 * var(--u)); }
+.ps-desc .pro::before { content: '+ '; color: #6ae08a; }
+.ps-desc .con::before { content: '- '; color: #f07a6a; }
+.ps-desc .foot { position: absolute; right: calc(8 * var(--u)); bottom: calc(5 * var(--u)); color: #6a6080; }
 
 /* name entry */
-.namebox { inset: 25% 15%; justify-content: center; gap: 2cqw; }
+.namebox { inset: calc(60 * var(--u)) calc(40 * var(--u)); justify-content: center; gap: calc(8 * var(--u)); }
 .namebox input {
-  font: inherit; font-size: 5cqw; text-transform: uppercase; text-align: center; padding: 1cqw;
-  border: 0.5cqw solid var(--box-line); border-radius: 1cqw; width: 100%; background: #fff; color: var(--box-ink);
+  font: inherit; font-size: calc(12 * var(--u)); text-transform: uppercase; text-align: center; padding: calc(4 * var(--u));
+  border: var(--u) solid var(--p-out); border-radius: 0; width: 100%; background: #fff; color: var(--p-ink); outline: none;
 }
 .nb-btns { text-align: center; }
-.nb-btns button { font: inherit; font-size: 3.4cqw; padding: 1cqw 5cqw; background: var(--box-line); color: #fff; border: 0; border-radius: 1cqw; cursor: pointer; }
+.nb-btns button { font: inherit; font-size: calc(8 * var(--u)); padding: calc(4 * var(--u)) calc(14 * var(--u)); background: var(--p-out); color: #fff; border: 0; cursor: pointer; }
 
 /* ---------------------------------------------------------------- battle */
-.bhud { position: absolute; padding: 1cqw 2cqw; font-size: 2.6cqw; }
-.bhud.foe { left: 3%; top: 5%; width: 45%; }
-.bhud.me { right: 3%; top: 44%; width: 47%; }
-.bh-row { display: flex; justify-content: space-between; align-items: center; font-weight: 700; }
-.bh-row .lv { color: #4a4860; }
-.tchip { color: #fff; font-size: 1.9cqw; padding: 0.1cqw 1cqw; border-radius: 0.6cqw; font-weight: 600; }
-.anx { color: #b8402a; font-size: 2cqw; }
-.bar { display: flex; align-items: center; gap: 1cqw; margin-top: 0.5cqw; }
-.bar span { font-size: 1.8cqw; font-weight: 700; color: #e8a030; background: #3a3a4a; padding: 0 0.6cqw; border-radius: 0.4cqw; }
+.bhud { position: absolute; padding: calc(5 * var(--u)) calc(7 * var(--u)); font-size: calc(7 * var(--u)); line-height: calc(10 * var(--u)); }
+.bhud.foe { left: calc(6 * var(--u)); top: calc(8 * var(--u)); width: calc(140 * var(--u)); }
+.bhud.me { right: calc(6 * var(--u)); top: calc(104 * var(--u)); width: calc(146 * var(--u)); }
+.bh-row { display: flex; justify-content: space-between; align-items: center; }
+.bh-row .lv { color: #6a6080; }
+.tchip { color: #fff; font-size: calc(5 * var(--u)); line-height: 1; padding: calc(2 * var(--u)) calc(3 * var(--u)); text-shadow: none; }
+.anx { color: #b8402a; font-size: calc(5 * var(--u)); }
+.bar { display: flex; align-items: center; gap: calc(3 * var(--u)); margin-top: calc(2 * var(--u)); }
+.bar span { font-size: calc(4.5 * var(--u)); line-height: 1; color: #f0c040; background: #303040; padding: calc(1.5 * var(--u)) calc(2 * var(--u)); text-shadow: none; }
 .bar.en span { color: #7ac8f8; }
-.bar i { flex: 1; height: 1.6cqw; background: #4a4858; border-radius: 1cqw; overflow: hidden; display: block; padding: 0.25cqw; }
-.bar b { display: block; height: 100%; border-radius: 1cqw; background: #3ec46d; }
+.bar i { flex: 1; height: calc(5 * var(--u)); background: #303040; display: block; padding: var(--u); }
+.bar b { display: block; height: 100%; background: #3ec46d; }
 .bar.en b { background: #4a9ae8 !important; }
-.num { text-align: right; font-size: 2.3cqw; line-height: 1.1; }
-.bhud .xp { height: 0.8cqw; background: #d8d8e4; margin-top: 0.4cqw; border-radius: 0.4cqw; overflow: hidden; }
+.num { text-align: right; font-size: calc(6 * var(--u)); line-height: calc(8 * var(--u)); }
+.bhud .xp { height: calc(2 * var(--u)); background: #d8d8e4; margin-top: calc(2 * var(--u)); }
 .bhud .xp i { display: block; height: 100%; background: #4a8ae8; }
-.bhud .st { position: absolute; left: 2cqw; bottom: -3.6cqw; display: flex; gap: 1cqw; }
-.bhud .st em { font-style: normal; font-size: 2cqw; color: #fff; padding: 0.2cqw 1cqw; border-radius: 0.6cqw; }
+.bhud .st { position: absolute; left: calc(6 * var(--u)); top: calc(-9 * var(--u)); display: flex; gap: calc(3 * var(--u)); }
+.bhud .st em { font-style: normal; font-size: calc(5 * var(--u)); line-height: 1; color: #fff; padding: calc(2 * var(--u)) calc(3 * var(--u)); text-shadow: none; }
 .bhud .st .bo { background: #c8402a; }
 .bhud .st .ax { background: #8a5cd6; }
 .actmenu {
-  right: 2%; bottom: 2.5%; width: 46%; height: 26%;
-  display: grid; grid-template-columns: 1fr 1fr; align-content: center; font-size: 3.4cqw; font-weight: 600;
+  right: calc(3 * var(--u)); bottom: calc(3 * var(--u)); width: calc(140 * var(--u)); height: calc(54 * var(--u));
+  display: grid; grid-template-columns: 1fr 1fr; align-content: center;
 }
-.actmenu .opt { padding-left: 4.4cqw; }
+.actmenu .opt { padding-left: calc(16 * var(--u)); line-height: calc(18 * var(--u)); }
+.actmenu .opt.sel::before { top: calc(5.5 * var(--u)); }
 .skillmenu {
-  position: absolute; left: 2%; right: 2%; bottom: 2.5%; height: 26%;
-  display: grid; grid-template-columns: 1fr 30%; overflow: hidden;
+  position: absolute; left: calc(3 * var(--u)); right: calc(3 * var(--u)); bottom: calc(3 * var(--u)); height: calc(54 * var(--u));
+  display: grid; grid-template-columns: 1fr calc(86 * var(--u)); overflow: hidden;
 }
-.sk-grid { display: grid; grid-template-columns: 1fr 1fr; align-content: center; padding: 0 1cqw; }
-.sk { position: relative; padding: 0.9cqw 1cqw 0.9cqw 4cqw; font-size: 3cqw; display: flex; align-items: center; gap: 1cqw; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.sk.sel::before { content: '▶'; position: absolute; left: 1cqw; color: var(--box-line); }
-.sk.poor { color: #a8a6b8; }
-.sk.empty { color: #c8c6d8; }
-.sk-info { border-left: 0.5cqw solid var(--box-line2); padding: 1cqw 2cqw; font-size: 2.6cqw; display: flex; flex-direction: column; justify-content: center; gap: 0.3cqw; }
+.sk-grid { display: grid; grid-template-columns: 1fr 1fr; align-content: center; padding: 0 calc(3 * var(--u)); }
+.sk { position: relative; padding: 0 calc(3 * var(--u)) 0 calc(14 * var(--u)); line-height: calc(18 * var(--u)); font-size: calc(6 * var(--u)); display: flex; align-items: center; gap: calc(3 * var(--u)); cursor: pointer; white-space: nowrap; overflow: hidden; }
+.sk.sel::before {
+  content: ''; position: absolute; left: calc(4 * var(--u)); top: calc(5.5 * var(--u));
+  border-top: calc(3.5 * var(--u)) solid transparent; border-bottom: calc(3.5 * var(--u)) solid transparent; border-left: calc(5 * var(--u)) solid var(--p-ink);
+}
+.sk.poor { color: #b0a8c0; }
+.sk.empty { color: #c8c4d4; }
+.sk-info { border-left: var(--u) solid var(--p-line); padding: calc(4 * var(--u)) calc(6 * var(--u)); font-size: calc(5.5 * var(--u)); line-height: calc(9 * var(--u)); display: flex; flex-direction: column; justify-content: center; }
+.sk-info b { font-weight: 400; }
 
 </style>
-<div id="app">
-  <header class="top">
-    <h1>Adulting Quest</h1>
-    <button id="muteBtn" type="button">♪ on</button>
-  </header>
-  <div id="console">
-    <div id="screen">
-      <canvas id="cv" width="240" height="160"></canvas>
-      <div id="ui"></div>
-    </div>
-    <div id="pad">
-      <div id="dpad" aria-label="Directional pad"><span class="u"></span><span class="d"></span><span class="l"></span><span class="r"></span><span class="c"></span></div>
-      <div class="sys"><button type="button" data-btn="START">START</button></div>
-      <div class="ab"><button type="button" data-btn="B" class="b">B</button><button type="button" data-btn="A" class="a">A</button></div>
-    </div>
+<div id="screen">
+  <canvas id="cv" width="304" height="224" aria-label="Adulting Quest game screen"></canvas>
+  <div id="ui"></div>
+</div>
+<div id="hint"><b>Arrows/WASD</b> move · <b>Space</b> talk / A · <b>Shift</b> run / B · <b>Esc</b> menu · <b>M</b> music</div>
+<div id="pad">
+  <div class="dpad">
+    <button type="button" data-btn="up" class="u" aria-label="Up">&#9650;</button>
+    <button type="button" data-btn="left" class="l" aria-label="Left">&#9664;</button>
+    <button type="button" data-btn="right" class="r" aria-label="Right">&#9654;</button>
+    <button type="button" data-btn="down" class="d" aria-label="Down">&#9660;</button>
   </div>
-  <p class="keys">Arrows / WASD: move · Z, Space or Enter: A · X or Shift: B (hold to run) · M or Esc: menu</p>
+  <button type="button" data-btn="START" class="menubtn">MENU</button>
+  <div class="ab"><button type="button" data-btn="B" class="b" aria-label="B: run or back">B</button><button type="button" data-btn="A" class="a" aria-label="A: talk or confirm">A</button></div>
 </div>
 <script>
 // ---- src/util.js
@@ -639,7 +606,7 @@ const LEADERS = {
     name: 'RUSTY', title: 'CAR TROUBLE', town: 1, badge: 'Jumper Cable Badge', badgeIcon: 'bolt', color: '#e0902a',
     team: [['check_engine', 9], ['flat_tire', 10], ['transmission', 12]],
     reward: 400, skill: 'jumpstart', look: 'cap',
-    pal: { h: '#3a2a1a', s: '#e0a878', c: '#3a5a9a', p: '#2a3a6a', b: '#2a2a2a' },
+    pal: { h: '#3a2a1a', s: '#e0a878', c: '#3a5a9a', p: '#2a3a6a', b: '#2a2a2a', style: 'short' },
     intro: [
       'Hear that rattle? That\'s the sound of your weekend plans dying.',
       'I\'m RUSTY. Folks call me CAR TROUBLE. I show up right after you pay off your car.',
@@ -654,7 +621,7 @@ const LEADERS = {
     name: 'COACH MAX GAINS', title: 'FITNESS', town: 2, badge: 'Sweatband Badge', badgeIcon: 'heart', color: '#e0503a',
     team: [['gym_membership', 14], ['leg_day', 14], ['kale_smoothie', 15], ['beach_body', 17]],
     reward: 650, skill: 'meal_prep', look: 'headband',
-    pal: { h: '#e8c050', s: '#c88858', c: '#e8603a', p: '#2a2a3a', b: '#f0f0f0' },
+    pal: { h: '#e8c050', s: '#c88858', c: '#e8603a', p: '#2a2a3a', b: '#f0f0f0', style: 'short' },
     intro: [
       'YO! You look like you skip leg day. You look like you skip EVERY day.',
       'I\'m COACH MAX GAINS. I am FITNESS. I wake up at 4 AM to be disappointed in people.',
@@ -669,7 +636,7 @@ const LEADERS = {
     name: 'THE AUDITOR', title: 'TAXES', town: 3, badge: 'Refund Badge', badgeIcon: 'doc', color: '#4a6a9a',
     team: [['w2', 17], ['shoebox', 17], ['owe_money', 18], ['audit', 19]],
     reward: 900, skill: 'write_off', look: 'glasses',
-    pal: { h: '#8a8a8a', s: '#e8c0a0', c: '#4a4f5a', p: '#3a3f4a', b: '#1a1a1a' },
+    pal: { h: '#8a8a8a', s: '#e8c0a0', c: '#4a4f5a', p: '#3a3f4a', b: '#1a1a1a', style: 'bald', tie: '#2a4a8a' },
     intro: [
       'Ah. Another one. Please take a number.',
       'I am THE AUDITOR. I am TAXES. I come for everyone. Every year. Forever.',
@@ -796,21 +763,21 @@ const TOWNFOLK = [
 
 // NPC palettes (h=hair, s=skin, c=shirt, p=pants, b=shoes)
 const PALS = {
-  player:  { h: '#5a3418', s: '#f0c098', c: '#d8403a', p: '#3a4a7a', b: '#2a2a2a' },
-  mom:     { h: '#8a4a2a', s: '#f0c8a0', c: '#7aa04a', p: '#5a5a7a', b: '#4a3a2a' },
-  street:  { h: '#d8d8d8', s: '#e0b088', c: '#f4f4f4', p: '#5a5a6a', b: '#3a2a2a' },
-  aide:    { h: '#2a2a2a', s: '#c89070', c: '#f4f4f4', p: '#3a4a6a', b: '#2a2a2a' },
-  nurse:   { h: '#e88aa8', s: '#f0c8a8', c: '#f8d0dc', p: '#f8d0dc', b: '#f4f4f4' },
-  clerk:   { h: '#3a2a1a', s: '#d8a070', c: '#3a7ad8', p: '#3a3a4a', b: '#2a2a2a' },
-  pastor:  { h: '#6a6a6a', s: '#a87050', c: '#2a2a3a', p: '#2a2a3a', b: '#1a1a1a' },
-  guard:   { h: '#2a2a3a', s: '#e0b088', c: '#f08a2a', p: '#2a3a5a', b: '#1a1a1a' },
-  guide:   { h: '#f0d050', s: '#f0c8a0', c: '#4ab0a0', p: '#3a3a4a', b: '#2a2a2a' },
-  kid:     { h: '#e8a040', s: '#f0c8a0', c: '#4ab04a', p: '#3a5aa0', b: '#c03a3a' },
-  lady:    { h: '#a04a2a', s: '#e8b890', c: '#c05ab0', p: '#4a4a6a', b: '#3a2a2a' },
-  dude:    { h: '#2a1a0a', s: '#9a6a4a', c: '#e8c040', p: '#4a5a7a', b: '#2a2a2a' },
-  old:     { h: '#e8e8e8', s: '#e8c0a0', c: '#8a6a4a', p: '#5a4a3a', b: '#3a2a1a' },
-  suit:    { h: '#1a1a1a', s: '#c89070', c: '#3a4050', p: '#2a3040', b: '#1a1a1a' },
-  musician:{ h: '#6a3a1a', s: '#d8a078', c: '#c0302a', p: '#3a3a5a', b: '#5a3a1a' },
+  player:  { h: '#6b3a1c', s: '#f6c79c', c: '#d8403a', p: '#3c3a58', b: '#4a2a16', style: 'short', pack: '#a0682e' },
+  mom:     { h: '#8a4a2a', s: '#f0c8a0', c: '#7aa04a', p: '#5a5a7a', b: '#4a3a2a', style: 'long' },
+  street:  { h: '#eeeef4', s: '#f0c098', c: '#6a8ab0', p: '#4a4a5a', b: '#2a1a1a', style: 'bald', coat: '#f4f4f0' },
+  aide:    { h: '#2a2a2a', s: '#c89070', c: '#5a9a8a', p: '#3a4a6a', b: '#2a2a2a', style: 'short', coat: '#f4f4f0' },
+  nurse:   { h: '#e88aa8', s: '#f0c8a8', c: '#f8d0dc', p: '#f0c0d0', b: '#f4f4f4', style: 'bun' },
+  clerk:   { h: '#3a2a1a', s: '#d8a070', c: '#3a7ad8', p: '#3a3a4a', b: '#2a2a2a', style: 'short' },
+  pastor:  { h: '#8a8a8a', s: '#a87050', c: '#2a2a3a', p: '#2a2a3a', b: '#1a1a1a', style: 'bald' },
+  guard:   { h: '#2a2a3a', s: '#e0b088', c: '#f08a2a', p: '#2a3a5a', b: '#1a1a1a', style: 'short' },
+  guide:   { h: '#f0d050', s: '#f0c8a0', c: '#4ab0a0', p: '#3a3a4a', b: '#2a2a2a', style: 'short' },
+  kid:     { h: '#e8a040', s: '#f0c8a0', c: '#4ab04a', p: '#3a5aa0', b: '#c03a3a', style: 'short' },
+  lady:    { h: '#a04a2a', s: '#e8b890', c: '#c05ab0', p: '#4a4a6a', b: '#3a2a2a', style: 'long' },
+  dude:    { h: '#2a1a0a', s: '#9a6a4a', c: '#e8c040', p: '#4a5a7a', b: '#2a2a2a', style: 'short' },
+  old:     { h: '#e8e8e8', s: '#e8c0a0', c: '#8a6a4a', p: '#5a4a3a', b: '#3a2a1a', style: 'bald' },
+  suit:    { h: '#1a1a1a', s: '#c89070', c: '#3a4050', p: '#2a3040', b: '#1a1a1a', style: 'short', tie: '#c83a3a' },
+  musician:{ h: '#6a3a1a', s: '#d8a078', c: '#c0302a', p: '#3a3a5a', b: '#5a3a1a', style: 'long' },
 };
 
 // ---- src/art.js
@@ -824,12 +791,12 @@ const T = {
   // interiors
   FLOOR: 20, WALL: 21, WWALL: 22, COUNTER: 23, SHELF: 24, BED: 25, BEDB: 26, TABLE: 27,
   PLANT: 28, RUG: 29, EXIT: 30, PEW: 31, ALTAR: 32, MACHINE: 33, BOOKS: 34, TV: 35,
-  HBED: 36, STATUE: 37, MAT: 38, CHAIR: 39,
+  HBED: 36, STATUE: 37, MAT: 38, CHAIR: 39, BANNER: 40,
 };
 const SOLID = new Set([
   T.VOID, T.TREE, T.WATER, T.ROCK, T.FENCE, T.BUILD, T.CROP, T.SIGN, T.LAMP, T.DECO,
   T.WALL, T.WWALL, T.COUNTER, T.SHELF, T.BED, T.BEDB, T.TABLE, T.PLANT, T.PEW, T.ALTAR,
-  T.MACHINE, T.BOOKS, T.TV, T.HBED, T.STATUE, T.CHAIR,
+  T.MACHINE, T.BOOKS, T.TV, T.HBED, T.STATUE, T.CHAIR, T.BANNER,
 ]);
 
 const BIO = {
@@ -859,7 +826,7 @@ const BIO = {
     walls: ['#a8604a', '#8a8f9a'], roofs: ['#4a4f5a', '#3a3f4a', '#5a5f6a', '#6a5a5a'], flat: true, sky: ['#b8c8e0', '#e8eef8'], field: '#b4b4b8' },
 };
 
-const OUTLINE = '#282830';
+const OUTLINE = '#1e1626';
 
 const Art = {
   cache: new Map(),
@@ -1134,38 +1101,64 @@ function solidDeco(x, theme, v) {
 }
 
 // ---------------------------------------------------------------- interiors
+// Interior themes follow House Keeper's rooms: a dark wall top, a papered
+// face with a trim line and baseboard, then the floor.
 const THEMES = {
-  house:    { floor: ['#c89a6a', '#b8885a'], wall: ['#e8d8b8', '#d8c8a4'], trim: '#8a6a4a' },
-  store:    { floor: ['#e4ecf4', '#ccd8e4'], wall: ['#9ac4e8', '#88b4dc'], trim: '#3a6aa8' },
-  hospital: { floor: ['#f4f4f4', '#dce4ec'], wall: ['#f8e0e4', '#ecccd4'], trim: '#c84a5a' },
-  chapel:   { floor: ['#b8b0a4', '#a8a094'], wall: ['#f0ead8', '#e0d8c4'], trim: '#8a6a3a' },
-  lab:      { floor: ['#e8f0f4', '#d4e0e8'], wall: ['#d8e8e0', '#c4d8d0'], trim: '#4a8a7a' },
+  house:    { floor: 'wood',    top: '#3a2a26', lip: '#5a443c', c1: '#dccaa0', c2: '#cfbb8e', trim: '#b08c58', base: '#6a4428' },
+  store:    { floor: 'checker', top: '#1e2a40', lip: '#34466a', c1: '#a8cce8', c2: '#98bcdc', trim: '#e8f0f8', base: '#3a5a8a', tile: ['#ece6d6', '#7ab0d8'] },
+  hospital: { floor: 'checker', top: '#3a2430', lip: '#5a3a48', c1: '#f8e0e4', c2: '#ecccd4', trim: '#f8f4f4', base: '#a84a5a', tile: ['#f4f4f4', '#d8e4ec'] },
+  chapel:   { floor: 'stone',   top: '#26222e', lip: '#403a4c', c1: '#8a8296', c2: '#706a7c', trim: '#a49cb0', base: '#3e3848', brick: true },
+  lab:      { floor: 'checker', top: '#1e3430', lip: '#34524a', c1: '#d8e8e0', c2: '#c4d8d0', trim: '#f4fbf8', base: '#3a6a5e', tile: ['#eef4f2', '#b8d8cc'] },
 };
 function themeOf(theme) {
   if (theme.startsWith('hall:')) {
     const c = theme.slice(5);
-    return { floor: [U.shade(c, 0.55), U.shade(c, 0.4)], wall: [U.shade(c, 0.2), U.shade(c, 0.05)], trim: U.shade(c, -0.4), hall: c };
+    return { floor: 'marble', top: U.shade(c, -0.72), lip: U.shade(c, -0.55), c1: U.shade(c, -0.1), c2: U.shade(c, -0.22), trim: '#d6a84a', base: U.shade(c, -0.6), hall: c };
   }
   return THEMES[theme] || THEMES.house;
 }
 
 function drawInterior(x, id, theme, v) {
   const th = themeOf(theme);
+  const r = U.rng(v * 31 + 5);
   const floor = () => {
-    px(x, th.floor[0], 0, 0, 16, 16);
-    if (theme === 'house') { for (let i = 0; i < 16; i += 4) px(x, th.floor[1], 0, i + 3, 16, 1); px(x, th.floor[1], (v % 2) * 8 + 3, 0, 1, 3); }
-    else if (theme === 'chapel') { px(x, th.floor[1], 0, 15, 16, 1); px(x, th.floor[1], 15, 0, 1, 16); px(x, th.floor[1], 7, 0, 1, 8); }
-    else { px(x, th.floor[1], 0, 0, 8, 8); px(x, th.floor[1], 8, 8, 8, 8); }
-  };
-  if (id === T.WALL || id === T.WWALL) {
-    px(x, th.wall[0], 0, 0, 16, 16);
-    for (let i = 1; i < 16; i += 4) px(x, th.wall[1], i, 0, 1, 16);
-    if (v === 1) { px(x, th.trim, 0, 12, 16, 4); px(x, U.shade(th.trim, 0.3), 0, 12, 16, 1); }
-    if (id === T.WWALL && v === 0) {
-      px(x, OUTLINE, 2, 3, 12, 11); px(x, '#a8d8f8', 3, 4, 10, 9); px(x, '#d8f0ff', 3, 4, 4, 3); px(x, OUTLINE, 7, 4, 1, 9); px(x, OUTLINE, 3, 8, 10, 1);
+    if (th.floor === 'wood') {
+      px(x, '#b5773f', 0, 0, 16, 16);
+      for (let k = 0; k < 4; k++) { px(x, '#c4884e', 0, k * 4, 16, 1); px(x, '#8f5a2c', 0, k * 4 + 3, 16, 1); px(x, '#8f5a2c', Math.floor(r() * 15), k * 4, 1, 4); }
+    } else if (th.floor === 'marble') {
+      px(x, v % 2 ? '#e4dccb' : '#d2c6ae', 0, 0, 16, 16); px(x, '#bfb196', 0, 0, 16, 1); px(x, '#bfb196', 0, 0, 1, 16);
+      px(x, v % 2 ? '#d4cab6' : '#c4b89e', Math.floor(r() * 14), Math.floor(r() * 14), 2, 1);
+    } else if (th.floor === 'stone') {
+      px(x, '#6e6e7c', 0, 0, 16, 16);
+      for (let j = 0; j < 2; j++) for (let i = 0; i < 2; i++) {
+        const sx = i * 8, sy = j * 8;
+        px(x, '#8e8e9c', sx, sy, 7, 7); px(x, '#a2a2b0', sx, sy, 7, 1); px(x, '#a2a2b0', sx, sy, 1, 7); px(x, '#7a7a88', sx + 1, sy + 6, 6, 1);
+      }
+    } else {
+      const [a, b] = th.tile;
+      px(x, a, 0, 0, 8, 8); px(x, a, 8, 8, 8, 8); px(x, b, 8, 0, 8, 8); px(x, b, 0, 8, 8, 8); px(x, U.shade(a, -0.1), 0, 0, 16, 1);
     }
-    if (id === T.WWALL && v === 1 && th.hall) {
-      px(x, th.hall, 5, 0, 6, 10); px(x, '#f8e070', 7, 3, 2, 2);
+  };
+  if (id === T.WALL || id === T.WWALL || id === T.BANNER) {
+    if (v === 0) {           // seen from above: the top of the wall
+      px(x, th.top, 0, 0, 16, 16); px(x, th.lip, 0, 6, 4, 1); px(x, th.lip, 8, 6, 4, 1); px(x, th.lip, 0, 14, 16, 2);
+      return;
+    }
+    if (th.brick) {
+      px(x, th.c2, 0, 0, 16, 16);
+      for (let rw = 0; rw < 4; rw++) { const o = (rw % 2) * 4; for (let i = -4; i < 16; i += 8) { const bx = Math.max(0, i + o), bw = Math.min(16, i + o + 7) - bx; if (bw > 0) px(x, th.c1, bx, rw * 4, bw, 3); } }
+      px(x, th.base, 0, 14, 16, 2);
+    } else {
+      px(x, th.c1, 0, 0, 16, 16); for (let i = 0; i < 16; i += 4) px(x, th.c2, i, 0, 2, 16);
+      px(x, th.trim, 0, 0, 16, 2); px(x, th.base, 0, 12, 16, 4); px(x, th.trim, 0, 12, 16, 1);
+    }
+    if (id === T.WWALL) {
+      px(x, '#5a3a22', 2, 2, 12, 11); px(x, '#8ac8f0', 3, 3, 10, 9); px(x, '#a8daf8', 3, 3, 10, 3);
+      px(x, '#5a3a22', 7, 3, 2, 9); px(x, '#5a3a22', 3, 7, 10, 1); px(x, '#e8f8ff', 4, 4, 1, 2);
+    }
+    if (id === T.BANNER) {
+      const c = th.hall || '#a82838';
+      px(x, c, 4, 1, 8, 11); px(x, '#d8b048', 4, 1, 8, 1); px(x, c, 5, 12, 2, 2); px(x, c, 9, 12, 2, 2); px(x, '#d8b048', 7, 4, 2, 4);
     }
     return;
   }
@@ -1175,7 +1168,7 @@ function drawInterior(x, id, theme, v) {
   switch (id) {
     case T.RUG: ol = false; px(tx, '#b84a4a', 0, 0, 16, 16); px(tx, '#d8a040', 1, 1, 14, 1); px(tx, '#d8a040', 1, 14, 14, 1); px(tx, '#c85a5a', 3, 3, 10, 10); break;
     case T.MAT: ol = false; if (th.hall) { px(tx, th.hall, 2, 0, 12, 16); px(tx, U.shade(th.hall, 0.3), 4, 0, 1, 16); px(tx, U.shade(th.hall, 0.3), 11, 0, 1, 16); } break;
-    case T.EXIT: ol = false; px(tx, '#7a4a3a', 2, 4, 12, 9); px(tx, '#9a6a4a', 3, 5, 10, 7); for (let i = 4; i < 12; i += 2) px(tx, '#7a4a3a', i, 6, 1, 5); break;
+    case T.EXIT: ol = false; px(tx, '#8a3a2a', 2, 1, 12, 7); px(tx, '#a8503a', 3, 2, 10, 5); px(tx, 'rgba(0,0,0,.55)', 0, 10, 16, 6); break;
     case T.COUNTER: px(tx, '#a8784a', 0, 2, 16, 14); px(tx, '#d8a874', 0, 2, 16, 4); px(tx, '#8a5a34', 0, 10, 16, 1); break;
     case T.SHELF:
       px(tx, '#8a6a4a', 1, 0, 14, 16);
@@ -1206,99 +1199,140 @@ function drawInterior(x, id, theme, v) {
 }
 
 // ---------------------------------------------------------------- characters
-// Left halves of the 16x16 down/up sprites are mirrored to keep them symmetric.
-const SPR_DOWN = [
-  '........', '.....ooo', '....ohhh', '...ohhhh', '...ohhhh', '...ohsss', '...osess', '...ossss',
-  '....osss', '...occcc', '..oocccc', '..osCccc', '...oCccc', '...opppp', '....opp.', '....obb.',
-];
-const SPR_UP = [
-  '........', '.....ooo', '....ohhh', '...ohhhh', '...ohhhh', '...ohhhh', '...ohhhh', '...ohhhh',
-  '....ohhh', '...occcc', '..oocccc', '..osCccc', '...oCccc', '...opppp', '....opp.', '....obb.',
-];
-const SPR_SIDE = [
-  '................', '.....oooooo.....', '....ohhhhhho....', '...ohhhhhhhho...',
-  '...ohhhhhhhho...', '...ohhhhsssso...', '...ohhhsssseo...', '...ohhssssssso..',
-  '....ohsssssso...', '....occcccco....', '....occcccco....', '....oscCcco.....',
-  '....oCccccco....', '....oppppppo....', '.....oppppo.....', '.....obbbbo.....',
-];
-const SPR_SIDE_STEP = ['....opppopppo...', '...obbo..obbo...'];
+// 20x24 sprites built from outlined rectangles in layers (the House Keeper
+// method): each layer gets a 1px outline, then detail pixels go on top.
+const EYE = '#22182e';
 
-function mirrorRows(rows) { return rows.map((r) => r + r.split('').reverse().join('')); }
-
-function paintRows(x, rows, pal, ox = 0, oy = 0) {
-  const map = {
-    o: OUTLINE, h: pal.h, s: pal.s, e: '#202028', c: pal.c, C: U.shade(pal.c, -0.25),
-    p: pal.p, b: pal.b, w: '#ffffff', k: pal.k || pal.h,
+function charStyle(pal, look) {
+  const cf = {
+    skin: pal.s, skinS: U.shade(pal.s, -0.18), hair: pal.h, hairS: U.shade(pal.h, -0.28), hairL: U.shade(pal.h, 0.35),
+    shirt: pal.c, shirtS: U.shade(pal.c, -0.3), pants: pal.p, pantsS: U.shade(pal.p, -0.3), shoe: pal.b,
+    style: pal.style || 'short',
   };
-  rows.forEach((row, y) => {
-    for (let X = 0; X < row.length; X++) {
-      const ch = row[X];
-      if (ch === '.') continue;
-      x.fillStyle = map[ch] || '#f0f';
-      x.fillRect(ox + X, oy + y, 1, 1);
-    }
-  });
+  if (pal.pack) { cf.pack = pal.pack; cf.packS = U.shade(pal.pack, -0.3); }
+  if (look === 'cap') { cf.cap = '#c8402a'; cf.capS = '#8a2418'; }
+  if (look === 'headband') { cf.band = '#e8302a'; cf.bandS = '#a01c18'; }
+  if (look === 'glasses') cf.glasses = true;
+  if (look === 'collar') cf.collar = true;
+  if (pal.coat) cf.coat = pal.coat;
+  if (pal.tie) cf.tie = pal.tie;
+  return cf;
 }
 
-function charRows(dir, step) {
-  let rows;
+function buildChar(cf, dir, fr) {
+  const [cv, C] = U.canvas(20, 24);
+  const layers = [[]]; let cur = layers[0];
+  const layer = () => { cur = []; layers.push(cur); };
+  const R = (x, y, w, h, c) => cur.push([x + 2, y + 4, w, h, c]);
+  const det = [];
+  const D = (x, y, w, h, c) => det.push([x + 2, y + 4, w, h, c]);
+  const lift = fr === 1 ? 1 : fr === 2 ? 2 : 0;
+
   if (dir === 'down' || dir === 'up') {
-    rows = mirrorRows(dir === 'down' ? SPR_DOWN : SPR_UP);
-    if (step) {
-      rows = rows.slice();
-      const lift = (cols) => {
-        const r14 = rows[14].split(''), r15 = rows[15].split('');
-        for (const c of cols) { r14[c] = 'b'; r15[c] = '.'; }
-        rows[14] = r14.join(''); rows[15] = r15.join('');
-      };
-      lift(step === 1 ? [5, 6] : [9, 10]);
+    const front = dir === 'down';
+    if (cf.style === 'long' && front) { R(2, 4, 2, 10, cf.hair); R(12, 4, 2, 10, cf.hair); }
+    layer();
+    R(5, 16, 2, lift === 1 ? 2 : 3, cf.pants); R(9, 16, 2, lift === 2 ? 2 : 3, cf.pants);
+    D(5, lift === 1 ? 17 : 18, 2, 1, cf.shoe); D(9, lift === 2 ? 17 : 18, 2, 1, cf.shoe);
+    layer();
+    const body = cf.coat || cf.shirt;
+    R(4, 11, 8, 5, body);
+    R(2, 11, 2, lift === 2 ? 3 : 4, body); R(12, 11, 2, lift === 1 ? 3 : 4, body);
+    D(2, lift === 2 ? 13 : 14, 2, 1, cf.skin); D(12, lift === 1 ? 13 : 14, 2, 1, cf.skin);
+    D(4, 15, 8, 1, cf.coat ? U.shade(cf.coat, -0.2) : cf.shirtS);
+    if (front && cf.coat) { D(6, 11, 4, 4, cf.shirt); D(7, 11, 2, 4, cf.shirtS); }
+    if (front && cf.tie) D(7, 11, 2, 4, cf.tie);
+    if (front && cf.pack) { D(4, 11, 1, 4, cf.packS); D(11, 11, 1, 4, cf.packS); }
+    if (front && cf.collar) D(7, 11, 2, 1, '#ffffff');
+    layer();
+    if (front) {
+      R(3, 2, 10, 9, cf.skin);
+      if (cf.style === 'short' || cf.style === 'bun') {
+        R(3, 1, 10, 3, cf.hair); R(3, 4, 1, 3, cf.hair); R(12, 4, 1, 3, cf.hair); D(5, 1, 3, 1, cf.hairL);
+        if (cf.style === 'bun') R(6, -1, 4, 3, cf.hair);
+      } else if (cf.style === 'long') {
+        R(3, 1, 10, 4, cf.hair); R(3, 4, 1, 5, cf.hair); R(12, 4, 1, 5, cf.hair);
+        D(4, 5, 2, 1, cf.hair); D(7, 5, 1, 1, cf.hair); D(10, 5, 2, 1, cf.hair); D(5, 1, 4, 1, cf.hairL);
+        D(4, 9, 1, 1, '#f0a0a0'); D(11, 9, 1, 1, '#f0a0a0');
+      } else {
+        R(2, 5, 2, 3, cf.hair); R(12, 5, 2, 3, cf.hair);
+      }
+      if (cf.cap) { R(3, 1, 10, 3, cf.cap); R(2, 3, 12, 2, cf.cap); D(2, 4, 12, 1, cf.capS); D(5, 1, 3, 1, U.shade(cf.cap, 0.3)); }
+      if (cf.band) { R(3, 3, 10, 2, cf.band); R(13, 4, 2, 2, cf.band); D(3, 4, 10, 1, cf.bandS); }
+      D(5, 7, 1, 2, EYE); D(10, 7, 1, 2, EYE);
+      if (cf.glasses) { D(4, 6, 3, 3, '#30304a'); D(9, 6, 3, 3, '#30304a'); D(5, 7, 1, 1, '#cfe8ff'); D(10, 7, 1, 1, '#cfe8ff'); D(7, 7, 2, 1, '#30304a'); }
+      D(7, 9, 2, 1, '#c0605a');
+    } else {
+      if (cf.style === 'long') {
+        R(3, 1, 10, 4, cf.hair); R(2, 4, 12, 10, cf.hair); D(4, 2, 4, 1, cf.hairL); D(7, 4, 2, 9, cf.hairS);
+      } else if (cf.style === 'bald') {
+        R(3, 2, 10, 9, cf.skin); R(2, 5, 12, 3, cf.hair); D(6, 3, 3, 1, '#ffffff');
+      } else {
+        R(3, 2, 10, 9, cf.skin); R(3, 1, 10, 8, cf.hair); R(2, 6, 1, 2, cf.skin); R(13, 6, 1, 2, cf.skin);
+        D(5, 2, 4, 1, cf.hairL);
+        if (cf.style === 'bun') R(6, -1, 4, 3, cf.hair);
+      }
+      if (cf.cap) { R(3, 1, 10, 4, cf.cap); D(3, 4, 10, 1, cf.capS); }
+      if (cf.band) { R(3, 3, 10, 2, cf.band); D(3, 4, 10, 1, cf.bandS); D(7, 5, 2, 2, cf.band); }
     }
-  } else {
-    rows = SPR_SIDE.slice();
-    if (step) { rows[14] = SPR_SIDE_STEP[0]; rows[15] = SPR_SIDE_STEP[1]; }
+    layer();
+    if (!front && cf.pack) { R(4, 10, 8, 6, cf.pack); D(4, 10, 8, 2, cf.packS); D(7, 12, 2, 1, '#e0c060'); D(5, 14, 6, 1, cf.packS); }
+  } else { // facing right
+    if (cf.style === 'long') R(3, 4, 4, 10, cf.hair);
+    if (cf.pack) { R(2, 11, 4, 5, cf.pack); D(2, 11, 4, 1, cf.packS); D(3, 13, 2, 1, '#e0c060'); }
+    layer();
+    if (lift) {
+      R(4, 16, 2, 3, lift === 1 ? cf.pantsS : cf.pants); R(9, 16, 2, 3, lift === 1 ? cf.pants : cf.pantsS);
+      D(4, 18, 2, 1, cf.shoe); D(9, 18, 3, 1, cf.shoe);
+    } else { R(6, 16, 3, 3, cf.pants); D(6, 18, 4, 1, cf.shoe); }
+    layer();
+    const body = cf.coat || cf.shirt;
+    R(5, 11, 6, 5, body); D(5, 15, 6, 1, cf.coat ? U.shade(cf.coat, -0.2) : cf.shirtS);
+    if (cf.tie) D(10, 11, 1, 3, cf.tie);
+    const ax = lift === 1 ? 9 : lift === 2 ? 5 : 7;
+    layer();
+    R(ax, 12, 2, 3, body); D(ax, 14, 2, 1, cf.skin);
+    layer();
+    R(4, 2, 9, 9, cf.skin);
+    if (cf.style === 'short' || cf.style === 'bun') {
+      R(4, 1, 8, 3, cf.hair); R(4, 4, 3, 5, cf.hair); D(7, 6, 1, 2, cf.skinS); D(5, 1, 3, 1, cf.hairL);
+      if (cf.style === 'bun') R(3, 0, 3, 3, cf.hair);
+    } else if (cf.style === 'long') {
+      R(4, 1, 8, 4, cf.hair); R(3, 4, 4, 6, cf.hair); D(10, 4, 2, 1, cf.hair); D(5, 1, 4, 1, cf.hairL); D(11, 9, 1, 1, '#f0a0a0');
+    } else {
+      R(4, 5, 2, 4, cf.hair); D(6, 3, 3, 1, '#ffffff');
+    }
+    if (cf.cap) { R(4, 1, 8, 3, cf.cap); R(11, 3, 4, 1, cf.cap); D(4, 3, 8, 1, cf.capS); }
+    if (cf.band) { R(4, 3, 9, 2, cf.band); R(1, 4, 3, 2, cf.band); D(4, 4, 9, 1, cf.bandS); }
+    D(10, 7, 1, 2, EYE);
+    if (cf.glasses) { D(9, 6, 3, 3, '#30304a'); D(10, 7, 1, 1, '#cfe8ff'); }
+    D(11, 9, 1, 1, '#c0605a');
   }
-  return rows;
+  for (const L of layers) {
+    C.fillStyle = OUTLINE; for (const [x, y, w, h] of L) C.fillRect(x - 1, y - 1, w + 2, h + 2);
+    for (const [x, y, w, h, c] of L) { C.fillStyle = c; C.fillRect(x, y, w, h); }
+  }
+  for (const [x, y, w, h, c] of det) { C.fillStyle = c; C.fillRect(x, y, w, h); }
+  return cv;
 }
 
-// Accessory overlays for the leaders (and the player's look).
-function accessory(x, look, dir) {
-  if (!look) return;
-  if (look === 'cap') {
-    px(x, '#c8402a', 4, 1, 8, 3); px(x, '#c8402a', 3, 3, 10, 1);
-    if (dir === 'down') px(x, '#a8301a', 3, 4, 10, 1);
-    if (dir === 'right') px(x, '#a8301a', 10, 4, 4, 1);
-  } else if (look === 'headband') {
-    px(x, '#e8302a', 3, 4, 10, 1);
-  } else if (look === 'glasses' && dir === 'down') {
-    px(x, '#1a1a1a', 4, 6, 3, 1); px(x, '#1a1a1a', 9, 6, 3, 1); px(x, '#1a1a1a', 7, 6, 2, 1);
-  } else if (look === 'goggles' && dir === 'down') {
-    px(x, '#7ac8e8', 4, 6, 3, 1); px(x, '#7ac8e8', 9, 6, 3, 1); px(x, '#5a5a5a', 7, 6, 2, 1);
-  } else if (look === 'collar') {
-    if (dir === 'down') px(x, '#ffffff', 7, 9, 2, 1);
-  }
-}
-
-// Returns {down:[stand,stepA,stepB], up:[...], left:[...], right:[...]}.
+// Returns {down:[stand,stepA,stepB], up, left, right}; 20x24 canvases drawn
+// at (tileX - 2, tileY - 8).
 Art.character = function (pal, look) {
   const key = 'chr|' + JSON.stringify(pal) + '|' + look;
   return this.get(key, () => {
-    const out = {};
-    for (const dir of ['down', 'up', 'right']) {
-      out[dir] = [0, 1, 2].map((step) => {
-        const [c, x] = U.canvas(16, 16);
-        paintRows(x, charRows(dir, step === 0 ? 0 : step), pal);
-        accessory(x, look, dir);
-        return c;
-      });
-    }
+    const cf = charStyle(pal, look), out = {};
+    for (const dir of ['down', 'up', 'right']) out[dir] = [0, 1, 2].map((f) => buildChar(cf, dir, f));
     out.left = out.right.map((src) => {
-      const [c, x] = U.canvas(16, 16);
-      x.translate(16, 0); x.scale(-1, 1); x.drawImage(src, 0, 0);
+      const [c, x] = U.canvas(20, 24);
+      x.translate(20, 0); x.scale(-1, 1); x.drawImage(src, 0, 0);
       return c;
     });
     return out;
   });
 };
+const WALKCYCLE = [1, 0, 2, 0];
+function shadow(x, sx, sy) { x.fillStyle = 'rgba(20,10,30,.28)'; x.fillRect(sx + 4, sy + 13, 8, 3); x.fillRect(sx + 3, sy + 14, 10, 1); }
 
 Art.cone = function () {
   return this.get('cone', () => {
@@ -1591,8 +1625,8 @@ function drawFace(x, cx, cy, ink) {
 Art.portrait = function (pal, look, dir = 'down') {
   return this.get('portrait|' + JSON.stringify(pal) + '|' + look + '|' + dir, () => {
     const src = Art.character(pal, look)[dir][0];
-    const [c, x] = U.canvas(64, 64);
-    x.drawImage(src, 0, 0, 64, 64);
+    const [c, x] = U.canvas(60, 72);
+    x.drawImage(src, 0, 0, 60, 72);
     return c;
   });
 };
@@ -1763,7 +1797,7 @@ const Input = {
     w: 'up', s: 'down', a: 'left', d: 'right', W: 'up', S: 'down', A: 'left', D: 'right',
     z: 'A', Z: 'A', j: 'A', J: 'A', ' ': 'A', Enter: 'A',
     x: 'B', X: 'B', k: 'B', K: 'B', Backspace: 'B', Shift: 'B',
-    Escape: 'ESC', m: 'START', M: 'START', Tab: 'START',
+    Escape: 'ESC', m: 'MUSIC', M: 'MUSIC', Tab: 'START',
   },
 
   init() {
@@ -1813,6 +1847,7 @@ const Input = {
 
   down(b) {
     if (b === 'ESC') { this.queue.push('ESC'); return; }
+    if (b === 'MUSIC') { Audio2.setMuted(!Audio2.muted); UI.toast(Audio2.muted ? 'MUSIC OFF' : 'MUSIC ON'); return; }
     if (this.held[b]) return;
     this.held[b] = true;
     this.queue.push(b);
@@ -1887,6 +1922,13 @@ const UI = {
   async say(text, o = {}) {
     if (Array.isArray(text)) { for (const t of text) await this.say(t, o); return; }
     text = Game.fmt(text);
+    // House Keeper boxes: 34 characters a line, 3 lines a box
+    const pages = this.paginate(text);
+    if (pages.length > 1) {
+      for (let i = 0; i < pages.length; i++) await this.say(pages[i], { ...o, raw: true, noWait: i === pages.length - 1 ? o.noWait : false, auto: i === pages.length - 1 ? o.auto : 0 });
+      return;
+    }
+    text = pages[0];
     const box = this.dlg;
     box.classList.remove('hidden');
     box.classList.toggle('battle', !!Battle.active);
@@ -1926,6 +1968,22 @@ const UI = {
     });
   },
   closeDialog() { this.dlg.classList.add('hidden'); },
+  paginate(text, width = 34, rows = 3) {
+    const lines = [];
+    for (const para of String(text).split('\n')) {
+      let line = '';
+      for (const w of para.split(' ')) {
+        if (!line) line = w;
+        else if ((line + ' ' + w).length <= width) line += ' ' + w;
+        else { lines.push(line); line = w; }
+        while (line.length > width) { lines.push(line.slice(0, width)); line = line.slice(width); }
+      }
+      lines.push(line);
+    }
+    const pages = [];
+    for (let i = 0; i < lines.length; i += rows) pages.push(lines.slice(i, i + rows).join('\n'));
+    return pages.length ? pages : [''];
+  },
 
   // -------------------------------------------------------------- choice
   choose(options, o = {}) {
@@ -2437,24 +2495,46 @@ function makeNPC(o) {
 }
 
 // ------------------------------------------------------------ interiors
+// Rooms are House Keeper sized: a 17x11 floor inside walls, filling the
+// 19x14 screen. `face` is the papered wall row (w window, N banner); the exit
+// mat sits in the middle of the bottom wall.
 const TEMPLATES = {
-  house: ['WwWWWWWWwW', 'WWWWWWWWWW', 'BKK.....PV', 'b.........', '...TT.....', '...TT.....', '..........', '....RR....', '....E.....'],
-  store: ['WwWWWWWWwW', 'WWWWWWWWWW', 'P........P', 'CCC..SS.SS', '..........', '.....SS.SS', '..........', '....E.....'],
-  hospital: ['WwWWWWWWWwW', 'WWWWWWWWWWW', 'H.H.....M.P', '...CCCCC...', '...........', 'cc.......cc', '...........', '.....E.....'],
-  chapel: ['WwWWWWWWWwW', 'WWWWWWWWWWW', 'P...AAA...P', '...........', '...........', 'UUU.....UUU', '...........', 'UUU.....UUU', '...........', '.....E.....'],
-  hall: ['WwWWWwWWWwW', 'WWWWWwWWWWW', 'X....G....X', '.....G.....', 'X....G....X', '.....G.....', 'X....G....X', '.....G.....', 'X....G....X', '.....G.....', '.....G.....', '.....G.....', '.....E.....'],
-  lab: ['WwWWWWWWWWwW', 'WWWWWWWWWWWW', 'MM.KK..KK.MM', '............', '....TTT.....', '............', 'P..........P', '............', '.....E......'],
+  house: { face: 'WwWWWwWWWWWwWWWwW', inner: [
+    'BKK..........PP.V', 'b................', '.................', '.....TT....c.....', '.....TT..........', '.................',
+    '.P.............P.', '.................', '......RRRRR......', '......RRRRR......', '.................'] },
+  store: { face: 'WwWWWWwWWWWwWWWWw', inner: [
+    'P...............P', '.................', 'CCC..SSS.SSS.SSS.', '.................', '.....SSS.SSS.SSS.', '.................',
+    '.....SSS.SSS.SSS.', '.................', '.P.............P.', '.................', '.................'] },
+  hospital: { face: 'WwWWWwWWWWWwWWWwW', inner: [
+    'H.H.H.......M.M.P', '.................', '.....CCCCCCC.....', '.................', '.................', 'cc.cc.......cc.cc',
+    '.................', '.................', '.P.............P.', '.................', '.................'] },
+  chapel: { face: 'WwWWwWWWNWWWwWWwW', inner: [
+    'P......AAA......P', '.................', '.................', '.UUUUUU...UUUUUU.', '.................', '.UUUUUU...UUUUUU.',
+    '.................', '.UUUUUU...UUUUUU.', '.................', '.................', 'P...............P'] },
+  hall: { face: 'WwWWNWWWNWWWNWWwW', inner: [
+    'X......GGG......X', '.......GGG.......', 'X......GGG......X', '.......GGG.......', 'X......GGG......X', '.......GGG.......',
+    'X......GGG......X', '.......GGG.......', '.......GGG.......', '.......GGG.......', '.......GGG.......'] },
+  lab: { face: 'WwWWWwWWWWWwWWWwW', inner: [
+    'MM.KKK.....KKK.MM', '.................', '.................', '......TTT........', '.................', '.................',
+    'P...............P', '..MM.........MM..', '.................', '.................', '.................'] },
 };
+const IN = (x, y) => ({ x: x + 1, y: y + 2 });   // inner coords -> room coords
+function roomRows(tpl) {
+  const rows = ['W'.repeat(19), 'W' + tpl.face + 'W'];
+  for (const r of tpl.inner) rows.push('W' + r + 'W');
+  rows.push('W'.repeat(9) + 'E' + 'W'.repeat(9));
+  return rows;
+}
 const TCHAR = {
   W: T.WALL, w: T.WWALL, '.': T.FLOOR, K: T.BOOKS, B: T.BED, b: T.BEDB, T: T.TABLE, P: T.PLANT, V: T.TV,
   R: T.RUG, E: T.EXIT, C: T.COUNTER, S: T.SHELF, H: T.HBED, U: T.PEW, A: T.ALTAR, M: T.MACHINE, X: T.STATUE,
-  G: T.MAT, c: T.CHAIR,
+  G: T.MAT, c: T.CHAIR, N: T.BANNER,
 };
 
 const Interiors = {
   create(b, ti, doorX, doorY) {
     const tplName = b.kind === 'house' ? 'house' : b.kind;
-    const tpl = TEMPLATES[tplName];
+    const tpl = roomRows(TEMPLATES[tplName]);
     const theme = b.kind === 'hall' ? 'hall:' + b.color : tplName;
     const id = `${b.kind}-${ti}-${b.slot ?? 0}`;
     const m = new GMap(id, tpl[0].length, tpl.length, theme);
@@ -2469,12 +2549,12 @@ const Interiors = {
   },
 
   populate(m, b, ti) {
-    const add = (o) => { const n = makeNPC(o); m.npcs.push(n); return n; };
+    const add = (o) => { const p = IN(o.x, o.y); const n = makeNPC({ ...o, ...p }); m.npcs.push(n); return n; };
     switch (b.kind) {
       case 'store': {
-        const n = add({ x: 1, y: 2, pal: 'clerk' });
+        const n = add({ x: 1, y: 1, pal: 'clerk' });
         n.talk = () => Scripts.shop(ti);
-        add({ x: 7, y: 4, pal: ['dude', 'lady', 'old', 'kid'][ti % 4], wander: 1, say: [
+        add({ x: 8, y: 3, pal: ['dude', 'lady', 'old', 'kid'][ti % 4], wander: 1, say: [
           ['They raised the price of coffee again. I\'m buying three.'],
           ['Self-help books are basically cheat codes. Read one, learn a skill!'],
           ['A Scratch-Off Ticket is a "tax on hope." I buy one every day.'],
@@ -2483,32 +2563,32 @@ const Interiors = {
         break;
       }
       case 'hospital': {
-        const n = add({ x: 5, y: 2, pal: 'nurse' });
+        const n = add({ x: 8, y: 1, pal: 'nurse' });
         n.talk = () => Scripts.hospital(ti);
-        add({ x: 1, y: 4, pal: 'old', dir: 'right', say: ['I\'ve been in this waiting room since Tuesday. Which Tuesday? Don\'t ask.'] });
+        add({ x: 2, y: 4, pal: 'old', dir: 'right', say: ['I\'ve been in this waiting room since Tuesday. Which Tuesday? Don\'t ask.'] });
         break;
       }
       case 'chapel': {
-        const n = add({ x: 5, y: 3, pal: 'pastor', look: 'collar' });
+        const n = add({ x: 8, y: 1, pal: 'pastor', look: 'collar' });
         n.talk = () => Scripts.chapel(ti);
-        add({ x: 9, y: 6, pal: 'lady', dir: 'up', say: ['A little kindness goes a long way. So does a little donation.'] });
+        add({ x: 8, y: 6, pal: 'lady', dir: 'up', say: ['A little kindness goes a long way. So does a little donation.'] });
         break;
       }
       case 'hall': {
         const L = LEADERS[b.leader];
-        const n = add({ x: 5, y: 3, pal: 'leader', look: L.look });
+        const n = add({ x: 8, y: 1, pal: 'leader', look: L.look });
         n.palObj = L.pal; n.leader = b.leader;
         n.talk = () => Scripts.leader(b.leader, n);
-        const g = add({ x: 3, y: 11, pal: 'guide', dir: 'right' });
+        const g = add({ x: 5, y: 9, pal: 'guide', dir: 'right' });
         g.talk = () => Scripts.guide(b.leader);
         break;
       }
       case 'lab': {
-        const st = add({ x: 8, y: 3, pal: 'street', look: 'glasses' });
+        const st = add({ x: 12, y: 2, pal: 'street', look: 'glasses' });
         st.talk = () => Scripts.street(st);
-        add({ x: 2, y: 6, pal: 'aide', wander: 1, say: ['Dr. Street once beat a parking ticket in court using only a PowerPoint.'] });
+        add({ x: 5, y: 9, pal: 'aide', wander: 1, say: ['Dr. Street once beat a parking ticket in court using only a PowerPoint.'] });
         ['diploma', 'wrench', 'badge'].forEach((k, i) => {
-          const idx = m.idx(4 + i, 4);
+          const t = IN(6 + i, 3), idx = m.idx(t.x, t.y);
           m.props.set(idx, k);
           m.acts.set(idx, () => Scripts.pathTable(k));
         });
@@ -2517,13 +2597,13 @@ const Interiors = {
       case 'house': {
         if (ti === 0 && b.slot === 0) {
           m.isHome = true;
-          const mom = add({ x: 6, y: 4, pal: 'mom', dir: 'left' });
+          const mom = add({ x: 10, y: 4, pal: 'mom', dir: 'left' });
           mom.talk = () => Scripts.mom(mom);
           break;
         }
         const def = TOWNFOLK[ti].houses[b.slot];
         if (def) {
-          const n = add({ x: 6, y: 4, pal: def.pal, wander: 1 });
+          const n = add({ x: 10, y: 4, pal: def.pal, wander: 1 });
           n.talk = () => Scripts.house(n, def, ti, b.slot);
         }
         break;
@@ -2537,7 +2617,7 @@ const Interiors = {
 // Core game state: the player, overworld movement, rendering, field menus,
 // money, saving. Battles live in battle.js, NPC scripts in scripts.js.
 
-const VIEW_W = 240, VIEW_H = 160;
+const VIEW_W = 304, VIEW_H = 224;
 const DIRS = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
 const OPP = { up: 'down', down: 'up', left: 'right', right: 'left' };
 const SAVE_KEY = 'adulting-quest-save-v1';
@@ -2588,7 +2668,7 @@ const Game = {
       name, path: null, level: 5, xp: Stats.xpFor(5), sanity: 30, energy: 20, status: null,
       known: ['wing_it'], equipped: ['wing_it'], items: {}, money: 0, debt: 0, karma: 50,
       badges: [], flags: {}, outfit: PALS.player.c, repel: 0, steps: 0, playTime: 0,
-      respawn: { map: 'house-0-0', x: 4, y: 5, dir: 'up' },
+      respawn: { map: 'house-0-0', x: 10, y: 6, dir: 'right' },
       map: 'house-0-0', x: 2, y: 3, dir: 'down',
     };
   },
@@ -2879,6 +2959,7 @@ const Game = {
     x.fillRect(0, 0, VIEW_W, VIEW_H);
     if (this.mode === 'title') { this.renderTitle(x); return; }
     if (this.mode === 'intro') { Intro.render(x); this.drawFade(x); return; }
+    if (this.scene && this.scene.kind === 'select') { this.renderSelect(x); this.drawFade(x); return; }
     if (!this.map) return;
     this.renderMap(x);
     this.drawFade(x);
@@ -2887,14 +2968,54 @@ const Game = {
     if (this.fade > 0) { x.fillStyle = `rgba(0,0,0,${this.fade})`; x.fillRect(0, 0, VIEW_W, VIEW_H); }
     if (this.flash > 0) { x.fillStyle = `rgba(255,255,255,${this.flash})`; x.fillRect(0, 0, VIEW_W, VIEW_H); }
   },
+  // Night over the suburbs, the city glowing behind: the twenties.
   renderTitle(x) {
-    const m = World.maps.world;
-    const span = (m.w * 16 - VIEW_W);
-    const t = this.titleCam % (span * 2);
-    const cx = t < span ? t : span * 2 - t;
-    this.renderMap(x, { cam: [cx, 4 * 16 + 40], noPlayer: true, map: m });
-    x.fillStyle = 'rgba(10,20,40,0.35)';
-    x.fillRect(0, 0, VIEW_W, VIEW_H);
+    const t = this.time;
+    const gr = x.createLinearGradient(0, 0, 0, VIEW_H);
+    gr.addColorStop(0, '#0a0820'); gr.addColorStop(1, '#3a2050');
+    x.fillStyle = gr; x.fillRect(0, 0, VIEW_W, VIEW_H);
+    for (let i = 0; i < 60; i++) {
+      const sx = U.hash(i, 1) % VIEW_W, sy = U.hash(i, 2) % 120;
+      if (Math.sin(t * 2 + i) > -0.6) px(x, i % 7 ? '#c8c0e8' : '#fff8c0', sx, sy, 1, 1);
+    }
+    disc(x, 252, 30, 9, 9, '#f4ecc8'); px(x, '#ddd2ac', 249, 27, 3, 3); px(x, '#ddd2ac', 255, 33, 2, 2);
+    // far skyline
+    const towers = [[150, 70, 16], [168, 54, 14], [184, 80, 20], [206, 62, 12], [220, 90, 18], [240, 72, 14], [256, 96, 22], [280, 78, 16]];
+    for (const [tx, h, w] of towers) {
+      px(x, '#1e1838', tx, 196 - h, w, h);
+      for (let wy = 196 - h + 4; wy < 190; wy += 6) for (let wx = tx + 2; wx < tx + w - 2; wx += 4) {
+        if (U.hash(wx, wy, Math.floor(t / 2)) % 10 < 4) px(x, '#f0c060', wx, wy, 2, 3);
+      }
+    }
+    // near houses
+    const houses = [[8, 46], [62, 52], [118, 44]];
+    for (const [hx, w] of houses) {
+      px(x, '#120c1e', hx, 150, w, 46);
+      for (let i = 0; i < w / 2 + 2; i++) px(x, '#120c1e', hx - 2 + i, 150 - i * 0.6, w + 4 - i * 2, 1);
+      for (let i = 0; i < 2; i++) px(x, U.hash(hx, i, Math.floor(t / 3)) % 10 < 6 ? '#f0c060' : '#2a2038', hx + 8 + i * (w - 24), 162, 8, 10);
+      px(x, '#2a1a10', hx + w / 2 - 4, 178, 8, 18);
+    }
+    px(x, '#1a1428', 0, 196, VIEW_W, 28);
+    px(x, '#2a2240', 0, 196, VIEW_W, 2);
+  },
+  // Dr. Street's path choice: three spotlights (the House Keeper select screen).
+  renderSelect(x) {
+    const t = this.time, sel = this.scene.i;
+    const gr = x.createLinearGradient(0, 0, 0, VIEW_H);
+    gr.addColorStop(0, '#1a1230'); gr.addColorStop(1, '#2e2048');
+    x.fillStyle = gr; x.fillRect(0, 0, VIEW_W, VIEW_H);
+    for (let y = 120; y < VIEW_H; y += 8) for (let X = 0; X < VIEW_W; X += 8) px(x, ((X + y) / 8) % 2 ? '#3a2a5a' : '#32244e', X, y, 8, 8);
+    ['diploma', 'wrench', 'badge'].forEach((k, i) => {
+      const cx = 52 + i * 100, on = i === sel;
+      x.fillStyle = on ? 'rgba(255,230,160,.18)' : 'rgba(255,255,255,.04)';
+      x.beginPath(); x.moveTo(cx - 8, 0); x.lineTo(cx + 8, 0); x.lineTo(cx + 38, 128); x.lineTo(cx - 38, 128); x.fill();
+      x.fillStyle = 'rgba(0,0,0,.3)'; x.beginPath(); x.ellipse(cx, 124, 26, 5, 0, 0, Math.PI * 2); x.fill();
+      const bob = on ? Math.round(Math.sin(t * 4) * 2) : 0;
+      x.globalAlpha = on ? 1 : 0.5;
+      x.drawImage(Art.icon(k, 3), cx - 24, 70 + bob);
+      x.globalAlpha = 1;
+      if (on && Math.floor(t * 3) % 2) { x.fillStyle = '#f0c040'; x.beginPath(); x.moveTo(cx - 5, 50); x.lineTo(cx + 5, 50); x.lineTo(cx, 56); x.fill(); }
+    });
   },
 
   camera(m) {
@@ -2913,13 +3034,13 @@ const Game = {
     let cx, cy, ppx, ppy;
     if (o.cam) [cx, cy] = o.cam; else [cx, cy, ppx, ppy] = this.camera(m);
     const x0 = Math.floor(cx / 16), y0 = Math.floor(cy / 16);
-    for (let ty = y0; ty <= y0 + 11; ty++) for (let tx = x0; tx <= x0 + 15; tx++) {
+    for (let ty = y0; ty <= y0 + VIEW_H / 16; ty++) for (let tx = x0; tx <= x0 + Math.ceil(VIEW_W / 16); tx++) {
       if (!m.in(tx, ty)) continue;
       let id = m.get(tx, ty);
       if (id === T.BUILD || id === T.DOOR) id = T.GROUND;
       const theme = m.themeAt(tx, ty);
       let v;
-      if (m.theme) v = (id === T.WALL || id === T.WWALL) ? ((m.get(tx, ty + 1) !== T.WALL && m.get(tx, ty + 1) !== T.WWALL) ? 1 : 0) : (tx + ty) % 2;
+      if (m.theme) v = (id === T.WALL || id === T.WWALL || id === T.BANNER) ? (ty === 0 || tx === 0 || tx === m.w - 1 || ty === m.h - 1 ? 0 : 1) : (id === T.FLOOR || id === T.MAT ? (tx + ty) % 2 + 2 * (U.hash(tx, ty) % 4) : (tx + ty) % 2);
       else v = U.hash(tx, ty) % 8;
       x.drawImage(Art.tile(id, theme, v, this.waterF), tx * 16 - cx, ty * 16 - cy);
       const pr = m.props.get(m.idx(tx, ty));
@@ -2954,17 +3075,19 @@ const Game = {
   drawEntity(x, n, sx, sy, m) {
     if (n.kind === 'cone') { x.drawImage(Art.cone(), sx, sy - 2); return; }
     const pal = n.palObj || PALS[n.pal] || PALS.dude;
-    const fr = n.moving && n.mt > 0.25 && n.mt < 0.8 ? 1 + n.step : 0;
-    x.drawImage(Art.character(pal, n.look)[n.dir][fr], sx, sy - 4);
+    const fr = n.moving ? WALKCYCLE[(n.step * 2 + Math.floor(n.mt * 2)) % 4] : 0;
+    shadow(x, sx, sy);
+    x.drawImage(Art.character(pal, n.look)[n.dir][fr], sx - 2, sy - 8);
     this.grassOver(x, m, n.moving ? n.tx : n.x, n.moving ? n.ty : n.y, sx, sy, n.moving);
   },
   drawPlayer(x, sx, sy, m) {
     const P = this.pos;
     const pal = { ...PALS.player, c: this.p.outfit };
-    const fr = P.moving && P.mt > 0.2 && P.mt < 0.85 ? 1 + P.parity : 0;
-    const bob = P.moving && fr ? -1 : 0;
-    x.drawImage(Art.character(pal, null)[P.dir][fr], Math.round(sx), Math.round(sy) - 4 + bob);
-    this.grassOver(x, m, P.moving ? P.tx : P.x, P.moving ? P.ty : P.y, Math.round(sx), Math.round(sy), P.moving && P.mt < 0.5);
+    const fr = P.moving ? WALKCYCLE[(P.parity * 2 + Math.floor(P.mt * 2)) % 4] : 0;
+    sx = Math.round(sx); sy = Math.round(sy);
+    shadow(x, sx, sy);
+    x.drawImage(Art.character(pal, null)[P.dir][fr], sx - 2, sy - 8);
+    this.grassOver(x, m, P.moving ? P.tx : P.x, P.moving ? P.ty : P.y, sx, sy, P.moving && P.mt < 0.5);
   },
   grassOver(x, m, tx, ty, sx, sy, skip) {
     if (skip || m.get(tx, ty) !== T.GRASS) return;
@@ -3255,7 +3378,7 @@ const Scripts = {
     }
     await say('You look exhausted. Sit down, I\'ll make you a sandwich.', { name: 'MOM' });
     Game.fullHeal(); Audio2.sfx('heal');
-    p.respawn = { map: Game.map.id, x: 5, y: 4, dir: 'right' };
+    p.respawn = { map: Game.map.id, x: 10, y: 6, dir: 'right' };
     await say(['{NAME} ate a sandwich and took a nap. Sanity and Energy fully restored!',
       'MOM: "Go get \'em. And call me. You won\'t, but call me."']);
   },
@@ -3376,7 +3499,7 @@ const Scripts = {
     Game.fullHeal();
     await U.wait(700);
     await Game.fadeTo(0, 250);
-    p.respawn = { map: Game.map.id, x: 5, y: 4, dir: 'up' };
+    p.respawn = { map: Game.map.id, x: 9, y: 5, dir: 'up' };
     await say('All better! We hope to never see you again. (Kindly.)', { name: 'NURSE' });
   },
 
@@ -3461,15 +3584,15 @@ const PathPicker = {
   open(startKey) {
     const keys = ['college', 'trade', 'job'];
     let i = Math.max(0, keys.indexOf(startKey));
-    const box = UI.el('div', 'panel pathpick');
+    Game.scene = { kind: 'select', i };
+    const box = UI.el('div', 'pathpick');
     const render = () => {
-      box.innerHTML = `<div class="p-title">CHOOSE YOUR PATH</div><div class="pcards">${keys.map((k, n) => {
-        const P = PATHS[k];
-        return `<div class="pcard${n === i ? ' sel' : ''}" data-i="${n}">
-          <img src="${Art.iconURL(P.icon, 3)}"><div class="pc-name">${P.name}</div><div class="pc-blurb">${P.blurb}</div>
-          <ul class="pros">${P.pros.map((t) => `<li>${t}</li>`).join('')}</ul>
-          <ul class="cons">${P.cons.map((t) => `<li>${t}</li>`).join('')}</ul></div>`;
-      }).join('')}</div><div class="p-foot">◀ ▶ to look · A: choose · B: back</div>`;
+      Game.scene.i = i;
+      const P = PATHS[keys[i]];
+      box.innerHTML = `<div class="ps-title">CHOOSE YOUR PATH</div>
+        <div class="ps-cols">${keys.map((k, n) => `<div data-i="${n}"></div>`).join('')}</div>
+        <div class="ps-names">${keys.map((k, n) => `<span class="${n === i ? 'on' : ''}">${PATHS[k].name.toUpperCase()}</span>`).join('')}</div>
+        <div class="ps-desc"><div class="bl">${P.blurb}</div>${P.pros.map((t) => `<div class="pro">${t}</div>`).join('')}${P.cons.map((t) => `<div class="con">${t}</div>`).join('')}<div class="foot">A: CHOOSE</div></div>`;
     };
     render();
     UI.root.appendChild(box);
@@ -3477,8 +3600,10 @@ const PathPicker = {
       let asking = false;
       const pick = async () => {
         asking = true;
-        const ok = await UI.confirm(`Choose ${PATHS[keys[i]].name.toUpperCase()}? This decision follows you forever. (Kidding. Mostly.)`);
+        box.style.visibility = 'hidden';
+        const ok = await UI.confirm(`Choose ${PATHS[keys[i]].name.toUpperCase()}? This follows you forever. (Kidding. Mostly.)`);
         UI.closeDialog();
+        box.style.visibility = '';
         asking = false;
         if (ok) done(keys[i]);
       };
@@ -3492,9 +3617,9 @@ const PathPicker = {
           return 'stop';
         },
       };
-      const done = (v) => { UI.pop(w); box.remove(); resolve(v); };
+      const done = (v) => { UI.pop(w); box.remove(); Game.scene = null; resolve(v); };
       box.addEventListener('pointerdown', (e) => {
-        const c = e.target.closest('.pcard');
+        const c = e.target.closest('[data-i]');
         if (!c || UI.top() !== w) return;
         e.preventDefault();
         const n = +c.dataset.i;
@@ -3610,7 +3735,7 @@ const Battle = {
 
   async chooseAction() {
     const p = Game.p;
-    await UI.say(`What will {NAME} do?`, { noWait: true });
+    await UI.say(`What will\n{NAME} do?`, { noWait: true });
     const i = await this.grid(['SKILLS', 'BAG', 'ASSESS', 'AVOID'], 'actmenu', this.lastAct || 0, false);
     this.lastAct = i;
     if (i === 0) {
@@ -4079,38 +4204,39 @@ const Battle = {
     const sh = a.shake > 0 ? Math.round((Math.random() - 0.5) * 6) : 0;
     x.save();
     x.translate(sh, 0);
-    // sky & ground bands
+    // sky, horizon and ground bands
     const [sky1, sky2] = b.sky;
-    for (let y = 0; y < 96; y += 8) { x.fillStyle = y < 48 ? (y % 16 ? sky2 : sky1) : sky2; x.fillRect(-4, y, VIEW_W + 8, 8); }
-    x.fillStyle = sky1; x.fillRect(-4, 0, VIEW_W + 8, 40);
-    x.fillStyle = U.shade(sky1, 0.15); x.fillRect(-4, 40, VIEW_W + 8, 8);
-    x.fillStyle = b.field; x.fillRect(-4, 80, VIEW_W + 8, 80);
+    const gr = x.createLinearGradient(0, 0, 0, 72);
+    gr.addColorStop(0, sky1); gr.addColorStop(1, sky2);
+    x.fillStyle = gr; x.fillRect(-4, 0, VIEW_W + 8, 72);
+    x.fillStyle = U.shade(b.field, 0.12); x.fillRect(-4, 64, VIEW_W + 8, 40);
+    x.fillStyle = U.shade(b.field, 0.22); x.fillRect(-4, 64, VIEW_W + 8, 2);
+    x.fillStyle = b.field; x.fillRect(-4, 104, VIEW_W + 8, VIEW_H - 104);
     x.fillStyle = U.shade(b.field, -0.08);
-    for (let y = 84; y < VIEW_H; y += 6) x.fillRect(-4, y, VIEW_W + 8, 2);
-    x.fillStyle = U.shade(b.field, 0.1); x.fillRect(-4, 48, VIEW_W + 8, 32);
+    for (let y = 108; y < VIEW_H; y += 6) x.fillRect(-4, y, VIEW_W + 8, 2);
     // platforms
-    const slide = a.slide * 200;
-    disc(x, 176 - slide, 64, 46, 10, U.shade(b.field, -0.22));
-    disc(x, 176 - slide, 63, 42, 8, U.shade(b.field, -0.1));
-    disc(x, 62 + slide, 114, 56, 11, U.shade(b.field, -0.22));
-    disc(x, 62 + slide, 113, 52, 9, U.shade(b.field, -0.1));
+    const slide = a.slide * 260;
+    disc(x, 230 - slide, 92, 48, 11, U.shade(b.field, -0.24));
+    disc(x, 230 - slide, 91, 44, 9, U.shade(b.field, -0.1));
+    disc(x, 74 + slide, 160, 60, 12, U.shade(b.field, -0.24));
+    disc(x, 74 + slide, 159, 56, 10, U.shade(b.field, -0.1));
     // foe / leader
     if (a.showLeader && s.leader) {
       const L = LEADERS[s.leader];
-      x.drawImage(Art.portrait(L.pal, L.look, 'down'), 144 - slide + a.leaderX, 2);
+      x.drawImage(Art.portrait(L.pal, L.look, 'down'), 200 - slide + a.leaderX, 20);
     }
     if (a.foeVis && s.foe && a.foeGone < 1) {
       const img = Art.issue(s.foe.id);
       const vis = !(a.foeBlink > 0 && Math.floor(a.foeBlink * 20) % 2 === 0);
       if (vis) {
         const h = Math.round(48 * (1 - a.foeGone));
-        x.drawImage(img, 0, 0, 48, h, 152 - slide + a.foeX, 17 + a.foeY + (48 - h), 48, h);
+        x.drawImage(img, 0, 0, 48, h, 206 - slide + a.foeX, 44 + a.foeY + (48 - h), 48, h);
       }
     }
     // player (from behind)
     const pal = { ...PALS.player, c: Game.p.outfit };
     if (!(a.meBlink > 0 && Math.floor(a.meBlink * 20) % 2 === 0)) {
-      x.drawImage(Art.portrait(pal, null, 'up'), 30 + slide + a.meX, 52);
+      x.drawImage(Art.portrait(pal, null, 'up'), 44 + slide + a.meX, 94);
     }
     x.restore();
   },
@@ -4130,12 +4256,12 @@ const Intro = {
     x.fillStyle = g; x.fillRect(0, 0, VIEW_W, VIEW_H);
     for (let i = 0; i < 30; i++) {
       x.fillStyle = 'rgba(255,255,255,0.5)';
-      x.fillRect((U.hash(i, 1) % VIEW_W), (U.hash(i, 2) % 90), 1, 1);
+      x.fillRect((U.hash(i, 1) % VIEW_W), (U.hash(i, 2) % 120), 1, 1);
     }
-    disc(x, 120, 102, 44, 9, 'rgba(0,0,0,0.25)');
+    disc(x, 152, 134, 40, 8, 'rgba(0,0,0,0.3)');
     const bob = Math.round(Math.sin(this.t * 2) * 1);
-    if (this.who === 'street') x.drawImage(Art.portrait(PALS.street, 'glasses'), 88, 40 + bob);
-    if (this.who === 'player') x.drawImage(Art.portrait({ ...PALS.player }, null), 88, 40 + bob);
+    if (this.who === 'street') x.drawImage(Art.portrait(PALS.street, 'glasses'), 122, 62 + bob);
+    if (this.who === 'player') x.drawImage(Art.portrait({ ...PALS.player }, null), 122, 62 + bob);
   },
 
   async run() {
@@ -4172,10 +4298,8 @@ const Main = {
     Input.init();
     UI.init();
     World.build();
-    document.getElementById('muteBtn')?.addEventListener('click', () => {
-      Audio2.unlock(); Audio2.setMuted(!Audio2.muted); this.syncMute();
-    });
-    this.syncMute();
+    this.resize();
+    window.addEventListener('resize', () => this.resize());
     let last = performance.now();
     const frame = (t) => {
       const dt = Math.min(0.05, (t - last) / 1000); last = t;
@@ -4195,9 +4319,15 @@ const Main = {
     this.title();
   },
 
-  syncMute() {
-    const b = document.getElementById('muteBtn');
-    if (b) b.textContent = Audio2.muted ? '♪ off' : '♪ on';
+  // Integer scale when there's room (crisp pixels), like House Keeper.
+  resize() {
+    const touch = matchMedia('(pointer: coarse)').matches;
+    const aw = window.innerWidth - 40, ah = window.innerHeight - (touch ? 190 : 34) - 24;
+    let s = Math.min(aw / VIEW_W, ah / VIEW_H);
+    s = s >= 1 ? Math.floor(s) : Math.max(0.5, s);
+    const el = document.getElementById('screen');
+    el.style.width = Math.round(VIEW_W * s) + 'px';
+    el.style.height = Math.round(VIEW_H * s) + 'px';
   },
 
   async title() {

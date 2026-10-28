@@ -17,7 +17,7 @@ const Input = {
     w: 'up', s: 'down', a: 'left', d: 'right', W: 'up', S: 'down', A: 'left', D: 'right',
     z: 'A', Z: 'A', j: 'A', J: 'A', ' ': 'A', Enter: 'A',
     x: 'B', X: 'B', k: 'B', K: 'B', Backspace: 'B', Shift: 'B',
-    Escape: 'ESC', m: 'START', M: 'START', Tab: 'START',
+    Escape: 'ESC', m: 'MUSIC', M: 'MUSIC', Tab: 'START',
   },
 
   init() {
@@ -67,6 +67,7 @@ const Input = {
 
   down(b) {
     if (b === 'ESC') { this.queue.push('ESC'); return; }
+    if (b === 'MUSIC') { Audio2.setMuted(!Audio2.muted); UI.toast(Audio2.muted ? 'MUSIC OFF' : 'MUSIC ON'); return; }
     if (this.held[b]) return;
     this.held[b] = true;
     this.queue.push(b);
@@ -141,6 +142,13 @@ const UI = {
   async say(text, o = {}) {
     if (Array.isArray(text)) { for (const t of text) await this.say(t, o); return; }
     text = Game.fmt(text);
+    // House Keeper boxes: 34 characters a line, 3 lines a box
+    const pages = this.paginate(text);
+    if (pages.length > 1) {
+      for (let i = 0; i < pages.length; i++) await this.say(pages[i], { ...o, raw: true, noWait: i === pages.length - 1 ? o.noWait : false, auto: i === pages.length - 1 ? o.auto : 0 });
+      return;
+    }
+    text = pages[0];
     const box = this.dlg;
     box.classList.remove('hidden');
     box.classList.toggle('battle', !!Battle.active);
@@ -180,6 +188,22 @@ const UI = {
     });
   },
   closeDialog() { this.dlg.classList.add('hidden'); },
+  paginate(text, width = 34, rows = 3) {
+    const lines = [];
+    for (const para of String(text).split('\n')) {
+      let line = '';
+      for (const w of para.split(' ')) {
+        if (!line) line = w;
+        else if ((line + ' ' + w).length <= width) line += ' ' + w;
+        else { lines.push(line); line = w; }
+        while (line.length > width) { lines.push(line.slice(0, width)); line = line.slice(width); }
+      }
+      lines.push(line);
+    }
+    const pages = [];
+    for (let i = 0; i < lines.length; i += rows) pages.push(lines.slice(i, i + rows).join('\n'));
+    return pages.length ? pages : [''];
+  },
 
   // -------------------------------------------------------------- choice
   choose(options, o = {}) {
