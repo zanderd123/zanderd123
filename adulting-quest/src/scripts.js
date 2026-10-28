@@ -48,7 +48,7 @@ const Scripts = {
       Game.earn(20); Audio2.sfx('coin');
       await say('{NAME} received $20!');
     }
-    if (p.badges.length >= 1 && !Crew.has('mom')) {
+    if (p.badges.length >= ALLIES.mom.need && !Crew.has('mom')) {
       await Scripts.recruit('mom', npc);
       if (!Crew.has('mom')) return;
     }

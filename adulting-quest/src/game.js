@@ -275,7 +275,7 @@ const Game = {
     const id = r.enc[U.rand(0, r.enc.length - 1)];
     const lvl = U.rand(r.lv[0], r.lv[1]);
     if (this.p.repel > 0 && lvl <= this.p.level) return;
-    this.run(() => Battle.start({ foes: [[id, lvl]], wild: true, biome: BIOME_IDS[m.bio[m.idx(P.x, P.y)]] }));
+    this.run(() => Battle.start({ foes: [[id, lvl]], wild: true, route: reg.route, biome: BIOME_IDS[m.bio[m.idx(P.x, P.y)]] }));
   },
 
   interact() {

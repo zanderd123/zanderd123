@@ -13,7 +13,7 @@ const Battle = {
   async start(o) {
     const p = Game.p;
     this.s = {
-      wild: !!o.wild, leader: o.leader || null, biome: o.biome || 'suburb',
+      wild: !!o.wild, leader: o.leader || null, biome: o.biome || 'suburb', route: o.route || 0,
       team: o.foes.map(([id, l]) => ({ id, l })), ti: 0, foe: null,
       stages: { atk: 0, def: 0 }, meAnx: 0, cashMult: 1, escapes: 0, escaped: null,
       a: { foeX: 0, foeY: 0, meX: 0, foeBlink: 0, meBlink: 0, shake: 0, slide: 1, foeGone: 0, leaderX: 0, showLeader: !!o.leader, foeVis: !o.leader },
@@ -69,6 +69,9 @@ const Battle = {
   nextFoe(first) {
     const s = this.s, m = s.team[s.ti];
     const f = Stats.foe(m.id, m.l);
+    // later leaders are tougher than their levels alone; later routes a little
+    const pw = s.leader ? LEADERS[s.leader].power || 1 : 1 + 0.04 * (s.route || 0);
+    f.maxHp = Math.round(f.maxHp * pw); f.atk = Math.round(f.atk * pw); f.dfn = Math.round(f.dfn * pw);
     f.hp = f.maxHp; f.st = { atk: 0, def: 0 }; f.anx = 0;
     s.foe = f;
     s.disp.foe = 1;

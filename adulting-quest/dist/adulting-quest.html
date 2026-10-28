@@ -527,6 +527,7 @@ const ISSUES = {
   w2:             { name: 'Missing W-2', type: 'PAPERWORK', base: [70, 65, 65, 50], xp: 80, cash: 0, shape: 'paper', col: '#6aa86a', moves: ['box_12b', 'w2_wait'], dex: 'Your old job mailed it to an apartment you moved out of in 2021.' },
   shoebox:        { name: 'Shoebox of Receipts', type: 'CHORE', base: [75, 70, 70, 35], xp: 80, cash: 0, shape: 'shoebox', col: '#c98a4a', moves: ['receipt_avalanche', 'faded_ink'], dex: 'Every receipt is faded. Every one might be deductible.' },
   owe_money:      { name: 'Amount You Owe', type: 'MONEY', base: [75, 75, 60, 55], xp: 82, cash: 0, shape: 'envelope', col: '#c0392b', moves: ['you_owe', 'penalty'], dex: 'You expected a refund. You did not get a refund.' },
+  penalty_letter: { name: 'Penalty Letter', type: 'MONEY', base: [75, 78, 62, 58], xp: 84, cash: 0, shape: 'envelope', col: '#8a2a2a', moves: ['penalty', 'you_owe'], dex: 'Arrives on a Saturday so you can worry all weekend.' },
   audit:          { name: 'THE AUDIT', type: 'PAPERWORK', base: [90, 76, 70, 55], xp: 95, cash: 0, shape: 'clipboard', col: '#3a4a6a', magnifier: true, moves: ['line_by_line', 'scrutiny'], dex: 'Has questions about a $4 coffee from March.' },
 };
 
@@ -627,13 +628,13 @@ const TOWNS = [
 // lv = wild level range, need = milestones needed to pass the gate.
 const ROUTES = [
   { a: 0, b: 1, lv: [2, 4],   enc: ['parking_ticket', 'group_chat', 'dirty_dishes', 'forgot_sub', 'back_pain'], need: 0, gateFlag: 'path' },
-  { a: 1, b: 2, lv: [6, 10],  enc: ['spam_call', 'laundry', 'overdraft', 'sunburn', 'printer_jam', 'group_chat'], need: 1 },
-  { a: 2, b: 3, lv: [11, 15], enc: ['jury_duty', 'wedding_invite', 'ikea', 'insomnia', 'reply_all', 'overdraft'], need: 2 },
-  { a: 3, b: 4, lv: [16, 19], enc: ['landlord', 'wifi', 'perf_review', 'ex_post', 'insomnia'], need: 3 },
-  { a: 4, b: 5, lv: [18, 21], enc: ['ex_post', 'dentist', 'allergies', 'group_project', 'ikea'], need: 0 },
-  { a: 5, b: 6, lv: [20, 23], enc: ['dentist', 'hoa', 'imposter', 'landlord', 'allergies'], need: 0 },
-  { a: 6, b: 7, lv: [22, 25], enc: ['perf_review', 'imposter', 'hoa', 'group_project', 'wifi'], need: 0 },
-  { a: 7, b: 0, lv: [26, 29], enc: ['imposter', 'landlord', 'dentist', 'hoa'], need: 7 },
+  { a: 1, b: 2, lv: [8, 12],  enc: ['spam_call', 'laundry', 'overdraft', 'sunburn', 'printer_jam', 'group_chat'], need: 1 },
+  { a: 2, b: 3, lv: [13, 17], enc: ['jury_duty', 'wedding_invite', 'ikea', 'insomnia', 'reply_all', 'overdraft'], need: 2 },
+  { a: 3, b: 4, lv: [19, 22], enc: ['landlord', 'wifi', 'perf_review', 'ex_post', 'insomnia'], need: 3 },
+  { a: 4, b: 5, lv: [21, 24], enc: ['ex_post', 'dentist', 'allergies', 'group_project', 'ikea'], need: 0 },
+  { a: 5, b: 6, lv: [23, 26], enc: ['dentist', 'hoa', 'imposter', 'landlord', 'allergies'], need: 0 },
+  { a: 6, b: 7, lv: [25, 28], enc: ['perf_review', 'imposter', 'hoa', 'group_project', 'wifi'], need: 0 },
+  { a: 7, b: 0, lv: [29, 32], enc: ['imposter', 'landlord', 'dentist', 'hoa'], need: 7 },
 ];
 
 // ---------------------------------------------------------------- leaders
@@ -641,7 +642,7 @@ const ROUTES = [
 const LEADERS = {
   car: {
     name: 'RUSTY', title: 'CAR TROUBLE', town: 1, badge: 'Jumper Cable Badge', badgeIcon: 'bolt', color: '#e0902a',
-    team: [['check_engine', 9], ['flat_tire', 10], ['transmission', 12]],
+    team: [['check_engine', 10], ['flat_tire', 11], ['transmission', 13]], power: 1.0,
     reward: 400, skill: 'jumpstart', look: 'cap',
     pal: { h: '#3a2a1a', s: '#e0a878', c: '#3a5a9a', p: '#2a3a6a', b: '#2a2a2a', style: 'short' },
     intro: [
@@ -656,7 +657,7 @@ const LEADERS = {
   },
   fitness: {
     name: 'COACH MAX GAINS', title: 'FITNESS', town: 2, badge: 'Sweatband Badge', badgeIcon: 'heart', color: '#e0503a',
-    team: [['gym_membership', 14], ['leg_day', 14], ['kale_smoothie', 15], ['beach_body', 17]],
+    team: [['gym_membership', 15], ['leg_day', 16], ['kale_smoothie', 16], ['beach_body', 19]], power: 1.12,
     reward: 650, skill: 'meal_prep', look: 'headband',
     pal: { h: '#e8c050', s: '#c88858', c: '#e8603a', p: '#2a2a3a', b: '#f0f0f0', style: 'short' },
     intro: [
@@ -671,7 +672,7 @@ const LEADERS = {
   },
   taxes: {
     name: 'THE AUDITOR', title: 'TAXES', town: 3, badge: 'Refund Badge', badgeIcon: 'doc', color: '#4a6a9a',
-    team: [['w2', 17], ['shoebox', 17], ['owe_money', 18], ['audit', 19]],
+    team: [['w2', 20], ['shoebox', 20], ['owe_money', 21], ['penalty_letter', 21], ['audit', 24]], power: 1.25,
     reward: 900, skill: 'write_off', look: 'glasses',
     pal: { h: '#8a8a8a', s: '#e8c0a0', c: '#4a4f5a', p: '#3a3f4a', b: '#1a1a1a', style: 'bald', tie: '#2a4a8a' },
     intro: [
@@ -831,39 +832,40 @@ const ALLIES = {
     after: 'Best friends don\'t let best friends adult alone.',
   },
   sam: {
-    name: 'SAM', title: 'Roommate', town: 1, need: 0, cost: 50, boost: 'GRIT',
+    name: 'SAM', title: 'Roommate', town: 1, need: 1, cost: 50, boost: 'GRIT',
     pal: { h: '#c86a2a', s: '#f0c8a0', c: '#6a8a3a', p: '#4a5a7a', b: '#5a3a1a', style: 'bun' },
     base: { san: 74, conf: 62, comp: 60, hus: 48, energy: 0 },
     learn: [[1, 'elbow_grease'], [1, 'fix_it'], [1, 'power_nap'], [14, 'hustle'], [20, 'all_nighter']],
+    notYet: ['I only room with people who have their life somewhat together. Beat CAR TROUBLE first, then we\'ll talk.'],
     pitch: ['I need a roommate. Desperately. Rent out here is cheap, but not THAT cheap.', 'Split the deposit with me and I\'ll fight your dishes. Literally.'],
     decline: 'Fine. I\'ll put up another flyer. "Must love cacti."',
     after: 'I labeled all my food in the fridge. Don\'t touch the hummus.',
   },
   pat: {
-    name: 'PAT', title: 'Mentor', town: 2, need: 1, cost: 0, boost: 'BRAINS', look: 'glasses',
+    name: 'PAT', title: 'Mentor', town: 2, need: 2, cost: 0, boost: 'BRAINS', look: 'glasses',
     pal: { h: '#8a8a8a', s: '#a87050', c: '#8a4a8a', p: '#3a3a4a', b: '#1a1a1a', style: 'short', tie: '#e8c040' },
     base: { san: 64, conf: 66, comp: 54, hus: 52, energy: 4 },
     learn: [[1, 'googling'], [1, 'read_manual'], [1, 'small_talk'], [12, 'spreadsheet'], [18, 'write_off']],
-    notYet: ['I mentor winners. Beat a Life Leader and come find me.'],
-    pitch: ['I heard you handled Car Trouble. Impressive.', 'I\'ve been adulting for thirty years. Let me mentor you. I\'m basically a walking spreadsheet.'],
+    notYet: ['I mentor winners. Beat two Life Leaders and come find me.'],
+    pitch: ['I heard you handled Car Trouble AND Coach Max. Impressive.', 'I\'ve been adulting for thirty years. Let me mentor you. I\'m basically a walking spreadsheet.'],
     after: 'Remember: pay yourself first. Then pay me back for that coffee.',
   },
   kim: {
-    name: 'DR. KIM', title: 'Therapist', town: 3, need: 2, cost: 40, boost: 'CHILL', look: 'glasses',
+    name: 'DR. KIM', title: 'Therapist', town: 3, need: 3, cost: 40, boost: 'CHILL', look: 'glasses',
     pal: { h: '#1a1a2a', s: '#e8c0a0', c: '#4aa8a0', p: '#3a3a5a', b: '#2a2a2a', style: 'long' },
     base: { san: 70, conf: 58, comp: 64, hus: 50, energy: 4 },
     learn: [[1, 'touch_grass'], [1, 'deep_breaths'], [1, 'boundaries'], [1, 'therapy_talk']],
-    notYet: ['I\'m Dr. Kim. My calendar is full until you\'ve got two Life Milestones. Come back then.'],
-    pitch: ['You\'ve been through a lot. Car trouble. The gym. That\'s a lot of feelings.', 'First session is the fee. After that, I\'ll come with you. Insurance is... complicated.'],
+    notYet: ['I\'m Dr. Kim. My calendar is full until you\'ve got three Life Milestones. Come back then.'],
+    pitch: ['You\'ve been through a lot. Car trouble. The gym. Taxes. That\'s a lot of feelings.', 'First session is the fee. After that, I\'ll come with you. Insurance is... complicated.'],
     decline: 'That\'s okay. Boundaries are healthy. I\'m proud of you.',
     after: 'And how does that make you feel? ...Great. Let\'s go.',
   },
   mom: {
-    name: 'MOM', title: 'On Speed Dial', town: 0, home: true, need: 1, cost: 0, boost: 'SHADY',
+    name: 'MOM', title: 'On Speed Dial', town: 0, home: true, need: 2, cost: 0, boost: 'SHADY',
     pal: { h: '#8a4a2a', s: '#f0c8a0', c: '#7aa04a', p: '#5a5a7a', b: '#4a3a2a', style: 'long' },
     base: { san: 82, conf: 54, comp: 70, hus: 46, energy: 2 },
     learn: [[1, 'guilt_trip'], [1, 'packed_lunch'], [1, 'small_talk'], [16, 'networking']],
-    pitch: ['A real Life Milestone! Look at you!', 'Put me on speed dial. I\'m coming to your battles. Don\'t argue.'],
+    pitch: ['TWO Life Milestones! Look at you!', 'Put me on speed dial. I\'m coming to your battles. Don\'t argue.'],
     after: 'Did you eat? You didn\'t eat. Here.',
   },
 };
@@ -3009,7 +3011,7 @@ const Game = {
     const id = r.enc[U.rand(0, r.enc.length - 1)];
     const lvl = U.rand(r.lv[0], r.lv[1]);
     if (this.p.repel > 0 && lvl <= this.p.level) return;
-    this.run(() => Battle.start({ foes: [[id, lvl]], wild: true, biome: BIOME_IDS[m.bio[m.idx(P.x, P.y)]] }));
+    this.run(() => Battle.start({ foes: [[id, lvl]], wild: true, route: reg.route, biome: BIOME_IDS[m.bio[m.idx(P.x, P.y)]] }));
   },
 
   interact() {
@@ -3599,7 +3601,7 @@ const Scripts = {
       Game.earn(20); Audio2.sfx('coin');
       await say('{NAME} received $20!');
     }
-    if (p.badges.length >= 1 && !Crew.has('mom')) {
+    if (p.badges.length >= ALLIES.mom.need && !Crew.has('mom')) {
       await Scripts.recruit('mom', npc);
       if (!Crew.has('mom')) return;
     }
@@ -3926,7 +3928,7 @@ const Battle = {
   async start(o) {
     const p = Game.p;
     this.s = {
-      wild: !!o.wild, leader: o.leader || null, biome: o.biome || 'suburb',
+      wild: !!o.wild, leader: o.leader || null, biome: o.biome || 'suburb', route: o.route || 0,
       team: o.foes.map(([id, l]) => ({ id, l })), ti: 0, foe: null,
       stages: { atk: 0, def: 0 }, meAnx: 0, cashMult: 1, escapes: 0, escaped: null,
       a: { foeX: 0, foeY: 0, meX: 0, foeBlink: 0, meBlink: 0, shake: 0, slide: 1, foeGone: 0, leaderX: 0, showLeader: !!o.leader, foeVis: !o.leader },
@@ -3982,6 +3984,9 @@ const Battle = {
   nextFoe(first) {
     const s = this.s, m = s.team[s.ti];
     const f = Stats.foe(m.id, m.l);
+    // later leaders are tougher than their levels alone; later routes a little
+    const pw = s.leader ? LEADERS[s.leader].power || 1 : 1 + 0.04 * (s.route || 0);
+    f.maxHp = Math.round(f.maxHp * pw); f.atk = Math.round(f.atk * pw); f.dfn = Math.round(f.dfn * pw);
     f.hp = f.maxHp; f.st = { atk: 0, def: 0 }; f.anx = 0;
     s.foe = f;
     s.disp.foe = 1;

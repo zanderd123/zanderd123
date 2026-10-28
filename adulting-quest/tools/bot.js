@@ -321,9 +321,9 @@
       await shop(0);
       // the three leaders, with the routes between them
       const plan = [
-        { key: 'car', town: 1, route: 0, lvl: 10, before: async () => { B.reserve = 50; await shop(0); await walkTo(1); await recruitAt('sam', 1); B.reserve = 0; } },
-        { key: 'fitness', town: 2, route: 1, lvl: 14, before: async () => { await walkTo(2); await recruit('pat'); } },
-        { key: 'taxes', town: 3, route: 2, lvl: 18, before: async () => { B.reserve = 40; await walkTo(3); await recruitAt('kim', 3); B.reserve = 0; } },
+        { key: 'car', town: 1, route: 0, lvl: 11, before: async () => { await shop(0); await walkTo(1); } },
+        { key: 'fitness', town: 2, route: 1, lvl: 16, before: async () => { await recruitAt('sam', 1); await walkTo(2); } },
+        { key: 'taxes', town: 3, route: 2, lvl: 21, before: async () => { await recruit('pat'); await walkTo(3); } },
       ];
       for (const st of plan) {
         if (st.key === 'car') await grind(0, 0, 7);
