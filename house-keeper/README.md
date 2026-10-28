@@ -92,8 +92,29 @@ Pages**, under *Build and deployment* pick **Deploy from a branch**, choose
 the branch that holds this folder and `/ (root)`, and save. After a minute
 the game is at `https://zanderd123.github.io/zanderd123/house-keeper/`.
 
-On GitHub Pages the leaderboard keeps each player's best times on their own
-device; the shared leaderboard only works on the claude.ai page.
+## Online leaderboard for GitHub Pages
+
+The claude.ai page has its own shared board, but only people in the owner's
+claude.ai organization can post to it. For everyone else, the GitHub Pages
+copy can use a free [Supabase](https://supabase.com) project as its board.
+Players type 3-letter initials after a run, and the board shows each set of
+initials' best time.
+
+1. Sign up at supabase.com (free) and create a new project. Any name and
+   region; save the database password somewhere, though the game doesn't need it.
+2. In the project, open **SQL Editor -> New query**, paste all of
+   `leaderboard.sql`, and click **Run**.
+3. Open **Project Settings -> API Keys** (or **Settings -> API**) and copy
+   the **Project URL** and the **publishable** key (older projects call it
+   the **anon public** key). Both are safe to put in a public web page. Never
+   use the **secret** / **service_role** key.
+4. Put them in `index.html`, in `const ONLINE = { url:'', key:'' };`.
+
+Until those are filled in, the GitHub Pages copy keeps best times on each
+player's own device. Anyone can post a run (there is no sign-in), so a
+determined player could post a fake time; you can delete rows in the Supabase
+**Table Editor**. Free Supabase projects pause after a week with no visitors;
+press **Restore** in the dashboard to wake it.
 
 ## Checks
 

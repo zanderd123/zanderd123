@@ -149,6 +149,26 @@ const b = await sk(() => ({ mode: __SK.S.mode, rows: __SK.board.rows.length, sco
 check(b.mode === 'board' && b.rows === 1 && b.scope === 'device', 'the finished run shows on the best-times board (' + b.scope + ')');
 await page.locator('#screen').screenshot({ path: process.env.SHOT_DIR ? process.env.SHOT_DIR + '/board.png' : '/dev/null' }).catch(() => {});
 
+// online leaderboard (the GitHub Pages copy), against a fake Supabase service
+const posted = [];
+await page.route('https://fake.supabase.co/**', async route => {
+  const req = route.request();
+  if (req.method() === 'POST') { posted.push(JSON.parse(req.postData())); return route.fulfill({ status: 201, body: '' }); }
+  const rows = [{ name: 'PIP', time: 30.2, kind: 'girl' }, ...posted, { name: 'PIP', time: 999, kind: 'girl' }].sort((a, b) => a.time - b.time);
+  return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(rows) });
+});
+await tap('Space'); await page.waitForTimeout(200);                          // board -> title
+await sk(() => { __SK.ONLINE.url = 'https://fake.supabase.co'; __SK.ONLINE.key = 'sb_publishable_test'; __SK.S.lastRun = { time: 44.4, kind: 'boy', spikes: 0, wrong: 0, at: 1 }; __SK.S.finalTime = 44.4; __SK.S.mode = 'ending'; __SK.S.endT = 3; });
+await page.waitForTimeout(100); await tap('Space'); await page.waitForTimeout(200);
+check(await sk(() => __SK.S.mode) === 'initials', 'finishing on GitHub Pages asks for initials');
+await tap('ArrowUp'); await tap('Space'); await tap('ArrowDown'); await tap('Space'); await tap('Space');   // B, Z, A
+await page.waitForTimeout(600);
+const ob = await sk(() => ({ mode: __SK.S.mode, scope: __SK.board.scope, rows: __SK.board.rows.map(r => r.name + ':' + r.time + (r.me ? '*' : '')) }));
+check(posted.length === 1 && posted[0].name === 'BZA' && posted[0].kind === 'boy', 'the run is posted with its initials (' + JSON.stringify(posted[0]) + ')');
+check(ob.mode === 'board' && ob.scope === 'everyone' && ob.rows[0] === 'PIP:30.2' && ob.rows.some(r => r.startsWith('BZA:') && r.endsWith('*')) && ob.rows.filter(r => r.startsWith('PIP')).length === 1,
+  'the online board shows everyone, best time per name, yours marked (' + ob.rows.join(', ') + ')');
+await page.locator('#screen').screenshot({ path: process.env.SHOT_DIR ? process.env.SHOT_DIR + '/board-online.png' : '/dev/null' }).catch(() => {});
+
 check(!errors.length, 'no page errors' + (errors.length ? ': ' + errors.join(' | ') : ''));
 await browser.close();
 console.log(failures ? `\n${failures} failure(s)` : '\nplaythrough passed');

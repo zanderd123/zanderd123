@@ -1672,7 +1672,32 @@ function update(dt) {
   }
   if (S.mode === 'ending') {
     S.endT += dt;
-    if (S.endT > 2 && take('a')) { S.mode = 'board'; sfx('select'); loadBoard(); }
+    if (S.endT > 2 && take('a')) {
+      sfx('select');
+      if (online() && S.lastRun) {
+        let saved; try { saved = localStorage.getItem(INITIALS); } catch (e) { saved = null; }
+        ini.letters = (saved && /^[A-Z]{3}$/.test(saved) ? saved : 'AAA').split(''); ini.pos = 0;
+        S.mode = 'initials';
+      } else { S.mode = 'board'; loadBoard(); }
+    }
+    return;
+  }
+  if (S.mode === 'initials') {
+    const cyc = d => { const i = LETTERS.indexOf(ini.letters[ini.pos]); ini.letters[ini.pos] = LETTERS[(i + d + LETTERS.length) % LETTERS.length]; sfx('blip'); };
+    if (take('up')) cyc(1);
+    if (take('down')) cyc(-1);
+    if (take('right') && ini.pos < 2) { ini.pos++; sfx('blip'); }
+    if ((take('left') || take('b')) && ini.pos > 0) { ini.pos--; sfx('blip'); }
+    if (take('a')) {
+      sfx('select');
+      if (ini.pos < 2) ini.pos++;
+      else {
+        const name = ini.letters.join('').trim() || 'YOU';
+        try { localStorage.setItem(INITIALS, ini.letters.join('')); } catch (e) { /* storage unavailable */ }
+        S.lastRun.name = name; S.mode = 'board'; board.status = 'loading';
+        submitOnline(name).then(loadBoard);
+      }
+    }
     return;
   }
   if (S.mode === 'board') {
@@ -1792,6 +1817,7 @@ function render() {
   if (S.mode === 'select') return renderSelect();
   if (S.mode === 'ending') return renderEnding();
   if (S.mode === 'board') return renderBoard();
+  if (S.mode === 'initials') return renderInitials();
   const r = S.room; C = g;
   if (r.dirty) drawStatic(r);
   g.drawImage(r.cv, 0, 0);
@@ -2104,6 +2130,28 @@ function renderEnding() {
 // personal best, under runs/<their id>); anywhere else it keeps this device's.
 // ---------------------------------------------------------------------------
 let DB = null, USER = null, myId = null;
+// The online board for copies hosted outside claude.ai (GitHub Pages), kept in a
+// free Supabase project. Paste the project's URL and its public (anon or
+// publishable) key here; README.md explains the setup. Empty = this device only.
+const ONLINE = { url:'', key:'' };
+const online = () => !DB && !!ONLINE.url && !!ONLINE.key;
+async function sb(path, opts = {}) {
+  const headers = { apikey:ONLINE.key, 'Content-Type':'application/json', ...(opts.headers || {}) };
+  if (ONLINE.key.startsWith('eyJ')) headers.Authorization = 'Bearer ' + ONLINE.key;   // legacy anon keys are JWTs
+  const res = await fetch(ONLINE.url.replace(/\/+$/, '') + '/rest/v1/' + path, { ...opts, headers });
+  if (!res.ok) throw new Error('leaderboard ' + res.status);
+  return res.status === 201 || res.status === 204 ? null : res.json();
+}
+const INITIALS = 'house-keeper-initials';
+const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+const ini = { letters:['A', 'A', 'A'], pos:0 };
+async function submitOnline(name) {
+  const r = S.lastRun;
+  try {
+    await sb('runs', { method:'POST', headers:{ Prefer:'return=minimal' }, body:JSON.stringify({ name, time:r.time, kind:r.kind, spikes:r.spikes, wrong:r.wrong }) });
+    board.note = 'Your time is on the board!';
+  } catch (e) { board.note = 'Could not reach the leaderboard. Saved on this device.'; }
+}
 const board = { status:'idle', scope:'device', rows:[], note:'' };
 const LOCALBEST = 'seven-keys-best-v1';
 function titleOptions() { return saved ? ['NEW GAME', 'CONTINUE', 'BEST TIMES'] : ['NEW GAME', 'BEST TIMES']; }
@@ -2140,8 +2188,44 @@ async function loadBoard() {
       board.scope = 'everyone'; board.status = 'ready'; return;
     } catch (e) { /* fall back to this device */ }
   }
+  if (online()) {
+    try {
+      const rows = await sb('runs?select=name,time,kind&order=time.asc&limit=60');
+      const seen = new Set(); board.rows = [];
+      for (const r of rows) {                         // each name's best run only
+        if (seen.has(r.name) || board.rows.length >= 8) continue;
+        seen.add(r.name);
+        board.rows.push({ name:r.name, time:+r.time, kind:r.kind === 'girl' ? 'girl' : 'boy', me:!!(S.lastRun && S.lastRun.name === r.name && Math.abs(S.lastRun.time - r.time) < 0.05) });
+      }
+      board.scope = 'everyone'; board.status = 'ready'; return;
+    } catch (e) { board.note = board.note || 'Could not reach the leaderboard.'; }
+  }
   board.rows = localRuns().slice(0, 8).map(r => ({ name:r.kind === 'girl' ? 'Girl' : 'Boy', time:r.time, kind:r.kind, me:S.lastRun && r.at === S.lastRun.at }));
   board.scope = 'device'; board.status = 'ready';
+}
+function renderInitials() {
+  const t = S.time; C = g;
+  sky('#0a0820', '#3a2050');
+  for (let i = 0; i < 60; i++) { const x = Math.floor(hash(i, 1) * VW), y = Math.floor(hash(i, 2) * VH); if (Math.sin(t * 2 + i) > -0.6) rr(x, y, 1, 1, '#c8c0e8'); }
+  present();
+  panel(20, 18, VW - 40, VH - 36);
+  txt('YOUR TIME', VW / 2, 34, '#8a80a0', 8, 'center', null);
+  txt(fmtTime(S.finalTime, true), VW / 2, 48, '#4a3a70', 16, 'center', '#c8c8d4');
+  txt('ENTER YOUR INITIALS', VW / 2, 78, '#4a3a70', 8, 'center', null);
+  for (let i = 0; i < 3; i++) {
+    const cx = VW / 2 - 40 + i * 40, on = i === ini.pos;
+    srr(cx - 14, 104, 28, 34, on ? '#fff0b8' : '#e8e4f0');
+    srr(cx - 14, 136, 28, 2, on ? '#c8902a' : '#b8b0c8');
+    txt(ini.letters[i] === ' ' ? '_' : ini.letters[i], cx, 110, '#303040', 24, 'center', null);
+    if (on && Math.floor(t * 3) % 2) {
+      sc.fillStyle = '#c8902a';
+      sc.beginPath(); sc.moveTo(cx - 5, 99); sc.lineTo(cx + 5, 99); sc.lineTo(cx, 93); sc.fill();
+      sc.beginPath(); sc.moveTo(cx - 5, 143); sc.lineTo(cx + 5, 143); sc.lineTo(cx, 149); sc.fill();
+    }
+  }
+  txt('UP / DOWN  change letter', VW / 2, 162, '#8a80a0', 8, 'center', null);
+  txt((TOUCH ? 'A' : 'SPACE') + '  next letter / done', VW / 2, 176, '#8a80a0', 8, 'center', null);
+  drawFade();
 }
 function renderBoard() {
   const t = S.time; C = g;
@@ -2183,7 +2267,7 @@ const go = () => requestAnimationFrame(t => { last = t; frame(t); });
 (document.fonts && document.fonts.load ? Promise.race([document.fonts.load('8px "Press Start 2P"'), new Promise(r => setTimeout(r, 1500))]) : Promise.resolve()).then(go, go);
 
 // Hooks for the automated checks in tools/.
-window.__SK = { mamaw, S, P, ROOM, DEFS, KEYS, QUESTIONS, prof, dlg, enterRoom, newGame, giveKey, get boulders() { return boulders; }, get music() { return music; }, get locks() { return locks; }, board, WALK, MW, MH };
+window.__SK = { mamaw, ONLINE, ini, S, P, ROOM, DEFS, KEYS, QUESTIONS, prof, dlg, enterRoom, newGame, giveKey, get boulders() { return boulders; }, get music() { return music; }, get locks() { return locks; }, board, WALK, MW, MH };
 })();
 </script>
 </body>
