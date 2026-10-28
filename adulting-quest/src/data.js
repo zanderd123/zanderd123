@@ -34,7 +34,7 @@ const EFF = {
 // foeAtk/foeDef (stages), anxious (chance), recoil (fraction of damage),
 // cure, flee, cash (reward multiplier), karma.
 const SKILLS = {
-  wing_it:      { name: 'Wing It', type: 'BASIC', power: 35, cost: 0, acc: 95, desc: 'No plan. No energy. Pure vibes.' },
+  wing_it:      { name: 'Wing It', type: 'BASIC', power: 40, cost: 0, acc: 95, desc: 'No plan. No energy. Pure vibes.' },
   small_talk:   { name: 'Small Talk', type: 'SOCIAL', power: 40, cost: 2, acc: 100, desc: '"Crazy weather lately, huh?"' },
   charm:        { name: 'Charm', type: 'SOCIAL', power: 0, cost: 3, acc: 100, fx: { foeAtk: -2 }, desc: 'A winning smile. Sharply lowers the issue\'s Pressure.' },
   haggle:       { name: 'Haggle', type: 'SOCIAL', power: 50, cost: 3, acc: 95, fx: { cash: 1.5 }, desc: '"What\'s your best price?" Win with it to earn 50% more cash.' },
@@ -138,11 +138,11 @@ const FOE_MOVES = {
 // ---------------------------------------------------------------- issues
 // base: [sanity-ish HP, pressure (atk), resistance (def), speed]
 const ISSUES = {
-  parking_ticket: { name: 'Parking Ticket', type: 'PAPERWORK', base: [45, 50, 40, 45], xp: 52, cash: 3, shape: 'paper', col: '#f6d44a', moves: ['late_fee', 'fine_print'], dex: 'Appears under your wiper the one time you were "only two minutes."' },
-  group_chat:     { name: 'Group Chat Drama', type: 'PEOPLE', base: [50, 45, 40, 55], xp: 52, cash: 2, shape: 'bubble', col: '#5ac46a', moves: ['notif_storm', 'thumbs_up'], dex: 'Started over who forgot to Venmo for brunch.' },
-  dirty_dishes:   { name: 'Dirty Dishes', type: 'CHORE', base: [55, 45, 55, 30], xp: 52, cash: 2, shape: 'stack', col: '#d8e4ea', moves: ['crusty_pan', 'pile_up'], dex: 'It was "soaking." For eleven days.' },
-  forgot_sub:     { name: 'Forgotten Subscription', type: 'MONEY', base: [45, 50, 40, 50], xp: 54, cash: 4, shape: 'card', col: '#8b5fd0', moves: ['auto_renew', 'trial_ends'], dex: 'You are paying $14.99 a month for a meditation app you opened once.' },
-  back_pain:      { name: 'Back Pain', type: 'STRESS', base: [50, 50, 45, 35], xp: 52, cash: 2, shape: 'blob', col: '#e07a5a', moves: ['slept_wrong', 'pinch'], dex: 'Arrived on your 25th birthday. Did not leave.' },
+  parking_ticket: { name: 'Parking Ticket', type: 'PAPERWORK', base: [36, 38, 34, 40], xp: 52, cash: 3, shape: 'paper', col: '#f6d44a', moves: ['late_fee', 'fine_print'], dex: 'Appears under your wiper the one time you were "only two minutes."' },
+  group_chat:     { name: 'Group Chat Drama', type: 'PEOPLE', base: [38, 36, 34, 45], xp: 52, cash: 2, shape: 'bubble', col: '#5ac46a', moves: ['notif_storm', 'thumbs_up'], dex: 'Started over who forgot to Venmo for brunch.' },
+  dirty_dishes:   { name: 'Dirty Dishes', type: 'CHORE', base: [42, 36, 40, 25], xp: 52, cash: 2, shape: 'stack', col: '#d8e4ea', moves: ['crusty_pan', 'pile_up'], dex: 'It was "soaking." For eleven days.' },
+  forgot_sub:     { name: 'Forgotten Subscription', type: 'MONEY', base: [36, 38, 34, 42], xp: 54, cash: 4, shape: 'card', col: '#8b5fd0', moves: ['auto_renew', 'trial_ends'], dex: 'You are paying $14.99 a month for a meditation app you opened once.' },
+  back_pain:      { name: 'Back Pain', type: 'STRESS', base: [40, 38, 36, 30], xp: 52, cash: 2, shape: 'blob', col: '#e07a5a', moves: ['slept_wrong', 'pinch'], dex: 'Arrived on your 25th birthday. Did not leave.' },
   spam_call:      { name: 'Spam Call', type: 'PEOPLE', base: [50, 55, 40, 65], xp: 60, cash: 3, shape: 'phone', col: '#3b4252', moves: ['warranty', 'ring_ring'], dex: 'Would like to talk to you about your car\'s extended warranty.' },
   laundry:        { name: 'Laundry Mountain', type: 'CHORE', base: [65, 50, 55, 25], xp: 60, cash: 3, shape: 'pile', col: '#6aa0e0', moves: ['smother', 'lost_sock'], dex: 'Lives on "the chair." Everyone has the chair.' },
   overdraft:      { name: 'Overdraft Fee', type: 'MONEY', base: [55, 60, 45, 45], xp: 62, cash: 5, shape: 'envelope', col: '#e05a4a', moves: ['fee_35', 'insufficient'], dex: 'Charges you $35 for not having $35.' },
@@ -271,7 +271,7 @@ const TOWNS = [
 // Routes connect towns in order; the last one closes the loop back home.
 // lv = wild level range, need = milestones needed to pass the gate.
 const ROUTES = [
-  { a: 0, b: 1, lv: [2, 5],   enc: ['parking_ticket', 'group_chat', 'dirty_dishes', 'forgot_sub', 'back_pain'], need: 0, gateFlag: 'path' },
+  { a: 0, b: 1, lv: [2, 4],   enc: ['parking_ticket', 'group_chat', 'dirty_dishes', 'forgot_sub', 'back_pain'], need: 0, gateFlag: 'path' },
   { a: 1, b: 2, lv: [6, 10],  enc: ['spam_call', 'laundry', 'overdraft', 'sunburn', 'printer_jam', 'group_chat'], need: 1 },
   { a: 2, b: 3, lv: [11, 15], enc: ['jury_duty', 'wedding_invite', 'ikea', 'insomnia', 'reply_all', 'overdraft'], need: 2 },
   { a: 3, b: 4, lv: [16, 19], enc: ['landlord', 'wifi', 'perf_review', 'ex_post', 'insomnia'], need: 3 },

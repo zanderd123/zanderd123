@@ -111,6 +111,8 @@ const UI = {
     this.root.appendChild(this.dlg);
     this.toastEl = this.el('div', 'toast hidden');
     this.root.appendChild(this.toastEl);
+    this.hud = this.el('div', 'hud hidden');
+    this.root.appendChild(this.hud);
   },
   el(tag, cls, html) {
     const e = document.createElement(tag);
@@ -307,6 +309,23 @@ const UI = {
       box.addEventListener('pointerdown', (e) => { if (UI.top() === w) { e.preventDefault(); w.onInput('A'); } });
       this.push(w);
     });
+  },
+
+  // Always-on stats strip in the overworld (House Keeper's top-right HUD).
+  updateHUD() {
+    const p = Game.p, h = this.hud;
+    const show = Game.mode === 'world' && p && p.path && !this.root.querySelector('.panel');
+    h.classList.toggle('hidden', !show);
+    if (!show) return;
+    const st = Game.stats();
+    const key = [p.money, p.level, p.sanity, p.energy, p.badges.length, p.status, st.maxSanity].join('|');
+    if (key === this._hudKey) return;
+    this._hudKey = key;
+    const pct = (a, b) => Math.round(U.clamp(a / b, 0, 1) * 100);
+    const sr = p.sanity / st.maxSanity;
+    h.innerHTML = `<span class="h-cash">${U.money(p.money)}</span><span>LV${p.level}</span>
+      <span class="h-bars"><i class="hs"><b style="width:${pct(p.sanity, st.maxSanity)}%;background:${sr > 0.5 ? '#3ec46d' : sr > 0.2 ? '#f0c030' : '#e8483a'}"></b></i><i class="he"><b style="width:${pct(p.energy, st.maxEnergy)}%"></b></i></span>
+      <span class="h-star">★${p.badges.length}</span>${p.status === 'burnout' ? '<span class="h-bo">BURNT OUT</span>' : ''}`;
   },
 
   toast(text, ms = 1600) {

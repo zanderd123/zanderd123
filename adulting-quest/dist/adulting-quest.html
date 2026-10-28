@@ -110,7 +110,7 @@ body {
 
 /* HUD bits */
 .toast {
-  position: absolute; top: calc(2 * var(--u)); right: calc(3 * var(--u)); background: var(--hud); color: #fff;
+  position: absolute; top: calc(20 * var(--u)); left: 50%; transform: translateX(-50%); background: var(--hud); color: #fff;
   font-size: calc(7 * var(--u)); line-height: 1; padding: calc(3 * var(--u)) calc(6 * var(--u)); white-space: nowrap; pointer-events: none !important; z-index: 20;
 }
 /* the wooden location sign */
@@ -242,6 +242,30 @@ body {
 .sk-info { border-left: var(--u) solid var(--p-line); padding: calc(4 * var(--u)) calc(6 * var(--u)); font-size: calc(5.5 * var(--u)); line-height: calc(9 * var(--u)); display: flex; flex-direction: column; justify-content: center; }
 .sk-info b { font-weight: 400; }
 
+/* overworld stats strip, top right */
+.hud {
+  position: absolute; top: calc(4 * var(--u)); right: calc(3 * var(--u)); display: flex; align-items: center; gap: calc(5 * var(--u));
+  background: var(--hud); color: #efe6d2; font-size: calc(7 * var(--u)); line-height: 1; padding: calc(4 * var(--u)) calc(6 * var(--u));
+  text-shadow: calc(var(--u)) calc(var(--u)) 0 #000; pointer-events: none !important;
+}
+.h-cash { color: #f0c040; }
+.h-star { color: #f0c040; }
+.h-bo { color: #fff; background: #c8402a; font-size: calc(5 * var(--u)); padding: calc(1.5 * var(--u)) calc(2 * var(--u)); text-shadow: none; }
+.h-bars { display: flex; flex-direction: column; gap: var(--u); }
+.h-bars i { display: block; width: calc(30 * var(--u)); height: calc(3 * var(--u)); background: #303040; box-shadow: 0 0 0 calc(0.5 * var(--u)) #000; }
+.h-bars b { display: block; height: 100%; }
+.h-bars .he b { background: #4a9ae8; }
+
+/* weakness line in a foe's box, 2x / half tags on skills */
+.weak { font-size: calc(4.5 * var(--u)); line-height: 1; color: #6a6080; margin-top: calc(2 * var(--u)); display: flex; align-items: center; gap: calc(2 * var(--u)); }
+.weak em, .chart2 em { font-style: normal; color: #fff; padding: calc(1.5 * var(--u)) calc(2 * var(--u)); text-shadow: none; line-height: 1; font-size: calc(4.5 * var(--u)); }
+.tg { font-style: normal; margin-left: auto; font-size: calc(5 * var(--u)); text-shadow: none; }
+.chart2 { width: 100%; border-collapse: collapse; font-size: calc(5 * var(--u)); }
+.chart2 th { text-align: left; color: #9890a8; font-weight: 400; padding-bottom: calc(3 * var(--u)); }
+.chart2 td { padding: calc(3 * var(--u)) calc(2 * var(--u)) calc(3 * var(--u)) 0; border-bottom: var(--u) solid #e0dce8; vertical-align: top; }
+.chart2 td em { display: inline-block; margin: 0 calc(2 * var(--u)) calc(2 * var(--u)) 0; }
+.chart2 .eg { color: #9890a8; font-size: calc(4 * var(--u)); margin-top: calc(2 * var(--u)); text-shadow: none; }
+
 </style>
 <div id="screen">
   <canvas id="cv" width="304" height="224" aria-label="Adulting Quest game screen"></canvas>
@@ -352,7 +376,7 @@ const EFF = {
 // foeAtk/foeDef (stages), anxious (chance), recoil (fraction of damage),
 // cure, flee, cash (reward multiplier), karma.
 const SKILLS = {
-  wing_it:      { name: 'Wing It', type: 'BASIC', power: 35, cost: 0, acc: 95, desc: 'No plan. No energy. Pure vibes.' },
+  wing_it:      { name: 'Wing It', type: 'BASIC', power: 40, cost: 0, acc: 95, desc: 'No plan. No energy. Pure vibes.' },
   small_talk:   { name: 'Small Talk', type: 'SOCIAL', power: 40, cost: 2, acc: 100, desc: '"Crazy weather lately, huh?"' },
   charm:        { name: 'Charm', type: 'SOCIAL', power: 0, cost: 3, acc: 100, fx: { foeAtk: -2 }, desc: 'A winning smile. Sharply lowers the issue\'s Pressure.' },
   haggle:       { name: 'Haggle', type: 'SOCIAL', power: 50, cost: 3, acc: 95, fx: { cash: 1.5 }, desc: '"What\'s your best price?" Win with it to earn 50% more cash.' },
@@ -456,11 +480,11 @@ const FOE_MOVES = {
 // ---------------------------------------------------------------- issues
 // base: [sanity-ish HP, pressure (atk), resistance (def), speed]
 const ISSUES = {
-  parking_ticket: { name: 'Parking Ticket', type: 'PAPERWORK', base: [45, 50, 40, 45], xp: 52, cash: 3, shape: 'paper', col: '#f6d44a', moves: ['late_fee', 'fine_print'], dex: 'Appears under your wiper the one time you were "only two minutes."' },
-  group_chat:     { name: 'Group Chat Drama', type: 'PEOPLE', base: [50, 45, 40, 55], xp: 52, cash: 2, shape: 'bubble', col: '#5ac46a', moves: ['notif_storm', 'thumbs_up'], dex: 'Started over who forgot to Venmo for brunch.' },
-  dirty_dishes:   { name: 'Dirty Dishes', type: 'CHORE', base: [55, 45, 55, 30], xp: 52, cash: 2, shape: 'stack', col: '#d8e4ea', moves: ['crusty_pan', 'pile_up'], dex: 'It was "soaking." For eleven days.' },
-  forgot_sub:     { name: 'Forgotten Subscription', type: 'MONEY', base: [45, 50, 40, 50], xp: 54, cash: 4, shape: 'card', col: '#8b5fd0', moves: ['auto_renew', 'trial_ends'], dex: 'You are paying $14.99 a month for a meditation app you opened once.' },
-  back_pain:      { name: 'Back Pain', type: 'STRESS', base: [50, 50, 45, 35], xp: 52, cash: 2, shape: 'blob', col: '#e07a5a', moves: ['slept_wrong', 'pinch'], dex: 'Arrived on your 25th birthday. Did not leave.' },
+  parking_ticket: { name: 'Parking Ticket', type: 'PAPERWORK', base: [36, 38, 34, 40], xp: 52, cash: 3, shape: 'paper', col: '#f6d44a', moves: ['late_fee', 'fine_print'], dex: 'Appears under your wiper the one time you were "only two minutes."' },
+  group_chat:     { name: 'Group Chat Drama', type: 'PEOPLE', base: [38, 36, 34, 45], xp: 52, cash: 2, shape: 'bubble', col: '#5ac46a', moves: ['notif_storm', 'thumbs_up'], dex: 'Started over who forgot to Venmo for brunch.' },
+  dirty_dishes:   { name: 'Dirty Dishes', type: 'CHORE', base: [42, 36, 40, 25], xp: 52, cash: 2, shape: 'stack', col: '#d8e4ea', moves: ['crusty_pan', 'pile_up'], dex: 'It was "soaking." For eleven days.' },
+  forgot_sub:     { name: 'Forgotten Subscription', type: 'MONEY', base: [36, 38, 34, 42], xp: 54, cash: 4, shape: 'card', col: '#8b5fd0', moves: ['auto_renew', 'trial_ends'], dex: 'You are paying $14.99 a month for a meditation app you opened once.' },
+  back_pain:      { name: 'Back Pain', type: 'STRESS', base: [40, 38, 36, 30], xp: 52, cash: 2, shape: 'blob', col: '#e07a5a', moves: ['slept_wrong', 'pinch'], dex: 'Arrived on your 25th birthday. Did not leave.' },
   spam_call:      { name: 'Spam Call', type: 'PEOPLE', base: [50, 55, 40, 65], xp: 60, cash: 3, shape: 'phone', col: '#3b4252', moves: ['warranty', 'ring_ring'], dex: 'Would like to talk to you about your car\'s extended warranty.' },
   laundry:        { name: 'Laundry Mountain', type: 'CHORE', base: [65, 50, 55, 25], xp: 60, cash: 3, shape: 'pile', col: '#6aa0e0', moves: ['smother', 'lost_sock'], dex: 'Lives on "the chair." Everyone has the chair.' },
   overdraft:      { name: 'Overdraft Fee', type: 'MONEY', base: [55, 60, 45, 45], xp: 62, cash: 5, shape: 'envelope', col: '#e05a4a', moves: ['fee_35', 'insufficient'], dex: 'Charges you $35 for not having $35.' },
@@ -589,7 +613,7 @@ const TOWNS = [
 // Routes connect towns in order; the last one closes the loop back home.
 // lv = wild level range, need = milestones needed to pass the gate.
 const ROUTES = [
-  { a: 0, b: 1, lv: [2, 5],   enc: ['parking_ticket', 'group_chat', 'dirty_dishes', 'forgot_sub', 'back_pain'], need: 0, gateFlag: 'path' },
+  { a: 0, b: 1, lv: [2, 4],   enc: ['parking_ticket', 'group_chat', 'dirty_dishes', 'forgot_sub', 'back_pain'], need: 0, gateFlag: 'path' },
   { a: 1, b: 2, lv: [6, 10],  enc: ['spam_call', 'laundry', 'overdraft', 'sunburn', 'printer_jam', 'group_chat'], need: 1 },
   { a: 2, b: 3, lv: [11, 15], enc: ['jury_duty', 'wedding_invite', 'ikea', 'insomnia', 'reply_all', 'overdraft'], need: 2 },
   { a: 3, b: 4, lv: [16, 19], enc: ['landlord', 'wifi', 'perf_review', 'ex_post', 'insomnia'], need: 3 },
@@ -1891,6 +1915,8 @@ const UI = {
     this.root.appendChild(this.dlg);
     this.toastEl = this.el('div', 'toast hidden');
     this.root.appendChild(this.toastEl);
+    this.hud = this.el('div', 'hud hidden');
+    this.root.appendChild(this.hud);
   },
   el(tag, cls, html) {
     const e = document.createElement(tag);
@@ -2087,6 +2113,23 @@ const UI = {
       box.addEventListener('pointerdown', (e) => { if (UI.top() === w) { e.preventDefault(); w.onInput('A'); } });
       this.push(w);
     });
+  },
+
+  // Always-on stats strip in the overworld (House Keeper's top-right HUD).
+  updateHUD() {
+    const p = Game.p, h = this.hud;
+    const show = Game.mode === 'world' && p && p.path && !this.root.querySelector('.panel');
+    h.classList.toggle('hidden', !show);
+    if (!show) return;
+    const st = Game.stats();
+    const key = [p.money, p.level, p.sanity, p.energy, p.badges.length, p.status, st.maxSanity].join('|');
+    if (key === this._hudKey) return;
+    this._hudKey = key;
+    const pct = (a, b) => Math.round(U.clamp(a / b, 0, 1) * 100);
+    const sr = p.sanity / st.maxSanity;
+    h.innerHTML = `<span class="h-cash">${U.money(p.money)}</span><span>LV${p.level}</span>
+      <span class="h-bars"><i class="hs"><b style="width:${pct(p.sanity, st.maxSanity)}%;background:${sr > 0.5 ? '#3ec46d' : sr > 0.2 ? '#f0c030' : '#e8483a'}"></b></i><i class="he"><b style="width:${pct(p.energy, st.maxEnergy)}%"></b></i></span>
+      <span class="h-star">★${p.badges.length}</span>${p.status === 'burnout' ? '<span class="h-bo">BURNT OUT</span>' : ''}`;
   },
 
   toast(text, ms = 1600) {
@@ -2769,6 +2812,7 @@ const Game = {
 
   // ------------------------------------------------------------ update
   tick(dt) {
+    UI.updateHUD();
     this.time += dt;
     this.waterT += dt;
     if (this.waterT > 0.35) { this.waterT = 0; this.waterF = (this.waterF + 1) % 4; }
@@ -3102,7 +3146,7 @@ const Menu = {
     Audio2.sfx('select');
     let start = 0;
     while (true) {
-      const opts = ['SKILLS', 'BAG', 'PROFILE', 'MAP', 'TYPE CHART', 'SAVE', 'SOUND: ' + (Audio2.muted ? 'OFF' : 'ON'), 'CLOSE'];
+      const opts = ['SKILLS', 'BAG', 'PROFILE', 'MAP', 'WHAT BEATS WHAT', 'SAVE', 'SOUND: ' + (Audio2.muted ? 'OFF' : 'ON'), 'CLOSE'];
       const i = await UI.choose(opts, { cls: 'side', start });
       if (i < 0 || i === 7) return;
       start = i;
@@ -3234,13 +3278,16 @@ const Menu = {
     await UI.panel(`<div class="p-title">MAP</div><div class="mapwrap"><img src="${c.toDataURL()}">${labels}${dot}</div>`, { cls: 'mappanel' });
   },
 
+  // Read as "what beats what": one row per issue type.
   async chart() {
-    const sk = Object.keys(SKILL_TYPES).filter((k) => k !== 'BASIC'), is = Object.keys(ISSUE_TYPES);
-    const cell = (m) => m > 1 ? '<td class="se">2×</td>' : m < 1 ? '<td class="nve">½</td>' : '<td>·</td>';
-    const html = `<div class="p-title">TYPE CHART</div><table class="chart"><tr><th>skill ↓ / issue →</th>${is.map((i) => `<th style="color:${ISSUE_TYPES[i].color}">${i}</th>`).join('')}</tr>
-      ${sk.map((s) => `<tr><th style="color:${SKILL_TYPES[s].color}">${s}</th>${is.map((i) => cell(EFF[s][i])).join('')}</tr>`).join('')}</table>
-      <div class="p-desc">2× = really hits home · ½ = doesn't land. SHADY skills are strong but cost Karma.</div>`;
-    await UI.panel(html, { cls: 'chartpanel' });
+    const chip = (k, src) => `<em style="background:${src[k].color}">${k}</em>`;
+    const rows = Object.keys(ISSUE_TYPES).map((it) => {
+      const strong = Object.keys(EFF).filter((k) => EFF[k][it] > 1), weak = Object.keys(EFF).filter((k) => EFF[k][it] < 1);
+      return `<tr><td>${chip(it, ISSUE_TYPES)}</td><td>${strong.map((k) => chip(k, SKILL_TYPES)).join('')}</td><td>${weak.map((k) => chip(k, SKILL_TYPES)).join('')}</td></tr>`;
+    }).join('');
+    await UI.panel(`<div class="p-title">WHAT BEATS WHAT</div>
+      <table class="chart2"><tr><th>ISSUE TYPE</th><th>2× DAMAGE</th><th>½ DAMAGE</th></tr>${rows}</table>
+      <div class="p-desc">Use a skill whose type is in the 2× column. Each skill's colored dot is its type. SHADY is strong but costs Karma.</div>`, { cls: 'chartpanel' });
   },
 };
 
@@ -3677,6 +3724,12 @@ const Battle = {
     } else {
       await UI.say(`A wild ${s.foe.name.toUpperCase()} appeared!`);
     }
+    if (!p.flags.typeTip) {
+      p.flags.typeTip = true;
+      await UI.say(['TIP: Every issue has a type, shown in its box. Its WEAK TO line says which skill types do DOUBLE damage.',
+        'In SKILLS, a green 2× means that skill hits hard here. A red ½ means it barely lands.',
+        `This one is ${s.foe.type}, so use ${this.counters(s.foe.type).join(' or ')} skills!`]);
+    }
     result = await this.loop();
     // wrap up
     p.status = p.status === 'burnout' ? 'burnout' : null;
@@ -3765,7 +3818,9 @@ const Battle = {
         if (!id) return '<div class="sk empty">—</div>';
         const sk = SKILLS[id], t = SKILL_TYPES[sk.type];
         const poor = sk.cost > p.energy;
-        return `<div class="sk${k === i ? ' sel' : ''}${poor ? ' poor' : ''}" data-k="${k}"><i class="dot" style="background:${t.color}"></i>${sk.name}</div>`;
+        const mm = sk.power ? EFF[sk.type][s.foe.type] : 1;
+        const tag = mm > 1 ? '<em class="tg se">2×</em>' : mm < 1 ? '<em class="tg nve">½</em>' : '';
+        return `<div class="sk${k === i ? ' sel' : ''}${poor ? ' poor' : ''}" data-k="${k}"><i class="dot" style="background:${t.color}"></i>${sk.name}${tag}</div>`;
       }).join('')}</div>${this.skillInfo(ids[i])}`;
     };
     render();
@@ -3843,6 +3898,9 @@ const Battle = {
       UI.push(w);
     });
   },
+
+  // skill types that deal double damage to an issue type
+  counters(type) { return Object.keys(EFF).filter((k) => EFF[k][type] > 1); },
 
   async assess() {
     const f = this.s.foe, d = f.def;
@@ -3933,8 +3991,8 @@ const Battle = {
       this.refresh();
       await this.settle();
       if (crit > 1) await UI.say('Nailed it! A critical hit!', { auto: 700 });
-      if (m > 1) await UI.say('That really hit home!', { auto: 800 });
-      else if (m < 1) await UI.say('Meh. It didn\'t really land.', { auto: 800 });
+      if (m > 1) await UI.say(`That really hit home! ${sk.type} beats ${f.type}.`, { auto: 1100 });
+      else if (m < 1) await UI.say(`Meh. ${f.type} issues shrug off ${sk.type}. Try ${Battle.counters(f.type).join(' or ')}.`, { auto: 1600 });
       if (fx.recoil) {
         const rc = Math.max(1, Math.floor(dmg * fx.recoil));
         p.sanity = Math.max(0, p.sanity - rc); s.a.meBlink = 0.4; this.refresh();
@@ -4131,7 +4189,7 @@ const Battle = {
   // ------------------------------------------------------------ HUD
   buildHUD() {
     const foe = UI.el('div', 'bhud foe hidden', `<div class="bh-row"><span class="nm"></span><span class="lv"></span></div>
-      <div class="bh-row"><span class="tchip"></span><span class="anx"></span></div><div class="bar"><span>SEVERITY</span><i><b></b></i></div>`);
+      <div class="bh-row"><span class="tchip"></span><span class="anx"></span></div><div class="weak"></div><div class="bar"><span>SEVERITY</span><i><b></b></i></div>`);
     const me = UI.el('div', 'bhud me hidden', `<div class="bh-row"><span class="nm"></span><span class="lv"></span></div>
       <div class="bar"><span>SANITY</span><i><b></b></i></div><div class="num san"></div>
       <div class="bar en"><span>ENERGY</span><i><b></b></i></div><div class="num en"></div>
@@ -4154,6 +4212,7 @@ const Battle = {
     const tc = h.foe.querySelector('.tchip');
     tc.textContent = f.type; tc.style.background = ISSUE_TYPES[f.type].color;
     h.foe.querySelector('.anx').textContent = f.anx ? 'CONFUSED' : '';
+    h.foe.querySelector('.weak').innerHTML = 'WEAK TO ' + Battle.counters(f.type).map((k) => `<em style="background:${SKILL_TYPES[k].color}">${k}</em>`).join('');
     h.me.querySelector('.nm').textContent = p.name;
     h.me.querySelector('.lv').textContent = 'Lv' + p.level;
     const en = h.me.querySelector('.bar.en b');

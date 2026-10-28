@@ -154,6 +154,7 @@ const Game = {
 
   // ------------------------------------------------------------ update
   tick(dt) {
+    UI.updateHUD();
     this.time += dt;
     this.waterT += dt;
     if (this.waterT > 0.35) { this.waterT = 0; this.waterF = (this.waterF + 1) % 4; }
@@ -487,7 +488,7 @@ const Menu = {
     Audio2.sfx('select');
     let start = 0;
     while (true) {
-      const opts = ['SKILLS', 'BAG', 'PROFILE', 'MAP', 'TYPE CHART', 'SAVE', 'SOUND: ' + (Audio2.muted ? 'OFF' : 'ON'), 'CLOSE'];
+      const opts = ['SKILLS', 'BAG', 'PROFILE', 'MAP', 'WHAT BEATS WHAT', 'SAVE', 'SOUND: ' + (Audio2.muted ? 'OFF' : 'ON'), 'CLOSE'];
       const i = await UI.choose(opts, { cls: 'side', start });
       if (i < 0 || i === 7) return;
       start = i;
@@ -619,13 +620,16 @@ const Menu = {
     await UI.panel(`<div class="p-title">MAP</div><div class="mapwrap"><img src="${c.toDataURL()}">${labels}${dot}</div>`, { cls: 'mappanel' });
   },
 
+  // Read as "what beats what": one row per issue type.
   async chart() {
-    const sk = Object.keys(SKILL_TYPES).filter((k) => k !== 'BASIC'), is = Object.keys(ISSUE_TYPES);
-    const cell = (m) => m > 1 ? '<td class="se">2×</td>' : m < 1 ? '<td class="nve">½</td>' : '<td>·</td>';
-    const html = `<div class="p-title">TYPE CHART</div><table class="chart"><tr><th>skill ↓ / issue →</th>${is.map((i) => `<th style="color:${ISSUE_TYPES[i].color}">${i}</th>`).join('')}</tr>
-      ${sk.map((s) => `<tr><th style="color:${SKILL_TYPES[s].color}">${s}</th>${is.map((i) => cell(EFF[s][i])).join('')}</tr>`).join('')}</table>
-      <div class="p-desc">2× = really hits home · ½ = doesn't land. SHADY skills are strong but cost Karma.</div>`;
-    await UI.panel(html, { cls: 'chartpanel' });
+    const chip = (k, src) => `<em style="background:${src[k].color}">${k}</em>`;
+    const rows = Object.keys(ISSUE_TYPES).map((it) => {
+      const strong = Object.keys(EFF).filter((k) => EFF[k][it] > 1), weak = Object.keys(EFF).filter((k) => EFF[k][it] < 1);
+      return `<tr><td>${chip(it, ISSUE_TYPES)}</td><td>${strong.map((k) => chip(k, SKILL_TYPES)).join('')}</td><td>${weak.map((k) => chip(k, SKILL_TYPES)).join('')}</td></tr>`;
+    }).join('');
+    await UI.panel(`<div class="p-title">WHAT BEATS WHAT</div>
+      <table class="chart2"><tr><th>ISSUE TYPE</th><th>2× DAMAGE</th><th>½ DAMAGE</th></tr>${rows}</table>
+      <div class="p-desc">Use a skill whose type is in the 2× column. Each skill's colored dot is its type. SHADY is strong but costs Karma.</div>`, { cls: 'chartpanel' });
   },
 };
 

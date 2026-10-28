@@ -99,7 +99,7 @@ body {
 
 /* HUD bits */
 .toast {
-  position: absolute; top: calc(2 * var(--u)); right: calc(3 * var(--u)); background: var(--hud); color: #fff;
+  position: absolute; top: calc(20 * var(--u)); left: 50%; transform: translateX(-50%); background: var(--hud); color: #fff;
   font-size: calc(7 * var(--u)); line-height: 1; padding: calc(3 * var(--u)) calc(6 * var(--u)); white-space: nowrap; pointer-events: none !important; z-index: 20;
 }
 /* the wooden location sign */
@@ -230,3 +230,27 @@ body {
 .sk.empty { color: #c8c4d4; }
 .sk-info { border-left: var(--u) solid var(--p-line); padding: calc(4 * var(--u)) calc(6 * var(--u)); font-size: calc(5.5 * var(--u)); line-height: calc(9 * var(--u)); display: flex; flex-direction: column; justify-content: center; }
 .sk-info b { font-weight: 400; }
+
+/* overworld stats strip, top right */
+.hud {
+  position: absolute; top: calc(4 * var(--u)); right: calc(3 * var(--u)); display: flex; align-items: center; gap: calc(5 * var(--u));
+  background: var(--hud); color: #efe6d2; font-size: calc(7 * var(--u)); line-height: 1; padding: calc(4 * var(--u)) calc(6 * var(--u));
+  text-shadow: calc(var(--u)) calc(var(--u)) 0 #000; pointer-events: none !important;
+}
+.h-cash { color: #f0c040; }
+.h-star { color: #f0c040; }
+.h-bo { color: #fff; background: #c8402a; font-size: calc(5 * var(--u)); padding: calc(1.5 * var(--u)) calc(2 * var(--u)); text-shadow: none; }
+.h-bars { display: flex; flex-direction: column; gap: var(--u); }
+.h-bars i { display: block; width: calc(30 * var(--u)); height: calc(3 * var(--u)); background: #303040; box-shadow: 0 0 0 calc(0.5 * var(--u)) #000; }
+.h-bars b { display: block; height: 100%; }
+.h-bars .he b { background: #4a9ae8; }
+
+/* weakness line in a foe's box, 2x / half tags on skills */
+.weak { font-size: calc(4.5 * var(--u)); line-height: 1; color: #6a6080; margin-top: calc(2 * var(--u)); display: flex; align-items: center; gap: calc(2 * var(--u)); }
+.weak em, .chart2 em { font-style: normal; color: #fff; padding: calc(1.5 * var(--u)) calc(2 * var(--u)); text-shadow: none; line-height: 1; font-size: calc(4.5 * var(--u)); }
+.tg { font-style: normal; margin-left: auto; font-size: calc(5 * var(--u)); text-shadow: none; }
+.chart2 { width: 100%; border-collapse: collapse; font-size: calc(5 * var(--u)); }
+.chart2 th { text-align: left; color: #9890a8; font-weight: 400; padding-bottom: calc(3 * var(--u)); }
+.chart2 td { padding: calc(3 * var(--u)) calc(2 * var(--u)) calc(3 * var(--u)) 0; border-bottom: var(--u) solid #e0dce8; vertical-align: top; }
+.chart2 td em { display: inline-block; margin: 0 calc(2 * var(--u)) calc(2 * var(--u)) 0; }
+.chart2 .eg { color: #9890a8; font-size: calc(4 * var(--u)); margin-top: calc(2 * var(--u)); text-shadow: none; }

@@ -44,6 +44,12 @@ const Battle = {
     } else {
       await UI.say(`A wild ${s.foe.name.toUpperCase()} appeared!`);
     }
+    if (!p.flags.typeTip) {
+      p.flags.typeTip = true;
+      await UI.say(['TIP: Every issue has a type, shown in its box. Its WEAK TO line says which skill types do DOUBLE damage.',
+        'In SKILLS, a green 2× means that skill hits hard here. A red ½ means it barely lands.',
+        `This one is ${s.foe.type}, so use ${this.counters(s.foe.type).join(' or ')} skills!`]);
+    }
     result = await this.loop();
     // wrap up
     p.status = p.status === 'burnout' ? 'burnout' : null;
@@ -132,7 +138,9 @@ const Battle = {
         if (!id) return '<div class="sk empty">—</div>';
         const sk = SKILLS[id], t = SKILL_TYPES[sk.type];
         const poor = sk.cost > p.energy;
-        return `<div class="sk${k === i ? ' sel' : ''}${poor ? ' poor' : ''}" data-k="${k}"><i class="dot" style="background:${t.color}"></i>${sk.name}</div>`;
+        const mm = sk.power ? EFF[sk.type][s.foe.type] : 1;
+        const tag = mm > 1 ? '<em class="tg se">2×</em>' : mm < 1 ? '<em class="tg nve">½</em>' : '';
+        return `<div class="sk${k === i ? ' sel' : ''}${poor ? ' poor' : ''}" data-k="${k}"><i class="dot" style="background:${t.color}"></i>${sk.name}${tag}</div>`;
       }).join('')}</div>${this.skillInfo(ids[i])}`;
     };
     render();
@@ -210,6 +218,9 @@ const Battle = {
       UI.push(w);
     });
   },
+
+  // skill types that deal double damage to an issue type
+  counters(type) { return Object.keys(EFF).filter((k) => EFF[k][type] > 1); },
 
   async assess() {
     const f = this.s.foe, d = f.def;
@@ -300,8 +311,8 @@ const Battle = {
       this.refresh();
       await this.settle();
       if (crit > 1) await UI.say('Nailed it! A critical hit!', { auto: 700 });
-      if (m > 1) await UI.say('That really hit home!', { auto: 800 });
-      else if (m < 1) await UI.say('Meh. It didn\'t really land.', { auto: 800 });
+      if (m > 1) await UI.say(`That really hit home! ${sk.type} beats ${f.type}.`, { auto: 1100 });
+      else if (m < 1) await UI.say(`Meh. ${f.type} issues shrug off ${sk.type}. Try ${Battle.counters(f.type).join(' or ')}.`, { auto: 1600 });
       if (fx.recoil) {
         const rc = Math.max(1, Math.floor(dmg * fx.recoil));
         p.sanity = Math.max(0, p.sanity - rc); s.a.meBlink = 0.4; this.refresh();
@@ -498,7 +509,7 @@ const Battle = {
   // ------------------------------------------------------------ HUD
   buildHUD() {
     const foe = UI.el('div', 'bhud foe hidden', `<div class="bh-row"><span class="nm"></span><span class="lv"></span></div>
-      <div class="bh-row"><span class="tchip"></span><span class="anx"></span></div><div class="bar"><span>SEVERITY</span><i><b></b></i></div>`);
+      <div class="bh-row"><span class="tchip"></span><span class="anx"></span></div><div class="weak"></div><div class="bar"><span>SEVERITY</span><i><b></b></i></div>`);
     const me = UI.el('div', 'bhud me hidden', `<div class="bh-row"><span class="nm"></span><span class="lv"></span></div>
       <div class="bar"><span>SANITY</span><i><b></b></i></div><div class="num san"></div>
       <div class="bar en"><span>ENERGY</span><i><b></b></i></div><div class="num en"></div>
@@ -521,6 +532,7 @@ const Battle = {
     const tc = h.foe.querySelector('.tchip');
     tc.textContent = f.type; tc.style.background = ISSUE_TYPES[f.type].color;
     h.foe.querySelector('.anx').textContent = f.anx ? 'CONFUSED' : '';
+    h.foe.querySelector('.weak').innerHTML = 'WEAK TO ' + Battle.counters(f.type).map((k) => `<em style="background:${SKILL_TYPES[k].color}">${k}</em>`).join('');
     h.me.querySelector('.nm').textContent = p.name;
     h.me.querySelector('.lv').textContent = 'Lv' + p.level;
     const en = h.me.querySelector('.bar.en b');
