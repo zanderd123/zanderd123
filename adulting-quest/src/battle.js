@@ -48,7 +48,7 @@ const Battle = {
       p.flags.typeTip = true;
       await UI.say(['TIP: Every issue has a type, shown in its box. Its WEAK TO line says which skill types do DOUBLE damage.',
         'In SKILLS, a green 2× means that skill hits hard here. A red ½ means it barely lands.',
-        `This one is ${s.foe.type}, so use ${this.counters(s.foe.type).join(' or ')} skills!`]);
+        `This one is ${s.foe.type}. ${this.advice(s.foe.type)}`]);
     }
     result = await this.loop();
     // wrap up
@@ -222,6 +222,19 @@ const Battle = {
   // skill types that deal double damage to an issue type
   counters(type) { return Object.keys(EFF).filter((k) => EFF[k][type] > 1); },
 
+  // Advice based on the skills you actually have, not just type names.
+  advice(type) {
+    const p = Game.p, good = (id) => SKILLS[id].power > 0 && EFF[SKILLS[id].type][type] > 1;
+    const eq = p.equipped.filter(good);
+    if (eq.length) return `Try ${eq.map((id) => SKILLS[id].name.toUpperCase()).join(' or ')}!`;
+    const known = p.known.filter(good);
+    if (known.length) return `Your ${SKILLS[known[0]].name.toUpperCase()} would hit hard, but it isn't equipped. Swap it in from MENU > SKILLS.`;
+    const book = Object.keys(ITEMS).find((id) => ITEMS[id].use === 'book' && good(ITEMS[id].skill));
+    const town = book ? SHOP_STOCK.findIndex((st) => st.includes(book)) : -1;
+    const where = book ? ` ${ITEMS[book].name.replace('Book: ', '')} teaches ${SKILLS[ITEMS[book].skill].name.toUpperCase()}${town >= 0 ? `, sold in ${TOWNS[town].name}` : ''}.` : '';
+    return `You don't have a ${this.counters(type).join(' or ')} skill yet. WING IT works on anything.${where}`;
+  },
+
   async assess() {
     const f = this.s.foe, d = f.def;
     const strong = [], weak = [];
@@ -312,7 +325,7 @@ const Battle = {
       await this.settle();
       if (crit > 1) await UI.say('Nailed it! A critical hit!', { auto: 700 });
       if (m > 1) await UI.say(`That really hit home! ${sk.type} beats ${f.type}.`, { auto: 1100 });
-      else if (m < 1) await UI.say(`Meh. ${f.type} issues shrug off ${sk.type}. Try ${Battle.counters(f.type).join(' or ')}.`, { auto: 1600 });
+      else if (m < 1) await UI.say(`Meh. ${f.type} issues shrug off ${sk.type} skills. ${Battle.advice(f.type)}`);
       if (fx.recoil) {
         const rc = Math.max(1, Math.floor(dmg * fx.recoil));
         p.sanity = Math.max(0, p.sanity - rc); s.a.meBlink = 0.4; this.refresh();

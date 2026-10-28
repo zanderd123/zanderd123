@@ -525,11 +525,12 @@ const ITEMS = {
   uber:          { name: 'Rideshare Home', price: 25, use: 'escape', battle: true, desc: 'Escape a wild issue, or ride back to the last hospital you used.' },
   scratch:       { name: 'Scratch-Off Ticket', price: 5, use: 'scratch', desc: 'Could win $50! (Could also not.)' },
   outfit:        { name: 'Thrift Store Fit', price: 30, use: 'outfit', desc: 'A new jacket color. Vintage. Smells vintage too.' },
+  book_google:   { name: 'Book: Search Like a Pro', price: 30, use: 'book', skill: 'googling', desc: 'Teaches GOOGLING IT (BRAINS).' },
   book_breathe:  { name: 'Book: Just Breathe', price: 40, use: 'book', skill: 'deep_breaths', desc: 'Teaches DEEP BREATHS.' },
-  book_diy:      { name: 'Book: DIY or Die', price: 50, use: 'book', skill: 'fix_it', desc: 'Teaches FIX IT.' },
+  book_diy:      { name: 'Book: DIY or Die', price: 50, use: 'book', skill: 'fix_it', desc: 'Teaches FIX IT (GRIT).' },
   book_haggle:   { name: 'Book: Haggling 101', price: 50, use: 'book', skill: 'haggle', desc: 'Teaches HAGGLE.' },
   book_exit:     { name: 'Book: Leaving Without Goodbyes', price: 25, use: 'book', skill: 'ghosting', desc: 'Teaches GHOSTING. (Shady.)' },
-  book_meditate: { name: 'Book: Meditation for Skeptics', price: 45, use: 'book', skill: 'touch_grass', desc: 'Teaches TOUCH GRASS.' },
+  book_meditate: { name: 'Book: Meditation for Skeptics', price: 45, use: 'book', skill: 'touch_grass', desc: 'Teaches TOUCH GRASS (CHILL).' },
   book_no:       { name: 'Book: The Art of Saying No', price: 45, use: 'book', skill: 'boundaries', desc: 'Teaches BOUNDARIES.' },
   book_friends:  { name: 'Book: How to Win Friends', price: 80, use: 'book', skill: 'networking', desc: 'Teaches NETWORKING.' },
   book_excel:    { name: 'Book: Spreadsheets for Dummies', price: 80, use: 'book', skill: 'spreadsheet', desc: 'Teaches SPREADSHEET.' },
@@ -537,7 +538,7 @@ const ITEMS = {
 };
 // Stock grows as you travel; index = town id, later towns sell everything.
 const SHOP_STOCK = [
-  ['coffee', 'comfort_food', 'headphones', 'scratch', 'outfit', 'book_breathe'],
+  ['coffee', 'comfort_food', 'headphones', 'book_google', 'book_diy', 'book_meditate', 'book_breathe', 'scratch', 'outfit'],
   ['coffee', 'energy_drink', 'comfort_food', 'headphones', 'scratch', 'book_diy', 'book_haggle', 'book_exit'],
   ['coffee', 'energy_drink', 'comfort_food', 'pizza', 'uber', 'headphones', 'scratch', 'outfit', 'book_meditate', 'book_no'],
   ['coffee', 'energy_drink', 'pizza', 'therapy', 'uber', 'headphones', 'scratch', 'book_friends', 'book_excel', 'book_manual'],
@@ -3722,7 +3723,7 @@ const Battle = {
       p.flags.typeTip = true;
       await UI.say(['TIP: Every issue has a type, shown in its box. Its WEAK TO line says which skill types do DOUBLE damage.',
         'In SKILLS, a green 2× means that skill hits hard here. A red ½ means it barely lands.',
-        `This one is ${s.foe.type}, so use ${this.counters(s.foe.type).join(' or ')} skills!`]);
+        `This one is ${s.foe.type}. ${this.advice(s.foe.type)}`]);
     }
     result = await this.loop();
     // wrap up
@@ -3896,6 +3897,19 @@ const Battle = {
   // skill types that deal double damage to an issue type
   counters(type) { return Object.keys(EFF).filter((k) => EFF[k][type] > 1); },
 
+  // Advice based on the skills you actually have, not just type names.
+  advice(type) {
+    const p = Game.p, good = (id) => SKILLS[id].power > 0 && EFF[SKILLS[id].type][type] > 1;
+    const eq = p.equipped.filter(good);
+    if (eq.length) return `Try ${eq.map((id) => SKILLS[id].name.toUpperCase()).join(' or ')}!`;
+    const known = p.known.filter(good);
+    if (known.length) return `Your ${SKILLS[known[0]].name.toUpperCase()} would hit hard, but it isn't equipped. Swap it in from MENU > SKILLS.`;
+    const book = Object.keys(ITEMS).find((id) => ITEMS[id].use === 'book' && good(ITEMS[id].skill));
+    const town = book ? SHOP_STOCK.findIndex((st) => st.includes(book)) : -1;
+    const where = book ? ` ${ITEMS[book].name.replace('Book: ', '')} teaches ${SKILLS[ITEMS[book].skill].name.toUpperCase()}${town >= 0 ? `, sold in ${TOWNS[town].name}` : ''}.` : '';
+    return `You don't have a ${this.counters(type).join(' or ')} skill yet. WING IT works on anything.${where}`;
+  },
+
   async assess() {
     const f = this.s.foe, d = f.def;
     const strong = [], weak = [];
@@ -3986,7 +4000,7 @@ const Battle = {
       await this.settle();
       if (crit > 1) await UI.say('Nailed it! A critical hit!', { auto: 700 });
       if (m > 1) await UI.say(`That really hit home! ${sk.type} beats ${f.type}.`, { auto: 1100 });
-      else if (m < 1) await UI.say(`Meh. ${f.type} issues shrug off ${sk.type}. Try ${Battle.counters(f.type).join(' or ')}.`, { auto: 1600 });
+      else if (m < 1) await UI.say(`Meh. ${f.type} issues shrug off ${sk.type} skills. ${Battle.advice(f.type)}`);
       if (fx.recoil) {
         const rc = Math.max(1, Math.floor(dmg * fx.recoil));
         p.sanity = Math.max(0, p.sanity - rc); s.a.meBlink = 0.4; this.refresh();

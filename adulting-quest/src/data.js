@@ -189,11 +189,12 @@ const ITEMS = {
   uber:          { name: 'Rideshare Home', price: 25, use: 'escape', battle: true, desc: 'Escape a wild issue, or ride back to the last hospital you used.' },
   scratch:       { name: 'Scratch-Off Ticket', price: 5, use: 'scratch', desc: 'Could win $50! (Could also not.)' },
   outfit:        { name: 'Thrift Store Fit', price: 30, use: 'outfit', desc: 'A new jacket color. Vintage. Smells vintage too.' },
+  book_google:   { name: 'Book: Search Like a Pro', price: 30, use: 'book', skill: 'googling', desc: 'Teaches GOOGLING IT (BRAINS).' },
   book_breathe:  { name: 'Book: Just Breathe', price: 40, use: 'book', skill: 'deep_breaths', desc: 'Teaches DEEP BREATHS.' },
-  book_diy:      { name: 'Book: DIY or Die', price: 50, use: 'book', skill: 'fix_it', desc: 'Teaches FIX IT.' },
+  book_diy:      { name: 'Book: DIY or Die', price: 50, use: 'book', skill: 'fix_it', desc: 'Teaches FIX IT (GRIT).' },
   book_haggle:   { name: 'Book: Haggling 101', price: 50, use: 'book', skill: 'haggle', desc: 'Teaches HAGGLE.' },
   book_exit:     { name: 'Book: Leaving Without Goodbyes', price: 25, use: 'book', skill: 'ghosting', desc: 'Teaches GHOSTING. (Shady.)' },
-  book_meditate: { name: 'Book: Meditation for Skeptics', price: 45, use: 'book', skill: 'touch_grass', desc: 'Teaches TOUCH GRASS.' },
+  book_meditate: { name: 'Book: Meditation for Skeptics', price: 45, use: 'book', skill: 'touch_grass', desc: 'Teaches TOUCH GRASS (CHILL).' },
   book_no:       { name: 'Book: The Art of Saying No', price: 45, use: 'book', skill: 'boundaries', desc: 'Teaches BOUNDARIES.' },
   book_friends:  { name: 'Book: How to Win Friends', price: 80, use: 'book', skill: 'networking', desc: 'Teaches NETWORKING.' },
   book_excel:    { name: 'Book: Spreadsheets for Dummies', price: 80, use: 'book', skill: 'spreadsheet', desc: 'Teaches SPREADSHEET.' },
@@ -201,7 +202,7 @@ const ITEMS = {
 };
 // Stock grows as you travel; index = town id, later towns sell everything.
 const SHOP_STOCK = [
-  ['coffee', 'comfort_food', 'headphones', 'scratch', 'outfit', 'book_breathe'],
+  ['coffee', 'comfort_food', 'headphones', 'book_google', 'book_diy', 'book_meditate', 'book_breathe', 'scratch', 'outfit'],
   ['coffee', 'energy_drink', 'comfort_food', 'headphones', 'scratch', 'book_diy', 'book_haggle', 'book_exit'],
   ['coffee', 'energy_drink', 'comfort_food', 'pizza', 'uber', 'headphones', 'scratch', 'outfit', 'book_meditate', 'book_no'],
   ['coffee', 'energy_drink', 'pizza', 'therapy', 'uber', 'headphones', 'scratch', 'book_friends', 'book_excel', 'book_manual'],
