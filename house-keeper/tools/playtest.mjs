@@ -100,9 +100,17 @@ check(await sk(() => __SK.S.keys.has('mirror')), 'the PRISM KEY drops out of the
 // the secret shelf in the Archives
 await go('archives', 17, 3, 'up'); await settle();
 await tap('Space'); await settle();
-check(await sk(() => __SK.S.flags.mamaw && __SK.mamaw.on), 'the right-most top shelf in the Archives reveals Mamaw');
+check(await sk(() => __SK.S.flags.secretOpen && __SK.S.room.grid[2][1] === 'z'), 'the gold book opens the left-most shelf into a doorway');
+await put(1, 3, 'up'); await move('ArrowUp'); await page.waitForTimeout(500); await settle();
+check(await room() === 'secret' && String(await pos()) === '9,12', 'walking through the open shelf enters the Secret Room');
+await put(9, 8, 'up'); await move('ArrowUp');
+check(String(await pos()) === '9,8', 'the sleeping Mamaw blocks the way until you meet her');
+await tap('Space'); await settle();
+check(await sk(() => __SK.S.flags.mamaw && __SK.mamaw.on), 'talking to the calico in the Secret Room makes Mamaw follow');
 await move('ArrowDown'); await move('ArrowLeft');
-check(await sk(() => __SK.mamaw.x === 18 - 1 && __SK.mamaw.y === 4), 'Mamaw follows one step behind');
+check(await sk(() => __SK.mamaw.x === 9 && __SK.mamaw.y === 9), 'Mamaw follows one step behind');
+await put(9, 12, 'down'); await move('ArrowDown'); await page.waitForTimeout(500); await settle();
+check(await room() === 'archives' && String(await pos()) === '1,3', 'the Secret Room door leads back to the Archives');
 await go('hall', 9, 9, 'up'); await settle();
 check(await sk(() => __SK.mamaw.on && __SK.mamaw.x === 9 && __SK.mamaw.y === 10), 'Mamaw comes along into the next room');
 

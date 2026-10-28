@@ -2,7 +2,7 @@
 
 A top-down pixel-art exploration game in the style of the classic Game Boy
 Advance Pokémon games. You wake up inside a strange old building with a giant
-chest that has seven keyholes. Explore 22 rooms, get past seven obstacles,
+chest that has seven keyholes. Explore 22 rooms (and one secret one), get past seven obstacles,
 collect all seven keys and open the chest to escape.
 
 **Play online:** https://zanderd123.github.io/zanderd123/house-keeper/
@@ -79,10 +79,14 @@ ran off to.
 ## Secrets
 
 The Archives (west of the West Hall) are where Professor Quill likes to hide
-between the shelves. One book on the right-most shelf of the top wall sticks
-out a little. Pull it and the shelf swings open to reveal **Mamaw**, a calico
-cat who follows you for the rest of the game (and out of the front door). She
-is just company: she does not block anything or change the game.
+between the shelves. On the right-most shelf of the top wall, one gold book
+sticks out a little. Pull it and the left-most shelf on that wall swings open
+into a doorway to the **Secret Room**: a fighter jet (an F/A-18 Super Hornet)
+on the left, a giant ringed model planet and a cozy bed under a wooden cross
+on the right, and **Mamaw**, a calico cat, curled up on the rug in the middle.
+Talk to her and she follows you for the rest of the game (and out of the
+front door). She is just company: she does not block anything or change the
+game.
 
 ## Hosting on GitHub Pages
 

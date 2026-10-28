@@ -247,6 +247,7 @@ const THEMES = {
   glass:   { floor:'flag',  alt:'grass', top:'#2a3a3a', lip:'#4a6060', wall:'glass', c1:'#a8dcea', c2:'#8cc8dc', trim:'#e8f4f8', base:'#4a6a5a' },
   ice:     { floor:'snow',     top:'#1c2a44', lip:'#34486a', wall:'brick', c1:'#9cbcdc', c2:'#84a6cc', trim:'#d8ecfa', base:'#4a6488' },
   mirror:  { floor:'mirrorfloor', top:'#2a2440', lip:'#463e66', wall:'paper', c1:'#5a5486', c2:'#4e4878', trim:'#d8d8f0', base:'#2a2440' },
+  cozy:    { floor:'wood', top:'#2a2438', lip:'#463e5a', wall:'paper', c1:'#6f8cc0', c2:'#6480b4', trim:'#e8d8a8', base:'#4a3424' },
   archive: { floor:'darkwood', top:'#22161a', lip:'#3a2a2e', wall:'paper', c1:'#5a3a3a', c2:'#4e3232', trim:'#c8a24a', base:'#2a1a12' },
   dark:    { floor:'darkstone', top:'#121018', lip:'#221e2c', wall:'brick', c1:'#3a3646', c2:'#2e2a38', trim:'#4a4658', base:'#1a1822' },
 };
@@ -344,6 +345,10 @@ const DECOR = {
   shelf(x, y) { rr(x + 1, y + 8, 14, 2, '#6a4428'); rr(x + 2, y + 4, 3, 4, '#c84a4a'); rr(x + 6, y + 5, 3, 3, '#4ab0d8'); rr(x + 10, y + 3, 3, 5, '#e8d070'); },
   banner(x, y) { rr(x + 4, y + 1, 8, 11, '#a82838'); rr(x + 4, y + 1, 8, 1, '#d8b048'); rr(x + 5, y + 12, 2, 2, '#a82838'); rr(x + 9, y + 12, 2, 2, '#a82838'); rr(x + 7, y + 4, 2, 4, '#d8b048'); },
   pots(x, y) { rr(x + 2, y + 7, 4, 5, '#b5603a'); rr(x + 10, y + 7, 4, 5, '#b5603a'); rr(x + 2, y + 3, 4, 4, '#3f9a4a'); rr(x + 10, y + 2, 4, 5, '#3f9a4a'); },
+  cross(x, y) {          // drawn centred on the tile's left edge, so it sits between two tiles
+    rr(x - 2, y + 1, 4, 12, '#4a2a14'); rr(x - 6, y + 4, 12, 4, '#4a2a14');
+    rr(x - 1, y + 2, 2, 10, '#b8844a'); rr(x - 5, y + 5, 10, 2, '#b8844a'); rr(x - 1, y + 2, 1, 4, '#d8a868');
+  },
   tallmirror(x, y) { rr(x + 3, y + 1, 10, 12, '#d8d8f0'); rr(x + 4, y + 2, 8, 10, '#a8c8e8'); rr(x + 5, y + 3, 2, 6, '#eef8ff'); },
   sunwindow(x, y) { rr(x + 2, y + 1, 12, 13, '#6a5a3a'); rr(x + 3, y + 2, 10, 12, '#fff0a0'); rr(x + 3, y + 2, 10, 3, '#fffad8'); rr(x + 7, y + 2, 2, 12, '#6a5a3a'); },
   sun(x, y) { rr(x + 4, y + 3, 8, 8, '#f8d860'); rr(x + 5, y + 4, 3, 2, '#fff4b0'); },
@@ -361,7 +366,8 @@ const DECOR = {
 //  B shelf  T table  c chair  P plant  C crate  O barrel  s sign  S statue
 //  H pillar M organ  E telescope  n pew  A altar  D desk  k stove  u counter
 //  t tree   F fountain  X the great chest
-//  q d mirrors (\ and /)  y crystal  Y glass key case  z the open secret bookshelf
+//  q d mirrors (\ and /)  y crystal  Y glass key case  z the open secret bookshelf door
+//  J F/A-18 jet  U planet model  N bed (anchors, drawn upward); v h l are their solid footprints
 const DEFS = [
   { id:'hall', name:'Great Hall', gx:2, gy:2, theme:'hall', doors:'WES', frontDoor:[15, 16],
     decor:{ 2:'window', 5:'painting', 7:'banner', 11:'banner', 13:'painting' },
@@ -708,6 +714,23 @@ const DEFS = [
     text:{ '13,3':'A card file full of notes about Professor Quill. One card says: "Loves riddles. Hates loud noises. Hides between bookshelves."',
            '12,10':'THE ARCHIVES.  Old records of the house.  Please keep quiet!' } },
 
+  // Reached only through the secret bookshelf in the Archives; its south door leads back there.
+  { id:'secret', name:'Secret Room', gx:-9, gy:-9, theme:'cozy', doors:'S', secret:true,
+    exitTo:{ room:'archives', x:1, y:3, dir:'down' }, mamawSpot:[8, 5],
+    decor:{ 3:'window', 7:'painting', 11:'window', 16:'cross' },
+    map:[
+      '..............ll.',
+      'vvvv..........ll.',
+      'vvvv..........Nl.',
+      'vvvv.............',
+      'vvvv...RRR.......',
+      'vvvv...RRR...hh..',
+      'Jvvv...RRR...Uh..',
+      '.................',
+      '.P.............P.',
+      '.................',
+      '.................' ] },
+
   { id:'darkmaze', name:'Dark Maze', gx:0, gy:3, theme:'dark', doors:'E', dark:true, needsLantern:true,
     decor:{},
     map:[
@@ -736,7 +759,7 @@ const KEYS = [
 const KEYBYROOM = {}; for (const k of KEYS) KEYBYROOM[k.room] = k;
 
 const WALK = new Set('.RgfiabpQ%1234KLx^'.split(''));
-const PROPS = new Set('BTcPCOsSHMEnADkutFrXqdyYz'.split(''));
+const PROPS = new Set('BTcPCOsSHMEnADkutFrXqdyYzJUN'.split(''));
 const DIRV = { up:[0, -1], down:[0, 1], left:[-1, 0], right:[1, 0] };
 const DOORPOS = { N:[9, 1], S:[9, MH - 1], W:[0, 7], E:[MW - 1, 7] };
 const ARRIVE = { N:{ x:9, y:2, dir:'down' }, S:{ x:9, y:MH - 2, dir:'up' }, W:{ x:1, y:7, dir:'right' }, E:{ x:MW - 2, y:7, dir:'left' } };
@@ -759,6 +782,7 @@ function buildRoom(def) {
   const r = Object.assign({}, def, { base:grid.map(r => r.slice()), grid, theme:THEMES[def.theme], cv:mk(VW, VH), dirty:true, text:{} });
   for (const k in def.text || {}) { const [ix, iy] = k.split(',').map(Number); r.text[(ix + 1) + ',' + (iy + 2)] = def.text[k]; }
   r.keySpot = null; r.items = [];
+  if (def.mamawSpot) r.mamawSpot = { x:def.mamawSpot[0] + 1, y:def.mamawSpot[1] + 2 };
   for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) {
     const ch = grid[y][x];
     if (ch === 'K') r.keySpot = { x, y };
@@ -954,9 +978,49 @@ Object.assign(PROPDRAW, {
     rr(x + 3, y - 4 - lift, 10, 13, 'rgba(210,235,255,.35)');
     rr(x + 3, y - 5 - lift, 10, 1, '#e8f4ff'); rr(x + 3, y - 4 - lift, 1, 13, '#e8f4ff'); rr(x + 12, y - 4 - lift, 1, 13, '#c8dcf0'); rr(x + 4, y - 3 - lift, 1, 5, '#ffffff');
   },
-  z(x, y) {   // the secret bookshelf, swung open onto a cushioned nook
-    blob([[x, y - 8, 16, 24]], '#7a4a26'); rr(x + 2, y - 6, 12, 21, '#2a1a12'); rr(x + 2, y - 6, 12, 3, '#1a100a');
-    rr(x + 3, y + 8, 10, 5, '#c84a5a'); rr(x + 3, y + 8, 10, 1, '#e86a7a'); rr(x + 4, y + 10, 1, 1, '#f0c040'); rr(x + 11, y + 10, 1, 1, '#f0c040');
+  z(x, y) {   // the secret bookshelf, swung open into a doorway with warm light behind it
+    blob([[x, y - 8, 16, 24]], '#7a4a26'); rr(x + 2, y - 6, 12, 22, '#1a100a');
+    rr(x + 3, y + 4, 10, 12, '#4a3020'); rr(x + 4, y + 9, 8, 7, '#8a5a30'); rr(x + 5, y + 12, 6, 4, '#ffd890');
+    rr(x + 13, y - 6, 3, 22, '#5a3418');
+  },
+  J(x, y) {   // an F/A-18 Super Hornet seen from above, nose up: 64 x 96, anchored at its bottom-left tile
+    const cx = x + 32, top = y + 16 - 96;
+    const hw = yy => yy < 4 ? 1 : yy < 18 ? 2 + (yy - 4) * 0.25 : yy < 34 ? 6 : yy < 48 ? 6 + (yy - 34) * 0.6
+      : yy < 62 ? Math.min(31, 14 + (yy - 48) * 1.5) : yy < 70 ? 31 - (yy - 62) * 2.5 : yy < 76 ? 9
+      : yy < 87 ? 9 + (yy - 76) * 1.2 : yy < 90 ? 21 - (yy - 87) * 4 : 7;
+    C.fillStyle = 'rgba(20,10,30,.22)'; for (let yy = 6; yy < 96; yy++) { const w = Math.round(hw(yy)); C.fillRect(cx - w + 3, top + yy + 4, w * 2, 1); }
+    for (let yy = -1; yy < 97; yy++) { const w = Math.round(hw(Math.min(95, Math.max(0, yy)))) + 1; rr(cx - w, top + yy, w * 2, 1, OUT); }
+    for (let yy = 0; yy < 96; yy++) { const w = Math.round(hw(yy)); rr(cx - w, top + yy, w * 2, 1, yy > 46 && yy < 70 && w > 10 ? '#9aa4b2' : '#8a94a4'); }
+    rr(cx - 1, top + 6, 2, 84, '#a8b2c0');                                   // spine highlight
+    rr(cx - 3, top + 16, 6, 16, '#1e2c48'); rr(cx - 2, top + 17, 2, 8, '#6a8ab8'); rr(cx - 3, top + 32, 6, 1, OUT);   // canopy
+    rr(cx - 10, top + 60, 2, 24, '#5e6878'); rr(cx + 8, top + 60, 2, 24, '#5e6878');                            // twin tails
+    rr(cx - 8, top + 89, 6, 6, '#3a3a44'); rr(cx + 2, top + 89, 6, 6, '#3a3a44'); rr(cx - 7, top + 90, 4, 4, '#1a1a20'); rr(cx + 3, top + 90, 4, 4, '#1a1a20');
+    rr(cx - 33, top + 50, 2, 13, '#e8e8ee'); rr(cx + 31, top + 50, 2, 13, '#e8e8ee'); rr(cx - 33, top + 49, 2, 1, '#d84a3a'); rr(cx + 31, top + 49, 2, 1, '#d84a3a');
+    for (const sx of [-20, 18]) { rr(cx + sx - 1, top + 53, 5, 5, '#2a4a9a'); rr(cx + sx, top + 54, 3, 3, '#f4f4f8'); rr(cx + sx + 1, top + 55, 1, 1, '#c83a3a'); }
+    rr(cx - 2, top + 76, 4, 4, '#6a7484');
+  },
+  U(x, y, tx, ty, r, t) {   // a big model planet with rings, on a brass stand: 32 x 40
+    const cx = x + 16, cy = y + 16 - 24;
+    blob([[cx - 7, y + 12, 14, 3]], '#b08830'); rr(cx - 1, cy + 10, 2, 16, '#c89a3a');
+    const ring = front => { for (let a = 0; a < 64; a++) { const ang = a / 64 * Math.PI * 2, s2 = Math.sin(ang); if ((s2 > 0) !== front) continue;
+      rr(Math.round(cx + Math.cos(ang) * 15), Math.round(cy + s2 * 4), 2, 1, front ? '#f0d8a0' : '#a08860'); } };
+    ring(false);
+    const bands = ['#e8b070', '#d89a5a', '#f0c890', '#c8844a', '#e8b070', '#f4d4a0'];
+    for (let dy = -10; dy <= 10; dy++) { const w = Math.round(Math.sqrt(100 - dy * dy)); rr(cx - w - 1, cy + dy, w * 2 + 2, 1, OUT); }
+    for (let dy = -9; dy <= 9; dy++) { const w = Math.round(Math.sqrt(90 - dy * dy)); rr(cx - w, cy + dy, w * 2, 1, bands[Math.floor((dy + 9) / 3.2)]); }
+    rr(cx - 5, cy - 6, 3, 2, '#fff0d0'); rr(cx + 3, cy + 2, 4, 2, '#b8703a');
+    ring(true);
+    if (Math.sin(t * 2) > 0.7) rr(cx + 12, cy - 9, 1, 1, '#ffffff');
+  },
+  N(x, y) {   // a big cozy bed, head against the wall: 32 x 48
+    const top = y + 16 - 48;
+    blob([[x + 1, top, 30, 6]], '#6a3a1e'); rr(x + 2, top + 1, 28, 1, '#8a5a30');                                 // headboard
+    blob([[x + 2, top + 6, 28, 40]], '#f4f0e8');                                                                 // sheet
+    blob([[x + 4, top + 7, 11, 6], [x + 17, top + 7, 11, 6]], '#ffffff', '#c8c0d0');                             // pillows
+    rr(x + 2, top + 16, 28, 30, '#c84a5a');                                                                      // quilt
+    for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) if ((i + j) % 2) rr(x + 2 + i * 7, top + 16 + j * 7 + 1, 7, 7, '#e0b048');
+    rr(x + 2, top + 16, 28, 2, '#f4f0e8');
+    blob([[x + 1, top + 45, 30, 3]], '#6a3a1e'); rr(x + 2, top + 48, 2, 2, '#4a2410'); rr(x + 28, top + 48, 2, 2, '#4a2410');
   },
 });
 const TALLPROP = { B:8, H:15, M:12, S:7, P:5, t:13, X:16, E:5, O:2, k:6, F:9 };
@@ -1138,7 +1202,7 @@ function resetRoomState(r) {
   }
   if (r.id === 'boulder' && S.flags.gate) boulders.forEach((b, i) => { if (plates[i]) { b.x = b.fx = plates[i].x; b.y = b.fy = plates[i].y; } });
   if (r.id === 'mirrors' && S.flags.mirrorCells) for (const [x, y, c] of S.flags.mirrorCells) r.grid[y][x] = c;
-  if (r.id === 'archives' && S.flags.mamaw) r.grid[SECRET_SHELF.y][SECRET_SHELF.x] = 'z';
+  if (r.id === 'archives' && S.flags.secretOpen) r.grid[SECRET_DOOR.y][SECRET_DOOR.x] = 'z';
   r.pitHint = false;
 }
 function enterRoom(id, x, y, dir) {
@@ -1150,13 +1214,14 @@ function enterRoom(id, x, y, dir) {
 }
 const npcAtProf = (x, y) => !prof.gone && prof.room === S.room.id && prof.x === x && prof.y === y;
 const catAt = (x, y) => S.room.catSpot && S.room.catSpot.x === x && S.room.catSpot.y === y;
+const sittingMamawAt = (x, y) => !S.flags.mamaw && S.room.mamawSpot && S.room.mamawSpot.x === x && S.room.mamawSpot.y === y;
 const boulderAt = (x, y) => boulders.find(b => b.x === x && b.y === y);
 function blocked(x, y) {
   const ch = tileAt(S.room, x, y);
   if (ch === 'G') return !S.flags.gate;
   if (ch === 'Z') return !S.flags.doorOpen;
   if (!WALK.has(ch)) return true;
-  return !!(boulderAt(x, y) || npcAtProf(x, y) || catAt(x, y));
+  return !!(boulderAt(x, y) || npcAtProf(x, y) || catAt(x, y) || sittingMamawAt(x, y));
 }
 function keyVisible(k) {
   if (S.keys.has(k.id) || k.id === 'quiz') return false;
@@ -1175,7 +1240,7 @@ function tryStep(d) {
   const fast = held.run || held.b;
   if (ch === '>') {
     const door = ny === 1 ? 'N' : ny === MH - 1 ? 'S' : nx === 0 ? 'W' : 'E';
-    const next = ROOMAT[(r.gx + STEP[door][0]) + ',' + (r.gy + STEP[door][1])];
+    const next = r.exitTo ? ROOM[r.exitTo.room] : ROOMAT[(r.gx + STEP[door][0]) + ',' + (r.gy + STEP[door][1])];
     if (next.needsLantern && !S.lantern) {
       run(async () => { await say("It's pitch black in there. You can't see a thing!", "You'll need some kind of light before you go in."); });
       return;
@@ -1183,6 +1248,7 @@ function tryStep(d) {
     P.exiting = door; startMove(nx, ny, fast ? 0.13 : 0.2); return;
   }
   if (ch === 'Z' && S.flags.doorOpen) { P.exiting = 'front'; startMove(nx, ny, 0.3); return; }
+  if (ch === 'z') { P.exiting = 'secret'; startMove(nx, ny, 0.25); return; }
   const bo = boulderAt(nx, ny);
   if (bo) { pushBoulder(bo, dx, dy); return; }
   if (blocked(nx, ny)) {
@@ -1238,7 +1304,11 @@ function spikeUp(ch) {
   return ph < 1.2 ? 2 : ph > 2.1 ? 1 : 0;      // 2 = up, 1 = about to rise
 }
 function goThrough(door) {
-  const r = S.room, next = ROOMAT[(r.gx + STEP[door][0]) + ',' + (r.gy + STEP[door][1])], a = ARRIVE[OPP[door]];
+  const r = S.room;
+  let next, a;
+  if (door === 'secret') { next = ROOM.secret; a = ARRIVE.S; }
+  else if (r.exitTo) { next = ROOM[r.exitTo.room]; a = r.exitTo; }
+  else { next = ROOMAT[(r.gx + STEP[door][0]) + ',' + (r.gy + STEP[door][1])]; a = ARRIVE[OPP[door]]; }
   run(async () => {
     sfx('door'); await fadeTo(1, 0.16);
     enterRoom(next.id, a.x, a.y, a.dir);
@@ -1335,7 +1405,8 @@ function turnMirror(x, y) {
 }
 
 // Mamaw, the secret calico ------------------------------------------------------
-const SECRET_SHELF = { x:17, y:2 };          // the right-most shelf on the Archives' top wall
+const SECRET_SHELF = { x:17, y:2 };          // right-most shelf on the Archives' top wall: the gold book
+const SECRET_DOOR = { x:1, y:2 };            // left-most shelf on the same wall: swings open into the Secret Room
 const mamaw = { on:false, x:0, y:0, fx:0, fy:0, t:1, dur:0.2, dir:'down' };
 function placeMamaw() {
   mamaw.on = !!S.flags.mamaw;
@@ -1347,16 +1418,22 @@ function placeMamaw() {
 }
 function openSecretShelf() {
   run(async () => {
-    await say('One book on this shelf sticks out a little farther than the others...', 'You pull it. *CLICK*');
-    S.room.grid[SECRET_SHELF.y][SECRET_SHELF.x] = 'z'; S.room.dirty = true; sfx('gate');
-    await wait(0.8);
+    if (S.flags.secretOpen) { await say('The gold book is already pulled out. The secret door in the far left corner stands open.'); return; }
+    await say('One gold book on this shelf sticks out a little farther than the others...', 'You pull it. *CLICK*');
+    sfx('gate'); await wait(0.5);
+    S.flags.secretOpen = true; S.room.grid[SECRET_DOOR.y][SECRET_DOOR.x] = 'z'; S.room.dirty = true; sfx('open');
+    await wait(0.6);
+    await say('*RUMBLE* Across the room, the bookshelf in the far left corner swings open like a door!', 'Warm light spills out of a hidden room behind it...');
+    save();
+  });
+}
+function meetMamaw() {
+  run(async () => {
     tone(midi(84), 0.1, 'triangle', 0.06); tone(midi(88), 0.14, 'triangle', 0.06, 0.12);
-    await say('The bookshelf swings open like a door! Behind it is a cozy hidden nook with a cushion...',
-      '...and a fluffy calico cat! Her collar tag says MAMAW.', 'MAMAW: Mrrrow!', 'Mamaw has decided to follow you everywhere you go!');
+    await say('A fluffy calico cat is curled up on the rug. Her collar tag says MAMAW.', 'MAMAW: Mrrrow!', 'Mamaw stretches, hops up... and has decided to follow you everywhere you go!');
+    const s0 = S.room.mamawSpot;
     S.flags.mamaw = true;
-    // she hops down out of the nook and lands beside you
-    const spot = [[-1, 0], [1, 0], [0, 1]].map(([dx, dy]) => [P.x + dx, P.y + dy]).find(([x, y]) => !blocked(x, y)) || [P.x, P.y];
-    Object.assign(mamaw, { on:true, x:spot[0], y:spot[1], fx:SECRET_SHELF.x, fy:SECRET_SHELF.y, t:0, dur:0.4, dir:'down' });
+    Object.assign(mamaw, { on:true, x:s0.x, y:s0.y, fx:s0.x, fy:s0.y, t:1, dur:0.2, dir:'down' });
     save();
   });
 }
@@ -1533,7 +1610,11 @@ const LOOK = {
   H:['A tall marble pillar.'], n:['A long wooden pew.'], A:['An old stone altar.'], k:['An iron stove. It\'s still warm!'],
   u:['A counter dusted with flour.'], t:['A leafy tree. Birds are chirping somewhere.'], F:['The fountain water sparkles.'],
   r:['A big, heavy rock.'], w:['The water is cold and clear.'], E:['A brass telescope.'], D:['A desk covered in papers.'],
-  G:['Iron bars. Something shiny glints on the other side...'], s:['The sign is too faded to read.'], M:['An organ.'],
+  G:['Iron bars. Something shiny glints on the other side...'],
+  J:['An F/A-18 Super Hornet! A real fighter jet, parked right here in a secret room. How did they ever get it in?'],
+  v:['An F/A-18 Super Hornet! A real fighter jet, parked right here in a secret room. How did they ever get it in?'],
+  U:['A giant model planet with shiny golden rings. It turns slowly on its brass stand.'], h:['A giant model planet with shiny golden rings. It turns slowly on its brass stand.'],
+  N:['A big, cozy bed with a patchwork quilt. It might be the comfiest bed in the whole house.'], l:['A big, cozy bed with a patchwork quilt. It might be the comfiest bed in the whole house.'], s:['The sign is too faded to read.'], M:['An organ.'],
 };
 function interact() {
   const r = S.room, [dx, dy] = DIRV[P.dir], tx = P.x + dx, ty = P.y + dy, ch = tileAt(r, tx, ty);
@@ -1542,6 +1623,8 @@ function interact() {
   if (ch === 'X') { openChest(); return; }
   if (ch === 'Z') { frontDoor(); return; }
   if (mamaw.on && mamaw.x === tx && mamaw.y === ty && !P.moving) { petMamaw(); return; }
+  if (sittingMamawAt(tx, ty)) { meetMamaw(); return; }
+  if (ch === '@' && ty === 1 && r.decor && (r.decor[tx] === 'cross' || r.decor[tx + 1] === 'cross')) { run(async () => { await say('A wooden cross hangs on the wall above the bed.'); }); return; }
   if (ch === 'q' || ch === 'd') { turnMirror(tx, ty); return; }
   if (r.id === 'archives' && tx === SECRET_SHELF.x && ty === SECRET_SHELF.y && ch === 'B') { openSecretShelf(); return; }
   if (ch === 'M') { playOrgan(); return; }
@@ -1632,6 +1715,7 @@ function continueGame(sv) {
   resetGame(sv.kind);
   Object.assign(S, { keys:new Set(sv.keys), lantern:sv.lantern, flags:sv.flags || {}, stats:sv.stats || S.stats, playTime:sv.playTime || 0, qUsed:sv.qUsed || [] });
   Object.assign(prof, sv.prof, { fx:sv.prof.x, fy:sv.prof.y, path:null, gone:false });
+  if (S.flags.mamaw) S.flags.secretOpen = true;
   S.mode = 'play'; S.fade = 1; S.clock = true;
   enterRoom(sv.room, sv.x, sv.y, sv.dir || 'down');
   run(async () => { await fadeTo(0, 0.5); });
@@ -1860,6 +1944,7 @@ function render() {
   if (k && r.keySpot && keyVisible(k)) list.push({ y:r.keySpot.y * TS + 14, f:() => drawKeyItem(r.keySpot.x * TS, r.keySpot.y * TS, k.color, t) });
   if (r.lanternSpot && !S.lantern) list.push({ y:r.lanternSpot.y * TS + 14, f:() => drawLanternItem(r.lanternSpot.x * TS, r.lanternSpot.y * TS, t) });
   if (r.catSpot) list.push({ y:r.catSpot.y * TS + 15, f:() => drawCat(r.catSpot.x * TS, r.catSpot.y * TS, t) });
+  if (r.mamawSpot && !S.flags.mamaw) list.push({ y:r.mamawSpot.y * TS + 15, f:() => drawCalico(r.mamawSpot.x * TS, r.mamawSpot.y * TS, 'down', 0, t) });
   if (mamaw.on) {
     const e = Math.min(1, mamaw.t / mamaw.dur), mx = lerp(mamaw.fx, mamaw.x, e) * TS, my = lerp(mamaw.fy, mamaw.y, e) * TS;
     list.push({ y:my + 15.4, f:() => drawCalico(mx, my, mamaw.dir, e < 1 ? Math.floor(t * 10) % 2 : 0, t) });

@@ -25,7 +25,7 @@ await page.goto(page_url);
 await page.waitForTimeout(800);
 
 const { DEFS, MW, MH, WALK } = await page.evaluate(() => ({
-  DEFS: window.__SK.DEFS.map(d => ({ id: d.id, gx: d.gx, gy: d.gy, doors: d.doors, map: d.map })),
+  DEFS: window.__SK.DEFS.map(d => ({ id: d.id, gx: d.gx, gy: d.gy, doors: d.doors, map: d.map, secret: !!d.secret })),
   MW: window.__SK.MW, MH: window.__SK.MH, WALK: [...window.__SK.WALK].join(''),
 }));
 
@@ -38,6 +38,7 @@ for (const d of DEFS) {
   if (d.map.length !== 11 || d.map.some(r => r.length !== 17)) fail(`${d.id}: map is not 17x11 (${d.map.map(r => r.length).join(',')})`);
   for (const door of d.doors) {
     const n = at[(d.gx + STEP[door][0]) + ',' + (d.gy + STEP[door][1])];
+    if (d.secret) { const [x, y] = ARR[door]; if (!WALK.includes(d.map[y][x])) fail(`${d.id}: arrival cell for door ${door} is blocked`); continue; }
     if (!n) fail(`${d.id}: door ${door} leads nowhere`);
     else if (!n.doors.includes(OPP[door])) fail(`${d.id}: door ${door} has no matching door in ${n.id}`);
     const [x, y] = ARR[door], c = d.map[y][x];
@@ -47,7 +48,8 @@ for (const d of DEFS) {
 { // every room reachable from the hall
   const seen = new Set(['hall']), q = ['hall'];
   while (q.length) { const id = q.shift(), d = DEFS.find(x => x.id === id); for (const door of d.doors) { const n = at[(d.gx + STEP[door][0]) + ',' + (d.gy + STEP[door][1])]; if (n && !seen.has(n.id)) { seen.add(n.id); q.push(n.id); } } }
-  seen.size === DEFS.length ? ok(`all ${DEFS.length} rooms connected`) : fail(`only ${seen.size} of ${DEFS.length} rooms reachable`);
+  const mapped = DEFS.filter(d => !d.secret).length;
+  seen.size === mapped ? ok(`all ${mapped} map rooms connected (plus ${DEFS.length - mapped} secret)`) : fail(`only ${seen.size} of ${mapped} rooms reachable`);
 }
 
 // --- puzzle solvers (interior coordinates) ----------------------------------------
