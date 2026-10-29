@@ -29,7 +29,7 @@ while (true) {
     break;
   }
   if (b.log.length) lastLog = Math.max(lastLog, b.log[b.log.length - 1][0]);
-  if ((Date.now() - t0) / 1000 - lastLog > 240 && (Date.now() - lastDump) > 120000) {
+  if ((Date.now() - t0) / 1000 - lastLog > 600 && (Date.now() - lastDump) > 120000) {
     lastDump = Date.now();
     const d = await page.evaluate(() => ({ mode: Game.mode, map: Game.map && Game.map.id, x: Game.pos.x, y: Game.pos.y, busy: Game.busy, ui: UI.stack.length,
       top: UI.top() ? Object.keys(UI.top()).join() : null, dlg: document.querySelector('.dlg-text').textContent, panels: [...document.querySelectorAll('#ui > *:not(.hidden)')].map((e) => e.className).join(','),

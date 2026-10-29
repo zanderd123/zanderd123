@@ -93,6 +93,20 @@
       await gridTo($('.skillmenu .sk-grid'), k);
       return true;
     }
+    if ($('.choice')) {
+      const opts = [...$('.choice').querySelectorAll('.opt')].map((e) => e.textContent);
+      if (opts[0] === 'Yes') { await listTo($('.choice'), (e) => e.textContent === (B.sayNo ? 'No' : 'Yes')); return true; }
+      if (opts.some((o) => o.startsWith('Swap '))) {       // new skill: drop the weakest non-free skill
+        const eq = Game.p.equipped;
+        let w = -1, wv = 1e9;
+        eq.forEach((id, i) => { const v = SKILLS[id].cost === 0 ? 1e8 : SKILLS[id].power; if (v < wv) { wv = v; w = i; } });
+        await listTo($('.choice'), (e, i) => i === w);
+        return true;
+      }
+      if (opts.some((o) => /\d+\/\d+/.test(o))) { await listTo($('.choice'), () => true); return true; }  // "who gets it"
+      await tap('B');
+      return true;
+    }
     if ($('.panel.list')) {
       const box = $('.panel.list');
       if (/WHO TAGS IN|^CREW/.test(title)) {
@@ -116,20 +130,6 @@
         await listTo(box, (e) => e.querySelector('.l').textContent === ITEMS[buy].name);
         return true;
       }
-      await tap('B');
-      return true;
-    }
-    if ($('.choice')) {
-      const opts = [...$('.choice').querySelectorAll('.opt')].map((e) => e.textContent);
-      if (opts[0] === 'Yes') { await listTo($('.choice'), (e) => e.textContent === (B.sayNo ? 'No' : 'Yes')); return true; }
-      if (opts.some((o) => o.startsWith('Swap '))) {       // new skill: drop the weakest non-free skill
-        const eq = Game.p.equipped;
-        let w = -1, wv = 1e9;
-        eq.forEach((id, i) => { const v = SKILLS[id].cost === 0 ? 1e8 : SKILLS[id].power; if (v < wv) { wv = v; w = i; } });
-        await listTo($('.choice'), (e, i) => i === w);
-        return true;
-      }
-      if (opts.some((o) => /\d+\/\d+/.test(o))) { await listTo($('.choice'), () => true); return true; }  // "who gets it"
       await tap('B');
       return true;
     }
