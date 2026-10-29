@@ -293,17 +293,49 @@
 
   // count battles by watching Battle.start
   const origStart = Battle.start.bind(Battle);
+  B.recent = [];
+  const origSay = UI.say.bind(UI);
+  UI.say = (t, o) => { if (typeof t === 'string') { B.recent.push(t); if (B.recent.length > 12) B.recent.shift(); } return origSay(t, o); };
   Battle.start = async (o) => {
     if (o.wild) B.counts.wild++;
+    const t0 = now(), d0 = B.counts.dialogs;
+    const watch = setInterval(() => {
+      if (now() - t0 > 90 && !B._warned) { B._warned = true; note(`LONG BATTLE vs ${Battle.s && Battle.s.foe && Battle.s.foe.name} (${Battle.s && Battle.s.foe && Battle.s.foe.hp}/${Battle.s && Battle.s.foe && Battle.s.foe.maxHp}) fighter ${Crew.name(Battle.s.cur)} ${Battle.s.cur.sanity}hp ${Battle.s.cur.energy}en :: ${B.recent.slice(-6).join(' | ')}`); }
+    }, 5000);
     const r = await origStart(o);
+    clearInterval(watch); B._warned = false;
+    if (!o.wild) note(`leader battle took ${Math.round(now() - t0)}s, ${B.counts.dialogs - d0} text boxes`);
     if (o.wild) { if (r === 'win') B.counts.wildWon++; if (r === 'lose') { B.counts.wildLost++; note(`wiped by a wild issue at level ${Game.p.level}`); } }
     return r;
   };
 
   // ------------------------------------------------------------ the run
-  B.run = async (path) => {
+  B.run = async (path, skipTo) => {
     B.path = path;
     try {
+      if (skipTo === 'taxes') {
+        // jump straight to Frostpeak with a typical crew for this point
+        await sleep(500);
+        UI.stack.length = 0; document.querySelectorAll('.titlecard,.menu').forEach((e) => e.remove());
+        Game.p = Game.newPlayer('BOT');
+        const P = PATHS[path];
+        Object.assign(Game.p, { path, level: 20, xp: Stats.xpFor(20), money: 800, badges: ['car', 'fitness'], known: [...P.start], equipped: [...P.start] });
+        for (const [lv, id] of Object.entries(P.learn)) if (+lv <= 20) Game.learn(id);
+        Game.p.equipped = Game.p.known.slice(-4);
+        Crew.add('chad'); Crew.add('sam'); Crew.add('pat');
+        Game.give('comfort_food', 6); Game.give('coffee', 4); Game.give('pep_talk', 2);
+        Game.fullHeal(); Game.mode = 'world'; World.refreshGates();
+        const [ox, oy] = World.townOrigin(3); Game.enter('world', ox + 14, oy + 11, 'down');
+        note('skipped to Frostpeak at level 20');
+        let tries = 0;
+        while (!Game.p.badges.includes('taxes') && tries < 4) {
+          await grind(3, 2, 21 + tries);
+          if (await fightLeader('taxes')) break;
+          tries++;
+        }
+        B.done = true; B.total = now();
+        return;
+      }
       // title -> intro -> house
       for (let g = 0; g < 3000 && !(Game.mode === 'world' && Game.p && /say hi/.test($('.dlg-text').textContent)); g++) { if (!(await react())) await sleep(30); }
       await waitIdle();
