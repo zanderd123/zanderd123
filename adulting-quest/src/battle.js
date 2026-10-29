@@ -440,6 +440,7 @@ const Battle = {
     if (s.wild) {
       const cash = Math.max(1, Math.floor(d.cash * f.lvl * path.cashMult * s.cashMult * (0.8 + Math.random() * 0.4)));
       const r = Game.earn(cash);
+      p.stats.issues++;
       Audio2.sfx('coin');
       await UI.say(`{NAME} saved ${U.money(cash)} by handling it!${r.garnished ? ` ($${r.garnished} went to loans.)` : ''}`);
       return 'win';
@@ -538,7 +539,7 @@ const Battle = {
   // forced: someone must tag in (no cancel). Returns the chosen member or null.
   async crewMenu(forced) {
     const s = this.s, list = Crew.members();
-    if (list.length === 1) { await UI.say('No crew yet! Make some friends out there. Someone will want to come along.'); return null; }
+    if (list.length === 1) { await UI.say('No crew yet. You\'re flying solo for now.'); return null; }
     UI.closeDialog();
     let pick = null;
     await UI.list(list.map((r) => {

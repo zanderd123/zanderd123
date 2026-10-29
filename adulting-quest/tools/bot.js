@@ -4,7 +4,7 @@
 /* global Game, World, Battle, UI, Input, Crew, T, SOLID, ITEMS, SKILLS, EFF, LEADERS, TOWNS, ALLIES, Stats, VIEW_W */
 (() => {
   const B = window.Bot = {
-    path: 'college', t0: performance.now(), log: [], done: false, error: null,
+    path: 'college', t0: performance.now(), lv: { car: 9, fitness: 14, taxes: 19 }, log: [], done: false, error: null,
     counts: { wild: 0, wildWon: 0, wildLost: 0, steps: 0, dialogs: 0, leaderTries: {} },
     intent: null,       // what the brain wants from the next menu
   };
@@ -74,6 +74,7 @@
     if (!top) return false;
     const title = $('.panel .p-title') ? $('.panel .p-title').textContent : '';
     if ($('#nameIn')) { $('#nameIn').value = 'BOT'; $('#nameOk').click(); return true; }
+    if ($('.heropick')) { await tap('A'); return true; }
     if ($('.pathpick')) {
       const want = ['college', 'trade', 'job'].indexOf(B.path);
       const on = [...document.querySelectorAll('.ps-names span')].findIndex((e) => e.classList.contains('on'));
@@ -266,7 +267,7 @@
         await walk(at(x, y));
         await waitIdle();
         if (Game.map.id !== 'world') break;     // lost a battle and woke up somewhere
-        if (B.counts.wild !== before) { /* counted in battle hook */ }
+        void before;
       }
       void hosp;
     }
@@ -320,7 +321,7 @@
       Object.assign(Game.p, { path, level: lvl, xp: Stats.xpFor(lvl), money: 300, badges: order.slice(0, idx), known: [...P.start], equipped: [...P.start] });
       for (const [lv, id] of Object.entries(P.learn)) if (+lv <= lvl) Game.learn(id);
       Game.p.equipped = Game.p.known.slice(-4);
-      ['chad', 'sam', 'pat'].slice(0, idx + 1).forEach((id) => Crew.add(id));
+      if (idx >= 1) Crew.add('chad');
       Game.give('comfort_food', 4); Game.give('coffee', 3); Game.give('pep_talk', 1);
       Game.fullHeal(); Game.mode = 'world'; World.refreshGates();
       Game.enter('hall-' + LEADERS[key].town + '-0', 9, 4, 'up');
@@ -346,7 +347,7 @@
         Object.assign(Game.p, { path, level: 20, xp: Stats.xpFor(20), money: 800, badges: ['car', 'fitness'], known: [...P.start], equipped: [...P.start] });
         for (const [lv, id] of Object.entries(P.learn)) if (+lv <= 20) Game.learn(id);
         Game.p.equipped = Game.p.known.slice(-4);
-        Crew.add('chad'); Crew.add('sam'); Crew.add('pat');
+        Crew.add('chad');
         Game.give('comfort_food', 6); Game.give('coffee', 4); Game.give('pep_talk', 2);
         Game.fullHeal(); Game.mode = 'world'; World.refreshGates();
         const [ox, oy] = World.townOrigin(3); Game.enter('world', ox + 14, oy + 11, 'down');
@@ -366,20 +367,19 @@
       note('in bedroom');
       await talkTo('mom');
       await leave();
-      // Dr. Street's lab, pick the path
+      // Dr. Street's lab: the cutscene walks you to the table
       await enter('lab', 0);
-      await walk(at(13, 5)); await talk('up');
-      await walk(at(8, 6)); await talk('up');
-      note(`chose ${path}`);
-      await leave();               // Chad meets you outside
+      await waitIdle();
+      note(`chose ${Game.p.path}`);
+      await leave();
       await waitIdle();
       note(`crew: ${Crew.members().map((r) => Crew.name(r)).join(', ')}`);
       await shop(0);
       // the three leaders, with the routes between them
       const plan = [
-        { key: 'car', town: 1, route: 0, lvl: 11, before: async () => { await shop(0); await walkTo(1); } },
-        { key: 'fitness', town: 2, route: 1, lvl: 16, before: async () => { await recruitAt('sam', 1); await walkTo(2); } },
-        { key: 'taxes', town: 3, route: 2, lvl: 21, before: async () => { await recruit('pat'); await walkTo(3); } },
+        { key: 'car', town: 1, route: 0, lvl: B.lv.car, before: async () => { await shop(0); await walkTo(1); } },
+        { key: 'fitness', town: 2, route: 1, lvl: B.lv.fitness, before: async () => { await walkTo(2); } },
+        { key: 'taxes', town: 3, route: 2, lvl: B.lv.taxes, before: async () => { await walkTo(3); } },
       ];
       for (const st of plan) {
         if (st.key === 'car') await grind(0, 0, 7);

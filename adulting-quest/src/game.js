@@ -48,17 +48,21 @@ const Game = {
   ctx: null,
 
   // ------------------------------------------------------------ player
-  newPlayer(name) {
+  newPlayer(name, hero = 'boy') {
     return {
-      name, path: null, level: 5, xp: Stats.xpFor(5), sanity: 30, energy: 20, status: null,
+      name, hero, path: null, level: 5, xp: Stats.xpFor(5), sanity: 30, energy: 20, status: null,
       known: ['wing_it'], equipped: ['wing_it'], items: {}, money: 0, debt: 0, karma: 50,
-      badges: [], flags: {}, outfit: PALS.player.c, crew: [], lead: 'me', repel: 0, steps: 0, playTime: 0,
+      badges: [], flags: {}, outfit: HEROES[hero].pal.c, crew: [], lead: 'me', momCall: -1e9, stats: { issues: 0, meltdowns: 0 }, repel: 0, steps: 0, playTime: 0,
       respawn: { map: 'house-0-0', x: 10, y: 6, dir: 'right' },
       map: 'house-0-0', x: 2, y: 3, dir: 'down',
     };
   },
   stats() { return Stats.of(this.p); },
-  age() { return 20 + Math.floor(this.p.badges.length * 1.5); },
+  // 18 out of high school, 32 when all eight leaders are done
+  age() { return 18 + Math.floor(this.p.badges.length * 1.75); },
+  heroPal() { const H = HEROES[this.p.hero] || HEROES.boy; return { ...H.pal, c: this.p.outfit }; },
+  heroLook() { return (HEROES[this.p.hero] || HEROES.boy).look; },
+  playableDone() { return LEADER_ORDER.every((k) => LEADERS[k].locked || this.p.badges.includes(k)); },
   fullHeal() { Crew.healAll(); },
   fmt(t) { return String(t).replace(/\{NAME\}/g, this.p ? this.p.name : 'YOU'); },
   karmaLabel(k = this.p.karma) {
@@ -139,10 +143,17 @@ const Game = {
     this.enter(mapId, x, y, dir);
     if (mapId !== 'world') this.autosave();
     await this.fadeTo(0);
-    // your best friend is waiting outside the lab
-    if (from === 'lab-0-0' && mapId === 'world' && this.p.path && !Crew.has('chad')) {
-      try { await Scripts.meetChad(); } finally { UI.closeDialog(); }
-    }
+    try {
+      // Dr. Street's first-visit cutscene
+      if (mapId === 'lab-0-0' && !this.p.flags.labIntro) await Scripts.labIntro();
+      // walking out of a leader hall: someone may be waiting, and maybe the end
+      if (from && from.startsWith('hall-') && mapId === 'world') {
+        for (const [id, A] of Object.entries(ALLIES)) {
+          if (this.p.badges.includes(A.after) && !Crew.has(id) && Scripts.meetsYou(id)) await Scripts.meet(id);
+        }
+        if (this.playableDone() && !this.p.flags.ending) await Ending.play();
+      }
+    } finally { UI.closeDialog(); }
     this.busy--;
   },
 
@@ -309,6 +320,7 @@ const Game = {
   async blackout() {
     const p = this.p;
     const lost = Math.floor(p.money / 2);
+    p.stats.meltdowns++;
     p.money -= lost;
     await UI.say(`{NAME} had a full-on meltdown!`);
     if (lost) await UI.say(`In the panic, {NAME} dropped ${U.money(lost)}...`);
@@ -347,7 +359,9 @@ const Game = {
     x.fillRect(0, 0, VIEW_W, VIEW_H);
     if (this.mode === 'title') { this.renderTitle(x); return; }
     if (this.mode === 'intro') { Intro.render(x); this.drawFade(x); return; }
+    if (this.mode === 'ending') { Ending.render(x); this.drawFade(x); return; }
     if (this.scene && this.scene.kind === 'select') { this.renderSelect(x); this.drawFade(x); return; }
+    if (this.scene && this.scene.kind === 'hero') { this.renderHeroes(x); this.drawFade(x); return; }
     if (!this.map) return;
     this.renderMap(x);
     this.drawFade(x);
@@ -401,6 +415,26 @@ const Game = {
       const bob = on ? Math.round(Math.sin(t * 4) * 2) : 0;
       x.globalAlpha = on ? 1 : 0.5;
       x.drawImage(Art.icon(k, 3), cx - 24, 70 + bob);
+      x.globalAlpha = 1;
+      if (on && Math.floor(t * 3) % 2) { x.fillStyle = '#f0c040'; x.beginPath(); x.moveTo(cx - 5, 50); x.lineTo(cx + 5, 50); x.lineTo(cx, 56); x.fill(); }
+    });
+  },
+
+  // boy / girl select: two spotlights with the walking sprites
+  renderHeroes(x) {
+    const t = this.time, sel = this.scene.i;
+    const gr = x.createLinearGradient(0, 0, 0, VIEW_H);
+    gr.addColorStop(0, '#1a1230'); gr.addColorStop(1, '#2e2048');
+    x.fillStyle = gr; x.fillRect(0, 0, VIEW_W, VIEW_H);
+    for (let y = 120; y < VIEW_H; y += 8) for (let X = 0; X < VIEW_W; X += 8) px(x, ((X + y) / 8) % 2 ? '#3a2a5a' : '#32244e', X, y, 8, 8);
+    ['boy', 'girl'].forEach((k, i) => {
+      const cx = 76 + i * 152, on = i === sel, H = HEROES[k];
+      x.fillStyle = on ? 'rgba(255,230,160,.18)' : 'rgba(255,255,255,.04)';
+      x.beginPath(); x.moveTo(cx - 10, 0); x.lineTo(cx + 10, 0); x.lineTo(cx + 46, 150); x.lineTo(cx - 46, 150); x.fill();
+      x.fillStyle = 'rgba(0,0,0,.3)'; x.beginPath(); x.ellipse(cx, 146, 30, 6, 0, 0, Math.PI * 2); x.fill();
+      const fr = on ? WALKCYCLE[Math.floor(t * 6) % 4] : 0;
+      x.globalAlpha = on ? 1 : 0.55;
+      x.drawImage(Art.character(H.pal, H.look).down[fr], cx - 30, 74, 60, 72);
       x.globalAlpha = 1;
       if (on && Math.floor(t * 3) % 2) { x.fillStyle = '#f0c040'; x.beginPath(); x.moveTo(cx - 5, 50); x.lineTo(cx + 5, 50); x.lineTo(cx, 56); x.fill(); }
     });
@@ -470,11 +504,11 @@ const Game = {
   },
   drawPlayer(x, sx, sy, m) {
     const P = this.pos;
-    const pal = { ...PALS.player, c: this.p.outfit };
+    const pal = this.heroPal();
     const fr = P.moving ? WALKCYCLE[(P.parity * 2 + Math.floor(P.mt * 2)) % 4] : 0;
     sx = Math.round(sx); sy = Math.round(sy);
     shadow(x, sx, sy);
-    x.drawImage(Art.character(pal, null)[P.dir][fr], sx - 2, sy - 8);
+    x.drawImage(Art.character(pal, this.heroLook())[P.dir][fr], sx - 2, sy - 8);
     this.grassOver(x, m, P.moving ? P.tx : P.x, P.moving ? P.ty : P.y, sx, sy, P.moving && P.mt < 0.5);
   },
   grassOver(x, m, tx, ty, sx, sy, skip) {
@@ -557,7 +591,7 @@ const Menu = {
     });
     await UI.list(rows, {
       title: 'CREW', hint: '', empty: '',
-      footer: () => p.crew.length ? 'A: make leader (fights first) · B: back' : 'Recruit friends around the world. They\'ll fight with you.',
+      footer: () => p.crew.length ? 'A: make leader (fights first) · B: back' : 'Friends join you as you beat Life Leaders.',
       onAct: async (k) => {
         const r = list()[k];
         p.lead = Crew.key(r);
@@ -571,9 +605,9 @@ const Menu = {
   async bag(inBattle) {
     const p = Game.p;
     let used = null;
-    const ids = () => Object.keys(p.items).filter((id) => p.items[id] > 0);
+    const ids = () => Object.keys(p.items).filter((id) => p.items[id] > 0).sort((a, b) => (ITEMS[b].key ? 1 : 0) - (ITEMS[a].key ? 1 : 0));
     const rows = () => ids().map((id) => ({
-      label: ITEMS[id].name, right: '×' + p.items[id], desc: ITEMS[id].desc,
+      label: ITEMS[id].name, right: ITEMS[id].key ? '' : '×' + p.items[id], desc: ITEMS[id].desc,
       disabled: inBattle && !ITEMS[id].battle,
     }));
     await UI.list(rows, {
@@ -602,7 +636,7 @@ const Menu = {
     await UI.panel(`<div class="p-title">LIFE ID CARD</div>
       <div class="card">
         <div class="card-top">
-          <img class="card-face" src="${Art.portrait({ ...PALS.player, c: p.outfit }, null).toDataURL()}">
+          <img class="card-face" src="${Art.portrait(Game.heroPal(), Game.heroLook()).toDataURL()}">
           <div class="card-info">
             <div class="big">${U.esc(p.name)}</div>
             <div>Age ${Game.age()} · ${path ? path.name : 'No path yet'}</div>
@@ -725,6 +759,7 @@ const Items = {
         if (!p.equipped.includes(it.skill)) await UI.say('Equip it from the SKILLS menu.');
         break;
       }
+      case 'phone': return Scripts.callMom();
       case 'outfit': {
         if (inBattle) return 'no';
         const k = await UI.choose(OUTFIT_COLORS.map((o) => o[0]), { cls: 'side' });

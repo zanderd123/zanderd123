@@ -16,10 +16,11 @@ const Intro = {
     disc(x, 152, 134, 40, 8, 'rgba(0,0,0,0.3)');
     const bob = Math.round(Math.sin(this.t * 2) * 1);
     if (this.who === 'street') x.drawImage(Art.portrait(PALS.street, 'glasses'), 122, 62 + bob);
-    if (this.who === 'player') x.drawImage(Art.portrait({ ...PALS.player }, null), 122, 62 + bob);
+    if (this.who === 'player') { const H = HEROES[this.hero] || HEROES.boy; x.drawImage(Art.portrait(H.pal, H.look), 122, 62 + bob); }
   },
 
-  async run() {
+  async run(hero) {
+    this.hero = hero;
     Game.mode = 'intro';
     Audio2.music('inside');
     this.who = 'street';
@@ -35,14 +36,55 @@ const Intro = {
     UI.closeDialog();
     this.who = 'player';
     const name = await UI.askName('ALEX');
-    Game.p = Game.newPlayer(name);
+    Game.p = Game.newPlayer(name, hero);
+    Game.give('phone', 1);
     await UI.say([`${name}! What a great name. Very... employable.`,
-      `You just turned 20, and your parents have started leaving apartment listings on your pillow.`,
+      'And you just graduated high school! Your parents are thrilled. They\'ve already started leaving apartment listings on your pillow.',
       'Out there, eight LIFE LEADERS are waiting: CAR TROUBLE, TAXES, CAREER, and more.',
       'Beat all eight, and you WIN at the game of life!',
       'Swing by my LAB when you\'re up. Your adventure begins... NOW!'], S);
     UI.closeDialog();
     await Game.fadeTo(1, 500);
+  },
+};
+
+// Boy or girl, the House Keeper select screen: two spotlights.
+const HeroPicker = {
+  open() {
+    const keys = ['boy', 'girl'];
+    let i = 0;
+    Game.mode = 'world'; Game.map = null;
+    Game.scene = { kind: 'hero', i };
+    const box = UI.el('div', 'heropick');
+    const render = () => {
+      Game.scene.i = i;
+      const H = HEROES[keys[i]];
+      box.innerHTML = `<div class="ps-title">CHOOSE YOUR CHARACTER</div>
+        <div class="ps-cols">${keys.map((k, n) => `<div data-i="${n}"></div>`).join('')}</div>
+        <div class="ps-names">${keys.map((k, n) => `<span class="${n === i ? 'on' : ''}">${HEROES[k].label}</span>`).join('')}</div>
+        <div class="ps-desc">${H.blurb.map((t) => `<div>${t}</div>`).join('')}</div>`;
+    };
+    render();
+    UI.root.appendChild(box);
+    Game.fadeTo(0, 300);
+    return new Promise((resolve) => {
+      const w = {
+        onInput: (b) => {
+          if (['left', 'right', 'up', 'down'].includes(b)) { i = 1 - i; Audio2.sfx('move'); render(); }
+          else if (b === 'A') { Audio2.sfx('select'); done(keys[i]); }
+          return 'stop';
+        },
+      };
+      const done = (v) => { UI.pop(w); box.remove(); Game.scene = null; resolve(v); };
+      box.addEventListener('pointerdown', (e) => {
+        const c = e.target.closest('[data-i]');
+        if (!c || UI.top() !== w) return;
+        e.preventDefault();
+        const n = +c.dataset.i;
+        if (n === i) done(keys[i]); else { i = n; render(); Audio2.sfx('move'); }
+      });
+      UI.push(w);
+    });
   },
 };
 
@@ -110,7 +152,9 @@ const Main = {
 
   async newGame() {
     await Game.fadeTo(1, 300);
-    await Intro.run();
+    const hero = await HeroPicker.open();
+    await Game.fadeTo(1, 300);
+    await Intro.run(hero);
     Game.mode = 'world';
     World.refreshGates();
     Game.enter('house-0-0', 2, 3, 'down');
@@ -122,9 +166,11 @@ const Main = {
   async cont(p) {
     // fill in anything newer saves have that older ones lack
     Game.p = Object.assign(Game.newPlayer(p.name), p);
-    // the best friend was called Jordan, then Corbin, before Chad
+    // older saves: Jordan/Corbin became Chad; Sam, Pat, Dr. Kim and Mom left the crew
     for (const r of Game.p.crew) if (r.id === 'jordan' || r.id === 'corbin') r.id = 'chad';
-    if (Game.p.lead === 'jordan' || Game.p.lead === 'corbin') Game.p.lead = 'chad';
+    Game.p.crew = Game.p.crew.filter((r) => ALLIES[r.id]);
+    if (!ALLIES[Game.p.lead]) Game.p.lead = 'me';
+    if (!Game.p.items.phone) Game.give('phone', 1);
     if (!World.maps[Game.p.map]) Object.assign(Game.p, { map: 'house-0-0', x: 2, y: 3 });
     await Game.fadeTo(1, 300);
     Game.mode = 'world';

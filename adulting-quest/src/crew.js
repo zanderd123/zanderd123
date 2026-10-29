@@ -18,8 +18,8 @@ const Crew = {
 
   name(r) { return this.isMe(r) ? Game.p.name : this.def(r).name; },
   boost(r) { return this.isMe(r) ? (PATHS[Game.p.path] || {}).boost : this.def(r).boost; },
-  pal(r) { return this.isMe(r) ? { ...PALS.player, c: Game.p.outfit } : this.def(r).pal; },
-  look(r) { return this.isMe(r) ? null : this.def(r).look || null; },
+  pal(r) { return this.isMe(r) ? Game.heroPal() : this.def(r).pal; },
+  look(r) { return this.isMe(r) ? Game.heroLook() : this.def(r).look || null; },
   stats(r) {
     if (this.isMe(r)) return Game.stats();
     const b = this.def(r).base, L = Game.p.level;

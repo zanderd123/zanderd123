@@ -38,7 +38,7 @@ const Scripts = {
     if (!p.path) {
       await say(['Morning, sweetie! Dr. Street called. He wants to see you at his LAB.',
         'It\'s the building with the green roof, east side of town.',
-        'And take a jacket! ...You\'re 20, you say? You\'re still taking a jacket.'], { name: 'MOM' });
+        'And you have your phone? Good. Call me if you need anything. ANYTHING. (Within reason.)'], { name: 'MOM' });
       return;
     }
     if (!p.flags.momCash) {
@@ -48,92 +48,138 @@ const Scripts = {
       Game.earn(20); Audio2.sfx('coin');
       await say('{NAME} received $20!');
     }
-    if (p.badges.length >= ALLIES.mom.need && !Crew.has('mom')) {
-      await Scripts.recruit('mom', npc);
-      if (!Crew.has('mom')) return;
-    }
     await say('You look exhausted. Sit down, I\'ll make you a sandwich.', { name: 'MOM' });
     Game.fullHeal(); Audio2.sfx('heal');
     p.respawn = { map: Game.map.id, x: 10, y: 6, dir: 'right' };
-    await say(['{NAME} ate a sandwich and took a nap. Sanity and Energy fully restored!',
+    await say(['Everyone ate a sandwich and took a nap. Sanity and Energy fully restored!',
       'MOM: "Go get \'em. And call me. You won\'t, but call me."']);
   },
 
-  // ---------------------------------------------------------- crew
-  // Leaving the lab with a path: Chad walks up from the road and joins.
-  async meetChad() {
-    const A = ALLIES.chad, P = Game.pos, m = Game.map;
-    const n = m.npcs.find((k) => k.ally === 'chad');
-    if (!n) return;
-    n.hidden = false; n.wander = 0;
-    n.x = P.x; n.y = P.y + 3; n.dir = 'up';
-    await say('"HEY! {NAME}!"');
-    // walk up the path to stand in front of you
-    for (let k = 0; k < 2; k++) {
-      n.tx = n.x; n.ty = n.y - 1; n.moving = true; n.mt = 0;
-      while (n.moving) await new Promise((r) => requestAnimationFrame(r));
+  // Call Mom from the bag: money 90% of the time, once per 5 minutes of play.
+  async callMom() {
+    const p = Game.p, nm = { name: 'MOM' };
+    await say('*ring ring* ... *ring ring* ...');
+    const wait = 300 - (p.playTime - (p.momCall ?? -1e9));
+    if (wait > 0) {
+      await say(U.pick(Math.random, ['Honey, didn\'t I JUST talk to you?', 'Again? Is everything okay? Are you eating?', 'I\'m in the middle of my show. Call me back.']), nm);
+      await say(`(Mom needs a break. Try again in about ${Math.max(1, Math.ceil(wait / 60))} min.)`);
+      UI.closeDialog();
+      return 'no';
     }
-    P.dir = 'down';
-    await say(A.pitch, { name: A.name });
-    Crew.add('chad');
-    Audio2.sfx('badge');
-    await say(`${A.name} (${A.title}) joined your crew!`);
-    await say(`${A.name} is best with ${A.boost} skills: ${Crew.skills(Game.p.crew[Game.p.crew.length - 1]).map((k) => SKILLS[k].name).join(', ')}.`);
-    if (!Game.p.flags.crewTip) {
-      Game.p.flags.crewTip = true;
-      await say(['TIP: In battle, pick CREW to tag in whoever has the right skill. If someone runs out of Sanity, the next person steps up. You only lose if EVERYONE is out.',
-        'Pick who fights first in MENU > CREW. More people will want to join you out there.']);
+    p.momCall = p.playTime;
+    if (Math.random() < 0.9) {
+      const amt = U.rand(15, 40) + 15 * p.badges.length;
+      await say(U.pick(Math.random, [
+        'Of course, sweetie. I\'ll send it now. What\'s "Venmo" again?',
+        'Fine. But this is a LOAN. (It is not a loan.)',
+        'Your father says no. I\'m sending it anyway.',
+        'Are you sure you don\'t want to move back home? ...Okay, okay. Sending it.',
+      ]), nm);
+      p.money += amt; Audio2.sfx('coin');
+      await say(`Mom sent ${U.money(amt)}!`);
+    } else {
+      await say(U.pick(Math.random, [
+        'Oh honey, I\'m at book club. Can\'t talk. Love you!',
+        'Did you know your cousin got engaged? To a DENTIST? ...What did you need again? Oh, I have to go.',
+        'Sweetie, money doesn\'t grow on trees. Have you tried a budget? I\'ll email you a spreadsheet.',
+      ]), nm);
+      await say('(No money this time. Mom says hi, though.)');
     }
-    n.hidden = true;
-    Game.autosave();
+    UI.closeDialog();
+    return 'no';
   },
 
-  async recruit(id, npc) {
-    const A = ALLIES[id], p = Game.p, nm = { name: A.name };
-    if (Crew.has(id)) { await say(A.after, nm); return; }
-    if (!p.path) { await say(A.noPath || ['Go see Dr. Street first.'], nm); return; }
-    if (p.badges.length < A.need) { await say(A.notYet, nm); return; }
-    await say(A.pitch, nm);
-    if (A.cost) {
-      if (!(await UI.confirm(`Pay $${A.cost} so ${A.name} joins your crew?`))) { await say(A.decline || 'Maybe later.', nm); return; }
-      if (p.money < A.cost) { await say(`You check your wallet. You have ${U.money(p.money)}. That's not $${A.cost}.`); return; }
-      p.money -= A.cost; Audio2.sfx('coin');
-    } else if (!(await UI.confirm(`Add ${A.name} to your crew?`))) { await say('Okay. Offer stands!', nm); return; }
+  // ---------------------------------------------------------- cutscene helpers
+  async walkNPC(n, dirs) {
+    for (const d of dirs) {
+      const [dx, dy] = DIRS[d];
+      n.dir = d; n.tx = n.x + dx; n.ty = n.y + dy; n.moving = true; n.mt = 0;
+      while (n.moving) await new Promise((r) => requestAnimationFrame(r));
+    }
+  },
+  async walkPlayer(dirs) {
+    const P = Game.pos;
+    for (const d of dirs) {
+      const [dx, dy] = DIRS[d];
+      P.dir = d; P.tx = P.x + dx; P.ty = P.y + dy; P.moving = true; P.mt = 0;
+      while (P.moving) await new Promise((r) => requestAnimationFrame(r));
+    }
+  },
+  rep: (d, n) => Array(n).fill(d),
+
+  // ---------------------------------------------------------- crew
+  // Your significant other is the opposite gender of your character.
+  meetsYou(id) {
+    if (!id.startsWith('so_')) return true;
+    return id === (Game.p.hero === 'girl' ? 'so_m' : 'so_f');
+  },
+  // Someone runs up to you outside a leader hall and joins.
+  async meet(id) {
+    const A = ALLIES[id], P = Game.pos, m = Game.map, p = Game.p;
+    const n = makeNPC({ x: P.x, y: P.y + 3, dir: 'up' });
+    n.palObj = A.pal; n.look = A.look || null;
+    m.npcs.push(n);
+    await say(A.shout);
+    await Scripts.walkNPC(n, ['up', 'up']);
+    P.dir = 'down';
+    await say(A.pitch, { name: A.name });
     Crew.add(id);
     Audio2.sfx('badge');
     await say(`${A.name} (${A.title}) joined your crew!`);
-    await say(`${A.name} is best with ${A.boost} skills: ${Crew.skills(p.crew[p.crew.length - 1]).map((k) => SKILLS[k].name).join(', ')}.`);
+    await say(`${A.name} is best with ${A.boost} skills: ${Crew.skills(p.crew[p.crew.length - 1]).slice(1).map((k) => SKILLS[k].name).join(', ')}.`);
     if (!p.flags.crewTip) {
       p.flags.crewTip = true;
       await say(['TIP: In battle, pick CREW to tag in whoever has the right skill. If someone runs out of Sanity, the next person steps up. You only lose if EVERYONE is out.',
         'Pick who fights first in MENU > CREW. Hospitals, Mom and Pep Talks get everyone back on their feet.']);
     }
-    if (!A.home) npc.hidden = true;
+    m.npcs.splice(m.npcs.indexOf(n), 1);
     Game.autosave();
   },
 
   // ---------------------------------------------------------- Dr. Street
+  // First time in the lab: he comes over, explains the basics, and walks you
+  // to the table to choose what's next.
+  async labIntro() {
+    const p = Game.p, m = Game.map, D = { name: 'DR. STREET' };
+    p.flags.labIntro = true;
+    const st = m.npcs.find((n) => n.pal === 'street');
+    await say('"Ah! {NAME}! There you are!"', D);
+    await Scripts.walkNPC(st, [...Scripts.rep('down', st.y < 11 ? 11 - st.y : 0), ...Scripts.rep('left', Math.max(0, st.x - 9))]);
+    st.dir = 'down';
+    await say(['Congratulations on graduating! Big day. Here\'s what\'s next: everything. All at once. Forever.',
+      'Don\'t panic. I\'m DR. STREET, and I\'m going to give you the short version.'], D);
+    await say(['Out there, life throws ISSUES at you. Parking tickets. Group chats. Mysterious back pain.',
+      'They hide in the TALL GRASS between towns. Walk through it and something will jump out.'], D);
+    await say(['You fight back with LIFE SKILLS. Every skill has a TYPE, and every issue is WEAK to certain types.',
+      'Hit a weakness and it does DOUBLE damage. The issue\'s box tells you what it\'s weak to. Use that.'], D);
+    await say(['Skills cost ENERGY. Your SANITY is your health. Run out of Sanity and you\'ll have a full meltdown and drop half your cash.',
+      'HOSPITALS patch you up. STORES sell snacks and self-help books that teach new skills. CHAPELS save your progress.'], D);
+    await say(['And eight LIFE LEADERS stand between you and the end of young adulthood. CAR TROUBLE. TAXES. CAREER. You know. Life.',
+      'The rest you\'ll figure out the way everyone does: badly, and then better.'], D);
+    await say('Now, the big question. Come over to the table.', D);
+    await Scripts.walkNPC(st, [...Scripts.rep('up', 4), 'right', 'up']);
+    st.dir = 'left';
+    await Scripts.walkPlayer([...Scripts.rep('up', 5), 'left', 'up']);
+    Game.pos.dir = 'up';
+    await say(['College, Trade School, or a Job. Each has perks, and each has a cost.',
+      'There\'s no wrong answer. (There are some expensive answers.)'], D);
+    UI.closeDialog();
+    await Scripts.pathTable('wrench');
+    if (!p.path) await say('Take your time. The table isn\'t going anywhere. Neither is your future. Well. It is, slowly.', D);
+  },
+
   async street(npc) {
-    const p = Game.p;
-    if (!p.path) {
-      await say(['Ah, {NAME}! Right on time. Well, forty minutes late, but that\'s basically on time for your generation.',
-        'Out there, life is full of ISSUES. Parking tickets. Group chats. Mysterious back pain.',
-        'You\'ll fight them with LIFE SKILLS. Some hit certain issues hard, some barely land. That\'s the TYPE CHART.',
-        'But first, every adult needs a PATH.',
-        'On the table: a DIPLOMA for College, a WRENCH for Trade School, and a NAME TAG for Getting a Job.',
-        'Each comes with perks... and costs. Go have a look!'], { name: 'DR. STREET' });
-      return;
-    }
+    const p = Game.p, D = { name: 'DR. STREET' };
+    if (!p.path) { await say('Go on, take a look at the table. College, Trade School, or a Job.', D); return; }
     const next = LEADER_ORDER.find((k) => !LEADERS[k].locked && !p.badges.includes(k));
     if (next) {
       const L = LEADERS[next];
       await say([`Your next challenge: ${L.title}, in ${TOWNS[L.town].name}. Leader ${L.name} is no joke.`,
-        'Remember: HOSPITALS heal, CHAPELS save, STORES sell. The tall grass is FULL of issues, and sometimes loose cash.',
-        'And if you\'re stuck, press START (or M) and check the TYPE CHART.'], { name: 'DR. STREET' });
+        'If a leader is too tough, spend some time in the tall grass first. Every fight makes you stronger.',
+        'And if money\'s tight, check your BAG. Your phone can call your mom. Every parent\'s favorite feature.'], D);
     } else {
-      await say(['Three milestones down! The other leaders aren\'t ready for you yet.',
-        'Rumor is they\'ll open their doors in a future update. Until then, explore! Pinewood, Boggy Bayou, Harvest Hollow, Metro Heights...',
-        'And watch out. The issues out east are no joke.'], { name: 'DR. STREET' });
+      await say(['You survived young adult life! I\'ve never been prouder of a former lab visitor.',
+        'The other leaders aren\'t ready for you yet. Rumor is they\'ll open their doors in a future update.'], D);
     }
   },
 
@@ -154,7 +200,8 @@ const Scripts = {
     Game.give('coffee', 3); Game.give('comfort_food', 2);
     Game.fullHeal();
     // take the chosen item off the table
-    for (const [i, k] of Game.map.props) if (k === kind) { Game.map.props.delete(i); Game.map.acts.delete(i); }
+    const pk = { college: 'diploma', trade: 'wrench', job: 'badge' }[chosen];
+    for (const [i, k] of Game.map.props) if (k === pk) { Game.map.props.delete(i); Game.map.acts.delete(i); }
     World.refreshGates();
     Audio2.sfx('badge');
     await say(`{NAME} chose ${P.name.toUpperCase()}!`);
@@ -169,9 +216,9 @@ const Scripts = {
     await say(lines, { name: 'DR. STREET' });
     await say(['Here, take these. Coffee restores Energy, comfort food restores Sanity. You\'ll need both.'], { name: 'DR. STREET' });
     await say('{NAME} received 3× Coffee and 2× Comfort Food!');
-    await say(['Your first LIFE LEADER is CAR TROUBLE, in DUSTY GULCH, east along Route 1.',
-      'Beat all eight leaders and you WIN at the game of life. No pressure. (Lots of pressure.)',
-      'Press START or M any time for your menu. Now go! Adulthood waits for no one!'], { name: 'DR. STREET' });
+    await say(['Your first LIFE LEADER is CAR TROUBLE, in DUSTY GULCH, east along Route 1. You\'re on your own for this one.',
+      'Don\'t worry. Nobody stays alone for long out there.',
+      'Press MENU (Esc) any time for your skills, bag and map. Now go! Adulthood waits for no one!'], { name: 'DR. STREET' });
     Game.autosave();
   },
 

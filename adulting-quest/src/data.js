@@ -189,6 +189,7 @@ const ITEMS = {
   comfort_food:  { name: 'Comfort Food', price: 8, use: 'sanity', amt: 25, battle: true, desc: 'Restores 25 Sanity. Mac and cheese, obviously.' },
   pizza:         { name: 'Pizza Night', price: 20, use: 'sanity', amt: 60, battle: true, desc: 'Restores 60 Sanity. Pineapple optional.' },
   therapy:       { name: 'Therapy Session', price: 45, use: 'full', battle: true, desc: 'Fully restores Sanity and cures your status.' },
+  phone:         { name: 'Phone (Call Mom)', price: 0, use: 'phone', key: true, desc: 'Call Mom. She usually sends money. Once every 5 minutes or she starts asking questions.' },
   pep_talk:      { name: 'Pep Talk', price: 20, use: 'revive', battle: true, desc: 'Gets a crew member who ran out of Sanity back up with half.' },
   headphones:    { name: 'Noise-Cancelling Headphones', price: 15, use: 'repel', amt: 150, desc: 'Weak issues leave you alone for 150 steps.' },
   uber:          { name: 'Rideshare Home', price: 25, use: 'escape', battle: true, desc: 'Escape a wild issue, or ride back to the last hospital you used.' },
@@ -469,53 +470,53 @@ const PALS = {
 };
 
 // ---------------------------------------------------------------- crew
-// Allies you recruit. They level with you; `learn` is [level, skill] and an
-// ally fights with Wing It plus the last three skills it has learned.
+// People who fight alongside you. They level with you; `learn` is
+// [level, skill] and an ally fights with Wing It plus the last three skills it
+// has learned. `after` = the leader whose defeat brings them into your life.
 const ALLIES = {
   chad: {
-    name: 'CHAD', title: 'Best Friend', town: 0, need: 0, cost: 0, boost: 'SOCIAL', meet: true,
+    name: 'CHAD', title: 'High School Best Friend', after: 'car', boost: 'SOCIAL',
     pal: { h: '#2a1a0a', s: '#c08860', c: '#3a9ad8', p: '#3a3a58', b: '#e8e8e8', style: 'short' },
-    base: { san: 66, conf: 60, comp: 52, hus: 62, energy: 2 },
-    learn: [[1, 'small_talk'], [1, 'touch_grass'], [1, 'hype_up'], [12, 'networking']],
-    noPath: ['Go see Dr. Street first! Then we roll.'],
-    pitch: ['{NAME}! There you are! I saw you go into Dr. Street\'s lab.', 'So? You picked a path? You\'re ADULTING now?', 'Adulting alone? Absolutely not. I\'m coming with you. I\'m great with people. Mostly. Sometimes.'],
-    after: 'Best friends don\'t let best friends adult alone.',
+    base: { san: 66, conf: 60, comp: 54, hus: 62, energy: 2 },
+    learn: [[1, 'small_talk'], [1, 'touch_grass'], [1, 'hype_up'], [12, 'networking'], [16, 'elbow_grease']],
+    shout: '"{NAME}?! NO WAY!"',
+    pitch: ['It\'s me! CHAD! From high school! Chemistry lab partner! Your car-pool to prom!',
+      'Dude, I haven\'t seen you since graduation. I heard you just beat CAR TROUBLE. That\'s insane.',
+      'I\'ve been working at the smoothie place, but honestly? I\'m bored. Adulting solo is rough.',
+      'Let me come with you. I\'m great with people. Mostly. Sometimes.'],
+    line: 'Best friends don\'t let best friends adult alone.',
   },
-  sam: {
-    name: 'SAM', title: 'Roommate', town: 1, need: 1, cost: 50, boost: 'GRIT',
-    pal: { h: '#c86a2a', s: '#f0c8a0', c: '#6a8a3a', p: '#4a5a7a', b: '#5a3a1a', style: 'bun' },
-    base: { san: 74, conf: 62, comp: 60, hus: 48, energy: 0 },
-    learn: [[1, 'elbow_grease'], [1, 'fix_it'], [1, 'power_nap'], [14, 'hustle'], [20, 'all_nighter']],
-    notYet: ['I only room with people who have their life somewhat together. Beat CAR TROUBLE first, then we\'ll talk.'],
-    pitch: ['I need a roommate. Desperately. Rent out here is cheap, but not THAT cheap.', 'Split the deposit with me and I\'ll fight your dishes. Literally.'],
-    decline: 'Fine. I\'ll put up another flyer. "Must love cacti."',
-    after: 'I labeled all my food in the fridge. Don\'t touch the hummus.',
+  // the significant other is the opposite gender of your character
+  so_f: {
+    name: 'SOPHIE', title: 'Significant Other', after: 'taxes', boost: 'CHILL',
+    pal: { h: '#3a1a1a', s: '#e8b890', c: '#e86a8a', p: '#3a3a5a', b: '#f4f4f4', style: 'long' },
+    base: { san: 72, conf: 62, comp: 62, hus: 58, energy: 4 },
+    learn: [[1, 'touch_grass'], [1, 'deep_breaths'], [1, 'spreadsheet'], [1, 'therapy_talk'], [24, 'boundaries']],
+    shout: '"Oh! Sorry, I wasn\'t looking where I was going!"',
+    pitch: ['...Wait. Are you the one who just beat THE AUDITOR? Line by line?',
+      'Nobody beats Taxes. I\'ve been filing extensions since I was 22.',
+      'That\'s... honestly kind of attractive. I\'m SOPHIE.',
+      'Want to get coffee sometime? Or, like, every day? I could come along. I\'m very organized.'],
+    line: 'You did the dishes AND filed on time? Marry me. (Kidding.) (Unless?)',
   },
-  pat: {
-    name: 'PAT', title: 'Mentor', town: 2, need: 2, cost: 0, boost: 'BRAINS', look: 'glasses',
-    pal: { h: '#8a8a8a', s: '#a87050', c: '#8a4a8a', p: '#3a3a4a', b: '#1a1a1a', style: 'short', tie: '#e8c040' },
-    base: { san: 64, conf: 66, comp: 54, hus: 52, energy: 4 },
-    learn: [[1, 'googling'], [1, 'read_manual'], [1, 'small_talk'], [12, 'spreadsheet'], [18, 'write_off']],
-    notYet: ['I mentor winners. Beat two Life Leaders and come find me.'],
-    pitch: ['I heard you handled Car Trouble AND Coach Max. Impressive.', 'I\'ve been adulting for thirty years. Let me mentor you. I\'m basically a walking spreadsheet.'],
-    after: 'Remember: pay yourself first. Then pay me back for that coffee.',
+  so_m: {
+    name: 'MARCUS', title: 'Significant Other', after: 'taxes', boost: 'GRIT',
+    pal: { h: '#1a1a1a', s: '#9a6a4a', c: '#4a7ad8', p: '#3a3a4a', b: '#2a2a2a', style: 'short' },
+    base: { san: 76, conf: 64, comp: 60, hus: 54, energy: 2 },
+    learn: [[1, 'fix_it'], [1, 'hustle'], [1, 'small_talk'], [1, 'meal_prep'], [24, 'networking']],
+    shout: '"Whoa! Sorry, I wasn\'t looking where I was going!"',
+    pitch: ['...Wait. Are you the one who just beat THE AUDITOR? Line by line?',
+      'Nobody beats Taxes. I\'ve been filing extensions since I was 22.',
+      'That\'s... honestly kind of amazing. I\'m MARCUS.',
+      'Want to get coffee sometime? Or, like, every day? I could come along. I meal prep.'],
+    line: 'You did the dishes AND filed on time? Marry me. (Kidding.) (Unless?)',
   },
-  kim: {
-    name: 'DR. KIM', title: 'Therapist', town: 3, need: 3, cost: 40, boost: 'CHILL', look: 'glasses',
-    pal: { h: '#1a1a2a', s: '#e8c0a0', c: '#4aa8a0', p: '#3a3a5a', b: '#2a2a2a', style: 'long' },
-    base: { san: 70, conf: 58, comp: 64, hus: 50, energy: 4 },
-    learn: [[1, 'touch_grass'], [1, 'deep_breaths'], [1, 'boundaries'], [1, 'therapy_talk']],
-    notYet: ['I\'m Dr. Kim. My calendar is full until you\'ve got three Life Milestones. Come back then.'],
-    pitch: ['You\'ve been through a lot. Car trouble. The gym. Taxes. That\'s a lot of feelings.', 'First session is the fee. After that, I\'ll come with you. Insurance is... complicated.'],
-    decline: 'That\'s okay. Boundaries are healthy. I\'m proud of you.',
-    after: 'And how does that make you feel? ...Great. Let\'s go.',
-  },
-  mom: {
-    name: 'MOM', title: 'On Speed Dial', town: 0, home: true, need: 2, cost: 0, boost: 'SHADY',
-    pal: { h: '#8a4a2a', s: '#f0c8a0', c: '#7aa04a', p: '#5a5a7a', b: '#4a3a2a', style: 'long' },
-    base: { san: 82, conf: 54, comp: 70, hus: 46, energy: 2 },
-    learn: [[1, 'guilt_trip'], [1, 'packed_lunch'], [1, 'small_talk'], [16, 'networking']],
-    pitch: ['TWO Life Milestones! Look at you!', 'Put me on speed dial. I\'m coming to your battles. Don\'t argue.'],
-    after: 'Did you eat? You didn\'t eat. Here.',
-  },
+};
+
+// The two playable characters (after House Keeper's explorers).
+const HEROES = {
+  boy:  { label: 'BOY', pal: { h: '#6b3a1c', s: '#f6c79c', c: '#3a6fd0', p: '#3c3a58', b: '#4a2a16', style: 'short', pack: '#a0682e' }, look: 'headband',
+    blurb: ['Red bandana and a backpack', 'Fresh out of high school'] },
+  girl: { label: 'GIRL', pal: { h: '#f4d65a', s: '#f6c79c', c: '#3aa078', p: '#7a4a2a', b: '#4a2a16', style: 'long', pack: '#a0682e' }, look: null,
+    blurb: ['Golden hair and a backpack', 'Fresh out of high school'] },
 };
