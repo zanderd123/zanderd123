@@ -309,6 +309,30 @@
     return r;
   };
 
+  // Leader lab: fight `key` repeatedly at `lvl` with the crew you'd have by then.
+  B.lab = async (key, lvl, n, path) => {
+    const res = [];
+    for (let k = 0; k < n; k++) {
+      UI.stack.length = 0; document.querySelectorAll('.titlecard,.menu').forEach((e) => e.remove());
+      Game.p = Game.newPlayer('BOT');
+      const P = PATHS[path];
+      const order = ['car', 'fitness', 'taxes'], idx = order.indexOf(key);
+      Object.assign(Game.p, { path, level: lvl, xp: Stats.xpFor(lvl), money: 300, badges: order.slice(0, idx), known: [...P.start], equipped: [...P.start] });
+      for (const [lv, id] of Object.entries(P.learn)) if (+lv <= lvl) Game.learn(id);
+      Game.p.equipped = Game.p.known.slice(-4);
+      ['chad', 'sam', 'pat'].slice(0, idx + 1).forEach((id) => Crew.add(id));
+      Game.give('comfort_food', 4); Game.give('coffee', 3); Game.give('pep_talk', 1);
+      Game.fullHeal(); Game.mode = 'world'; World.refreshGates();
+      Game.enter('hall-' + LEADERS[key].town + '-0', 9, 4, 'up');
+      await sleep(200);
+      await talk('up');
+      await waitIdle();
+      const won = Game.p.badges.includes(key);
+      res.push(won);
+    }
+    return res.filter(Boolean).length;
+  };
+
   // ------------------------------------------------------------ the run
   B.run = async (path, skipTo) => {
     B.path = path;
