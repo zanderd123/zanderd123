@@ -311,8 +311,11 @@
   };
 
   // Leader lab: fight `key` repeatedly at `lvl` with the crew you'd have by then.
-  B.lab = async (key, lvl, n, path) => {
+  B.lab = async (key, lvl, n, path, power, shift) => {
     const res = [];
+    // optional overrides for tuning without rebuilding
+    if (power) LEADERS[key].power = power;
+    if (shift) LEADERS[key].team = LEADERS[key].team.map(([id, l]) => [id, l + shift]);
     for (let k = 0; k < n; k++) {
       UI.stack.length = 0; document.querySelectorAll('.titlecard,.menu').forEach((e) => e.remove());
       Game.p = Game.newPlayer('BOT');
