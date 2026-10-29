@@ -75,6 +75,7 @@
     const title = $('.panel .p-title') ? $('.panel .p-title').textContent : '';
     if ($('#nameIn')) { $('#nameIn').value = 'BOT'; $('#nameOk').click(); return true; }
     if ($('.heropick')) { await tap('A'); return true; }
+    if ($('.endcard')) { if (!B.sawEnding) { B.sawEnding = true; note(`ENDING: ${$('.e-sub').textContent} ${$('.e-stats').textContent.replace(/\s+/g, ' ').trim()}`); } await tap('A'); return true; }
     if ($('.pathpick')) {
       const want = ['college', 'trade', 'job'].indexOf(B.path);
       const on = [...document.querySelectorAll('.ps-names span')].findIndex((e) => e.classList.contains('on'));
@@ -168,6 +169,7 @@
       if (!(await react())) await sleep(30);
     }
   }
+  B.waitIdle = waitIdle;
   // walk until goal(x, y) is reached (on the current map)
   async function walk(goal, opts = {}) {
     for (let tries = 0; tries < 60; tries++) {
@@ -292,6 +294,8 @@
     return won;
   }
 
+  const origAdd = Crew.add.bind(Crew);
+  Crew.add = (id) => { note(`${ALLIES[id].name} joined (${ALLIES[id].title})`); return origAdd(id); };
   // count battles by watching Battle.start
   const origStart = Battle.start.bind(Battle);
   B.recent = [];
@@ -395,6 +399,8 @@
         }
         if (!Game.p.badges.includes(st.key)) { note(`gave up on ${st.key}`); break; }
         note(`milestones: ${Game.p.badges.length}/3 playable`);
+        await leave();          // walking out of the hall: friends, and maybe the ending
+        await waitIdle();
       }
     } catch (e) { B.error = e.message + '\n' + e.stack; }
     B.done = true;

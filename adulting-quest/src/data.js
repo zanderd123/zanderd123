@@ -323,7 +323,7 @@ const LEADERS = {
   },
   taxes: {
     name: 'THE AUDITOR', title: 'TAXES', town: 3, badge: 'Refund Badge', badgeIcon: 'doc', color: '#4a6a9a',
-    team: [['w2', 17], ['shoebox', 17], ['owe_money', 18], ['penalty_letter', 18], ['audit', 21]], power: 1.1,
+    team: [['w2', 17], ['shoebox', 17], ['owe_money', 18], ['penalty_letter', 18], ['audit', 21]], power: 1.02,
     reward: 900, skill: 'write_off', look: 'glasses',
     pal: { h: '#8a8a8a', s: '#e8c0a0', c: '#4a4f5a', p: '#3a3f4a', b: '#1a1a1a', style: 'bald', tie: '#2a4a8a' },
     intro: [

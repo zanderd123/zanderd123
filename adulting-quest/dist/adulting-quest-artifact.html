@@ -268,6 +268,25 @@ body {
 .bhud .pips i.cur { background: #f0c040; }
 .p-desc em { font-style: normal; }
 
+/* ending card */
+.endcard { position: absolute; inset: 0; text-align: center; pointer-events: auto; text-shadow: calc(var(--u)) calc(var(--u)) 0 #7a3a14; color: #fff; }
+.e-big { margin-top: calc(12 * var(--u)); font-size: calc(14 * var(--u)); line-height: 1; color: #fff; text-shadow: calc(1.5 * var(--u)) calc(1.5 * var(--u)) 0 #a04a20; }
+.e-sub { margin-top: calc(6 * var(--u)); font-size: calc(7 * var(--u)); color: #7a3a14; text-shadow: none; }
+.e-stats {
+  position: absolute; left: calc(14 * var(--u)); right: calc(14 * var(--u)); bottom: calc(22 * var(--u));
+  display: grid; grid-template-columns: auto 1fr auto 1fr; gap: calc(3 * var(--u)) calc(6 * var(--u));
+  background: #2a1a10cc; padding: calc(6 * var(--u)) calc(8 * var(--u)); font-size: calc(5 * var(--u)); line-height: 1.3; text-align: left; text-shadow: calc(0.6 * var(--u)) calc(0.6 * var(--u)) 0 #000;
+}
+.e-stats span { color: #f0c890; }
+.e-stats b { font-weight: 400; color: #fff; }
+.e-foot { position: absolute; left: 0; right: 0; bottom: calc(8 * var(--u)); font-size: calc(6 * var(--u)); color: #fff4b0; animation: blinkon 1s steps(1) infinite; text-shadow: calc(0.6 * var(--u)) calc(0.6 * var(--u)) 0 #000; }
+
+/* hero select */
+.heropick { position: absolute; inset: 0; pointer-events: auto; }
+.heropick .ps-cols { grid-template-columns: repeat(2, 1fr); }
+.heropick .ps-names { grid-template-columns: repeat(2, 1fr); top: calc(150 * var(--u)); font-size: calc(8 * var(--u)); }
+.heropick .ps-desc { height: calc(44 * var(--u)); text-align: center; font-size: calc(7 * var(--u)); line-height: calc(12 * var(--u)); }
+
 </style>
 <div id="screen">
   <canvas id="cv" width="304" height="224" aria-label="Adulting Quest game screen"></canvas>
@@ -533,6 +552,7 @@ const ITEMS = {
   comfort_food:  { name: 'Comfort Food', price: 8, use: 'sanity', amt: 25, battle: true, desc: 'Restores 25 Sanity. Mac and cheese, obviously.' },
   pizza:         { name: 'Pizza Night', price: 20, use: 'sanity', amt: 60, battle: true, desc: 'Restores 60 Sanity. Pineapple optional.' },
   therapy:       { name: 'Therapy Session', price: 45, use: 'full', battle: true, desc: 'Fully restores Sanity and cures your status.' },
+  phone:         { name: 'Phone (Call Mom)', price: 0, use: 'phone', key: true, desc: 'Call Mom. She usually sends money. Once every 5 minutes or she starts asking questions.' },
   pep_talk:      { name: 'Pep Talk', price: 20, use: 'revive', battle: true, desc: 'Gets a crew member who ran out of Sanity back up with half.' },
   headphones:    { name: 'Noise-Cancelling Headphones', price: 15, use: 'repel', amt: 150, desc: 'Weak issues leave you alone for 150 steps.' },
   uber:          { name: 'Rideshare Home', price: 25, use: 'escape', battle: true, desc: 'Escape a wild issue, or ride back to the last hospital you used.' },
@@ -636,7 +656,7 @@ const ROUTES = [
 const LEADERS = {
   car: {
     name: 'RUSTY', title: 'CAR TROUBLE', town: 1, badge: 'Jumper Cable Badge', badgeIcon: 'bolt', color: '#e0902a',
-    team: [['check_engine', 10], ['flat_tire', 11], ['transmission', 13]], power: 1.12,
+    team: [['check_engine', 8], ['flat_tire', 9], ['transmission', 11]], power: 1.05,
     reward: 400, skill: 'jumpstart', look: 'cap',
     pal: { h: '#3a2a1a', s: '#e0a878', c: '#3a5a9a', p: '#2a3a6a', b: '#2a2a2a', style: 'short' },
     intro: [
@@ -651,7 +671,7 @@ const LEADERS = {
   },
   fitness: {
     name: 'COACH MAX GAINS', title: 'FITNESS', town: 2, badge: 'Sweatband Badge', badgeIcon: 'heart', color: '#e0503a',
-    team: [['gym_membership', 15], ['leg_day', 16], ['kale_smoothie', 16], ['beach_body', 19]], power: 1.38,
+    team: [['gym_membership', 13], ['leg_day', 14], ['kale_smoothie', 14], ['beach_body', 17]], power: 1.2,
     reward: 650, skill: 'meal_prep', look: 'headband',
     pal: { h: '#e8c050', s: '#c88858', c: '#e8603a', p: '#2a2a3a', b: '#f0f0f0', style: 'short' },
     intro: [
@@ -666,7 +686,7 @@ const LEADERS = {
   },
   taxes: {
     name: 'THE AUDITOR', title: 'TAXES', town: 3, badge: 'Refund Badge', badgeIcon: 'doc', color: '#4a6a9a',
-    team: [['w2', 20], ['shoebox', 20], ['owe_money', 21], ['penalty_letter', 21], ['audit', 24]], power: 1.46,
+    team: [['w2', 17], ['shoebox', 17], ['owe_money', 18], ['penalty_letter', 18], ['audit', 21]], power: 1.02,
     reward: 900, skill: 'write_off', look: 'glasses',
     pal: { h: '#8a8a8a', s: '#e8c0a0', c: '#4a4f5a', p: '#3a3f4a', b: '#1a1a1a', style: 'bald', tie: '#2a4a8a' },
     intro: [
@@ -813,55 +833,55 @@ const PALS = {
 };
 
 // ---------------------------------------------------------------- crew
-// Allies you recruit. They level with you; `learn` is [level, skill] and an
-// ally fights with Wing It plus the last three skills it has learned.
+// People who fight alongside you. They level with you; `learn` is
+// [level, skill] and an ally fights with Wing It plus the last three skills it
+// has learned. `after` = the leader whose defeat brings them into your life.
 const ALLIES = {
   chad: {
-    name: 'CHAD', title: 'Best Friend', town: 0, need: 0, cost: 0, boost: 'SOCIAL', meet: true,
+    name: 'CHAD', title: 'High School Best Friend', after: 'car', boost: 'SOCIAL',
     pal: { h: '#2a1a0a', s: '#c08860', c: '#3a9ad8', p: '#3a3a58', b: '#e8e8e8', style: 'short' },
-    base: { san: 66, conf: 60, comp: 52, hus: 62, energy: 2 },
-    learn: [[1, 'small_talk'], [1, 'touch_grass'], [1, 'hype_up'], [12, 'networking']],
-    noPath: ['Go see Dr. Street first! Then we roll.'],
-    pitch: ['{NAME}! There you are! I saw you go into Dr. Street\'s lab.', 'So? You picked a path? You\'re ADULTING now?', 'Adulting alone? Absolutely not. I\'m coming with you. I\'m great with people. Mostly. Sometimes.'],
-    after: 'Best friends don\'t let best friends adult alone.',
+    base: { san: 66, conf: 60, comp: 54, hus: 62, energy: 2 },
+    learn: [[1, 'small_talk'], [1, 'touch_grass'], [1, 'hype_up'], [12, 'networking'], [16, 'elbow_grease']],
+    shout: '"{NAME}?! NO WAY!"',
+    pitch: ['It\'s me! CHAD! From high school! Chemistry lab partner! Your car-pool to prom!',
+      'Dude, I haven\'t seen you since graduation. I heard you just beat CAR TROUBLE. That\'s insane.',
+      'I\'ve been working at the smoothie place, but honestly? I\'m bored. Adulting solo is rough.',
+      'Let me come with you. I\'m great with people. Mostly. Sometimes.'],
+    line: 'Best friends don\'t let best friends adult alone.',
   },
-  sam: {
-    name: 'SAM', title: 'Roommate', town: 1, need: 1, cost: 50, boost: 'GRIT',
-    pal: { h: '#c86a2a', s: '#f0c8a0', c: '#6a8a3a', p: '#4a5a7a', b: '#5a3a1a', style: 'bun' },
-    base: { san: 74, conf: 62, comp: 60, hus: 48, energy: 0 },
-    learn: [[1, 'elbow_grease'], [1, 'fix_it'], [1, 'power_nap'], [14, 'hustle'], [20, 'all_nighter']],
-    notYet: ['I only room with people who have their life somewhat together. Beat CAR TROUBLE first, then we\'ll talk.'],
-    pitch: ['I need a roommate. Desperately. Rent out here is cheap, but not THAT cheap.', 'Split the deposit with me and I\'ll fight your dishes. Literally.'],
-    decline: 'Fine. I\'ll put up another flyer. "Must love cacti."',
-    after: 'I labeled all my food in the fridge. Don\'t touch the hummus.',
+  // the significant other is the opposite gender of your character
+  so_f: {
+    name: 'SOPHIE', title: 'Significant Other', after: 'taxes', boost: 'CHILL',
+    pal: { h: '#3a1a1a', s: '#e8b890', c: '#e86a8a', p: '#3a3a5a', b: '#f4f4f4', style: 'long' },
+    base: { san: 72, conf: 62, comp: 62, hus: 58, energy: 4 },
+    learn: [[1, 'touch_grass'], [1, 'deep_breaths'], [1, 'spreadsheet'], [1, 'therapy_talk'], [24, 'boundaries']],
+    shout: '"Oh! Sorry, I wasn\'t looking where I was going!"',
+    pitch: ['...Wait. Are you the one who just beat THE AUDITOR? Line by line?',
+      'Nobody beats Taxes. I\'ve been filing extensions since I was 22.',
+      'That\'s... honestly kind of attractive. I\'m SOPHIE.',
+      'Want to get coffee sometime? Or, like, every day? I could come along. I\'m very organized.'],
+    line: 'You did the dishes AND filed on time? Marry me. (Kidding.) (Unless?)',
   },
-  pat: {
-    name: 'PAT', title: 'Mentor', town: 2, need: 2, cost: 0, boost: 'BRAINS', look: 'glasses',
-    pal: { h: '#8a8a8a', s: '#a87050', c: '#8a4a8a', p: '#3a3a4a', b: '#1a1a1a', style: 'short', tie: '#e8c040' },
-    base: { san: 64, conf: 66, comp: 54, hus: 52, energy: 4 },
-    learn: [[1, 'googling'], [1, 'read_manual'], [1, 'small_talk'], [12, 'spreadsheet'], [18, 'write_off']],
-    notYet: ['I mentor winners. Beat two Life Leaders and come find me.'],
-    pitch: ['I heard you handled Car Trouble AND Coach Max. Impressive.', 'I\'ve been adulting for thirty years. Let me mentor you. I\'m basically a walking spreadsheet.'],
-    after: 'Remember: pay yourself first. Then pay me back for that coffee.',
+  so_m: {
+    name: 'MARCUS', title: 'Significant Other', after: 'taxes', boost: 'GRIT',
+    pal: { h: '#1a1a1a', s: '#9a6a4a', c: '#4a7ad8', p: '#3a3a4a', b: '#2a2a2a', style: 'short' },
+    base: { san: 76, conf: 64, comp: 60, hus: 54, energy: 2 },
+    learn: [[1, 'fix_it'], [1, 'hustle'], [1, 'small_talk'], [1, 'meal_prep'], [24, 'networking']],
+    shout: '"Whoa! Sorry, I wasn\'t looking where I was going!"',
+    pitch: ['...Wait. Are you the one who just beat THE AUDITOR? Line by line?',
+      'Nobody beats Taxes. I\'ve been filing extensions since I was 22.',
+      'That\'s... honestly kind of amazing. I\'m MARCUS.',
+      'Want to get coffee sometime? Or, like, every day? I could come along. I meal prep.'],
+    line: 'You did the dishes AND filed on time? Marry me. (Kidding.) (Unless?)',
   },
-  kim: {
-    name: 'DR. KIM', title: 'Therapist', town: 3, need: 3, cost: 40, boost: 'CHILL', look: 'glasses',
-    pal: { h: '#1a1a2a', s: '#e8c0a0', c: '#4aa8a0', p: '#3a3a5a', b: '#2a2a2a', style: 'long' },
-    base: { san: 70, conf: 58, comp: 64, hus: 50, energy: 4 },
-    learn: [[1, 'touch_grass'], [1, 'deep_breaths'], [1, 'boundaries'], [1, 'therapy_talk']],
-    notYet: ['I\'m Dr. Kim. My calendar is full until you\'ve got three Life Milestones. Come back then.'],
-    pitch: ['You\'ve been through a lot. Car trouble. The gym. Taxes. That\'s a lot of feelings.', 'First session is the fee. After that, I\'ll come with you. Insurance is... complicated.'],
-    decline: 'That\'s okay. Boundaries are healthy. I\'m proud of you.',
-    after: 'And how does that make you feel? ...Great. Let\'s go.',
-  },
-  mom: {
-    name: 'MOM', title: 'On Speed Dial', town: 0, home: true, need: 2, cost: 0, boost: 'SHADY',
-    pal: { h: '#8a4a2a', s: '#f0c8a0', c: '#7aa04a', p: '#5a5a7a', b: '#4a3a2a', style: 'long' },
-    base: { san: 82, conf: 54, comp: 70, hus: 46, energy: 2 },
-    learn: [[1, 'guilt_trip'], [1, 'packed_lunch'], [1, 'small_talk'], [16, 'networking']],
-    pitch: ['TWO Life Milestones! Look at you!', 'Put me on speed dial. I\'m coming to your battles. Don\'t argue.'],
-    after: 'Did you eat? You didn\'t eat. Here.',
-  },
+};
+
+// The two playable characters (after House Keeper's explorers).
+const HEROES = {
+  boy:  { label: 'BOY', pal: { h: '#6b3a1c', s: '#f6c79c', c: '#3a6fd0', p: '#3c3a58', b: '#4a2a16', style: 'short', pack: '#a0682e' }, look: 'headband',
+    blurb: ['Red bandana and a backpack', 'Fresh out of high school'] },
+  girl: { label: 'GIRL', pal: { h: '#f4d65a', s: '#f6c79c', c: '#3aa078', p: '#7a4a2a', b: '#4a2a16', style: 'long', pack: '#a0682e' }, look: null,
+    blurb: ['Golden hair and a backpack', 'Fresh out of high school'] },
 };
 
 // ---- src/art.js
@@ -2517,17 +2537,6 @@ const World = {
     set(2, 9, T.SIGN);
     m.signs.set(m.idx(ox + 2, oy + 9), town.sign);
 
-    // a recruitable ally waits in town
-    for (const [id, A] of Object.entries(ALLIES)) {
-      if (A.town !== ti || A.home) continue;
-      let sx = 19, sy = 13;
-      if (A.meet) { sx = 25; sy = 19; }   // by the lab door
-      for (let tries = 0; tries < 30 && get(sx, sy) !== T.GROUND; tries++) { sx = 18 + (tries % 6); sy = 12 + Math.floor(tries / 6); }
-      const n = makeNPC({ x: ox + sx, y: oy + sy });
-      n.palObj = A.pal; n.look = A.look || null; n.ally = id;
-      n.talk = () => Scripts.recruit(id, n);
-      m.npcs.push(n);
-    }
     // outdoor wanderers
     const folk = TOWNFOLK[ti].out;
     const spots = [[8, 12], [20, 8], [24, 12]];
@@ -2562,7 +2571,6 @@ const World = {
   },
 
   refreshGates() {
-    for (const n of this.maps.world.npcs) if (n.ally) n.hidden = Crew.has(n.ally) || (ALLIES[n.ally].meet && !Game.p.path);
     for (const g of this.gates) {
       const open = Game.gateOpen(g.ri);
       g.cone.hidden = open;
@@ -2778,17 +2786,21 @@ const Game = {
   ctx: null,
 
   // ------------------------------------------------------------ player
-  newPlayer(name) {
+  newPlayer(name, hero = 'boy') {
     return {
-      name, path: null, level: 5, xp: Stats.xpFor(5), sanity: 30, energy: 20, status: null,
+      name, hero, path: null, level: 5, xp: Stats.xpFor(5), sanity: 30, energy: 20, status: null,
       known: ['wing_it'], equipped: ['wing_it'], items: {}, money: 0, debt: 0, karma: 50,
-      badges: [], flags: {}, outfit: PALS.player.c, crew: [], lead: 'me', repel: 0, steps: 0, playTime: 0,
+      badges: [], flags: {}, outfit: HEROES[hero].pal.c, crew: [], lead: 'me', momCall: -1e9, stats: { issues: 0, meltdowns: 0 }, repel: 0, steps: 0, playTime: 0,
       respawn: { map: 'house-0-0', x: 10, y: 6, dir: 'right' },
       map: 'house-0-0', x: 2, y: 3, dir: 'down',
     };
   },
   stats() { return Stats.of(this.p); },
-  age() { return 20 + Math.floor(this.p.badges.length * 1.5); },
+  // 18 out of high school, 32 when all eight leaders are done
+  age() { return 18 + Math.floor(this.p.badges.length * 1.75); },
+  heroPal() { const H = HEROES[this.p.hero] || HEROES.boy; return { ...H.pal, c: this.p.outfit }; },
+  heroLook() { return (HEROES[this.p.hero] || HEROES.boy).look; },
+  playableDone() { return LEADER_ORDER.every((k) => LEADERS[k].locked || this.p.badges.includes(k)); },
   fullHeal() { Crew.healAll(); },
   fmt(t) { return String(t).replace(/\{NAME\}/g, this.p ? this.p.name : 'YOU'); },
   karmaLabel(k = this.p.karma) {
@@ -2869,10 +2881,17 @@ const Game = {
     this.enter(mapId, x, y, dir);
     if (mapId !== 'world') this.autosave();
     await this.fadeTo(0);
-    // your best friend is waiting outside the lab
-    if (from === 'lab-0-0' && mapId === 'world' && this.p.path && !Crew.has('chad')) {
-      try { await Scripts.meetChad(); } finally { UI.closeDialog(); }
-    }
+    try {
+      // Dr. Street's first-visit cutscene
+      if (mapId === 'lab-0-0' && !this.p.flags.labIntro) await Scripts.labIntro();
+      // walking out of a leader hall: someone may be waiting, and maybe the end
+      if (from && from.startsWith('hall-') && mapId === 'world') {
+        for (const [id, A] of Object.entries(ALLIES)) {
+          if (this.p.badges.includes(A.after) && !Crew.has(id) && Scripts.meetsYou(id)) await Scripts.meet(id);
+        }
+        if (this.playableDone() && !this.p.flags.ending) await Ending.play();
+      }
+    } finally { UI.closeDialog(); }
     this.busy--;
   },
 
@@ -3039,6 +3058,7 @@ const Game = {
   async blackout() {
     const p = this.p;
     const lost = Math.floor(p.money / 2);
+    p.stats.meltdowns++;
     p.money -= lost;
     await UI.say(`{NAME} had a full-on meltdown!`);
     if (lost) await UI.say(`In the panic, {NAME} dropped ${U.money(lost)}...`);
@@ -3077,7 +3097,9 @@ const Game = {
     x.fillRect(0, 0, VIEW_W, VIEW_H);
     if (this.mode === 'title') { this.renderTitle(x); return; }
     if (this.mode === 'intro') { Intro.render(x); this.drawFade(x); return; }
+    if (this.mode === 'ending') { Ending.render(x); this.drawFade(x); return; }
     if (this.scene && this.scene.kind === 'select') { this.renderSelect(x); this.drawFade(x); return; }
+    if (this.scene && this.scene.kind === 'hero') { this.renderHeroes(x); this.drawFade(x); return; }
     if (!this.map) return;
     this.renderMap(x);
     this.drawFade(x);
@@ -3131,6 +3153,26 @@ const Game = {
       const bob = on ? Math.round(Math.sin(t * 4) * 2) : 0;
       x.globalAlpha = on ? 1 : 0.5;
       x.drawImage(Art.icon(k, 3), cx - 24, 70 + bob);
+      x.globalAlpha = 1;
+      if (on && Math.floor(t * 3) % 2) { x.fillStyle = '#f0c040'; x.beginPath(); x.moveTo(cx - 5, 50); x.lineTo(cx + 5, 50); x.lineTo(cx, 56); x.fill(); }
+    });
+  },
+
+  // boy / girl select: two spotlights with the walking sprites
+  renderHeroes(x) {
+    const t = this.time, sel = this.scene.i;
+    const gr = x.createLinearGradient(0, 0, 0, VIEW_H);
+    gr.addColorStop(0, '#1a1230'); gr.addColorStop(1, '#2e2048');
+    x.fillStyle = gr; x.fillRect(0, 0, VIEW_W, VIEW_H);
+    for (let y = 120; y < VIEW_H; y += 8) for (let X = 0; X < VIEW_W; X += 8) px(x, ((X + y) / 8) % 2 ? '#3a2a5a' : '#32244e', X, y, 8, 8);
+    ['boy', 'girl'].forEach((k, i) => {
+      const cx = 76 + i * 152, on = i === sel, H = HEROES[k];
+      x.fillStyle = on ? 'rgba(255,230,160,.18)' : 'rgba(255,255,255,.04)';
+      x.beginPath(); x.moveTo(cx - 10, 0); x.lineTo(cx + 10, 0); x.lineTo(cx + 46, 150); x.lineTo(cx - 46, 150); x.fill();
+      x.fillStyle = 'rgba(0,0,0,.3)'; x.beginPath(); x.ellipse(cx, 146, 30, 6, 0, 0, Math.PI * 2); x.fill();
+      const fr = on ? WALKCYCLE[Math.floor(t * 6) % 4] : 0;
+      x.globalAlpha = on ? 1 : 0.55;
+      x.drawImage(Art.character(H.pal, H.look).down[fr], cx - 30, 74, 60, 72);
       x.globalAlpha = 1;
       if (on && Math.floor(t * 3) % 2) { x.fillStyle = '#f0c040'; x.beginPath(); x.moveTo(cx - 5, 50); x.lineTo(cx + 5, 50); x.lineTo(cx, 56); x.fill(); }
     });
@@ -3200,11 +3242,11 @@ const Game = {
   },
   drawPlayer(x, sx, sy, m) {
     const P = this.pos;
-    const pal = { ...PALS.player, c: this.p.outfit };
+    const pal = this.heroPal();
     const fr = P.moving ? WALKCYCLE[(P.parity * 2 + Math.floor(P.mt * 2)) % 4] : 0;
     sx = Math.round(sx); sy = Math.round(sy);
     shadow(x, sx, sy);
-    x.drawImage(Art.character(pal, null)[P.dir][fr], sx - 2, sy - 8);
+    x.drawImage(Art.character(pal, this.heroLook())[P.dir][fr], sx - 2, sy - 8);
     this.grassOver(x, m, P.moving ? P.tx : P.x, P.moving ? P.ty : P.y, sx, sy, P.moving && P.mt < 0.5);
   },
   grassOver(x, m, tx, ty, sx, sy, skip) {
@@ -3287,7 +3329,7 @@ const Menu = {
     });
     await UI.list(rows, {
       title: 'CREW', hint: '', empty: '',
-      footer: () => p.crew.length ? 'A: make leader (fights first) · B: back' : 'Recruit friends around the world. They\'ll fight with you.',
+      footer: () => p.crew.length ? 'A: make leader (fights first) · B: back' : 'Friends join you as you beat Life Leaders.',
       onAct: async (k) => {
         const r = list()[k];
         p.lead = Crew.key(r);
@@ -3301,9 +3343,9 @@ const Menu = {
   async bag(inBattle) {
     const p = Game.p;
     let used = null;
-    const ids = () => Object.keys(p.items).filter((id) => p.items[id] > 0);
+    const ids = () => Object.keys(p.items).filter((id) => p.items[id] > 0).sort((a, b) => (ITEMS[b].key ? 1 : 0) - (ITEMS[a].key ? 1 : 0));
     const rows = () => ids().map((id) => ({
-      label: ITEMS[id].name, right: '×' + p.items[id], desc: ITEMS[id].desc,
+      label: ITEMS[id].name, right: ITEMS[id].key ? '' : '×' + p.items[id], desc: ITEMS[id].desc,
       disabled: inBattle && !ITEMS[id].battle,
     }));
     await UI.list(rows, {
@@ -3332,7 +3374,7 @@ const Menu = {
     await UI.panel(`<div class="p-title">LIFE ID CARD</div>
       <div class="card">
         <div class="card-top">
-          <img class="card-face" src="${Art.portrait({ ...PALS.player, c: p.outfit }, null).toDataURL()}">
+          <img class="card-face" src="${Art.portrait(Game.heroPal(), Game.heroLook()).toDataURL()}">
           <div class="card-info">
             <div class="big">${U.esc(p.name)}</div>
             <div>Age ${Game.age()} · ${path ? path.name : 'No path yet'}</div>
@@ -3455,6 +3497,7 @@ const Items = {
         if (!p.equipped.includes(it.skill)) await UI.say('Equip it from the SKILLS menu.');
         break;
       }
+      case 'phone': return Scripts.callMom();
       case 'outfit': {
         if (inBattle) return 'no';
         const k = await UI.choose(OUTFIT_COLORS.map((o) => o[0]), { cls: 'side' });
@@ -3501,8 +3544,8 @@ const Crew = {
 
   name(r) { return this.isMe(r) ? Game.p.name : this.def(r).name; },
   boost(r) { return this.isMe(r) ? (PATHS[Game.p.path] || {}).boost : this.def(r).boost; },
-  pal(r) { return this.isMe(r) ? { ...PALS.player, c: Game.p.outfit } : this.def(r).pal; },
-  look(r) { return this.isMe(r) ? null : this.def(r).look || null; },
+  pal(r) { return this.isMe(r) ? Game.heroPal() : this.def(r).pal; },
+  look(r) { return this.isMe(r) ? Game.heroLook() : this.def(r).look || null; },
   stats(r) {
     if (this.isMe(r)) return Game.stats();
     const b = this.def(r).base, L = Game.p.level;
@@ -3541,6 +3584,76 @@ const Crew = {
     await UI.say(prompt, { noWait: true });
     const i = await UI.choose(list.map((r) => { const s = this.stats(r); return `${this.name(r)} ${r.sanity}/${s.maxSanity}`; }), { cls: 'side' });
     return i < 0 ? null : list[i];
+  },
+};
+
+// ---- src/ending.js
+'use strict';
+// "Congratulations, you have survived young adult life." A sunset walk down
+// the road with your crew, then your stats. Plays once, after the last
+// playable leader; afterwards you can keep exploring.
+
+const Ending = {
+  t: 0,
+  async play() {
+    const p = Game.p;
+    p.flags.ending = true;
+    await Game.fadeTo(1, 600);
+    Game.mode = 'ending';
+    this.t = 0;
+    Audio2.music('victory');
+    await Game.fadeTo(0, 600);
+    await U.wait(2600);
+    const hrs = Math.floor(p.playTime / 3600), mins = Math.floor(p.playTime / 60) % 60;
+    const box = UI.el('div', 'endcard', `
+      <div class="e-big">CONGRATULATIONS!</div>
+      <div class="e-sub">You have survived young adult life.</div>
+      <div class="e-stats">
+        <span>AGE</span><b>${Game.age()}</b><span>LEVEL</span><b>${p.level}</b>
+        <span>PLAY TIME</span><b>${hrs}h ${String(mins).padStart(2, '0')}m</b><span>ISSUES HANDLED</span><b>${p.stats.issues}</b>
+        <span>MELTDOWNS</span><b>${p.stats.meltdowns}</b><span>CASH</span><b>${U.money(p.money)}</b>
+        <span>KARMA</span><b>${Game.karmaLabel()}</b><span>CREW</span><b>${Crew.members().map((r) => Crew.name(r)).join(', ')}</b>
+      </div>
+      <div class="e-foot">PRESS A TO KEEP EXPLORING</div>`);
+    UI.root.appendChild(box);
+    await new Promise((resolve) => {
+      const w = { onInput: (b) => { if (b === 'A' || b === 'START') { UI.pop(w); resolve(); } return 'stop'; } };
+      UI.push(w);
+    });
+    await Game.fadeTo(1, 500);
+    box.remove();
+    Game.mode = 'world';
+    Game.updateMusic();
+    Game.autosave();
+    await Game.fadeTo(0, 500);
+    await UI.say(['The other Life Leaders are still out there: DATING, STUDENT LOANS, MASTERS DEGREE, CAREER... and PARENTS.',
+      'They\'ll open their doors in a future update. Until then, the world is yours to explore.']);
+  },
+
+  render(x) {
+    this.t += 1 / 60;
+    const t = this.t;
+    const g = x.createLinearGradient(0, 0, 0, VIEW_H);
+    g.addColorStop(0, '#f49a5a'); g.addColorStop(1, '#ffe6a8');
+    x.fillStyle = g; x.fillRect(0, 0, VIEW_W, VIEW_H);
+    const sunY = 104 - Math.min(26, t * 5);
+    x.fillStyle = '#fff4c8'; x.beginPath(); x.arc(214, sunY, 20, 0, Math.PI * 2); x.fill();
+    x.globalAlpha = 0.35; x.fillStyle = '#ffe9a0'; x.beginPath(); x.arc(214, sunY, 26, 0, Math.PI * 2); x.fill(); x.globalAlpha = 1;
+    x.fillStyle = '#8ab86a'; x.beginPath(); x.ellipse(70, 124, 110, 24, 0, Math.PI, 0); x.fill();
+    x.fillStyle = '#76a85a'; x.beginPath(); x.ellipse(240, 128, 120, 22, 0, Math.PI, 0); x.fill();
+    x.fillStyle = '#68b04c'; x.fillRect(0, 124, VIEW_W, VIEW_H - 124);
+    for (let i = 0; i < 50; i++) { x.fillStyle = '#4a8a36'; x.fillRect(U.hash(i, 5) % VIEW_W, 128 + U.hash(i, 6) % 90, 2, 1); }
+    x.fillStyle = '#cbb48a'; x.beginPath(); x.moveTo(140, 124); x.lineTo(164, 124); x.lineTo(196, VIEW_H); x.lineTo(108, VIEW_H); x.fill();
+    // the crew walks down the road toward you
+    const walking = t < 3.2, k = Math.min(1, t / 3.2);
+    Crew.members().forEach((r, i) => {
+      const py = 118 + k * 50 - i * 14, px = 142 + (i % 2 ? 16 : -16) * Math.min(i, 1) + (i > 1 ? (i - 1) * 8 : 0);
+      if (py < 110) return;
+      shadow(x, px, py);
+      const fr = walking ? WALKCYCLE[Math.floor(t * 6 + i) % 4] : 0;
+      x.drawImage(Art.character(Crew.pal(r), Crew.look(r)).down[fr], Math.round(px) - 2, Math.round(py) - 8);
+    });
+    if (!walking && Math.floor(t * 3) % 2) { x.fillStyle = '#ffffff'; x.fillRect(139, 158, 1, 3); x.fillRect(158, 160, 1, 3); }
   },
 };
 
@@ -3585,7 +3698,7 @@ const Scripts = {
     if (!p.path) {
       await say(['Morning, sweetie! Dr. Street called. He wants to see you at his LAB.',
         'It\'s the building with the green roof, east side of town.',
-        'And take a jacket! ...You\'re 20, you say? You\'re still taking a jacket.'], { name: 'MOM' });
+        'And you have your phone? Good. Call me if you need anything. ANYTHING. (Within reason.)'], { name: 'MOM' });
       return;
     }
     if (!p.flags.momCash) {
@@ -3595,92 +3708,138 @@ const Scripts = {
       Game.earn(20); Audio2.sfx('coin');
       await say('{NAME} received $20!');
     }
-    if (p.badges.length >= ALLIES.mom.need && !Crew.has('mom')) {
-      await Scripts.recruit('mom', npc);
-      if (!Crew.has('mom')) return;
-    }
     await say('You look exhausted. Sit down, I\'ll make you a sandwich.', { name: 'MOM' });
     Game.fullHeal(); Audio2.sfx('heal');
     p.respawn = { map: Game.map.id, x: 10, y: 6, dir: 'right' };
-    await say(['{NAME} ate a sandwich and took a nap. Sanity and Energy fully restored!',
+    await say(['Everyone ate a sandwich and took a nap. Sanity and Energy fully restored!',
       'MOM: "Go get \'em. And call me. You won\'t, but call me."']);
   },
 
-  // ---------------------------------------------------------- crew
-  // Leaving the lab with a path: Chad walks up from the road and joins.
-  async meetChad() {
-    const A = ALLIES.chad, P = Game.pos, m = Game.map;
-    const n = m.npcs.find((k) => k.ally === 'chad');
-    if (!n) return;
-    n.hidden = false; n.wander = 0;
-    n.x = P.x; n.y = P.y + 3; n.dir = 'up';
-    await say('"HEY! {NAME}!"');
-    // walk up the path to stand in front of you
-    for (let k = 0; k < 2; k++) {
-      n.tx = n.x; n.ty = n.y - 1; n.moving = true; n.mt = 0;
-      while (n.moving) await new Promise((r) => requestAnimationFrame(r));
+  // Call Mom from the bag: money 90% of the time, once per 5 minutes of play.
+  async callMom() {
+    const p = Game.p, nm = { name: 'MOM' };
+    await say('*ring ring* ... *ring ring* ...');
+    const wait = 300 - (p.playTime - (p.momCall ?? -1e9));
+    if (wait > 0) {
+      await say(U.pick(Math.random, ['Honey, didn\'t I JUST talk to you?', 'Again? Is everything okay? Are you eating?', 'I\'m in the middle of my show. Call me back.']), nm);
+      await say(`(Mom needs a break. Try again in about ${Math.max(1, Math.ceil(wait / 60))} min.)`);
+      UI.closeDialog();
+      return 'no';
     }
-    P.dir = 'down';
-    await say(A.pitch, { name: A.name });
-    Crew.add('chad');
-    Audio2.sfx('badge');
-    await say(`${A.name} (${A.title}) joined your crew!`);
-    await say(`${A.name} is best with ${A.boost} skills: ${Crew.skills(Game.p.crew[Game.p.crew.length - 1]).map((k) => SKILLS[k].name).join(', ')}.`);
-    if (!Game.p.flags.crewTip) {
-      Game.p.flags.crewTip = true;
-      await say(['TIP: In battle, pick CREW to tag in whoever has the right skill. If someone runs out of Sanity, the next person steps up. You only lose if EVERYONE is out.',
-        'Pick who fights first in MENU > CREW. More people will want to join you out there.']);
+    p.momCall = p.playTime;
+    if (Math.random() < 0.9) {
+      const amt = U.rand(15, 40) + 15 * p.badges.length;
+      await say(U.pick(Math.random, [
+        'Of course, sweetie. I\'ll send it now. What\'s "Venmo" again?',
+        'Fine. But this is a LOAN. (It is not a loan.)',
+        'Your father says no. I\'m sending it anyway.',
+        'Are you sure you don\'t want to move back home? ...Okay, okay. Sending it.',
+      ]), nm);
+      p.money += amt; Audio2.sfx('coin');
+      await say(`Mom sent ${U.money(amt)}!`);
+    } else {
+      await say(U.pick(Math.random, [
+        'Oh honey, I\'m at book club. Can\'t talk. Love you!',
+        'Did you know your cousin got engaged? To a DENTIST? ...What did you need again? Oh, I have to go.',
+        'Sweetie, money doesn\'t grow on trees. Have you tried a budget? I\'ll email you a spreadsheet.',
+      ]), nm);
+      await say('(No money this time. Mom says hi, though.)');
     }
-    n.hidden = true;
-    Game.autosave();
+    UI.closeDialog();
+    return 'no';
   },
 
-  async recruit(id, npc) {
-    const A = ALLIES[id], p = Game.p, nm = { name: A.name };
-    if (Crew.has(id)) { await say(A.after, nm); return; }
-    if (!p.path) { await say(A.noPath || ['Go see Dr. Street first.'], nm); return; }
-    if (p.badges.length < A.need) { await say(A.notYet, nm); return; }
-    await say(A.pitch, nm);
-    if (A.cost) {
-      if (!(await UI.confirm(`Pay $${A.cost} so ${A.name} joins your crew?`))) { await say(A.decline || 'Maybe later.', nm); return; }
-      if (p.money < A.cost) { await say(`You check your wallet. You have ${U.money(p.money)}. That's not $${A.cost}.`); return; }
-      p.money -= A.cost; Audio2.sfx('coin');
-    } else if (!(await UI.confirm(`Add ${A.name} to your crew?`))) { await say('Okay. Offer stands!', nm); return; }
+  // ---------------------------------------------------------- cutscene helpers
+  async walkNPC(n, dirs) {
+    for (const d of dirs) {
+      const [dx, dy] = DIRS[d];
+      n.dir = d; n.tx = n.x + dx; n.ty = n.y + dy; n.moving = true; n.mt = 0;
+      while (n.moving) await new Promise((r) => requestAnimationFrame(r));
+    }
+  },
+  async walkPlayer(dirs) {
+    const P = Game.pos;
+    for (const d of dirs) {
+      const [dx, dy] = DIRS[d];
+      P.dir = d; P.tx = P.x + dx; P.ty = P.y + dy; P.moving = true; P.mt = 0;
+      while (P.moving) await new Promise((r) => requestAnimationFrame(r));
+    }
+  },
+  rep: (d, n) => Array(n).fill(d),
+
+  // ---------------------------------------------------------- crew
+  // Your significant other is the opposite gender of your character.
+  meetsYou(id) {
+    if (!id.startsWith('so_')) return true;
+    return id === (Game.p.hero === 'girl' ? 'so_m' : 'so_f');
+  },
+  // Someone runs up to you outside a leader hall and joins.
+  async meet(id) {
+    const A = ALLIES[id], P = Game.pos, m = Game.map, p = Game.p;
+    const n = makeNPC({ x: P.x, y: P.y + 3, dir: 'up' });
+    n.palObj = A.pal; n.look = A.look || null;
+    m.npcs.push(n);
+    await say(A.shout);
+    await Scripts.walkNPC(n, ['up', 'up']);
+    P.dir = 'down';
+    await say(A.pitch, { name: A.name });
     Crew.add(id);
     Audio2.sfx('badge');
     await say(`${A.name} (${A.title}) joined your crew!`);
-    await say(`${A.name} is best with ${A.boost} skills: ${Crew.skills(p.crew[p.crew.length - 1]).map((k) => SKILLS[k].name).join(', ')}.`);
+    await say(`${A.name} is best with ${A.boost} skills: ${Crew.skills(p.crew[p.crew.length - 1]).slice(1).map((k) => SKILLS[k].name).join(', ')}.`);
     if (!p.flags.crewTip) {
       p.flags.crewTip = true;
       await say(['TIP: In battle, pick CREW to tag in whoever has the right skill. If someone runs out of Sanity, the next person steps up. You only lose if EVERYONE is out.',
         'Pick who fights first in MENU > CREW. Hospitals, Mom and Pep Talks get everyone back on their feet.']);
     }
-    if (!A.home) npc.hidden = true;
+    m.npcs.splice(m.npcs.indexOf(n), 1);
     Game.autosave();
   },
 
   // ---------------------------------------------------------- Dr. Street
+  // First time in the lab: he comes over, explains the basics, and walks you
+  // to the table to choose what's next.
+  async labIntro() {
+    const p = Game.p, m = Game.map, D = { name: 'DR. STREET' };
+    p.flags.labIntro = true;
+    const st = m.npcs.find((n) => n.pal === 'street');
+    await say('"Ah! {NAME}! There you are!"', D);
+    await Scripts.walkNPC(st, [...Scripts.rep('down', st.y < 11 ? 11 - st.y : 0), ...Scripts.rep('left', Math.max(0, st.x - 9))]);
+    st.dir = 'down';
+    await say(['Congratulations on graduating! Big day. Here\'s what\'s next: everything. All at once. Forever.',
+      'Don\'t panic. I\'m DR. STREET, and I\'m going to give you the short version.'], D);
+    await say(['Out there, life throws ISSUES at you. Parking tickets. Group chats. Mysterious back pain.',
+      'They hide in the TALL GRASS between towns. Walk through it and something will jump out.'], D);
+    await say(['You fight back with LIFE SKILLS. Every skill has a TYPE, and every issue is WEAK to certain types.',
+      'Hit a weakness and it does DOUBLE damage. The issue\'s box tells you what it\'s weak to. Use that.'], D);
+    await say(['Skills cost ENERGY. Your SANITY is your health. Run out of Sanity and you\'ll have a full meltdown and drop half your cash.',
+      'HOSPITALS patch you up. STORES sell snacks and self-help books that teach new skills. CHAPELS save your progress.'], D);
+    await say(['And eight LIFE LEADERS stand between you and the end of young adulthood. CAR TROUBLE. TAXES. CAREER. You know. Life.',
+      'The rest you\'ll figure out the way everyone does: badly, and then better.'], D);
+    await say('Now, the big question. Come over to the table.', D);
+    await Scripts.walkNPC(st, [...Scripts.rep('up', 4), 'right', 'up']);
+    st.dir = 'left';
+    await Scripts.walkPlayer([...Scripts.rep('up', 5), 'left', 'up']);
+    Game.pos.dir = 'up';
+    await say(['College, Trade School, or a Job. Each has perks, and each has a cost.',
+      'There\'s no wrong answer. (There are some expensive answers.)'], D);
+    UI.closeDialog();
+    await Scripts.pathTable('wrench');
+    if (!p.path) await say('Take your time. The table isn\'t going anywhere. Neither is your future. Well. It is, slowly.', D);
+  },
+
   async street(npc) {
-    const p = Game.p;
-    if (!p.path) {
-      await say(['Ah, {NAME}! Right on time. Well, forty minutes late, but that\'s basically on time for your generation.',
-        'Out there, life is full of ISSUES. Parking tickets. Group chats. Mysterious back pain.',
-        'You\'ll fight them with LIFE SKILLS. Some hit certain issues hard, some barely land. That\'s the TYPE CHART.',
-        'But first, every adult needs a PATH.',
-        'On the table: a DIPLOMA for College, a WRENCH for Trade School, and a NAME TAG for Getting a Job.',
-        'Each comes with perks... and costs. Go have a look!'], { name: 'DR. STREET' });
-      return;
-    }
+    const p = Game.p, D = { name: 'DR. STREET' };
+    if (!p.path) { await say('Go on, take a look at the table. College, Trade School, or a Job.', D); return; }
     const next = LEADER_ORDER.find((k) => !LEADERS[k].locked && !p.badges.includes(k));
     if (next) {
       const L = LEADERS[next];
       await say([`Your next challenge: ${L.title}, in ${TOWNS[L.town].name}. Leader ${L.name} is no joke.`,
-        'Remember: HOSPITALS heal, CHAPELS save, STORES sell. The tall grass is FULL of issues, and sometimes loose cash.',
-        'And if you\'re stuck, press START (or M) and check the TYPE CHART.'], { name: 'DR. STREET' });
+        'If a leader is too tough, spend some time in the tall grass first. Every fight makes you stronger.',
+        'And if money\'s tight, check your BAG. Your phone can call your mom. Every parent\'s favorite feature.'], D);
     } else {
-      await say(['Three milestones down! The other leaders aren\'t ready for you yet.',
-        'Rumor is they\'ll open their doors in a future update. Until then, explore! Pinewood, Boggy Bayou, Harvest Hollow, Metro Heights...',
-        'And watch out. The issues out east are no joke.'], { name: 'DR. STREET' });
+      await say(['You survived young adult life! I\'ve never been prouder of a former lab visitor.',
+        'The other leaders aren\'t ready for you yet. Rumor is they\'ll open their doors in a future update.'], D);
     }
   },
 
@@ -3701,7 +3860,8 @@ const Scripts = {
     Game.give('coffee', 3); Game.give('comfort_food', 2);
     Game.fullHeal();
     // take the chosen item off the table
-    for (const [i, k] of Game.map.props) if (k === kind) { Game.map.props.delete(i); Game.map.acts.delete(i); }
+    const pk = { college: 'diploma', trade: 'wrench', job: 'badge' }[chosen];
+    for (const [i, k] of Game.map.props) if (k === pk) { Game.map.props.delete(i); Game.map.acts.delete(i); }
     World.refreshGates();
     Audio2.sfx('badge');
     await say(`{NAME} chose ${P.name.toUpperCase()}!`);
@@ -3716,9 +3876,9 @@ const Scripts = {
     await say(lines, { name: 'DR. STREET' });
     await say(['Here, take these. Coffee restores Energy, comfort food restores Sanity. You\'ll need both.'], { name: 'DR. STREET' });
     await say('{NAME} received 3× Coffee and 2× Comfort Food!');
-    await say(['Your first LIFE LEADER is CAR TROUBLE, in DUSTY GULCH, east along Route 1.',
-      'Beat all eight leaders and you WIN at the game of life. No pressure. (Lots of pressure.)',
-      'Press START or M any time for your menu. Now go! Adulthood waits for no one!'], { name: 'DR. STREET' });
+    await say(['Your first LIFE LEADER is CAR TROUBLE, in DUSTY GULCH, east along Route 1. You\'re on your own for this one.',
+      'Don\'t worry. Nobody stays alone for long out there.',
+      'Press MENU (Esc) any time for your skills, bag and map. Now go! Adulthood waits for no one!'], { name: 'DR. STREET' });
     Game.autosave();
   },
 
@@ -4349,6 +4509,7 @@ const Battle = {
     if (s.wild) {
       const cash = Math.max(1, Math.floor(d.cash * f.lvl * path.cashMult * s.cashMult * (0.8 + Math.random() * 0.4)));
       const r = Game.earn(cash);
+      p.stats.issues++;
       Audio2.sfx('coin');
       await UI.say(`{NAME} saved ${U.money(cash)} by handling it!${r.garnished ? ` ($${r.garnished} went to loans.)` : ''}`);
       return 'win';
@@ -4447,7 +4608,7 @@ const Battle = {
   // forced: someone must tag in (no cancel). Returns the chosen member or null.
   async crewMenu(forced) {
     const s = this.s, list = Crew.members();
-    if (list.length === 1) { await UI.say('No crew yet! Make some friends out there. Someone will want to come along.'); return null; }
+    if (list.length === 1) { await UI.say('No crew yet. You\'re flying solo for now.'); return null; }
     UI.closeDialog();
     let pick = null;
     await UI.list(list.map((r) => {
@@ -4614,10 +4775,11 @@ const Intro = {
     disc(x, 152, 134, 40, 8, 'rgba(0,0,0,0.3)');
     const bob = Math.round(Math.sin(this.t * 2) * 1);
     if (this.who === 'street') x.drawImage(Art.portrait(PALS.street, 'glasses'), 122, 62 + bob);
-    if (this.who === 'player') x.drawImage(Art.portrait({ ...PALS.player }, null), 122, 62 + bob);
+    if (this.who === 'player') { const H = HEROES[this.hero] || HEROES.boy; x.drawImage(Art.portrait(H.pal, H.look), 122, 62 + bob); }
   },
 
-  async run() {
+  async run(hero) {
+    this.hero = hero;
     Game.mode = 'intro';
     Audio2.music('inside');
     this.who = 'street';
@@ -4633,14 +4795,55 @@ const Intro = {
     UI.closeDialog();
     this.who = 'player';
     const name = await UI.askName('ALEX');
-    Game.p = Game.newPlayer(name);
+    Game.p = Game.newPlayer(name, hero);
+    Game.give('phone', 1);
     await UI.say([`${name}! What a great name. Very... employable.`,
-      `You just turned 20, and your parents have started leaving apartment listings on your pillow.`,
+      'And you just graduated high school! Your parents are thrilled. They\'ve already started leaving apartment listings on your pillow.',
       'Out there, eight LIFE LEADERS are waiting: CAR TROUBLE, TAXES, CAREER, and more.',
       'Beat all eight, and you WIN at the game of life!',
       'Swing by my LAB when you\'re up. Your adventure begins... NOW!'], S);
     UI.closeDialog();
     await Game.fadeTo(1, 500);
+  },
+};
+
+// Boy or girl, the House Keeper select screen: two spotlights.
+const HeroPicker = {
+  open() {
+    const keys = ['boy', 'girl'];
+    let i = 0;
+    Game.mode = 'world'; Game.map = null;
+    Game.scene = { kind: 'hero', i };
+    const box = UI.el('div', 'heropick');
+    const render = () => {
+      Game.scene.i = i;
+      const H = HEROES[keys[i]];
+      box.innerHTML = `<div class="ps-title">CHOOSE YOUR CHARACTER</div>
+        <div class="ps-cols">${keys.map((k, n) => `<div data-i="${n}"></div>`).join('')}</div>
+        <div class="ps-names">${keys.map((k, n) => `<span class="${n === i ? 'on' : ''}">${HEROES[k].label}</span>`).join('')}</div>
+        <div class="ps-desc">${H.blurb.map((t) => `<div>${t}</div>`).join('')}</div>`;
+    };
+    render();
+    UI.root.appendChild(box);
+    Game.fadeTo(0, 300);
+    return new Promise((resolve) => {
+      const w = {
+        onInput: (b) => {
+          if (['left', 'right', 'up', 'down'].includes(b)) { i = 1 - i; Audio2.sfx('move'); render(); }
+          else if (b === 'A') { Audio2.sfx('select'); done(keys[i]); }
+          return 'stop';
+        },
+      };
+      const done = (v) => { UI.pop(w); box.remove(); Game.scene = null; resolve(v); };
+      box.addEventListener('pointerdown', (e) => {
+        const c = e.target.closest('[data-i]');
+        if (!c || UI.top() !== w) return;
+        e.preventDefault();
+        const n = +c.dataset.i;
+        if (n === i) done(keys[i]); else { i = n; render(); Audio2.sfx('move'); }
+      });
+      UI.push(w);
+    });
   },
 };
 
@@ -4708,7 +4911,9 @@ const Main = {
 
   async newGame() {
     await Game.fadeTo(1, 300);
-    await Intro.run();
+    const hero = await HeroPicker.open();
+    await Game.fadeTo(1, 300);
+    await Intro.run(hero);
     Game.mode = 'world';
     World.refreshGates();
     Game.enter('house-0-0', 2, 3, 'down');
@@ -4720,9 +4925,11 @@ const Main = {
   async cont(p) {
     // fill in anything newer saves have that older ones lack
     Game.p = Object.assign(Game.newPlayer(p.name), p);
-    // the best friend was called Jordan, then Corbin, before Chad
+    // older saves: Jordan/Corbin became Chad; Sam, Pat, Dr. Kim and Mom left the crew
     for (const r of Game.p.crew) if (r.id === 'jordan' || r.id === 'corbin') r.id = 'chad';
-    if (Game.p.lead === 'jordan' || Game.p.lead === 'corbin') Game.p.lead = 'chad';
+    Game.p.crew = Game.p.crew.filter((r) => ALLIES[r.id]);
+    if (!ALLIES[Game.p.lead]) Game.p.lead = 'me';
+    if (!Game.p.items.phone) Game.give('phone', 1);
     if (!World.maps[Game.p.map]) Object.assign(Game.p, { map: 'house-0-0', x: 2, y: 3 });
     await Game.fadeTo(1, 300);
     Game.mode = 'world';
