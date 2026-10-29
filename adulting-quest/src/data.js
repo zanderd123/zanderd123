@@ -292,7 +292,7 @@ const ROUTES = [
 const LEADERS = {
   car: {
     name: 'RUSTY', title: 'CAR TROUBLE', town: 1, badge: 'Jumper Cable Badge', badgeIcon: 'bolt', color: '#e0902a',
-    team: [['check_engine', 10], ['flat_tire', 11], ['transmission', 13]], power: 1.2,
+    team: [['check_engine', 10], ['flat_tire', 11], ['transmission', 13]], power: 1.12,
     reward: 400, skill: 'jumpstart', look: 'cap',
     pal: { h: '#3a2a1a', s: '#e0a878', c: '#3a5a9a', p: '#2a3a6a', b: '#2a2a2a', style: 'short' },
     intro: [
