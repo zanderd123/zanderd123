@@ -292,7 +292,7 @@ const ROUTES = [
 const LEADERS = {
   car: {
     name: 'RUSTY', title: 'CAR TROUBLE', town: 1, badge: 'Jumper Cable Badge', badgeIcon: 'bolt', color: '#e0902a',
-    team: [['check_engine', 10], ['flat_tire', 11], ['transmission', 13]], power: 1.4,
+    team: [['check_engine', 10], ['flat_tire', 11], ['transmission', 13]], power: 1.2,
     reward: 400, skill: 'jumpstart', look: 'cap',
     pal: { h: '#3a2a1a', s: '#e0a878', c: '#3a5a9a', p: '#2a3a6a', b: '#2a2a2a', style: 'short' },
     intro: [
@@ -307,7 +307,7 @@ const LEADERS = {
   },
   fitness: {
     name: 'COACH MAX GAINS', title: 'FITNESS', town: 2, badge: 'Sweatband Badge', badgeIcon: 'heart', color: '#e0503a',
-    team: [['gym_membership', 15], ['leg_day', 16], ['kale_smoothie', 16], ['beach_body', 19]], power: 1.75,
+    team: [['gym_membership', 15], ['leg_day', 16], ['kale_smoothie', 16], ['beach_body', 19]], power: 1.38,
     reward: 650, skill: 'meal_prep', look: 'headband',
     pal: { h: '#e8c050', s: '#c88858', c: '#e8603a', p: '#2a2a3a', b: '#f0f0f0', style: 'short' },
     intro: [
@@ -322,7 +322,7 @@ const LEADERS = {
   },
   taxes: {
     name: 'THE AUDITOR', title: 'TAXES', town: 3, badge: 'Refund Badge', badgeIcon: 'doc', color: '#4a6a9a',
-    team: [['w2', 20], ['shoebox', 20], ['owe_money', 21], ['penalty_letter', 21], ['audit', 24]], power: 2.1,
+    team: [['w2', 20], ['shoebox', 20], ['owe_money', 21], ['penalty_letter', 21], ['audit', 24]], power: 1.55,
     reward: 900, skill: 'write_off', look: 'glasses',
     pal: { h: '#8a8a8a', s: '#e8c0a0', c: '#4a4f5a', p: '#3a3f4a', b: '#1a1a1a', style: 'bald', tie: '#2a4a8a' },
     intro: [
