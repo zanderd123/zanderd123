@@ -34,13 +34,21 @@ dialog panels, 20x24 outlined characters and full-screen 19x14 rooms.
   issues come in 5 types (PEOPLE, PAPERWORK, MONEY, CHORE, STRESS). See the
   TYPE CHART in the menu. Skills cost Energy. Sanity is your HP. SHADY skills
   (Gaslight, Per My Last Email, Ghosting) are strong but cost Karma.
-- **Crew.** Friends join one at a time as you beat leaders: CHAD (best friend,
-  meets you outside the lab), SAM (roommate, Dusty Gulch, $50, after 1
-  milestone), PAT (mentor, Sunnyside Beach, after 2), MOM (talk to her at home
-  after 2) and DR. KIM (therapist, Frostpeak, $40, after 3). Each levels with you and is best with one skill type.
-  In battle, CREW swaps who's fighting (uses your turn); when someone runs
-  out of Sanity the next person tags in, and you lose only when everyone is
-  out. MENU > CREW picks who fights first. Pep Talks revive a crew member.
+- **Start.** Pick a boy or a girl, then meet Dr. Street. The first time you
+  walk into his lab he comes over, explains the basics, and walks you to the
+  table to choose College, Trade School or a Job.
+- **Crew.** People from your life join as you beat leaders: CHAD (your high
+  school best friend) runs into you after Car Trouble, and your significant
+  other (SOPHIE or MARCUS, the opposite gender of your character) after Taxes.
+  In battle, CREW swaps who's fighting (uses your turn); when someone runs out
+  of Sanity the next person tags in, and you lose only when everyone is out.
+- **Call Mom.** The phone in your bag calls Mom: she sends money 90% of the
+  time, once per 5 minutes of play.
+- **Difficulty.** Tuned with tools/leaderlab.mjs so a player arriving at each
+  leader without extra grinding wins roughly 70% (Car Trouble), 75% (Fitness)
+  and 65% (Taxes) of the time; later routes ramp up more gently.
+- **Ending.** Beat the last playable leader: "Congratulations! You have
+  survived young adult life." with your stats, then keep exploring.
 - **Money.** $1 and $5 bills appear in the tall grass and respawn. Spend it on
   items, skill books, outfits, scratch-offs, hospital copays, chapel donations
   and street musicians.

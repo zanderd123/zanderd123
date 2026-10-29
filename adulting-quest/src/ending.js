@@ -57,12 +57,12 @@ const Ending = {
     // the crew walks down the road toward you
     const walking = t < 3.2, k = Math.min(1, t / 3.2);
     Crew.members().forEach((r, i) => {
-      const py = 118 + k * 50 - i * 14, px = 142 + (i % 2 ? 16 : -16) * Math.min(i, 1) + (i > 1 ? (i - 1) * 8 : 0);
-      if (py < 110) return;
+      // walk down the road and stop above the stats box, side by side
+      const py = 100 + k * 30, px = 152 - 10 * (Crew.members().length - 1) + i * 20 - 8;
       shadow(x, px, py);
       const fr = walking ? WALKCYCLE[Math.floor(t * 6 + i) % 4] : 0;
       x.drawImage(Art.character(Crew.pal(r), Crew.look(r)).down[fr], Math.round(px) - 2, Math.round(py) - 8);
     });
-    if (!walking && Math.floor(t * 3) % 2) { x.fillStyle = '#ffffff'; x.fillRect(139, 158, 1, 3); x.fillRect(158, 160, 1, 3); }
+    if (!walking && Math.floor(t * 3) % 2) { x.fillStyle = '#ffffff'; x.fillRect(134, 118, 1, 3); x.fillRect(170, 120, 1, 3); }
   },
 };
