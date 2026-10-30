@@ -102,6 +102,7 @@ const Input = {
 
 const UI = {
   root: null,
+  fastText: (() => { try { return localStorage.getItem('aq-fast-text') === '1'; } catch (e) { return false; } })(),
   stack: [],
   dlg: null,
 
@@ -160,7 +161,7 @@ const UI = {
     tx.textContent = '';
     more.style.visibility = 'hidden';
     return new Promise((resolve) => {
-      const speed = o.fast ? 140 : 70;
+      const speed = o.fast || UI.fastText ? 160 : 70;
       let shown = 0, done = false, wait = 0, blip = 0;
       const w = {
         update: (dt) => {
@@ -174,7 +175,7 @@ const UI = {
             finish();
           } else if (o.auto) {
             wait += dt * 1000;
-            if (wait >= o.auto) finish();
+            if (wait >= o.auto * (UI.fastText ? 0.5 : 1)) finish();
           }
         },
         onInput: (b) => {
@@ -190,6 +191,10 @@ const UI = {
     });
   },
   closeDialog() { this.dlg.classList.add('hidden'); },
+  setFastText(v) {
+    this.fastText = v;
+    try { localStorage.setItem('aq-fast-text', v ? '1' : '0'); } catch (e) { /* storage unavailable */ }
+  },
   paginate(text, width = 34, rows = 3) {
     const lines = [];
     for (const para of String(text).split('\n')) {

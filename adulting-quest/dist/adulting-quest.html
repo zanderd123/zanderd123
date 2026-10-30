@@ -667,8 +667,8 @@ const ROUTES = [
   { a: 0, b: 1, lv: [2, 4],   enc: ['parking_ticket', 'group_chat', 'dirty_dishes', 'forgot_sub', 'back_pain'], need: 0, gateFlag: 'path' },
   { a: 1, b: 2, lv: [8, 12],  enc: ['spam_call', 'laundry', 'overdraft', 'sunburn', 'printer_jam', 'group_chat'], need: 1 },
   { a: 2, b: 3, lv: [13, 17], enc: ['jury_duty', 'wedding_invite', 'ikea', 'insomnia', 'reply_all', 'overdraft'], need: 2 },
-  { a: 3, b: 4, lv: [19, 22], enc: ['landlord', 'wifi', 'perf_review', 'ex_post', 'insomnia'], need: 3 },
-  { a: 4, b: 5, lv: [21, 24], enc: ['ex_post', 'dentist', 'allergies', 'group_project', 'ikea'], need: 0 },
+  { a: 3, b: 4, lv: [18, 21], enc: ['landlord', 'wifi', 'perf_review', 'ex_post', 'insomnia'], need: 3 },
+  { a: 4, b: 5, lv: [20, 23], enc: ['ex_post', 'dentist', 'allergies', 'group_project', 'ikea'], need: 0 },
   { a: 5, b: 6, lv: [23, 26], enc: ['dentist', 'hoa', 'imposter', 'landlord', 'allergies'], need: 0 },
   { a: 6, b: 7, lv: [25, 28], enc: ['perf_review', 'imposter', 'hoa', 'group_project', 'wifi'], need: 0 },
   { a: 7, b: 0, lv: [29, 32], enc: ['imposter', 'landlord', 'dentist', 'hoa'], need: 7 },
@@ -2026,6 +2026,7 @@ const Input = {
 
 const UI = {
   root: null,
+  fastText: (() => { try { return localStorage.getItem('aq-fast-text') === '1'; } catch (e) { return false; } })(),
   stack: [],
   dlg: null,
 
@@ -2084,7 +2085,7 @@ const UI = {
     tx.textContent = '';
     more.style.visibility = 'hidden';
     return new Promise((resolve) => {
-      const speed = o.fast ? 140 : 70;
+      const speed = o.fast || UI.fastText ? 160 : 70;
       let shown = 0, done = false, wait = 0, blip = 0;
       const w = {
         update: (dt) => {
@@ -2098,7 +2099,7 @@ const UI = {
             finish();
           } else if (o.auto) {
             wait += dt * 1000;
-            if (wait >= o.auto) finish();
+            if (wait >= o.auto * (UI.fastText ? 0.5 : 1)) finish();
           }
         },
         onInput: (b) => {
@@ -2114,6 +2115,10 @@ const UI = {
     });
   },
   closeDialog() { this.dlg.classList.add('hidden'); },
+  setFastText(v) {
+    this.fastText = v;
+    try { localStorage.setItem('aq-fast-text', v ? '1' : '0'); } catch (e) { /* storage unavailable */ }
+  },
   paginate(text, width = 34, rows = 3) {
     const lines = [];
     for (const para of String(text).split('\n')) {
@@ -3375,9 +3380,9 @@ const Menu = {
     Audio2.sfx('select');
     let start = 0;
     while (true) {
-      const opts = ['SKILLS', 'CREW', 'BAG', 'SAVE GAME', 'PROFILE', 'MAP', 'WHAT BEATS WHAT', 'SOUND: ' + (Audio2.muted ? 'OFF' : 'ON'), 'CLOSE'];
+      const opts = ['SKILLS', 'CREW', 'BAG', 'SAVE GAME', 'PROFILE', 'MAP', 'WHAT BEATS WHAT', 'SOUND: ' + (Audio2.muted ? 'OFF' : 'ON'), 'TEXT: ' + (UI.fastText ? 'FAST' : 'NORMAL'), 'CLOSE'];
       const i = await UI.choose(opts, { cls: 'side', start });
-      if (i < 0 || i === 8) return;
+      if (i < 0 || i === 9) return;
       start = i;
       if (i === 0) await this.skills();
       if (i === 1) await this.crew();
@@ -3387,6 +3392,9 @@ const Menu = {
       if (i === 5) await this.map();
       if (i === 6) await this.chart();
       if (i === 7) Audio2.setMuted(!Audio2.muted);
+      if (i === 8) UI.setFastText(!UI.fastText);
+      // something in a submenu (like driving) took you somewhere: close up
+      if (this.exit) { this.exit = false; UI.closeDialog(); return; }
     }
   },
 
@@ -3461,6 +3469,7 @@ const Menu = {
         const id = ids()[k];
         const r = await Items.use(id, inBattle);
         if (r === 'used' && inBattle) { used = id; return 'close'; }
+        if (r === 'exit') { Menu.exit = true; return 'close'; }
         return inBattle ? 'keep' : 'keep';
       },
     });
@@ -3907,7 +3916,7 @@ const Scripts = {
     await Game.warp('world', b.x + b.doorX, b.y + b.h, 'down');
     await say(U.pick(Math.random, ['You made it! Only took three gas station stops.', 'You arrive. The radio only gets one station. It\'s polka.', 'Smooth drive. The car made a new noise, but you\'ve decided not to hear it.']));
     UI.closeDialog();
-    return 'no';
+    return 'exit';
   },
 
   // ---------------------------------------------------------- crew
@@ -4282,7 +4291,7 @@ const Battle = {
     const s = this.s, m = s.team[s.ti];
     const f = Stats.foe(m.id, m.l);
     // later leaders are tougher than their levels alone; later routes a little
-    const pw = s.leader ? LEADERS[s.leader].power || 1 : 1 + 0.04 * (s.route || 0);
+    const pw = s.leader ? LEADERS[s.leader].power || 1 : 1 + 0.03 * (s.route || 0);
     f.maxHp = Math.round(f.maxHp * pw); f.atk = Math.round(f.atk * pw); f.dfn = Math.round(f.dfn * pw);
     f.hp = f.maxHp; f.st = { atk: 0, def: 0 }; f.anx = 0;
     s.foe = f;
@@ -4794,6 +4803,7 @@ const Battle = {
       <div class="xp"><i></i></div><div class="st"></div><div class="pips"></div>`);
     UI.root.appendChild(foe); UI.root.appendChild(me);
     this.hud = { foe, me };
+    this._barKey = null;
   },
   teardown() {
     if (this.hud) { this.hud.foe.remove(); this.hud.me.remove(); }
@@ -4804,7 +4814,7 @@ const Battle = {
   refresh(snap) {
     const s = this.s, p = s.cur, st = Crew.stats(p), f = s.foe, h = this.hud;
     if (!h || !f) return;
-    if (snap) { s.disp.foe = f.hp / f.maxHp; s.disp.me = p.sanity; }
+    if (snap) { s.disp.foe = f.hp / f.maxHp; s.disp.me = p.sanity; this._barKey = null; }
     h.foe.querySelector('.nm').textContent = f.name.toUpperCase();
     h.foe.querySelector('.lv').textContent = 'Lv' + f.lvl;
     const tc = h.foe.querySelector('.tchip');
@@ -4829,6 +4839,10 @@ const Battle = {
     const s = this.s, st = Crew.stats(s.cur), h = this.hud;
     if (!h) return;
     const col = (r) => (r > 0.5 ? '#3ec46d' : r > 0.2 ? '#f0c030' : '#e8483a');
+    // only touch the DOM when something changed (this runs every frame)
+    const key = Math.round(s.disp.foe * 300) + '|' + Math.round(s.disp.me) + '|' + st.maxSanity;
+    if (key === this._barKey) return;
+    this._barKey = key;
     const fb = h.foe.querySelector('.bar b');
     fb.style.width = (s.disp.foe * 100) + '%'; fb.style.background = col(s.disp.foe);
     const mr = s.disp.me / st.maxSanity;

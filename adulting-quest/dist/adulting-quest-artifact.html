@@ -499,6 +499,16 @@ const FOE_MOVES = {
   penalty:      { name: 'Penalty & Interest', power: 40, fx: { drain: 5 } },
   scrutiny:     { name: 'Scrutiny', power: 30, fx: { defDown: 1 } },
   line_by_line: { name: 'Line by Line', power: 85 },
+  endless_swipe:{ name: 'Endless Swipe', power: 35, fx: { drain: 5 } },
+  unmatched:    { name: 'Unmatched', power: 75 },
+  split_check:  { name: 'Split the Check', power: 75 },
+  fancy_menu:   { name: 'No Prices on the Menu', power: 30, fx: { drain: 5 } },
+  what_are_we:  { name: '"What Are We?"', power: 0, fx: { anxious: 0.7 } },
+  mixed_signals:{ name: 'Mixed Signals', power: 78 },
+  awkward_dinner:{ name: 'Awkward Dinner', power: 80 },
+  judgy_look:   { name: 'Judgy Look', power: 0, fx: { atkDown: 1 } },
+  they_texted:  { name: '"hey stranger :)"', power: 0, fx: { anxious: 0.7 } },
+  closure:      { name: 'No Closure', power: 92 },
 };
 
 // ---------------------------------------------------------------- issues
@@ -541,6 +551,11 @@ const ISSUES = {
   shoebox:        { name: 'Shoebox of Receipts', type: 'CHORE', base: [75, 70, 70, 35], xp: 80, cash: 0, shape: 'shoebox', col: '#c98a4a', moves: ['receipt_avalanche', 'faded_ink'], dex: 'Every receipt is faded. Every one might be deductible.' },
   owe_money:      { name: 'Amount You Owe', type: 'MONEY', base: [75, 75, 60, 55], xp: 82, cash: 0, shape: 'envelope', col: '#c0392b', moves: ['you_owe', 'penalty'], dex: 'You expected a refund. You did not get a refund.' },
   penalty_letter: { name: 'Penalty Letter', type: 'MONEY', base: [75, 78, 62, 58], xp: 84, cash: 0, shape: 'envelope', col: '#8a2a2a', moves: ['penalty', 'you_owe'], dex: 'Arrives on a Saturday so you can worry all weekend.' },
+  dating_app:     { name: 'Dating App', type: 'PEOPLE', base: [72, 72, 60, 66], xp: 86, cash: 0, shape: 'phone', col: '#e8505a', moves: ['endless_swipe', 'unmatched'], dex: 'Shows you the same six people. In a different order.' },
+  first_date:     { name: 'First Date Bill', type: 'MONEY', base: [74, 74, 62, 52], xp: 86, cash: 0, shape: 'envelope', col: '#e8c8a0', moves: ['split_check', 'fancy_menu'], dex: 'They ordered the lobster. "Should we split it?"' },
+  situationship:  { name: 'Situationship', type: 'PEOPLE', base: [76, 74, 62, 60], xp: 88, cash: 0, shape: 'bubble', col: '#b080e0', moves: ['what_are_we', 'mixed_signals'], dex: 'Not dating. Not not dating. Eight months now.' },
+  meet_parents:   { name: 'Meeting the Parents', type: 'STRESS', base: [78, 76, 64, 50], xp: 88, cash: 0, shape: 'house', col: '#d89a6a', moves: ['awkward_dinner', 'judgy_look'], dex: '"So. What do you do?" The question every parent has loaded.' },
+  the_ex:         { name: 'THE EX', type: 'PEOPLE', base: [90, 84, 70, 64], xp: 100, cash: 0, shape: 'ghost', col: '#7a6aa0', moves: ['they_texted', 'closure'], dex: '"hey stranger :)" at 2 AM. Every. Single. Time.' },
   audit:          { name: 'THE AUDIT', type: 'PAPERWORK', base: [90, 76, 70, 55], xp: 95, cash: 0, shape: 'clipboard', col: '#3a4a6a', magnifier: true, moves: ['line_by_line', 'scrutiny'], dex: 'Has questions about a $4 coffee from March.' },
 };
 
@@ -552,6 +567,8 @@ const ITEMS = {
   comfort_food:  { name: 'Comfort Food', price: 8, use: 'sanity', amt: 25, battle: true, desc: 'Restores 25 Sanity. Mac and cheese, obviously.' },
   pizza:         { name: 'Pizza Night', price: 20, use: 'sanity', amt: 60, battle: true, desc: 'Restores 60 Sanity. Pineapple optional.' },
   therapy:       { name: 'Therapy Session', price: 45, use: 'full', battle: true, desc: 'Fully restores Sanity and cures your status.' },
+  car_keys:      { name: 'Car Keys', price: 0, use: 'drive', key: true, desc: 'A 2009 sedan. Drive to any town you\'ve visited. Usually starts.' },
+  gym_card:      { name: 'Gym Membership', price: 0, use: 'none', key: true, desc: '10% more max Sanity for the whole crew, and faster running. You have been twice.' },
   phone:         { name: 'Phone (Call Mom)', price: 0, use: 'phone', key: true, desc: 'Call Mom. She usually sends money. Once every 5 minutes or she starts asking questions.' },
   pep_talk:      { name: 'Pep Talk', price: 20, use: 'revive', battle: true, desc: 'Gets a crew member who ran out of Sanity back up with half.' },
   headphones:    { name: 'Noise-Cancelling Headphones', price: 15, use: 'repel', amt: 150, desc: 'Weak issues leave you alone for 150 steps.' },
@@ -644,8 +661,8 @@ const ROUTES = [
   { a: 0, b: 1, lv: [2, 4],   enc: ['parking_ticket', 'group_chat', 'dirty_dishes', 'forgot_sub', 'back_pain'], need: 0, gateFlag: 'path' },
   { a: 1, b: 2, lv: [8, 12],  enc: ['spam_call', 'laundry', 'overdraft', 'sunburn', 'printer_jam', 'group_chat'], need: 1 },
   { a: 2, b: 3, lv: [13, 17], enc: ['jury_duty', 'wedding_invite', 'ikea', 'insomnia', 'reply_all', 'overdraft'], need: 2 },
-  { a: 3, b: 4, lv: [19, 22], enc: ['landlord', 'wifi', 'perf_review', 'ex_post', 'insomnia'], need: 3 },
-  { a: 4, b: 5, lv: [21, 24], enc: ['ex_post', 'dentist', 'allergies', 'group_project', 'ikea'], need: 0 },
+  { a: 3, b: 4, lv: [18, 21], enc: ['landlord', 'wifi', 'perf_review', 'ex_post', 'insomnia'], need: 3 },
+  { a: 4, b: 5, lv: [20, 23], enc: ['ex_post', 'dentist', 'allergies', 'group_project', 'ikea'], need: 0 },
   { a: 5, b: 6, lv: [23, 26], enc: ['dentist', 'hoa', 'imposter', 'landlord', 'allergies'], need: 0 },
   { a: 6, b: 7, lv: [25, 28], enc: ['perf_review', 'imposter', 'hoa', 'group_project', 'wifi'], need: 0 },
   { a: 7, b: 0, lv: [29, 32], enc: ['imposter', 'landlord', 'dentist', 'hoa'], need: 7 },
@@ -658,6 +675,7 @@ const LEADERS = {
     name: 'RUSTY', title: 'CAR TROUBLE', town: 1, badge: 'Jumper Cable Badge', badgeIcon: 'bolt', color: '#e0902a',
     team: [['check_engine', 8], ['flat_tire', 9], ['transmission', 11]], power: 1.05,
     reward: 400, skill: 'jumpstart', look: 'cap',
+    perk: { item: 'car_keys', name: 'A USED CAR', text: 'Rusty tossed you the keys to a 2009 sedan. "She runs. Mostly." Use the CAR KEYS in your bag to drive to any town you\'ve visited.' },
     pal: { h: '#3a2a1a', s: '#e0a878', c: '#3a5a9a', p: '#2a3a6a', b: '#2a2a2a', style: 'short' },
     intro: [
       'Hear that rattle? That\'s the sound of your weekend plans dying.',
@@ -673,6 +691,7 @@ const LEADERS = {
     name: 'COACH MAX GAINS', title: 'FITNESS', town: 2, badge: 'Sweatband Badge', badgeIcon: 'heart', color: '#e0503a',
     team: [['gym_membership', 13], ['leg_day', 14], ['kale_smoothie', 14], ['beach_body', 17]], power: 1.2,
     reward: 650, skill: 'meal_prep', look: 'headband',
+    perk: { item: 'gym_card', name: 'A GYM MEMBERSHIP', text: 'Coach Max signed you up. "Annual. Non-refundable." Your whole crew gets 10% more max Sanity, and you run faster.' },
     pal: { h: '#e8c050', s: '#c88858', c: '#e8603a', p: '#2a2a3a', b: '#f0f0f0', style: 'short' },
     intro: [
       'YO! You look like you skip leg day. You look like you skip EVERY day.',
@@ -688,6 +707,7 @@ const LEADERS = {
     name: 'THE AUDITOR', title: 'TAXES', town: 3, badge: 'Refund Badge', badgeIcon: 'doc', color: '#4a6a9a',
     team: [['w2', 17], ['shoebox', 17], ['owe_money', 18], ['penalty_letter', 18], ['audit', 21]], power: 1.02,
     reward: 900, skill: 'write_off', look: 'glasses',
+    perk: { refund: 300, debtPay: 800, name: 'A TAX REFUND', text: 'You actually got money back! A $300 check, and up to $800 of your debt got paid off.' },
     pal: { h: '#8a8a8a', s: '#e8c0a0', c: '#4a4f5a', p: '#3a3f4a', b: '#1a1a1a', style: 'bald', tie: '#2a4a8a' },
     intro: [
       'Ah. Another one. Please take a number.',
@@ -699,15 +719,29 @@ const LEADERS = {
     lose: 'You may file for an extension. Come back when you\'re ready.',
     tip: 'TAXES is mostly PAPERWORK. BRAINS and SHADY skills tear through paperwork. Bring snacks.',
   },
-  dating:  { title: 'DATING', town: 4, locked: true, badgeIcon: 'heart2', color: '#e05a8a',
-    closed: 'DATING is out on a third date. It\'s going... fine? (Coming in a future update.)' },
-  loans:   { title: 'STUDENT LOANS', town: 5, locked: true, badgeIcon: 'coin', color: '#5a8a4a',
+  dating: {
+    name: 'VALENTINA', title: 'DATING', town: 4, badge: 'Rose Badge', badgeIcon: 'heart2', color: '#e05a8a',
+    team: [['dating_app', 21], ['first_date', 21], ['situationship', 22], ['meet_parents', 22], ['the_ex', 25]], power: 1.15,
+    reward: 1100, skill: 'charm', look: null,
+    pal: { h: '#2a1a1a', s: '#e8b890', c: '#c8304a', p: '#2a2a3a', b: '#c8304a', style: 'long' },
+    perk: { so: true, name: 'SOMEONE SPECIAL', text: 'Love is in the air. Someone has been waiting to meet you outside.' },
+    intro: [
+      'Welcome to DATING, sweetie. I\'m VALENTINA.',
+      'Four hundred first dates. Zero second dates. I am the expert.',
+      'Let\'s see if you\'re relationship material. Swipe right on PAIN!',
+    ],
+    win: ['...Okay. Fine. You\'re a catch. Don\'t let it go to your head.', 'Take the ROSE BADGE. And go outside. Trust me.'],
+    after: 'Communication. Therapy. A decent haircut. That\'s the whole secret.',
+    lose: 'It\'s not you, it\'s me. (It\'s you.) Come back when you\'ve worked on yourself.',
+    tip: 'Dating throws PEOPLE, MONEY and STRESS issues. SOCIAL and SHADY crush PEOPLE, BRAINS handles MONEY, CHILL calms STRESS.',
+  },
+  loans:   { title: 'STUDENT LOANS', town: 5, locked: true, perk: { clearDebt: true, name: 'DEBT FREEDOM', text: 'Your loans are PAID OFF. No more 10% cut from everything you earn.' }, badgeIcon: 'coin', color: '#5a8a4a',
     closed: 'STUDENT LOANS is in forbearance. Interest is still accruing. (Coming in a future update.)' },
-  masters: { title: 'MASTERS DEGREE', town: 6, locked: true, badgeIcon: 'cap', color: '#6a4aa8',
+  masters: { title: 'MASTERS DEGREE', town: 6, locked: true, perk: { xp: 1.2, name: 'A DIPLOMA', text: 'Framed and everything. You now earn 20% more XP from every fight.' }, badgeIcon: 'cap', color: '#6a4aa8',
     closed: 'MASTERS DEGREE is writing a thesis. Due date: unknown. (Coming in a future update.)' },
-  career:  { title: 'CAREER', town: 7, locked: true, badgeIcon: 'case', color: '#3a4a5a',
+  career:  { title: 'CAREER', town: 7, locked: true, perk: { salary: true, name: 'A SALARY', text: 'Direct deposit! You now earn money just by walking around.' }, badgeIcon: 'case', color: '#3a4a5a',
     closed: 'CAREER is in a meeting about meetings. (Coming in a future update.)' },
-  parents: { title: 'PARENTS', town: 0, locked: true, badgeIcon: 'house', color: '#c05a3a',
+  parents: { title: 'PARENTS', town: 0, locked: true, perk: { name: 'THEIR APPROVAL', text: '"We\'re proud of you." They finally said it.' }, badgeIcon: 'house', color: '#c05a3a',
     closed: '"We\'ll talk when you\'ve done something with your life." (The final leader. Needs 7 milestones.)' },
 };
 const LEADER_ORDER = ['car', 'fitness', 'taxes', 'dating', 'loans', 'masters', 'career', 'parents'];
@@ -851,25 +885,25 @@ const ALLIES = {
   },
   // the significant other is the opposite gender of your character
   so_f: {
-    name: 'SOPHIE', title: 'Significant Other', after: 'taxes', boost: 'CHILL',
+    name: 'SOPHIE', title: 'Significant Other', after: 'dating', boost: 'CHILL',
     pal: { h: '#3a1a1a', s: '#e8b890', c: '#e86a8a', p: '#3a3a5a', b: '#f4f4f4', style: 'long' },
     base: { san: 72, conf: 62, comp: 62, hus: 58, energy: 4 },
     learn: [[1, 'touch_grass'], [1, 'deep_breaths'], [1, 'spreadsheet'], [1, 'therapy_talk'], [24, 'boundaries']],
     shout: '"Oh! Sorry, I wasn\'t looking where I was going!"',
-    pitch: ['...Wait. Are you the one who just beat THE AUDITOR? Line by line?',
-      'Nobody beats Taxes. I\'ve been filing extensions since I was 22.',
+    pitch: ['...Wait. Did you just survive VALENTINA? Nobody survives Valentina.',
+      'I\'ve been on the apps for three years. Nothing. And then you walk out of THAT building.',
       'That\'s... honestly kind of attractive. I\'m SOPHIE.',
       'Want to get coffee sometime? Or, like, every day? I could come along. I\'m very organized.'],
     line: 'You did the dishes AND filed on time? Marry me. (Kidding.) (Unless?)',
   },
   so_m: {
-    name: 'MARCUS', title: 'Significant Other', after: 'taxes', boost: 'GRIT',
+    name: 'MARCUS', title: 'Significant Other', after: 'dating', boost: 'GRIT',
     pal: { h: '#1a1a1a', s: '#9a6a4a', c: '#4a7ad8', p: '#3a3a4a', b: '#2a2a2a', style: 'short' },
     base: { san: 76, conf: 64, comp: 60, hus: 54, energy: 2 },
     learn: [[1, 'fix_it'], [1, 'hustle'], [1, 'small_talk'], [1, 'meal_prep'], [24, 'networking']],
     shout: '"Whoa! Sorry, I wasn\'t looking where I was going!"',
-    pitch: ['...Wait. Are you the one who just beat THE AUDITOR? Line by line?',
-      'Nobody beats Taxes. I\'ve been filing extensions since I was 22.',
+    pitch: ['...Wait. Did you just survive VALENTINA? Nobody survives Valentina.',
+      'I\'ve been on the apps for three years. Nothing. And then you walk out of THAT building.',
       'That\'s... honestly kind of amazing. I\'m MARCUS.',
       'Want to get coffee sometime? Or, like, every day? I could come along. I meal prep.'],
     line: 'You did the dishes AND filed on time? Marry me. (Kidding.) (Unless?)',
@@ -1986,6 +2020,7 @@ const Input = {
 
 const UI = {
   root: null,
+  fastText: (() => { try { return localStorage.getItem('aq-fast-text') === '1'; } catch (e) { return false; } })(),
   stack: [],
   dlg: null,
 
@@ -2044,7 +2079,7 @@ const UI = {
     tx.textContent = '';
     more.style.visibility = 'hidden';
     return new Promise((resolve) => {
-      const speed = o.fast ? 140 : 70;
+      const speed = o.fast || UI.fastText ? 160 : 70;
       let shown = 0, done = false, wait = 0, blip = 0;
       const w = {
         update: (dt) => {
@@ -2058,7 +2093,7 @@ const UI = {
             finish();
           } else if (o.auto) {
             wait += dt * 1000;
-            if (wait >= o.auto) finish();
+            if (wait >= o.auto * (UI.fastText ? 0.5 : 1)) finish();
           }
         },
         onInput: (b) => {
@@ -2074,6 +2109,10 @@ const UI = {
     });
   },
   closeDialog() { this.dlg.classList.add('hidden'); },
+  setFastText(v) {
+    this.fastText = v;
+    try { localStorage.setItem('aq-fast-text', v ? '1' : '0'); } catch (e) { /* storage unavailable */ }
+  },
   paginate(text, width = 34, rows = 3) {
     const lines = [];
     for (const para of String(text).split('\n')) {
@@ -2823,7 +2862,7 @@ const Stats = {
   of(p) {
     const b = (PATHS[p.path] || PATHS.college).base, L = p.level;
     return {
-      maxSanity: Math.floor(4 * b.san * L / 100) + 3 * L + 20,
+      maxSanity: Math.floor((Math.floor(4 * b.san * L / 100) + 3 * L + 20) * Game.sanityMult(p)),
       conf: Math.floor(2 * b.conf * L / 100) + 5,
       comp: Math.floor(2 * b.comp * L / 100) + 5,
       hus: Math.floor(2 * b.hus * L / 100) + 5,
@@ -2862,12 +2901,15 @@ const Game = {
     return {
       name, hero, path: null, level: 5, xp: Stats.xpFor(5), sanity: 30, energy: 20, status: null,
       known: ['wing_it'], equipped: ['wing_it'], items: {}, money: 0, debt: 0, karma: 50,
-      badges: [], flags: {}, outfit: HEROES[hero].pal.c, crew: [], lead: 'me', momCall: -1e9, stats: { issues: 0, meltdowns: 0 }, repel: 0, steps: 0, playTime: 0,
+      badges: [], flags: {}, visited: [0], outfit: HEROES[hero].pal.c, crew: [], lead: 'me', momCall: -1e9, stats: { issues: 0, meltdowns: 0 }, repel: 0, steps: 0, playTime: 0,
       respawn: { map: 'house-0-0', x: 10, y: 6, dir: 'right' },
       map: 'house-0-0', x: 2, y: 3, dir: 'down',
     };
   },
   stats() { return Stats.of(this.p); },
+  // a leader's reward is active once you've beaten them
+  perk(key) { return !!(this.p && this.p.badges.includes(key)); },
+  sanityMult(p = this.p) { return p && p.badges && p.badges.includes('fitness') ? 1.1 : 1; },
   // 18 out of high school, 32 when all eight leaders are done
   age() { return 18 + Math.floor(this.p.badges.length * 1.75); },
   heroPal() { const H = HEROES[this.p.hero] || HEROES.boy; return { ...H.pal, c: this.p.outfit }; },
@@ -2933,6 +2975,8 @@ const Game = {
       this.lastRegion = r;
       void prev;
       UI.banner(World.regions[r].name);
+      const reg = World.regions[r];
+      if (reg.kind === 'town' && this.p && !this.p.visited.includes(reg.town)) this.p.visited.push(reg.town);
       this.updateMusic();
     }
   },
@@ -3020,7 +3064,7 @@ const Game = {
     if (Input.hit('START') || Input.hit('ESC')) this.want = 'menu';
     else if (Input.hit('A')) this.want = 'A';
     if (P.moving) {
-      P.mt += dt * (running ? 7.8 : 4.4);
+      P.mt += dt * (running ? (this.perk('fitness') ? 9.6 : 7.8) : 4.4);
       if (P.mt >= 1) {
         P.x = P.tx; P.y = P.ty; P.moving = false; P.mt = 0; P.parity ^= 1;
         this.onArrive();
@@ -3058,6 +3102,7 @@ const Game = {
     P.justArrived = true;
     p.x = P.x; p.y = P.y; p.dir = P.dir;
     p.steps++;
+    if (this.perk('career') && p.steps % 10 === 0) p.money++;   // salary
     if (p.repel > 0) { p.repel--; if (p.repel === 0) this.run(() => UI.say('Your headphones died. The world is loud again.')); }
     const t = m.get(P.x, P.y), i = m.idx(P.x, P.y);
     if (t === T.DOOR) {
@@ -3329,9 +3374,9 @@ const Menu = {
     Audio2.sfx('select');
     let start = 0;
     while (true) {
-      const opts = ['SKILLS', 'CREW', 'BAG', 'SAVE GAME', 'PROFILE', 'MAP', 'WHAT BEATS WHAT', 'SOUND: ' + (Audio2.muted ? 'OFF' : 'ON'), 'CLOSE'];
+      const opts = ['SKILLS', 'CREW', 'BAG', 'SAVE GAME', 'PROFILE', 'MAP', 'WHAT BEATS WHAT', 'SOUND: ' + (Audio2.muted ? 'OFF' : 'ON'), 'TEXT: ' + (UI.fastText ? 'FAST' : 'NORMAL'), 'CLOSE'];
       const i = await UI.choose(opts, { cls: 'side', start });
-      if (i < 0 || i === 8) return;
+      if (i < 0 || i === 9) return;
       start = i;
       if (i === 0) await this.skills();
       if (i === 1) await this.crew();
@@ -3341,6 +3386,9 @@ const Menu = {
       if (i === 5) await this.map();
       if (i === 6) await this.chart();
       if (i === 7) Audio2.setMuted(!Audio2.muted);
+      if (i === 8) UI.setFastText(!UI.fastText);
+      // something in a submenu (like driving) took you somewhere: close up
+      if (this.exit) { this.exit = false; UI.closeDialog(); return; }
     }
   },
 
@@ -3415,6 +3463,7 @@ const Menu = {
         const id = ids()[k];
         const r = await Items.use(id, inBattle);
         if (r === 'used' && inBattle) { used = id; return 'close'; }
+        if (r === 'exit') { Menu.exit = true; return 'close'; }
         return inBattle ? 'keep' : 'keep';
       },
     });
@@ -3558,6 +3607,8 @@ const Items = {
         break;
       }
       case 'phone': return Scripts.callMom();
+      case 'drive': return Scripts.drive();
+      case 'none': await UI.say(it.desc); UI.closeDialog(); return 'no';
       case 'outfit': {
         if (inBattle) return 'no';
         const k = await UI.choose(OUTFIT_COLORS.map((o) => o[0]), { cls: 'side' });
@@ -3610,7 +3661,7 @@ const Crew = {
     if (this.isMe(r)) return Game.stats();
     const b = this.def(r).base, L = Game.p.level;
     return {
-      maxSanity: Math.floor(4 * b.san * L / 100) + 3 * L + 20,
+      maxSanity: Math.floor((Math.floor(4 * b.san * L / 100) + 3 * L + 20) * Game.sanityMult()),
       conf: Math.floor(2 * b.conf * L / 100) + 5,
       comp: Math.floor(2 * b.comp * L / 100) + 5,
       hus: Math.floor(2 * b.hus * L / 100) + 5,
@@ -3686,7 +3737,7 @@ const Ending = {
     Game.updateMusic();
     Game.autosave();
     await Game.fadeTo(0, 500);
-    await UI.say(['The other Life Leaders are still out there: DATING, STUDENT LOANS, MASTERS DEGREE, CAREER... and PARENTS.',
+    await UI.say(['The other Life Leaders are still out there: STUDENT LOANS, MASTERS DEGREE, CAREER... and PARENTS.',
       'They\'ll open their doors in a future update. Until then, the world is yours to explore.']);
   },
 
@@ -3826,6 +3877,41 @@ const Scripts = {
     }
   },
   rep: (d, n) => Array(n).fill(d),
+
+  // ---------------------------------------------------------- leader rewards
+  async grantPerk(key) {
+    const L = LEADERS[key], k = L.perk, p = Game.p;
+    if (!k) return;
+    Audio2.sfx('badge');
+    await say(`REWARD: ${k.name}!`);
+    await say(k.text);
+    if (k.item) Game.give(k.item, 1);
+    if (k.refund) { p.money += k.refund; Audio2.sfx('coin'); }
+    if (k.debtPay && p.debt > 0) { const paid = Math.min(p.debt, k.debtPay); p.debt -= paid; await say(`$${paid} of debt: gone.${p.debt ? ` ($${p.debt} left.)` : ' Debt-free!'}`); }
+    if (k.clearDebt) p.debt = 0;
+    if (k.item === 'gym_card') Crew.members().forEach((r) => { r.sanity = Crew.stats(r).maxSanity; });
+  },
+
+  // Car keys: drive to a town you've visited (it usually starts).
+  async drive() {
+    const p = Game.p;
+    if (Game.map.id !== 'world') { await say('You\'re indoors. Even this car can\'t drive through walls.'); UI.closeDialog(); return 'no'; }
+    const towns = p.visited.slice().sort((a, b) => a - b);
+    const k = await UI.choose(towns.map((t) => TOWNS[t].name).concat(['Never mind']), { cls: 'side' });
+    if (k < 0 || k >= towns.length) { UI.closeDialog(); return 'no'; }
+    UI.closeDialog();
+    if (Math.random() < 0.1) {
+      await say(['*click* ... *click click* ... *whirrrr*', 'The check engine light comes on. Then the other check engine light. Looks like you\'re walking today.']);
+      UI.closeDialog();
+      return 'no';
+    }
+    const b = World.maps.world.buildings.find((x) => x.kind === 'hospital' && x.town === towns[k]);
+    Audio2.sfx('door');
+    await Game.warp('world', b.x + b.doorX, b.y + b.h, 'down');
+    await say(U.pick(Math.random, ['You made it! Only took three gas station stops.', 'You arrive. The radio only gets one station. It\'s polka.', 'Smooth drive. The car made a new noise, but you\'ve decided not to hear it.']));
+    UI.closeDialog();
+    return 'exit';
+  },
 
   // ---------------------------------------------------------- crew
   // Your significant other is the opposite gender of your character.
@@ -4065,7 +4151,8 @@ const Scripts = {
       await say(`${L.name} taught {NAME} ${sk.name.toUpperCase()}! ${sk.desc}`);
       if (!p.equipped.includes(L.skill)) await Battle.offerSkill(L.skill);
     }
-    await say(`Somehow, a year and a half has passed. {NAME} is now ${Game.age()}.`);
+    await Scripts.grantPerk(key);
+    await say(`Somehow, almost two years have passed. {NAME} is now ${Game.age()}.`);
     World.refreshGates();
     Game.autosave();
     Game.updateMusic();
@@ -4198,7 +4285,7 @@ const Battle = {
     const s = this.s, m = s.team[s.ti];
     const f = Stats.foe(m.id, m.l);
     // later leaders are tougher than their levels alone; later routes a little
-    const pw = s.leader ? LEADERS[s.leader].power || 1 : 1 + 0.04 * (s.route || 0);
+    const pw = s.leader ? LEADERS[s.leader].power || 1 : 1 + 0.03 * (s.route || 0);
     f.maxHp = Math.round(f.maxHp * pw); f.atk = Math.round(f.atk * pw); f.dfn = Math.round(f.dfn * pw);
     f.hp = f.maxHp; f.st = { atk: 0, def: 0 }; f.anx = 0;
     s.foe = f;
@@ -4561,7 +4648,7 @@ const Battle = {
     this.hud.foe.classList.add('hidden');
     await UI.say(s.wild ? `${f.name.toUpperCase()} has been dealt with!` : `${LEADERS[s.leader].name}'s ${f.name.toUpperCase()} has been dealt with!`);
     const path = PATHS[p.path] || PATHS.college;
-    const xp = Math.max(1, Math.floor(d.xp * f.lvl / 7 * (s.leader ? 1.5 : 1) * path.xpMult));
+    const xp = Math.max(1, Math.floor(d.xp * f.lvl / 7 * (s.leader ? 1.5 : 1) * path.xpMult * (Game.perk('masters') ? 1.2 : 1)));
     p.xp += xp;
     await UI.say(Game.p.crew.length ? `The crew gained ${xp} XP!` : `{NAME} gained ${xp} XP!`, { auto: 800 });
     await this.levelUps();
@@ -4710,6 +4797,7 @@ const Battle = {
       <div class="xp"><i></i></div><div class="st"></div><div class="pips"></div>`);
     UI.root.appendChild(foe); UI.root.appendChild(me);
     this.hud = { foe, me };
+    this._barKey = null;
   },
   teardown() {
     if (this.hud) { this.hud.foe.remove(); this.hud.me.remove(); }
@@ -4720,7 +4808,7 @@ const Battle = {
   refresh(snap) {
     const s = this.s, p = s.cur, st = Crew.stats(p), f = s.foe, h = this.hud;
     if (!h || !f) return;
-    if (snap) { s.disp.foe = f.hp / f.maxHp; s.disp.me = p.sanity; }
+    if (snap) { s.disp.foe = f.hp / f.maxHp; s.disp.me = p.sanity; this._barKey = null; }
     h.foe.querySelector('.nm').textContent = f.name.toUpperCase();
     h.foe.querySelector('.lv').textContent = 'Lv' + f.lvl;
     const tc = h.foe.querySelector('.tchip');
@@ -4745,6 +4833,10 @@ const Battle = {
     const s = this.s, st = Crew.stats(s.cur), h = this.hud;
     if (!h) return;
     const col = (r) => (r > 0.5 ? '#3ec46d' : r > 0.2 ? '#f0c030' : '#e8483a');
+    // only touch the DOM when something changed (this runs every frame)
+    const key = Math.round(s.disp.foe * 300) + '|' + Math.round(s.disp.me) + '|' + st.maxSanity;
+    if (key === this._barKey) return;
+    this._barKey = key;
     const fb = h.foe.querySelector('.bar b');
     fb.style.width = (s.disp.foe * 100) + '%'; fb.style.background = col(s.disp.foe);
     const mr = s.disp.me / st.maxSanity;
@@ -4993,6 +5085,10 @@ const Main = {
     Game.p.crew = Game.p.crew.filter((r) => ALLIES[r.id]);
     if (!ALLIES[Game.p.lead]) Game.p.lead = 'me';
     if (!Game.p.items.phone) Game.give('phone', 1);
+    // rewards for leaders beaten before rewards existed
+    if (Game.p.badges.includes('car') && !Game.p.items.car_keys) Game.give('car_keys', 1);
+    if (Game.p.badges.includes('fitness') && !Game.p.items.gym_card) Game.give('gym_card', 1);
+    if (!Game.p.visited || !Game.p.visited.length) Game.p.visited = [0, ...TOWNS.map((t, i) => i).filter((i) => i > 0 && i <= Game.p.badges.length)];
     if (!World.maps[Game.p.map]) Object.assign(Game.p, { map: 'house-0-0', x: 2, y: 3 });
     await Game.fadeTo(1, 300);
     Game.mode = 'world';

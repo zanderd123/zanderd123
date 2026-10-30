@@ -70,7 +70,7 @@ const Battle = {
     const s = this.s, m = s.team[s.ti];
     const f = Stats.foe(m.id, m.l);
     // later leaders are tougher than their levels alone; later routes a little
-    const pw = s.leader ? LEADERS[s.leader].power || 1 : 1 + 0.04 * (s.route || 0);
+    const pw = s.leader ? LEADERS[s.leader].power || 1 : 1 + 0.03 * (s.route || 0);
     f.maxHp = Math.round(f.maxHp * pw); f.atk = Math.round(f.atk * pw); f.dfn = Math.round(f.dfn * pw);
     f.hp = f.maxHp; f.st = { atk: 0, def: 0 }; f.anx = 0;
     s.foe = f;
@@ -582,6 +582,7 @@ const Battle = {
       <div class="xp"><i></i></div><div class="st"></div><div class="pips"></div>`);
     UI.root.appendChild(foe); UI.root.appendChild(me);
     this.hud = { foe, me };
+    this._barKey = null;
   },
   teardown() {
     if (this.hud) { this.hud.foe.remove(); this.hud.me.remove(); }
@@ -592,7 +593,7 @@ const Battle = {
   refresh(snap) {
     const s = this.s, p = s.cur, st = Crew.stats(p), f = s.foe, h = this.hud;
     if (!h || !f) return;
-    if (snap) { s.disp.foe = f.hp / f.maxHp; s.disp.me = p.sanity; }
+    if (snap) { s.disp.foe = f.hp / f.maxHp; s.disp.me = p.sanity; this._barKey = null; }
     h.foe.querySelector('.nm').textContent = f.name.toUpperCase();
     h.foe.querySelector('.lv').textContent = 'Lv' + f.lvl;
     const tc = h.foe.querySelector('.tchip');
@@ -617,6 +618,10 @@ const Battle = {
     const s = this.s, st = Crew.stats(s.cur), h = this.hud;
     if (!h) return;
     const col = (r) => (r > 0.5 ? '#3ec46d' : r > 0.2 ? '#f0c030' : '#e8483a');
+    // only touch the DOM when something changed (this runs every frame)
+    const key = Math.round(s.disp.foe * 300) + '|' + Math.round(s.disp.me) + '|' + st.maxSanity;
+    if (key === this._barKey) return;
+    this._barKey = key;
     const fb = h.foe.querySelector('.bar b');
     fb.style.width = (s.disp.foe * 100) + '%'; fb.style.background = col(s.disp.foe);
     const mr = s.disp.me / st.maxSanity;

@@ -139,7 +139,7 @@ const Scripts = {
     await Game.warp('world', b.x + b.doorX, b.y + b.h, 'down');
     await say(U.pick(Math.random, ['You made it! Only took three gas station stops.', 'You arrive. The radio only gets one station. It\'s polka.', 'Smooth drive. The car made a new noise, but you\'ve decided not to hear it.']));
     UI.closeDialog();
-    return 'no';
+    return 'exit';
   },
 
   // ---------------------------------------------------------- crew

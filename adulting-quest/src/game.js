@@ -597,9 +597,9 @@ const Menu = {
     Audio2.sfx('select');
     let start = 0;
     while (true) {
-      const opts = ['SKILLS', 'CREW', 'BAG', 'SAVE GAME', 'PROFILE', 'MAP', 'WHAT BEATS WHAT', 'SOUND: ' + (Audio2.muted ? 'OFF' : 'ON'), 'CLOSE'];
+      const opts = ['SKILLS', 'CREW', 'BAG', 'SAVE GAME', 'PROFILE', 'MAP', 'WHAT BEATS WHAT', 'SOUND: ' + (Audio2.muted ? 'OFF' : 'ON'), 'TEXT: ' + (UI.fastText ? 'FAST' : 'NORMAL'), 'CLOSE'];
       const i = await UI.choose(opts, { cls: 'side', start });
-      if (i < 0 || i === 8) return;
+      if (i < 0 || i === 9) return;
       start = i;
       if (i === 0) await this.skills();
       if (i === 1) await this.crew();
@@ -609,6 +609,9 @@ const Menu = {
       if (i === 5) await this.map();
       if (i === 6) await this.chart();
       if (i === 7) Audio2.setMuted(!Audio2.muted);
+      if (i === 8) UI.setFastText(!UI.fastText);
+      // something in a submenu (like driving) took you somewhere: close up
+      if (this.exit) { this.exit = false; UI.closeDialog(); return; }
     }
   },
 
@@ -683,6 +686,7 @@ const Menu = {
         const id = ids()[k];
         const r = await Items.use(id, inBattle);
         if (r === 'used' && inBattle) { used = id; return 'close'; }
+        if (r === 'exit') { Menu.exit = true; return 'close'; }
         return inBattle ? 'keep' : 'keep';
       },
     });
