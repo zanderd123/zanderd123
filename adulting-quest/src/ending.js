@@ -36,7 +36,7 @@ const Ending = {
     Game.updateMusic();
     Game.autosave();
     await Game.fadeTo(0, 500);
-    await UI.say(['The other Life Leaders are still out there: DATING, STUDENT LOANS, MASTERS DEGREE, CAREER... and PARENTS.',
+    await UI.say(['The other Life Leaders are still out there: STUDENT LOANS, MASTERS DEGREE, CAREER... and PARENTS.',
       'They\'ll open their doors in a future update. Until then, the world is yours to explore.']);
   },
 

@@ -107,6 +107,41 @@ const Scripts = {
   },
   rep: (d, n) => Array(n).fill(d),
 
+  // ---------------------------------------------------------- leader rewards
+  async grantPerk(key) {
+    const L = LEADERS[key], k = L.perk, p = Game.p;
+    if (!k) return;
+    Audio2.sfx('badge');
+    await say(`REWARD: ${k.name}!`);
+    await say(k.text);
+    if (k.item) Game.give(k.item, 1);
+    if (k.refund) { p.money += k.refund; Audio2.sfx('coin'); }
+    if (k.debtPay && p.debt > 0) { const paid = Math.min(p.debt, k.debtPay); p.debt -= paid; await say(`$${paid} of debt: gone.${p.debt ? ` ($${p.debt} left.)` : ' Debt-free!'}`); }
+    if (k.clearDebt) p.debt = 0;
+    if (k.item === 'gym_card') Crew.members().forEach((r) => { r.sanity = Crew.stats(r).maxSanity; });
+  },
+
+  // Car keys: drive to a town you've visited (it usually starts).
+  async drive() {
+    const p = Game.p;
+    if (Game.map.id !== 'world') { await say('You\'re indoors. Even this car can\'t drive through walls.'); UI.closeDialog(); return 'no'; }
+    const towns = p.visited.slice().sort((a, b) => a - b);
+    const k = await UI.choose(towns.map((t) => TOWNS[t].name).concat(['Never mind']), { cls: 'side' });
+    if (k < 0 || k >= towns.length) { UI.closeDialog(); return 'no'; }
+    UI.closeDialog();
+    if (Math.random() < 0.1) {
+      await say(['*click* ... *click click* ... *whirrrr*', 'The check engine light comes on. Then the other check engine light. Looks like you\'re walking today.']);
+      UI.closeDialog();
+      return 'no';
+    }
+    const b = World.maps.world.buildings.find((x) => x.kind === 'hospital' && x.town === towns[k]);
+    Audio2.sfx('door');
+    await Game.warp('world', b.x + b.doorX, b.y + b.h, 'down');
+    await say(U.pick(Math.random, ['You made it! Only took three gas station stops.', 'You arrive. The radio only gets one station. It\'s polka.', 'Smooth drive. The car made a new noise, but you\'ve decided not to hear it.']));
+    UI.closeDialog();
+    return 'no';
+  },
+
   // ---------------------------------------------------------- crew
   // Your significant other is the opposite gender of your character.
   meetsYou(id) {
@@ -345,7 +380,8 @@ const Scripts = {
       await say(`${L.name} taught {NAME} ${sk.name.toUpperCase()}! ${sk.desc}`);
       if (!p.equipped.includes(L.skill)) await Battle.offerSkill(L.skill);
     }
-    await say(`Somehow, a year and a half has passed. {NAME} is now ${Game.age()}.`);
+    await Scripts.grantPerk(key);
+    await say(`Somehow, almost two years have passed. {NAME} is now ${Game.age()}.`);
     World.refreshGates();
     Game.autosave();
     Game.updateMusic();

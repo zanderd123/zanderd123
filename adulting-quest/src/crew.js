@@ -24,7 +24,7 @@ const Crew = {
     if (this.isMe(r)) return Game.stats();
     const b = this.def(r).base, L = Game.p.level;
     return {
-      maxSanity: Math.floor(4 * b.san * L / 100) + 3 * L + 20,
+      maxSanity: Math.floor((Math.floor(4 * b.san * L / 100) + 3 * L + 20) * Game.sanityMult()),
       conf: Math.floor(2 * b.conf * L / 100) + 5,
       comp: Math.floor(2 * b.comp * L / 100) + 5,
       hus: Math.floor(2 * b.hus * L / 100) + 5,

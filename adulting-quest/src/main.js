@@ -175,6 +175,10 @@ const Main = {
     Game.p.crew = Game.p.crew.filter((r) => ALLIES[r.id]);
     if (!ALLIES[Game.p.lead]) Game.p.lead = 'me';
     if (!Game.p.items.phone) Game.give('phone', 1);
+    // rewards for leaders beaten before rewards existed
+    if (Game.p.badges.includes('car') && !Game.p.items.car_keys) Game.give('car_keys', 1);
+    if (Game.p.badges.includes('fitness') && !Game.p.items.gym_card) Game.give('gym_card', 1);
+    if (!Game.p.visited || !Game.p.visited.length) Game.p.visited = [0, ...TOWNS.map((t, i) => i).filter((i) => i > 0 && i <= Game.p.badges.length)];
     if (!World.maps[Game.p.map]) Object.assign(Game.p, { map: 'house-0-0', x: 2, y: 3 });
     await Game.fadeTo(1, 300);
     Game.mode = 'world';

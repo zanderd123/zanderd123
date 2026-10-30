@@ -4,7 +4,7 @@
 /* global Game, World, Battle, UI, Input, Crew, T, SOLID, ITEMS, SKILLS, EFF, LEADERS, TOWNS, ALLIES, Stats, VIEW_W */
 (() => {
   const B = window.Bot = {
-    path: 'college', t0: performance.now(), lv: { car: 9, fitness: 14, taxes: 19 }, log: [], done: false, error: null,
+    path: 'college', t0: performance.now(), lv: { car: 9, fitness: 14, taxes: 19, dating: 23 }, log: [], done: false, error: null,
     counts: { wild: 0, wildWon: 0, wildLost: 0, steps: 0, dialogs: 0, leaderTries: {} },
     intent: null,       // what the brain wants from the next menu
   };
@@ -324,7 +324,7 @@
       UI.stack.length = 0; document.querySelectorAll('.titlecard,.menu').forEach((e) => e.remove());
       Game.p = Game.newPlayer('BOT');
       const P = PATHS[path];
-      const order = ['car', 'fitness', 'taxes'], idx = order.indexOf(key);
+      const order = ['car', 'fitness', 'taxes', 'dating'], idx = order.indexOf(key);
       Object.assign(Game.p, { path, level: lvl, xp: Stats.xpFor(lvl), money: 300, badges: order.slice(0, idx), known: [...P.start], equipped: [...P.start] });
       for (const [lv, id] of Object.entries(P.learn)) if (+lv <= lvl) Game.learn(id);
       Game.p.equipped = Game.p.known.slice(-4);
@@ -387,6 +387,7 @@
         { key: 'car', town: 1, route: 0, lvl: B.lv.car, before: async () => { await shop(0); await walkTo(1); } },
         { key: 'fitness', town: 2, route: 1, lvl: B.lv.fitness, before: async () => { await walkTo(2); } },
         { key: 'taxes', town: 3, route: 2, lvl: B.lv.taxes, before: async () => { await walkTo(3); } },
+        { key: 'dating', town: 4, route: 3, lvl: B.lv.dating, before: async () => { await walkTo(4); } },
       ];
       for (const st of plan) {
         if (st.key === 'car') await grind(0, 0, 7);
@@ -398,7 +399,7 @@
           tries++;
         }
         if (!Game.p.badges.includes(st.key)) { note(`gave up on ${st.key}`); break; }
-        note(`milestones: ${Game.p.badges.length}/3 playable`);
+        note(`milestones: ${Game.p.badges.length}/4 playable`);
         await leave();          // walking out of the hall: friends, and maybe the ending
         await waitIdle();
       }

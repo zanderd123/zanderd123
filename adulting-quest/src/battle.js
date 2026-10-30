@@ -433,7 +433,7 @@ const Battle = {
     this.hud.foe.classList.add('hidden');
     await UI.say(s.wild ? `${f.name.toUpperCase()} has been dealt with!` : `${LEADERS[s.leader].name}'s ${f.name.toUpperCase()} has been dealt with!`);
     const path = PATHS[p.path] || PATHS.college;
-    const xp = Math.max(1, Math.floor(d.xp * f.lvl / 7 * (s.leader ? 1.5 : 1) * path.xpMult));
+    const xp = Math.max(1, Math.floor(d.xp * f.lvl / 7 * (s.leader ? 1.5 : 1) * path.xpMult * (Game.perk('masters') ? 1.2 : 1)));
     p.xp += xp;
     await UI.say(Game.p.crew.length ? `The crew gained ${xp} XP!` : `{NAME} gained ${xp} XP!`, { auto: 800 });
     await this.levelUps();

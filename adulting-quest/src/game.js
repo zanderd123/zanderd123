@@ -85,7 +85,7 @@ const Stats = {
   of(p) {
     const b = (PATHS[p.path] || PATHS.college).base, L = p.level;
     return {
-      maxSanity: Math.floor(4 * b.san * L / 100) + 3 * L + 20,
+      maxSanity: Math.floor((Math.floor(4 * b.san * L / 100) + 3 * L + 20) * Game.sanityMult(p)),
       conf: Math.floor(2 * b.conf * L / 100) + 5,
       comp: Math.floor(2 * b.comp * L / 100) + 5,
       hus: Math.floor(2 * b.hus * L / 100) + 5,
@@ -124,12 +124,15 @@ const Game = {
     return {
       name, hero, path: null, level: 5, xp: Stats.xpFor(5), sanity: 30, energy: 20, status: null,
       known: ['wing_it'], equipped: ['wing_it'], items: {}, money: 0, debt: 0, karma: 50,
-      badges: [], flags: {}, outfit: HEROES[hero].pal.c, crew: [], lead: 'me', momCall: -1e9, stats: { issues: 0, meltdowns: 0 }, repel: 0, steps: 0, playTime: 0,
+      badges: [], flags: {}, visited: [0], outfit: HEROES[hero].pal.c, crew: [], lead: 'me', momCall: -1e9, stats: { issues: 0, meltdowns: 0 }, repel: 0, steps: 0, playTime: 0,
       respawn: { map: 'house-0-0', x: 10, y: 6, dir: 'right' },
       map: 'house-0-0', x: 2, y: 3, dir: 'down',
     };
   },
   stats() { return Stats.of(this.p); },
+  // a leader's reward is active once you've beaten them
+  perk(key) { return !!(this.p && this.p.badges.includes(key)); },
+  sanityMult(p = this.p) { return p && p.badges && p.badges.includes('fitness') ? 1.1 : 1; },
   // 18 out of high school, 32 when all eight leaders are done
   age() { return 18 + Math.floor(this.p.badges.length * 1.75); },
   heroPal() { const H = HEROES[this.p.hero] || HEROES.boy; return { ...H.pal, c: this.p.outfit }; },
@@ -195,6 +198,8 @@ const Game = {
       this.lastRegion = r;
       void prev;
       UI.banner(World.regions[r].name);
+      const reg = World.regions[r];
+      if (reg.kind === 'town' && this.p && !this.p.visited.includes(reg.town)) this.p.visited.push(reg.town);
       this.updateMusic();
     }
   },
@@ -282,7 +287,7 @@ const Game = {
     if (Input.hit('START') || Input.hit('ESC')) this.want = 'menu';
     else if (Input.hit('A')) this.want = 'A';
     if (P.moving) {
-      P.mt += dt * (running ? 7.8 : 4.4);
+      P.mt += dt * (running ? (this.perk('fitness') ? 9.6 : 7.8) : 4.4);
       if (P.mt >= 1) {
         P.x = P.tx; P.y = P.ty; P.moving = false; P.mt = 0; P.parity ^= 1;
         this.onArrive();
@@ -320,6 +325,7 @@ const Game = {
     P.justArrived = true;
     p.x = P.x; p.y = P.y; p.dir = P.dir;
     p.steps++;
+    if (this.perk('career') && p.steps % 10 === 0) p.money++;   // salary
     if (p.repel > 0) { p.repel--; if (p.repel === 0) this.run(() => UI.say('Your headphones died. The world is loud again.')); }
     const t = m.get(P.x, P.y), i = m.idx(P.x, P.y);
     if (t === T.DOOR) {
@@ -820,6 +826,8 @@ const Items = {
         break;
       }
       case 'phone': return Scripts.callMom();
+      case 'drive': return Scripts.drive();
+      case 'none': await UI.say(it.desc); UI.closeDialog(); return 'no';
       case 'outfit': {
         if (inBattle) return 'no';
         const k = await UI.choose(OUTFIT_COLORS.map((o) => o[0]), { cls: 'side' });
