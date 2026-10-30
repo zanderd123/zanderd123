@@ -4382,7 +4382,7 @@ const Battle = {
       const move = (dx, dy) => {
         const col = i % 2, row = Math.floor(i / 2);
         let n = (U.clamp(row + dy, 0, 1)) * 2 + U.clamp(col + dx, 0, 1);
-        if (n >= ids.length) return;
+        if (n >= ids.length) n = dy > 0 ? ids.length - 1 : i;   // empty slot below: snap to the last skill
         if (n !== i) { i = n; Audio2.sfx('move'); render(); }
       };
       const w = {
