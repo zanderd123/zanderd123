@@ -131,7 +131,8 @@ const Main = {
     Game.mode = 'title';
     Game.fade = 0;
     Audio2.music('town');
-    const saved = Game.loadSave();
+    Saves.migrate();
+    const saved = Saves.any();
     const box = UI.el('div', 'titlecard', `<div class="logo"><span>ADULTING</span><span>QUEST</span></div>
       <div class="tag">Defeat 8 Life Leaders. Win at the game of life.</div>`);
     UI.root.appendChild(box);
@@ -139,13 +140,16 @@ const Main = {
     const k = await UI.choose(opts, { cls: 'titlemenu', cancel: false });
     box.remove();
     Audio2.unlock();
-    if (opts[k] === 'CONTINUE') return this.cont(saved);
+    if (opts[k] === 'CONTINUE') {
+      const p = await Saves.loadMenu();
+      return p ? this.cont(p) : this.title();
+    }
     if (saved && !(await this.confirmOverwrite())) return this.title();
     return this.newGame();
   },
 
   async confirmOverwrite() {
-    const yes = await UI.confirm('Start over? Your saved game will be replaced the next time you save.');
+    const yes = await UI.confirm('Start a new game? Your save slots stay safe. (Only the autosave gets replaced.)');
     UI.closeDialog();
     return yes;
   },

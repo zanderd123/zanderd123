@@ -287,9 +287,8 @@ const Scripts = {
       const i = await UI.choose(['Save my progress', 'Donate $10', 'Ask for guidance', 'Leave'], { cls: 'side', start });
       start = Math.max(0, i);
       if (i === 0) {
-        const ok = Game.save();
-        if (ok) Audio2.sfx('save');
-        await say(ok ? 'Your journey is recorded. Go in peace. (Progress saved!)' : 'Hm, the record book is stuck. (Your browser is blocking storage.)', { name: 'PASTOR' });
+        UI.closeDialog();
+        if (await Saves.saveMenu()) await say('Your journey is recorded. Go in peace.', { name: 'PASTOR' });
       } else if (i === 1) {
         if (p.money < 10) { await say('Keep it, friend. It looks like you need it more.', { name: 'PASTOR' }); continue; }
         p.money -= 10; Game.addKarma(6); Audio2.sfx('coin');

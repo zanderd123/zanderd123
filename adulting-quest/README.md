@@ -49,6 +49,11 @@ dialog panels, 20x24 outlined characters and full-screen 19x14 rooms.
   and 65% (Taxes) of the time; later routes ramp up more gently.
 - **Ending.** Beat the last playable leader: "Congratulations! You have
   survived young adult life." with your stats, then keep exploring.
+- **Saving.** MENU > SAVE GAME saves anywhere outside a battle into one of
+  three slots (chapels offer the same). The game also autosaves into its own
+  AUTO slot when you enter buildings, so it never overwrites your slots.
+  CONTINUE on the title screen lists every save. Saves stay in this browser on
+  this device.
 - **Money.** $1 and $5 bills appear in the tall grass and respawn. Spend it on
   items, skill books, outfits, scratch-offs, hospital copays, chapel donations
   and street musicians.

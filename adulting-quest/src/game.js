@@ -5,7 +5,79 @@
 const VIEW_W = 304, VIEW_H = 224;
 const DIRS = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
 const OPP = { up: 'down', down: 'up', left: 'right', right: 'left' };
-const SAVE_KEY = 'adulting-quest-save-v1';
+const OLD_SAVE_KEY = 'adulting-quest-save-v1';
+
+const Saves = {
+  slots: ['1', '2', '3'],
+  key: (slot) => 'aq-save-' + slot,
+  read(slot) {
+    try {
+      const d = JSON.parse(localStorage.getItem(this.key(slot)) || 'null');
+      return d && d.p ? d : null;
+    } catch (e) { return null; }
+  },
+  write(slot, p) {
+    try { localStorage.setItem(this.key(slot), JSON.stringify({ v: 2, p, at: Date.now() })); return true; }
+    catch (e) { return false; }
+  },
+  // the single save from earlier versions becomes Slot 1
+  migrate() {
+    try {
+      const old = localStorage.getItem(OLD_SAVE_KEY);
+      if (old && !this.read('1')) {
+        const d = JSON.parse(old);
+        if (d && d.p) this.write('1', d.p);
+      }
+      if (old) localStorage.removeItem(OLD_SAVE_KEY);
+    } catch (e) { /* storage unavailable */ }
+  },
+  any() { return ['auto', ...this.slots].some((s) => this.read(s)); },
+  label(slot) { return slot === 'auto' ? 'AUTO' : 'SLOT ' + slot; },
+  summary(d) {
+    const p = d.p, m = Math.floor((p.playTime || 0) / 60);
+    return `${p.name} · ${(p.badges || []).length}/8 · Lv${p.level} · ${Math.floor(m / 60)}h${String(m % 60).padStart(2, '0')}m`;
+  },
+  when(d) {
+    if (!d.at) return '';
+    const t = new Date(d.at);
+    return 'Saved ' + t.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) + ', ' + t.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  },
+  row(slot) {
+    const d = this.read(slot);
+    return { label: this.label(slot), right: d ? this.summary(d) : 'EMPTY', desc: d ? `${this.when(d)}<br>Age ${18 + Math.floor((d.p.badges || []).length * 1.75)} · ${U.money(d.p.money)} · ${(PATHS[d.p.path] || {}).name || 'No path yet'}` : 'An empty slot.' };
+  },
+  // MENU > SAVE GAME (and chapels): pick a slot and save there.
+  async saveMenu() {
+    if (Battle.active) { await UI.say('You can\'t save in the middle of a battle.'); return; }
+    const since = Game.lastSave != null ? Math.floor((Game.p.playTime - Game.lastSave) / 60) : null;
+    let done = false;
+    await UI.list(() => this.slots.map((s) => this.row(s)), {
+      title: 'SAVE GAME', start: Game.slot ? this.slots.indexOf(Game.slot) : 0,
+      hint: 'Saves stay on this device.',
+      headRight: () => (since == null ? '' : since < 1 ? 'SAVED JUST NOW' : `SAVED ${since} MIN AGO`),
+      footer: () => 'A: save here · B: back',
+      onAct: async (k) => {
+        const slot = this.slots[k];
+        if (this.read(slot) && !(await UI.confirm(`Overwrite ${this.label(slot)}?`))) { UI.closeDialog(); return 'keep'; }
+        const ok = Game.save(slot);
+        if (ok) Audio2.sfx('save');
+        await UI.say(ok ? `Game saved to ${slot === 'auto' ? 'the autosave' : this.label(slot)} on this device.` : 'Couldn\'t save. Your browser is blocking storage (private window?).');
+        UI.closeDialog();
+        done = ok;
+        return ok ? 'close' : 'keep';
+      },
+    });
+    return done;
+  },
+  // title screen: pick a save to continue
+  async loadMenu() {
+    const slots = ['auto', ...this.slots].filter((s) => this.read(s));
+    const k = await UI.list(slots.map((s) => this.row(s)), { title: 'CONTINUE', footer: () => 'A: load · B: back' });
+    if (k < 0) return null;
+    Game.slot = slots[k] === 'auto' ? null : slots[k];
+    return this.read(slots[k]).p;
+  },
+};
 
 // Stat formulas (Pokemon-style). Sanity = HP, Confidence = attack,
 // Composure = defence, Hustle = speed.
@@ -334,21 +406,16 @@ const Game = {
   },
 
   // ------------------------------------------------------------ save
-  save() {
+  // Saves live on this device (browser storage): three slots you pick, plus
+  // an autosave that never touches them.
+  save(slot) {
     const p = this.p;
     p.map = this.map.id; p.x = this.pos.x; p.y = this.pos.y; p.dir = this.pos.dir;
-    try { localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 1, p })); return true; }
-    catch (e) { return false; }
+    const ok = Saves.write(slot, p);
+    if (ok && slot !== 'auto') { this.slot = slot; this.lastSave = p.playTime; }
+    return ok;
   },
-  autosave() { if (this.p && this.p.path) this.save(); },
-  loadSave() {
-    try {
-      const raw = localStorage.getItem(SAVE_KEY);
-      if (!raw) return null;
-      const d = JSON.parse(raw);
-      return d && d.p ? d.p : null;
-    } catch (e) { return null; }
-  },
+  autosave() { if (this.p && this.p.path && this.map) this.save('auto'); },
 
   // ------------------------------------------------------------ render
   render() {
@@ -524,24 +591,17 @@ const Menu = {
     Audio2.sfx('select');
     let start = 0;
     while (true) {
-      const opts = ['SKILLS', 'CREW', 'BAG', 'PROFILE', 'MAP', 'WHAT BEATS WHAT', 'SAVE', 'SOUND: ' + (Audio2.muted ? 'OFF' : 'ON'), 'CLOSE'];
+      const opts = ['SKILLS', 'CREW', 'BAG', 'SAVE GAME', 'PROFILE', 'MAP', 'WHAT BEATS WHAT', 'SOUND: ' + (Audio2.muted ? 'OFF' : 'ON'), 'CLOSE'];
       const i = await UI.choose(opts, { cls: 'side', start });
       if (i < 0 || i === 8) return;
       start = i;
       if (i === 0) await this.skills();
       if (i === 1) await this.crew();
       if (i === 2) await this.bag(false);
-      if (i === 3) await this.profile();
-      if (i === 4) await this.map();
-      if (i === 5) await this.chart();
-      if (i === 6) {
-        if (await UI.confirm('Save your progress?')) {
-          const ok = Game.save();
-          if (ok) Audio2.sfx('save');
-          await UI.say(ok ? 'Progress saved!' : 'Couldn\'t save here (your browser is blocking storage).');
-        }
-        UI.closeDialog();
-      }
+      if (i === 3) await Saves.saveMenu();
+      if (i === 4) await this.profile();
+      if (i === 5) await this.map();
+      if (i === 6) await this.chart();
       if (i === 7) Audio2.setMuted(!Audio2.muted);
     }
   },

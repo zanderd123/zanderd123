@@ -33,30 +33,26 @@ await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2); await page.mouse.d
 console.log('walked to', await page.evaluate(() => window.__game.Game.pos.x));
 await tap('[data-btn="START"]');
 await page.screenshot({ path: join(shots, 'm2-menu.png') });
-await tap('[data-btn="A"]'); // skills
-await page.screenshot({ path: join(shots, 'm3-skills.png') });
-await tap('[data-btn="B"]');
-await page.keyboard.press('ArrowDown'); await page.waitForTimeout(100); await tap('[data-btn="A"]'); // bag
-await page.screenshot({ path: join(shots, 'm4-bag.png') });
-await tap('[data-btn="B"]');
-await page.keyboard.press('ArrowDown'); await page.waitForTimeout(100); await tap('[data-btn="A"]'); // profile
-await page.waitForTimeout(200);
-await page.screenshot({ path: join(shots, 'm5-profile.png') });
-await tap('[data-btn="A"]');
-await page.keyboard.press('ArrowDown'); await page.waitForTimeout(100); await tap('[data-btn="A"]'); // map
-await page.screenshot({ path: join(shots, 'm6-map.png') });
-await tap('[data-btn="A"]');
-await page.keyboard.press('ArrowDown'); await page.waitForTimeout(100); await tap('[data-btn="A"]'); // chart
-await page.screenshot({ path: join(shots, 'm7-chart.png') });
-await tap('[data-btn="A"]');
-await page.keyboard.press('ArrowDown'); await page.waitForTimeout(100); await tap('[data-btn="A"]'); // save
-await tap('[data-btn="A"]'); // yes
+const pick = async (label) => {   // open the menu entry with this label
+  const idx = await page.evaluate((l) => [...document.querySelectorAll('.choice .opt')].findIndex((e) => e.textContent.startsWith(l)), label);
+  for (let i = 0; i < idx; i++) { await page.keyboard.press('ArrowDown'); await page.waitForTimeout(80); }
+  await tap('[data-btn="A"]'); await page.waitForTimeout(200);
+};
+const backToTop = async () => { for (let i = 0; i < 10; i++) { const at = await page.evaluate(() => [...document.querySelectorAll('.choice .opt.sel')].map((e) => e.textContent)[0]); if (at === 'SKILLS') break; await page.keyboard.press('ArrowUp'); await page.waitForTimeout(80); } };
+for (const [label, shot] of [['SKILLS', 'm3-skills'], ['BAG', 'm4-bag'], ['PROFILE', 'm5-profile'], ['MAP', 'm6-map'], ['WHAT BEATS', 'm7-chart']]) {
+  await backToTop(); await pick(label);
+  await page.screenshot({ path: join(shots, shot + '.png') });
+  await tap('[data-btn="B"]'); await tap('[data-btn="A"]'); await page.waitForTimeout(100);
+  if (await page.$('.panel')) await tap('[data-btn="B"]');
+}
+await backToTop(); await pick('SAVE GAME');
+await tap('[data-btn="A"]');                 // slot 1
 for (let i = 0; i < 6; i++) await tap('[data-btn="A"]');
-const saved = await page.evaluate(() => localStorage.getItem('adulting-quest-save-v1') !== null);
+const saved = await page.evaluate(() => !!Saves.read('1'));
 console.log('saved:', saved);
 await page.reload(); await page.waitForTimeout(800);
 await page.screenshot({ path: join(shots, 'm8-continue.png') });
-await page.keyboard.press('z'); await page.waitForTimeout(1200);
+await page.keyboard.press('z'); await page.waitForTimeout(400); await page.keyboard.press('ArrowDown'); await page.waitForTimeout(100); await page.keyboard.press('z'); await page.waitForTimeout(1200);
 console.log('continued:', await page.evaluate(() => { const g = window.__game.Game; return { mode: g.mode, map: g.map && g.map.id, x: g.pos.x, name: g.p && g.p.name, money: g.p && g.p.money }; }));
 await browser.close();
 console.log(errors.length ? 'ERRORS ' + errors.join('\n') : 'no errors');
