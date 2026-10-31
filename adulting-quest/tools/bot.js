@@ -328,7 +328,10 @@
       const order = LEADER_ORDER, idx = order.indexOf(key);
       Object.assign(Game.p, { path, level: lvl, xp: Stats.xpFor(lvl), money: 300, badges: order.slice(0, idx), known: [...P.start], equipped: [...P.start] });
       for (const [lv, id] of Object.entries(P.learn)) if (+lv <= lvl) Game.learn(id);
-      Game.p.equipped = Game.p.known.slice(-4);
+      // equip like a sensible player: the strongest skill of each type
+      const byType = {};
+      for (const id of Game.p.known) { const t = SKILLS[id].type; if (SKILLS[id].power && (!byType[t] || SKILLS[id].power > SKILLS[byType[t]].power)) byType[t] = id; }
+      Game.p.equipped = Object.values(byType).sort((a, b) => SKILLS[b].power - SKILLS[a].power).slice(0, 4);
       if (idx >= 1) Crew.add('chad');
       if (idx >= 4) Crew.add(Game.p.hero === 'girl' ? 'so_m' : 'so_f');
       Game.give('comfort_food', 4); Game.give('coffee', 3); Game.give('pep_talk', 1);

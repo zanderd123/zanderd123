@@ -238,7 +238,7 @@ const Battle = {
     const mate = Crew.members().find((r) => r !== cur && r.sanity > 0 && Crew.skills(r).some(good));
     if (mate) return `${Crew.name(mate)} has ${SKILLS[Crew.skills(mate).find(good)].name.toUpperCase()}. Tag them in with CREW!`;
     const known = p.known.filter(good);
-    if (known.length) return `Your ${SKILLS[known[0]].name.toUpperCase()} would hit hard, but it isn't equipped. Swap it in from MENU > SKILLS.`;
+    if (known.length) return `Your ${SKILLS[known[0]].name.toUpperCase()} would hit hard, but it isn't equipped. Equip it from MENU > SKILLS after this fight.`;
     const book = Object.keys(ITEMS).find((id) => ITEMS[id].use === 'book' && good(ITEMS[id].skill));
     const town = book ? SHOP_STOCK.findIndex((st) => st.includes(book)) : -1;
     const where = book ? ` ${ITEMS[book].name.replace('Book: ', '')} teaches ${SKILLS[ITEMS[book].skill].name.toUpperCase()}${town >= 0 ? `, sold in ${TOWNS[town].name}` : ''}.` : '';
