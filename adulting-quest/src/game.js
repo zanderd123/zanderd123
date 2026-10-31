@@ -451,7 +451,9 @@ const Game = {
     this.enter(r.map, r.x, r.y, r.dir);
     this.fullHeal();
     await this.fadeTo(0, 500);
-    await UI.say(this.map.isHome ? 'Mom: "Oh, honey. Sit down. I made soup."' : 'Nurse: "We patched you up. Try to pace yourself out there, okay?"');
+    await UI.say(this.map.isHome ? 'Mom: "Oh, honey. Sit down. I made soup."'
+      : r.chapel ? `Pastor: "Rise and shine, my ${p.hero === 'girl' ? 'daughter' : 'son'}. You were out cold. I said a few words. Mostly 'yikes.'"`
+        : 'Nurse: "We patched you up. Try to pace yourself out there, okay?"');
   },
 
   // ------------------------------------------------------------ save

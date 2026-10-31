@@ -2998,6 +2998,100 @@ const Interiors = {
   },
 };
 
+// ---- src/cloud.js
+'use strict';
+// Cloud saves: an online copy of each save slot, so a save follows the player
+// to another device. Browser storage stays what the game reads; the cloud is a
+// mirror that gets pulled in on the title screen (newest save wins).
+//
+// A backend is { name, read(slot) -> {json, at} | null, write(slot, {json, at}) }.
+// Today there is one: the claude.ai artifact database, where each player gets
+// private docs tied to their Claude login. A website build can add another
+// (Supabase, Firebase, a small server) in connect() without touching the game.
+
+const Cloud = {
+  backend: null,
+  readOnly: false,   // signed in but not allowed to write (view-only link)
+  timers: {},
+  writing: {},
+  pulled: false,
+
+  async claude() {
+    if (!window.claude || typeof window.claude.use !== 'function') return null;
+    const [db, user] = await Promise.all([window.claude.use('db'), window.claude.use('user')]);
+    if (!db || !user) return null;
+    const id = await user.id();
+    if (!id) return null;
+    const docs = db.collection('data/users/' + id);
+    return {
+      name: 'your Claude account',
+      async read(slot) { const s = await docs.doc('save-' + slot).get(); return s.exists ? s.data() : null; },
+      async write(slot, rec) { await docs.doc('save-' + slot).set(rec); },
+    };
+  },
+
+  // resolves to the backend, or null when there is no cloud here
+  connect() {
+    if (!this.ready) {
+      this.ready = this.claude().catch(() => null).then((b) => { this.backend = b; return b; });
+    }
+    return this.ready;
+  },
+  // wait for the cloud, but never hold up the title screen for long
+  async settle(ms) {
+    return Promise.race([this.connect(), new Promise((r) => setTimeout(() => r(null), ms))]);
+  },
+
+  slots() { return ['auto', ...Saves.slots]; },
+  local(slot) { try { return localStorage.getItem(Saves.key(slot)); } catch (e) { return null; } },
+  at(json) { try { return (JSON.parse(json) || {}).at || 0; } catch (e) { return 0; } },
+
+  // bring newer cloud saves down, send newer local saves up
+  async pull() {
+    if (!this.backend) return 0;
+    let got = 0;
+    for (const slot of this.slots()) {
+      try {
+        const rec = await this.backend.read(slot), mine = this.local(slot);
+        const theirs = rec && typeof rec.json === 'string' ? rec.at || 0 : 0;
+        if (theirs > this.at(mine)) { localStorage.setItem(Saves.key(slot), rec.json); got++; }
+        else if (mine && this.at(mine) > theirs) this.queue(slot, 0);
+      } catch (e) { /* offline or not allowed: keep the local copy */ }
+    }
+    this.pulled = true;
+    return got;
+  },
+
+  // mirror a slot after it was saved locally; the autosave fires on every
+  // door, so it waits for a quiet moment instead of writing each time
+  queue(slot, delay) {
+    if (!this.backend || this.readOnly) return;
+    clearTimeout(this.timers[slot]);
+    this.timers[slot] = setTimeout(() => this.push(slot), delay);
+  },
+  async push(slot) {
+    delete this.timers[slot];
+    const json = this.local(slot);
+    if (!json || !this.backend) return;
+    if (this.writing[slot]) { await this.writing[slot]; if (this.local(slot) !== json) return; }
+    this.writing[slot] = this.backend.write(slot, { json, at: this.at(json) })
+      .catch((e) => { if (e && /not_granted|denied|permission|unauth/i.test(e.code || e.message || '')) this.readOnly = true; })
+      .finally(() => { delete this.writing[slot]; });
+    return this.writing[slot];
+  },
+  flush() { for (const slot of Object.keys(this.timers)) { clearTimeout(this.timers[slot]); this.push(slot); } },
+
+  // one line for the save menu
+  status() {
+    if (!this.backend) return 'Saves stay on this device. Use GET SAVE CODE to move one.';
+    if (this.readOnly) return 'Saves stay on this device (this link can\'t back up saves).';
+    return `Saves also back up to ${this.backend.name}.`;
+  },
+};
+
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') Cloud.flush(); });
+window.addEventListener('pagehide', () => Cloud.flush());
+
 // ---- src/game.js
 'use strict';
 // Core game state: the player, overworld movement, rendering, field menus,
@@ -3018,8 +3112,10 @@ const Saves = {
     } catch (e) { return null; }
   },
   write(slot, p) {
-    try { localStorage.setItem(this.key(slot), JSON.stringify({ v: 2, p, at: Date.now() })); return true; }
+    try { localStorage.setItem(this.key(slot), JSON.stringify({ v: 2, p, at: Date.now() })); }
     catch (e) { return false; }
+    Cloud.queue(slot, slot === 'auto' ? 20000 : 0);
+    return true;
   },
   // the single save from earlier versions becomes Slot 1
   migrate() {
@@ -3054,7 +3150,7 @@ const Saves = {
     let done = false;
     await UI.list(() => this.slots.map((s) => this.row(s)).concat([{ label: 'GET SAVE CODE', right: 'OTHER DEVICE', desc: 'Make a code you can paste on your phone or another computer to keep playing there.' }]), {
       title: 'SAVE GAME', start: Game.slot ? this.slots.indexOf(Game.slot) : 0,
-      hint: 'Saves stay on this device.',
+      hint: Cloud.status(),
       headRight: () => (since == null ? '' : since < 1 ? 'SAVED JUST NOW' : `SAVED ${since} MIN AGO`),
       footer: () => 'A: save here · B: back',
       onAct: async (k) => {
@@ -3063,7 +3159,7 @@ const Saves = {
         if (this.read(slot) && !(await UI.confirm(`Overwrite ${this.label(slot)}?`))) { UI.closeDialog(); return 'keep'; }
         const ok = Game.save(slot);
         if (ok) Audio2.sfx('save');
-        await UI.say(ok ? `Game saved to ${slot === 'auto' ? 'the autosave' : this.label(slot)} on this device.` : 'Couldn\'t save. Your browser is blocking storage (private window?).');
+        await UI.say(ok ? `Game saved to ${slot === 'auto' ? 'the autosave' : this.label(slot)}${Cloud.backend && !Cloud.readOnly ? ' and backed up online' : ' on this device'}.` : 'Couldn\'t save. Your browser is blocking storage (private window?).');
         UI.closeDialog();
         done = ok;
         return ok ? 'close' : 'keep';
@@ -3110,6 +3206,7 @@ const Saves = {
 
   // title screen: pick a save to continue
   async loadMenu() {
+    if (Cloud.backend && !Cloud.pulled) await Cloud.pull();
     const slots = ['auto', ...this.slots].filter((s) => this.read(s));
     const k = await UI.list(slots.map((s) => this.row(s)), { title: 'CONTINUE', footer: () => 'A: load · B: back' });
     if (k < 0) return null;
@@ -3449,12 +3546,14 @@ const Game = {
     this.enter(r.map, r.x, r.y, r.dir);
     this.fullHeal();
     await this.fadeTo(0, 500);
-    await UI.say(this.map.isHome ? 'Mom: "Oh, honey. Sit down. I made soup."' : 'Nurse: "We patched you up. Try to pace yourself out there, okay?"');
+    await UI.say(this.map.isHome ? 'Mom: "Oh, honey. Sit down. I made soup."'
+      : r.chapel ? `Pastor: "Rise and shine, my ${p.hero === 'girl' ? 'daughter' : 'son'}. You were out cold. I said a few words. Mostly 'yikes.'"`
+        : 'Nurse: "We patched you up. Try to pace yourself out there, okay?"');
   },
 
   // ------------------------------------------------------------ save
   // Saves live on this device (browser storage): three slots you pick, plus
-  // an autosave that never touches them.
+  // an autosave that never touches them. Cloud mirrors them when it can.
   save(slot) {
     const p = this.p;
     p.map = this.map.id; p.x = this.pos.x; p.y = this.pos.y; p.dir = this.pos.dir;
@@ -4381,8 +4480,18 @@ const Scripts = {
     await say('Welcome, weary traveler. How may I help you?', { name: 'PASTOR' });
     let start = 0;
     while (true) {
-      const i = await UI.choose(['Save my progress', 'Donate $10', 'Ask for guidance', 'Leave'], { cls: 'side', start });
+      let i = await UI.choose(['Save my progress', 'Rest here', 'Donate $10', 'Ask for guidance', 'Leave'], { cls: 'side', start });
       start = Math.max(0, i);
+      if (i === 1) {
+        const kid = p.hero === 'girl' ? 'daughter' : 'son';
+        const here = p.respawn.map === Game.map.id;
+        const yes = await UI.confirm(`Would you like to rest here, my ${kid}?`, { name: 'PASTOR' });
+        if (!yes) { await say('Very well. The door is always open. Literally. The lock is broken.', { name: 'PASTOR' }); continue; }
+        p.respawn = { map: Game.map.id, x: 9, y: 5, dir: 'up', chapel: true };
+        await say(here ? `You're already resting here, my ${kid}. I'll keep a pew warm for you.` : `Then rest easy, my ${kid}. Next time life knocks you down, you'll wake up right here in ${TOWNS[ti] ? TOWNS[ti].name : 'this chapel'}.`, { name: 'PASTOR' });
+        continue;
+      }
+      if (i > 1) i--;
       if (i === 0) {
         UI.closeDialog();
         if (await Saves.saveMenu()) await say('Your journey is recorded. Go in peace.', { name: 'PASTOR' });
@@ -5415,7 +5524,7 @@ const Main = {
       } catch (e) { console.error(e); }
     };
     requestAnimationFrame(frame);
-    window.__game = { Game, World, Battle, UI, Main, PATHS, LEADERS };
+    window.__game = { Game, World, Battle, UI, Main, PATHS, LEADERS, Saves, Cloud, Scripts };
     this.title();
   },
 
@@ -5435,6 +5544,7 @@ const Main = {
     Game.fade = 0;
     Audio2.music('town');
     Saves.migrate();
+    if (await Cloud.settle(2500)) await Cloud.pull();
     const saved = Saves.any();
     const box = UI.el('div', 'titlecard', `<div class="logo"><span>ADULTING</span><span>QUEST</span></div>
       <div class="tag">Defeat 8 Life Leaders. Win at the game of life.</div>`);

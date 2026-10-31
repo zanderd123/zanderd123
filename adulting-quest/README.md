@@ -57,7 +57,7 @@ dialog panels, 20x24 outlined characters and full-screen 19x14 rooms.
 - **Ending.** Beat PARENTS: "Congratulations! You have survived young adult
   life." with your stats, then keep exploring.
 - **Saving.** MENU > SAVE GAME saves anywhere outside a battle into one of
-  three slots (chapels offer the same). The game also autosaves into its own
+  three slots (chapels offer the same, and the pastor can make the chapel your wake-up spot after a meltdown). The game also autosaves into its own
   AUTO slot when you enter buildings, so it never overwrites your slots.
   CONTINUE on the title screen lists every save. Saves stay in this browser on
   this device; to move to another device, use SAVE GAME > GET SAVE CODE and

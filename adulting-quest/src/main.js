@@ -112,7 +112,7 @@ const Main = {
       } catch (e) { console.error(e); }
     };
     requestAnimationFrame(frame);
-    window.__game = { Game, World, Battle, UI, Main, PATHS, LEADERS, Saves, Cloud };
+    window.__game = { Game, World, Battle, UI, Main, PATHS, LEADERS, Saves, Cloud, Scripts };
     this.title();
   },
 

@@ -327,8 +327,18 @@ const Scripts = {
     await say('Welcome, weary traveler. How may I help you?', { name: 'PASTOR' });
     let start = 0;
     while (true) {
-      const i = await UI.choose(['Save my progress', 'Donate $10', 'Ask for guidance', 'Leave'], { cls: 'side', start });
+      let i = await UI.choose(['Save my progress', 'Rest here', 'Donate $10', 'Ask for guidance', 'Leave'], { cls: 'side', start });
       start = Math.max(0, i);
+      if (i === 1) {
+        const kid = p.hero === 'girl' ? 'daughter' : 'son';
+        const here = p.respawn.map === Game.map.id;
+        const yes = await UI.confirm(`Would you like to rest here, my ${kid}?`, { name: 'PASTOR' });
+        if (!yes) { await say('Very well. The door is always open. Literally. The lock is broken.', { name: 'PASTOR' }); continue; }
+        p.respawn = { map: Game.map.id, x: 9, y: 5, dir: 'up', chapel: true };
+        await say(here ? `You're already resting here, my ${kid}. I'll keep a pew warm for you.` : `Then rest easy, my ${kid}. Next time life knocks you down, you'll wake up right here in ${TOWNS[ti] ? TOWNS[ti].name : 'this chapel'}.`, { name: 'PASTOR' });
+        continue;
+      }
+      if (i > 1) i--;
       if (i === 0) {
         UI.closeDialog();
         if (await Saves.saveMenu()) await say('Your journey is recorded. Go in peace.', { name: 'PASTOR' });
