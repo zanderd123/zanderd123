@@ -112,7 +112,7 @@ const Main = {
       } catch (e) { console.error(e); }
     };
     requestAnimationFrame(frame);
-    window.__game = { Game, World, Battle, UI, Main, PATHS, LEADERS };
+    window.__game = { Game, World, Battle, UI, Main, PATHS, LEADERS, Saves, Cloud };
     this.title();
   },
 
@@ -132,6 +132,7 @@ const Main = {
     Game.fade = 0;
     Audio2.music('town');
     Saves.migrate();
+    if (await Cloud.settle(2500)) await Cloud.pull();
     const saved = Saves.any();
     const box = UI.el('div', 'titlecard', `<div class="logo"><span>ADULTING</span><span>QUEST</span></div>
       <div class="tag">Defeat 8 Life Leaders. Win at the game of life.</div>`);

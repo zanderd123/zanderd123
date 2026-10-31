@@ -17,8 +17,10 @@ const Saves = {
     } catch (e) { return null; }
   },
   write(slot, p) {
-    try { localStorage.setItem(this.key(slot), JSON.stringify({ v: 2, p, at: Date.now() })); return true; }
+    try { localStorage.setItem(this.key(slot), JSON.stringify({ v: 2, p, at: Date.now() })); }
     catch (e) { return false; }
+    Cloud.queue(slot, slot === 'auto' ? 20000 : 0);
+    return true;
   },
   // the single save from earlier versions becomes Slot 1
   migrate() {
@@ -53,7 +55,7 @@ const Saves = {
     let done = false;
     await UI.list(() => this.slots.map((s) => this.row(s)).concat([{ label: 'GET SAVE CODE', right: 'OTHER DEVICE', desc: 'Make a code you can paste on your phone or another computer to keep playing there.' }]), {
       title: 'SAVE GAME', start: Game.slot ? this.slots.indexOf(Game.slot) : 0,
-      hint: 'Saves stay on this device.',
+      hint: Cloud.status(),
       headRight: () => (since == null ? '' : since < 1 ? 'SAVED JUST NOW' : `SAVED ${since} MIN AGO`),
       footer: () => 'A: save here · B: back',
       onAct: async (k) => {
@@ -62,7 +64,7 @@ const Saves = {
         if (this.read(slot) && !(await UI.confirm(`Overwrite ${this.label(slot)}?`))) { UI.closeDialog(); return 'keep'; }
         const ok = Game.save(slot);
         if (ok) Audio2.sfx('save');
-        await UI.say(ok ? `Game saved to ${slot === 'auto' ? 'the autosave' : this.label(slot)} on this device.` : 'Couldn\'t save. Your browser is blocking storage (private window?).');
+        await UI.say(ok ? `Game saved to ${slot === 'auto' ? 'the autosave' : this.label(slot)}${Cloud.backend && !Cloud.readOnly ? ' and backed up online' : ' on this device'}.` : 'Couldn\'t save. Your browser is blocking storage (private window?).');
         UI.closeDialog();
         done = ok;
         return ok ? 'close' : 'keep';
@@ -109,6 +111,7 @@ const Saves = {
 
   // title screen: pick a save to continue
   async loadMenu() {
+    if (Cloud.backend && !Cloud.pulled) await Cloud.pull();
     const slots = ['auto', ...this.slots].filter((s) => this.read(s));
     const k = await UI.list(slots.map((s) => this.row(s)), { title: 'CONTINUE', footer: () => 'A: load · B: back' });
     if (k < 0) return null;
@@ -453,7 +456,7 @@ const Game = {
 
   // ------------------------------------------------------------ save
   // Saves live on this device (browser storage): three slots you pick, plus
-  // an autosave that never touches them.
+  // an autosave that never touches them. Cloud mirrors them when it can.
   save(slot) {
     const p = this.p;
     p.map = this.map.id; p.x = this.pos.x; p.y = this.pos.y; p.dir = this.pos.dir;

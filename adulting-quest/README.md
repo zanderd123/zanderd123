@@ -62,6 +62,9 @@ dialog panels, 20x24 outlined characters and full-screen 19x14 rooms.
   CONTINUE on the title screen lists every save. Saves stay in this browser on
   this device; to move to another device, use SAVE GAME > GET SAVE CODE and
   paste the code into ENTER SAVE CODE on the other device's title screen.
+  On the claude.ai link, saves also back up to the player's Claude account
+  (`src/cloud.js`) and come down on any device they sign in from; the newest
+  save wins. A website build can add its own backend in `Cloud.connect()`.
 - **Money.** $1 and $5 bills appear in the tall grass and respawn. Spend it on
   items, skill books, outfits, scratch-offs, hospital copays, chapel donations
   and street musicians.
