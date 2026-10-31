@@ -51,12 +51,13 @@ const Saves = {
     if (Battle.active) { await UI.say('You can\'t save in the middle of a battle.'); return; }
     const since = Game.lastSave != null ? Math.floor((Game.p.playTime - Game.lastSave) / 60) : null;
     let done = false;
-    await UI.list(() => this.slots.map((s) => this.row(s)), {
+    await UI.list(() => this.slots.map((s) => this.row(s)).concat([{ label: 'GET SAVE CODE', right: 'OTHER DEVICE', desc: 'Make a code you can paste on your phone or another computer to keep playing there.' }]), {
       title: 'SAVE GAME', start: Game.slot ? this.slots.indexOf(Game.slot) : 0,
       hint: 'Saves stay on this device.',
       headRight: () => (since == null ? '' : since < 1 ? 'SAVED JUST NOW' : `SAVED ${since} MIN AGO`),
       footer: () => 'A: save here · B: back',
       onAct: async (k) => {
+        if (k === this.slots.length) { await this.exportCode(); return 'keep'; }
         const slot = this.slots[k];
         if (this.read(slot) && !(await UI.confirm(`Overwrite ${this.label(slot)}?`))) { UI.closeDialog(); return 'keep'; }
         const ok = Game.save(slot);
@@ -69,6 +70,43 @@ const Saves = {
     });
     return done;
   },
+  // ---- save codes: move a save to another device by copy/paste
+  // AQ1- = deflate + base64url; AQ0- = plain base64url (old browsers)
+  b64(bytes) { let s = ''; for (const b of bytes) s += String.fromCharCode(b); return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); },
+  unb64(t) { const s = atob(t.replace(/-/g, '+').replace(/_/g, '/')); return Uint8Array.from(s, (c) => c.charCodeAt(0)); },
+  async pipe(bytes, Stream) { return new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(new Stream('deflate-raw'))).arrayBuffer()); },
+  async toCode(p) {
+    const raw = new TextEncoder().encode(JSON.stringify({ v: 2, p, at: Date.now() }));
+    if (window.CompressionStream) { try { return 'AQ1-' + this.b64(await this.pipe(raw, CompressionStream)); } catch (e) { /* fall through */ } }
+    return 'AQ0-' + this.b64(raw);
+  },
+  async fromCode(code) {
+    try {
+      const m = /AQ([01])-([A-Za-z0-9_-]+)/.exec(code.replace(/\s+/g, ''));
+      if (!m) return null;
+      let bytes = this.unb64(m[2]);
+      if (m[1] === '1') bytes = await this.pipe(bytes, DecompressionStream);
+      const d = JSON.parse(new TextDecoder().decode(bytes));
+      return d && d.p && d.p.name && typeof d.p.level === 'number' ? d : null;
+    } catch (e) { return null; }
+  },
+  async exportCode() {
+    if (Battle.active) return;
+    const code = await this.toCode(Game.p);
+    await UI.codeBox({ title: 'SAVE CODE', text: code, hint: 'Copy this code and send it to yourself (text, email, notes). On the other device, pick ENTER SAVE CODE on the title screen.' });
+  },
+  async importCode() {
+    const code = await UI.codeBox({ title: 'ENTER SAVE CODE', edit: true, hint: 'Paste a save code from another device.' });
+    if (!code) return null;
+    const d = await this.fromCode(code);
+    if (!d) { await UI.say('That code didn\'t work. Make sure you copied the whole thing, starting with AQ.'); UI.closeDialog(); return null; }
+    await UI.say(`Found ${this.summary(d)}. It will load into your AUTO save.`);
+    UI.closeDialog();
+    this.write('auto', d.p);
+    Game.slot = null;
+    return d.p;
+  },
+
   // title screen: pick a save to continue
   async loadMenu() {
     const slots = ['auto', ...this.slots].filter((s) => this.read(s));
@@ -188,7 +226,8 @@ const Game = {
     if (this.mode !== 'world') return;
     if (this.map.id !== 'world') { Audio2.music('inside'); return; }
     const r = World.regions[this.map.regionAt(this.pos.x, this.pos.y)];
-    Audio2.music(r && r.kind === 'route' ? 'route' : 'town');
+    if (!r || r.kind === 'route') { Audio2.music('route'); return; }
+    Audio2.music(TRACKS['t_' + r.biome] ? 't_' + r.biome : 'town');
   },
   checkRegion() {
     if (this.map.id !== 'world') { this.lastRegion = -1; return; }
@@ -312,6 +351,7 @@ const Game = {
     if (t === T.DOOR) {
       const door = m.doors.get(m.idx(nx, ny));
       if (door && door.locked) { this.run(() => UI.say(door.locked)); return; }
+      if (door && door.need && this.p.badges.length < door.need) { this.run(() => UI.say(door.msg)); return; }
     }
     if (m.solid(nx, ny) || m.npcAt(nx, ny)) {
       if (P.bumpT <= 0) { Audio2.sfx('bump'); P.bumpT = 0.3; }
@@ -675,17 +715,27 @@ const Menu = {
     const p = Game.p;
     let used = null;
     const ids = () => Object.keys(p.items).filter((id) => p.items[id] > 0).sort((a, b) => (ITEMS[b].key ? 1 : 0) - (ITEMS[a].key ? 1 : 0));
-    const rows = () => ids().map((id) => ({
-      label: ITEMS[id].name, right: ITEMS[id].key ? '' : '×' + p.items[id], desc: ITEMS[id].desc,
-      disabled: inBattle && !ITEMS[id].battle,
-    }));
+    const KIND = { sanity: 'HEALS SANITY', full: 'FULL HEAL', energy: 'RESTORES ENERGY', revive: 'REVIVES CREW', repel: 'FIELD ITEM', escape: 'ESCAPE', book: 'SKILL BOOK', outfit: 'OUTFIT', scratch: 'GAMBLE', drive: 'KEY ITEM', phone: 'KEY ITEM', none: 'KEY ITEM' };
+    const rows = () => ids().map((id) => {
+      const it = ITEMS[id], no = inBattle && !it.battle;
+      return {
+        label: it.name, right: it.key ? '' : '×' + p.items[id], disabled: no,
+        desc: `<b class="kind">${KIND[it.use] || 'ITEM'}</b> ${it.desc}${no ? ' <i>(Can\'t use this in battle.)</i>' : ''}`,
+      };
+    });
     await UI.list(rows, {
       title: 'BAG', empty: 'Your bag is empty. Even the gum is gone.',
       headRight: () => U.money(p.money),
       onAct: async (k) => {
         const id = ids()[k];
-        const r = await Items.use(id, inBattle);
+        let r = await Items.use(id, inBattle);
         if (r === 'used' && inBattle) { used = id; return 'close'; }
+        // healing items: offer another right away while someone still needs one
+        while (r === 'used' && p.items[id] > 0 && Items.wanted(id)) {
+          if (!(await UI.confirm(`Use another ${ITEMS[id].name}? (${p.items[id]} left)`))) { UI.closeDialog(); break; }
+          UI.closeDialog();
+          r = await Items.use(id, false);
+        }
         if (r === 'exit') { Menu.exit = true; return 'close'; }
         return inBattle ? 'keep' : 'keep';
       },
@@ -765,6 +815,15 @@ const Menu = {
 
 // ---------------------------------------------------------------- items
 const Items = {
+  // does anyone in the crew still benefit from this item right now?
+  wanted(id) {
+    const it = ITEMS[id], ms = Crew.members();
+    if (it.use === 'sanity') return ms.some((m) => m.sanity > 0 && m.sanity < Crew.stats(m).maxSanity);
+    if (it.use === 'full') return ms.some((m) => m.sanity > 0 && (m.sanity < Crew.stats(m).maxSanity || m.status));
+    if (it.use === 'energy') return ms.some((m) => m.sanity > 0 && m.energy < Crew.stats(m).maxEnergy);
+    if (it.use === 'revive') return ms.some((m) => m.sanity <= 0);
+    return false;
+  },
   // returns 'used' | 'no'
   async use(id, inBattle) {
     const p = Game.p, it = ITEMS[id];

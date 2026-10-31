@@ -117,7 +117,10 @@ const Scripts = {
     if (k.item) Game.give(k.item, 1);
     if (k.refund) { p.money += k.refund; Audio2.sfx('coin'); }
     if (k.debtPay && p.debt > 0) { const paid = Math.min(p.debt, k.debtPay); p.debt -= paid; await say(`$${paid} of debt: gone.${p.debt ? ` ($${p.debt} left.)` : ' Debt-free!'}`); }
-    if (k.clearDebt) p.debt = 0;
+    if (k.clearDebt) {
+      if (p.debt > 0) p.debt = 0;
+      else { p.money += 500; Audio2.sfx('coin'); await say('You never took out loans, so GATOR mailed you a $500 "loyalty bonus" instead. Suspicious, but okay.'); }
+    }
     if (k.item === 'gym_card') Crew.members().forEach((r) => { r.sanity = Crew.stats(r).maxSanity; });
   },
 
@@ -270,6 +273,9 @@ const Scripts = {
       1: 'Tow trucks everywhere. RUSTY\'s doing. Beat CAR TROUBLE in Dusty Gulch and we\'ll clear the road.',
       2: 'A crowd is doing burpees in the middle of the road. COACH MAX\'s orders. Beat FITNESS in Sunnyside Beach.',
       3: 'The pass is frozen solid with paperwork. Only those who\'ve beaten TAXES in Frostpeak may pass.',
+      4: 'Sorry, singles only past this point. Just kidding. Beat DATING in Pinewood and the road\'s yours.',
+      5: 'The bridge is held as collateral. Beat STUDENT LOANS in Boggy Bayou to get it back.',
+      6: 'Enrollment-verified students only. Beat MASTERS DEGREE in Harvest Hollow first.',
       7: 'Major construction. This shortcut only opens for folks with 7 LIFE MILESTONES.',
     }[g.ri];
     await say([why, `(You need ${r.need} Life Milestone${r.need > 1 ? 's' : ''}. You have ${Game.p.badges.length}.)`], { name: 'GUARD' });
@@ -281,9 +287,11 @@ const Scripts = {
     const stock = ti < SHOP_STOCK.length ? SHOP_STOCK[ti] : [...new Set(SHOP_STOCK.flat())];
     await say(`Welcome to QUIK STOP! We\'re on every corner. Literally every corner.${p.karma < 30 ? ' ...Oh. It\'s you. Prices are a little higher for you today.' : p.karma >= 80 ? ' Oh, it\'s you! Good-person discount, on the house!' : ''}`, { name: 'CLERK' });
     UI.closeDialog();
+    const recs = Hints.books(stock), nextL = Hints.next();
     await UI.list(() => stock.map((id) => ({
-      label: ITEMS[id].name, right: U.money(Game.priceOf(id)),
-      desc: ITEMS[id].desc + (p.items[id] ? ` <i>(You have ${p.items[id]}.)</i>` : '') + (ITEMS[id].skill && p.known.includes(ITEMS[id].skill) ? ' <i>(Already known.)</i>' : ''),
+      label: ITEMS[id].name, right: U.money(Game.priceOf(id)), icon: recs.includes(id) ? '<em class="tipchip">TIP</em>' : '',
+      desc: ITEMS[id].desc + (p.items[id] ? ` <i>(You have ${p.items[id]}.)</i>` : '') + (ITEMS[id].skill && p.known.includes(ITEMS[id].skill) ? ' <i>(Already known.)</i>' : '')
+        + (recs.includes(id) ? ` <b class="rec">TIP: recommended for ${LEADERS[nextL].title}: nothing you have hits its ${Hints.gaps(nextL).filter((t) => EFF[SKILLS[ITEMS[id].skill].type][t] > 1).join('/')} issues this hard.</b>` : ''),
     })), {
       title: 'QUIK STOP', headRight: () => U.money(p.money),
       footer: () => 'A: buy one · B: leave',
@@ -349,7 +357,7 @@ const Scripts = {
   async guide(key) {
     const L = LEADERS[key];
     if (Game.p.badges.includes(key)) { await say(['YO! You did it! Champion of ' + L.title + '!', 'Go show the next leader what you\'ve got!'], { name: 'HALL GUIDE' }); return; }
-    await say(['YO! Future champ! Here\'s some free advice.', L.tip, 'Stock up on Coffee and Comfort Food before you go up there!'], { name: 'HALL GUIDE' });
+    await say(['YO! Future champ! Here\'s some free advice.', ...Hints.leader(key), 'Stock up on Coffee and Comfort Food before you go up there!'], { name: 'HALL GUIDE' });
   },
 
   // ---------------------------------------------------------- leaders
@@ -358,7 +366,14 @@ const Scripts = {
     const nm = { name: L.name };
     if (p.badges.includes(key)) { await say(L.after, nm); return; }
     await say(L.intro, nm);
-    if (!(await UI.confirm(`Battle ${L.title}?`))) {
+    let go;
+    while (true) {
+      await say(`Battle ${L.title}?`, { noWait: true });
+      go = await UI.choose(['Battle!', 'Get a hint', 'Not yet'], { cls: 'side' });
+      if (go !== 1) break;
+      await say(Hints.leader(key));
+    }
+    if (go !== 0) {
       await say('Take your time. Issues don\'t go anywhere. That\'s kind of the problem.', nm);
       return;
     }

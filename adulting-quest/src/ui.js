@@ -349,6 +349,36 @@ const UI = {
   },
 
   // Name entry uses a real text field so phone keyboards work.
+  // Text box for save codes: read-only with COPY (and SHARE on phones), or editable with LOAD.
+  codeBox(o) {
+    const box = this.el('div', 'panel codebox', `<div class="p-title">${o.title}</div>
+      <textarea spellcheck="false" autocomplete="off" ${o.edit ? 'placeholder="AQ1-..."' : 'readonly'}>${o.text ? U.esc(o.text) : ''}</textarea>
+      <div class="cb-hint">${o.hint || ''}</div>
+      <div class="nb-btns">${o.edit ? '<button data-b="ok">LOAD</button>' : '<button data-b="copy">COPY</button>' + (navigator.share ? '<button data-b="share">SHARE</button>' : '')}<button data-b="close">${o.edit ? 'CANCEL' : 'DONE'}</button></div>`);
+    this.root.appendChild(box);
+    const ta = box.querySelector('textarea');
+    setTimeout(() => { ta.focus(); if (!o.edit) ta.select(); }, 50);
+    return new Promise((resolve) => {
+      const w = { onInput: (b) => { if (b === 'B' || b === 'ESC') done(null); return 'stop'; } };
+      const done = (v) => { UI.pop(w); box.remove(); resolve(v); };
+      ta.addEventListener('keydown', (e) => { if (e.key === 'Escape') done(null); e.stopPropagation(); });
+      box.addEventListener('click', async (e) => {
+        const b = e.target.closest('button');
+        if (!b) return;
+        if (b.dataset.b === 'close') done(null);
+        else if (b.dataset.b === 'ok') done(ta.value.trim());
+        else if (b.dataset.b === 'share') { try { await navigator.share({ title: 'Adulting Quest save', text: o.text }); } catch (err) { /* cancelled */ } }
+        else if (b.dataset.b === 'copy') {
+          ta.select();
+          let ok = false;
+          try { await navigator.clipboard.writeText(o.text); ok = true; } catch (err) { try { ok = document.execCommand('copy'); } catch (err2) { ok = false; } }
+          UI.toast(ok ? 'COPIED!' : 'Select the text and copy it');
+        }
+      });
+      this.push(w);
+    });
+  },
+
   askName(def) {
     const box = this.el('div', 'panel namebox', `<div class="p-title">What's your name?</div>
       <input id="nameIn" maxlength="10" autocomplete="off" spellcheck="false" value="${U.esc(def)}">

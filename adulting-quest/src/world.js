@@ -235,7 +235,7 @@ const World = {
         m.doors.set(m.idx(dx, dy), { locked: leader.closed });
       } else {
         const iid = Interiors.create(b, ti, dx, dy);
-        m.doors.set(m.idx(dx, dy), { to: iid });
+        m.doors.set(m.idx(dx, dy), b.kind === 'hall' && leader.need ? { to: iid, need: leader.need, msg: leader.closed } : { to: iid });
       }
     }
     // the hall door path goes up into a north exit road: make sure it reaches the main road

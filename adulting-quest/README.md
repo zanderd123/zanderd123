@@ -39,32 +39,47 @@ dialog panels, 20x24 outlined characters and full-screen 19x14 rooms.
   table to choose College, Trade School or a Job.
 - **Crew.** People from your life join as you beat leaders: CHAD (your high
   school best friend) runs into you after Car Trouble, and your significant
-  other (SOPHIE or MARCUS, the opposite gender of your character) after Taxes.
+  other (SOPHIE or MARCUS, the opposite gender of your character) after Dating.
   In battle, CREW swaps who's fighting (uses your turn); when someone runs out
   of Sanity the next person tags in, and you lose only when everyone is out.
 - **Call Mom.** The phone in your bag calls Mom: she sends money 90% of the
   time, once per 5 minutes of play.
 - **Difficulty.** Tuned with tools/leaderlab.mjs so a player arriving at each
-  leader without extra grinding wins roughly 70% (Car Trouble), 75% (Fitness)
-  and 65% (Taxes) of the time; later routes ramp up more gently.
-- **Ending.** Beat the last playable leader: "Congratulations! You have
-  survived young adult life." with your stats, then keep exploring.
+  leader without extra grinding wins roughly 60-75% of the time; later routes
+  ramp up more gently than the leaders.
+- **Hints.** In battle the best skill for the current issue is boxed in green
+  (BEST PICK in its info), and the orange ? on the issue's box explains what
+  works on it. Leaders offer "Get a hint" before the fight, the hall guide says
+  which of your crew's skills answer each issue type, and the QUIK STOP tags
+  books that fill a gap for the next leader with TIP.
+- **Music.** Every town has its own theme for its biome: desert twang, beach
+  calypso, snowy bells, forest folk, swamp blues, farm hoedown, city funk.
+- **Ending.** Beat PARENTS: "Congratulations! You have survived young adult
+  life." with your stats, then keep exploring.
 - **Saving.** MENU > SAVE GAME saves anywhere outside a battle into one of
   three slots (chapels offer the same). The game also autosaves into its own
   AUTO slot when you enter buildings, so it never overwrites your slots.
   CONTINUE on the title screen lists every save. Saves stay in this browser on
-  this device.
+  this device; to move to another device, use SAVE GAME > GET SAVE CODE and
+  paste the code into ENTER SAVE CODE on the other device's title screen.
 - **Money.** $1 and $5 bills appear in the tall grass and respawn. Spend it on
   items, skill books, outfits, scratch-offs, hospital copays, chapel donations
   and street musicians.
 - **Karma.** Low Karma raises store prices; high Karma gets you discounts and
   chapel blessings.
-- **Leaders 1–3 are playable:** CAR TROUBLE (Dusty Gulch), FITNESS (Sunnyside
-  Beach), TAXES (Frostpeak). Beating each one opens the next road, ages you
-  1.5 years and teaches a skill. DATING, STUDENT LOANS, MASTERS DEGREE, CAREER
-  and PARENTS have halls with "coming soon" signs.
-- **Saving.** Save at any chapel or from the menu. The game also autosaves
-  whenever you enter a building. Saves live in the browser's local storage.
+- **All 8 leaders**, each opening the next road, aging you almost two years,
+  teaching a skill and giving a reward:
+
+  | Leader | Town | Reward |
+  |---|---|---|
+  | CAR TROUBLE (Rusty) | Dusty Gulch | Car keys: drive to any visited town |
+  | FITNESS (Coach Max) | Sunnyside Beach | Gym card: +10% crew Sanity, run faster |
+  | TAXES (The Auditor) | Frostpeak | $300 refund, $800 off your debt |
+  | DATING (Valentina) | Pinewood | Your significant other joins |
+  | STUDENT LOANS (Gator Greenback) | Boggy Bayou | Debt wiped (or $500 if you had none) |
+  | MASTERS DEGREE (Dean Gourdsworth) | Harvest Hollow | +20% XP |
+  | CAREER (Director Deadline) | Metro Heights | A salary: money as you walk |
+  | PARENTS (Mom & Dad) | Maple Grove | Their approval (needs 7 milestones) |
 
 ## Changing things
 

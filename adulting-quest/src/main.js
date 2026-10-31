@@ -136,12 +136,16 @@ const Main = {
     const box = UI.el('div', 'titlecard', `<div class="logo"><span>ADULTING</span><span>QUEST</span></div>
       <div class="tag">Defeat 8 Life Leaders. Win at the game of life.</div>`);
     UI.root.appendChild(box);
-    const opts = saved ? ['CONTINUE', 'NEW GAME'] : ['NEW GAME'];
+    const opts = saved ? ['CONTINUE', 'NEW GAME', 'ENTER SAVE CODE'] : ['NEW GAME', 'ENTER SAVE CODE'];
     const k = await UI.choose(opts, { cls: 'titlemenu', cancel: false });
     box.remove();
     Audio2.unlock();
     if (opts[k] === 'CONTINUE') {
       const p = await Saves.loadMenu();
+      return p ? this.cont(p) : this.title();
+    }
+    if (opts[k] === 'ENTER SAVE CODE') {
+      const p = await Saves.importCode();
       return p ? this.cont(p) : this.title();
     }
     if (saved && !(await this.confirmOverwrite())) return this.title();

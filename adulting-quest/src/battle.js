@@ -138,6 +138,7 @@ const Battle = {
     const ids = Crew.skills(p);
     const box = UI.el('div', 'skillmenu');
     let i = Math.min(this.lastSkill || 0, ids.length - 1);
+    const rec = Hints.best(p, s.foe);
     const render = () => {
       box.innerHTML = `<div class="sk-grid">${[0, 1, 2, 3].map((k) => {
         const id = ids[k];
@@ -146,8 +147,8 @@ const Battle = {
         const poor = sk.cost > p.energy;
         const mm = sk.power ? EFF[sk.type][s.foe.type] : 1;
         const tag = mm > 1 ? '<em class="tg se">2×</em>' : mm < 1 ? '<em class="tg nve">½</em>' : '';
-        return `<div class="sk${k === i ? ' sel' : ''}${poor ? ' poor' : ''}" data-k="${k}"><i class="dot" style="background:${t.color}"></i>${sk.name}${tag}</div>`;
-      }).join('')}</div>${this.skillInfo(ids[i])}`;
+        return `<div class="sk${k === i ? ' sel' : ''}${poor ? ' poor' : ''}${id === rec.id ? ' rec' : ''}" data-k="${k}"><i class="dot" style="background:${t.color}"></i>${sk.name}${tag}</div>`;
+      }).join('')}</div>${this.skillInfo(ids[i], ids[i] === rec.id ? rec.why : '')}`;
     };
     render();
     UI.root.appendChild(box);
@@ -185,12 +186,12 @@ const Battle = {
     });
   },
 
-  skillInfo(id) {
+  skillInfo(id, recWhy) {
     const sk = SKILLS[id], t = SKILL_TYPES[sk.type], f = this.s.foe;
     const m = sk.power ? EFF[sk.type][f.type] : 1;
     const eff = !sk.power ? 'Support' : m > 1 ? '<b class="se">2× damage!</b>' : m < 1 ? '<b class="nve">½ damage</b>' : 'Normal damage';
     return `<div class="sk-info"><div><b style="color:${t.color}">${t.label}</b></div>
-      <div>EN <b>${sk.cost}</b> / ${this.s.cur.energy}</div><div>${sk.power ? 'PWR ' + sk.power : ''}</div><div>${eff}</div></div>`;
+      <div>EN <b>${sk.cost}</b> / ${this.s.cur.energy}${sk.power ? ' · PWR ' + sk.power : ''}</div><div>${eff}</div>${recWhy ? `<div class="recwhy">BEST PICK: ${recWhy}</div>` : ''}</div>`;
   },
 
   // generic 2x2 menu used for the action grid
@@ -575,11 +576,15 @@ const Battle = {
   // ------------------------------------------------------------ HUD
   buildHUD() {
     const foe = UI.el('div', 'bhud foe hidden', `<div class="bh-row"><span class="nm"></span><span class="lv"></span></div>
-      <div class="bh-row"><span class="tchip"></span><span class="anx"></span></div><div class="weak"></div><div class="bar"><span>SEVERITY</span><i><b></b></i></div>`);
+      <div class="bh-row"><span class="tchip"></span><span class="anx"></span><span class="hintbtn" title="Hint: what works on this issue?">?</span></div><div class="weak"></div><div class="bar"><span>SEVERITY</span><i><b></b></i></div>`);
     const me = UI.el('div', 'bhud me hidden', `<div class="bh-row"><span class="nm"></span><span class="lv"></span></div>
       <div class="bar"><span>SANITY</span><i><b></b></i></div><div class="num san"></div>
       <div class="bar en"><span>ENERGY</span><i><b></b></i></div><div class="num en"></div>
       <div class="xp"><i></i></div><div class="st"></div><div class="pips"></div>`);
+    foe.querySelector('.hintbtn').addEventListener('pointerdown', (e) => {
+      e.preventDefault(); e.stopPropagation();
+      if (this.s && this.s.foe) { Audio2.sfx('select'); Hints.pop(Hints.battle(this.s.cur, this.s.foe)); }
+    });
     UI.root.appendChild(foe); UI.root.appendChild(me);
     this.hud = { foe, me };
     this._barKey = null;

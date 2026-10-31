@@ -28,6 +28,28 @@ const TRACKS = {
   leader: { bpm: 176,
     mel: 'D5:1 D5:1 F5:1 D5:1 A5:1 G5:1 F5:1 E5:1 F5:1 F5:1 A5:1 F5:1 C6:2 A5:2 A#5:1 A5:1 G5:1 F5:1 G5:1 F5:1 E5:1 C#5:1 D5:2 A4:2 D5:2 -:2',
     bass: 'D2:1 D3:1 D2:1 D3:1 D2:1 D3:1 D2:1 D3:1 F2:1 F3:1 F2:1 F3:1 F2:1 F3:1 F2:1 F3:1 A#1:1 A#2:1 A#1:1 A#2:1 A2:1 A3:1 A2:1 A3:1 D2:1 D3:1 D2:1 D3:1 D2:1 D3:1 D2:1 D3:1' },
+  // one theme per town biome (lead/bass pick the instrument, drums: k kick, s snare, h hat)
+  t_desert: { bpm: 104, lead: 'triangle', bassType: 'square', bassVol: 0.03, drums: 'k..hk.h.',
+    mel: 'A4:2 E5:2 D5:1 C5:1 B4:2 A4:2 G4:1 A4:1 E4:4 -:2 A4:2 C5:2 D5:1 E5:1 F5:2 E5:2 D5:1 C5:1 B4:4 -:2 A4:2 E5:2 D5:1 C5:1 B4:2 A4:1 G4:1 F4:2 E4:2 A4:6 -:2 E4:1 G#4:1 B4:1 D5:1 C5:2 B4:2 A4:4 -:2',
+    bass: 'A2:4 E2:4 A2:4 E2:4 F2:4 C3:4 E2:4 E2:4 A2:4 G2:4 F2:4 E2:4 A2:8 E2:4 E2:4 A2:8' },
+  t_beach: { bpm: 126, lead: 'sine', leadVol: 0.08, drums: 'k.hsk.hs',
+    mel: 'E5:1 G5:1 -:1 E5:1 C5:1 D5:2 E5:1 -:1 G4:1 A4:1 C5:2 A4:1 G4:2 F5:1 A5:1 -:1 F5:1 D5:1 E5:2 F5:1 -:1 E5:1 D5:1 C5:2 D5:1 C5:2',
+    bass: 'C3:3 C3:1 G2:2 C3:2 F2:3 F2:1 C3:2 G2:2 F2:3 F2:1 G2:2 B2:2 C3:3 G2:1 C3:4' },
+  t_snow: { bpm: 84, lead: 'sine', leadVol: 0.07, echo: true,
+    mel: 'A5:2 F#5:1 E5:1 D5:2 E5:2 F#5:2 A5:2 B5:4 G#5:2 A5:2 F#5:2 E5:2 D5:2 C#5:2 D5:6 -:2 F#5:2 G#5:2 A5:2 B5:2 C#6:2 B5:2 A5:4 G5:2 F#5:2 E5:2 C#5:2 D5:6 -:2',
+    bass: 'D3:4 A2:4 G2:4 D3:4 G2:4 A2:4 D3:8 D3:4 E3:4 A2:4 F#2:4 G2:4 A2:4 D3:8 D3:4' },
+  t_forest: { bpm: 108, lead: 'triangle', leadVol: 0.1, drums: 'k..h.h',
+    mel: 'D5:1 B4:1 D5:1 G5:2 F#5:1 E5:1 D5:1 B4:2 A4:1 G4:1 A4:1 B4:1 D5:2 -:2 E5:1 D5:1 B4:1 D5:2 G4:1 A4:1 B4:1 A4:2 G4:1 F#4:1 G4:4 -:2',
+    bass: 'G2:3 D3:3 G2:2 C3:3 G2:3 D3:2 E2:3 B2:3 C3:2 D3:3 D2:3 G2:2 G2:4' },
+  t_swamp: { bpm: 92, lead: 'sawtooth', leadVol: 0.03, drums: 'k..sk.h.s.',
+    mel: 'E4:2 G4:1 A4:1 A#4:1 B4:3 D5:2 B4:2 A4:1 G4:1 E4:4 -:2 A4:2 C5:1 D5:1 D#5:1 E5:3 D5:2 C5:2 A4:1 G4:1 E4:4 -:2',
+    bass: 'E2:2 G#2:2 B2:2 C#3:2 E2:2 G#2:2 B2:2 C#3:2 A2:2 C#3:2 E3:2 F#3:2 E2:2 G#2:2 B2:2 G#2:2 E2:2 G#2:2 B2:2 E2:2' },
+  t_farm: { bpm: 144, drums: 'k.s.k.s.',
+    mel: 'G4:1 B4:1 D5:1 B4:1 G4:1 B4:1 D5:2 E5:1 D5:1 B4:1 G4:1 A4:2 -:2 C5:1 E5:1 G5:1 E5:1 D5:1 B4:1 G4:2 A4:1 B4:1 A4:1 F#4:1 G4:2 -:2',
+    bass: 'G2:2 D3:2 G2:2 D3:2 C3:2 G2:2 D3:2 D2:2 C3:2 G2:2 G2:2 D3:2 D2:2 D3:2 G2:4' },
+  t_city: { bpm: 120, bassType: 'sawtooth', bassVol: 0.035, drums: 'k.hsk.hsk.hskhhs',
+    mel: 'C5:1 D#5:1 F5:1 -:1 G#5:1 G5:1 F5:2 D#5:1 C5:1 -:2 A#4:1 C5:2 -:1 C5:1 D#5:1 F5:1 -:1 A#5:1 G#5:1 G5:1 F5:1 D#5:1 F5:3 -:4',
+    bass: 'F2:1 F3:1 -:1 F2:1 D#3:1 F3:1 F2:2 C#2:1 C#3:1 -:1 C#2:1 C3:1 C#3:1 D#2:2 F2:1 F3:1 -:1 F2:1 G#2:1 A#2:1 C3:2 C2:1 C3:1 -:1 C2:1 D#2:1 E2:1 F2:2' },
   victory: { bpm: 150, once: true,
     mel: 'C5:1 C5:1 C5:1 C5:3 G#4:3 A#4:3 C5:2 A#4:1 C5:6',
     bass: 'C3:3 C3:3 G#2:3 A#2:3 C3:6' },
@@ -77,6 +99,12 @@ const Audio2 = {
     s.start(this.ctx.currentTime + when);
   },
 
+  drum(c, when) {
+    if (c === 'k') this.tone(150, 0.12, 'sine', 0.16, when, -110);
+    else if (c === 's') this.noise(0.09, 0.07, when);
+    else if (c === 'h') this.noise(0.025, 0.035, when);
+  },
+
   sfx(name) {
     if (!this.ctx) return;
     switch (name) {
@@ -111,10 +139,12 @@ const Audio2 = {
     if (!tr) return;
     const parse = (s) => s.split(/\s+/).filter(Boolean).map((tok) => { const [n, b] = tok.split(':'); return [NOTE(n), +b]; });
     const beat = 60 / tr.bpm / 2;
+    const t0 = this.ctx.currentTime + 0.1;
     const voices = [
-      { notes: parse(tr.mel), i: 0, t: this.ctx.currentTime + 0.1, type: 'square', vol: 0.045 },
-      { notes: parse(tr.bass), i: 0, t: this.ctx.currentTime + 0.1, type: 'triangle', vol: 0.09 },
+      { notes: parse(tr.mel), i: 0, t: t0, type: tr.lead || 'square', vol: tr.leadVol || 0.045, echo: tr.echo },
+      { notes: parse(tr.bass), i: 0, t: t0, type: tr.bassType || 'triangle', vol: tr.bassVol || 0.09 },
     ];
+    if (tr.drums) voices.push({ notes: tr.drums.split('').map((c) => [c, 1]), i: 0, t: t0, drum: true });
     this.track = { name, voices };
     const tick = () => {
       if (!this.ctx || this.track === null || this.track.name !== name) return;
@@ -126,8 +156,12 @@ const Audio2 = {
             v.i = 0;
           }
           const [f, b] = v.notes[v.i++];
-          const dur = b * beat;
-          if (f) this.tone(f, dur * 0.9, v.type, v.vol, v.t - this.ctx.currentTime);
+          const dur = b * beat, at = v.t - this.ctx.currentTime;
+          if (v.drum) this.drum(f, at);
+          else if (f) {
+            this.tone(f, dur * 0.9, v.type, v.vol, at);
+            if (v.echo) this.tone(f * 2, dur * 0.6, 'sine', v.vol * 0.35, at + beat * 0.5);
+          }
           v.t += dur;
         }
       }

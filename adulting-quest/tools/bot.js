@@ -4,7 +4,7 @@
 /* global Game, World, Battle, UI, Input, Crew, T, SOLID, ITEMS, SKILLS, EFF, LEADERS, TOWNS, ALLIES, Stats, VIEW_W */
 (() => {
   const B = window.Bot = {
-    path: 'college', t0: performance.now(), lv: { car: 9, fitness: 14, taxes: 19, dating: 23 }, log: [], done: false, error: null,
+    path: 'college', t0: performance.now(), lv: { car: 9, fitness: 14, taxes: 19, dating: 23, loans: 27, masters: 31, career: 35, parents: 39 }, log: [], done: false, error: null,
     counts: { wild: 0, wildWon: 0, wildLost: 0, steps: 0, dialogs: 0, leaderTries: {} },
     intent: null,       // what the brain wants from the next menu
   };
@@ -97,6 +97,7 @@
     }
     if ($('.choice')) {
       const opts = [...$('.choice').querySelectorAll('.opt')].map((e) => e.textContent);
+      if (opts[0] === 'Battle!') { await listTo($('.choice'), (e) => e.textContent === 'Battle!'); return true; }
       if (opts[0] === 'Yes') { await listTo($('.choice'), (e) => e.textContent === (B.sayNo ? 'No' : 'Yes')); return true; }
       if (opts.some((o) => o.startsWith('Swap '))) {       // new skill: drop the weakest non-free skill
         const eq = Game.p.equipped;
@@ -324,11 +325,12 @@
       UI.stack.length = 0; document.querySelectorAll('.titlecard,.menu').forEach((e) => e.remove());
       Game.p = Game.newPlayer('BOT');
       const P = PATHS[path];
-      const order = ['car', 'fitness', 'taxes', 'dating'], idx = order.indexOf(key);
+      const order = LEADER_ORDER, idx = order.indexOf(key);
       Object.assign(Game.p, { path, level: lvl, xp: Stats.xpFor(lvl), money: 300, badges: order.slice(0, idx), known: [...P.start], equipped: [...P.start] });
       for (const [lv, id] of Object.entries(P.learn)) if (+lv <= lvl) Game.learn(id);
       Game.p.equipped = Game.p.known.slice(-4);
       if (idx >= 1) Crew.add('chad');
+      if (idx >= 4) Crew.add(Game.p.hero === 'girl' ? 'so_m' : 'so_f');
       Game.give('comfort_food', 4); Game.give('coffee', 3); Game.give('pep_talk', 1);
       Game.fullHeal(); Game.mode = 'world'; World.refreshGates();
       Game.enter('hall-' + LEADERS[key].town + '-0', 9, 4, 'up');
@@ -388,6 +390,10 @@
         { key: 'fitness', town: 2, route: 1, lvl: B.lv.fitness, before: async () => { await walkTo(2); } },
         { key: 'taxes', town: 3, route: 2, lvl: B.lv.taxes, before: async () => { await walkTo(3); } },
         { key: 'dating', town: 4, route: 3, lvl: B.lv.dating, before: async () => { await walkTo(4); } },
+        { key: 'loans', town: 5, route: 4, lvl: B.lv.loans, before: async () => { await walkTo(5); } },
+        { key: 'masters', town: 6, route: 5, lvl: B.lv.masters, before: async () => { await walkTo(6); } },
+        { key: 'career', town: 7, route: 6, lvl: B.lv.career, before: async () => { await walkTo(7); } },
+        { key: 'parents', town: 0, route: 7, lvl: B.lv.parents, before: async () => { await walkTo(0); } },
       ];
       for (const st of plan) {
         if (st.key === 'car') await grind(0, 0, 7);
@@ -399,7 +405,7 @@
           tries++;
         }
         if (!Game.p.badges.includes(st.key)) { note(`gave up on ${st.key}`); break; }
-        note(`milestones: ${Game.p.badges.length}/4 playable`);
+        note(`milestones: ${Game.p.badges.length}/8`);
         await leave();          // walking out of the hall: friends, and maybe the ending
         await waitIdle();
       }

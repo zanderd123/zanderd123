@@ -293,6 +293,22 @@ body {
 .heropick .ps-names { grid-template-columns: repeat(2, 1fr); top: calc(150 * var(--u)); font-size: calc(8 * var(--u)); }
 .heropick .ps-desc { height: calc(44 * var(--u)); text-align: center; font-size: calc(7 * var(--u)); line-height: calc(12 * var(--u)); }
 
+/* hints */
+.sk.rec { color: #1e6a36; background: #dcf2dc; box-shadow: inset 0 0 0 calc(0.6 * var(--u)) #2fae63; }
+.sk .best, .tipchip { font-style: normal; background: #2fae63; color: #fff; text-shadow: none; font-size: calc(4 * var(--u)); line-height: 1; padding: calc(1.2 * var(--u)) calc(1.6 * var(--u)); }
+.tipchip { margin-right: calc(3 * var(--u)); }
+.sk-info .recwhy { color: #1e7a3e; font-size: calc(4.5 * var(--u)); line-height: calc(6.5 * var(--u)); margin-top: calc(1 * var(--u)); white-space: normal; }
+.hintbtn { margin-left: auto; width: calc(10 * var(--u)); height: calc(10 * var(--u)); line-height: calc(10 * var(--u)); text-align: center; background: #e8a020; color: #fff; text-shadow: none; cursor: pointer; box-shadow: 0 0 0 calc(var(--u)) #1e1626; font-size: calc(7 * var(--u)); }
+.hintpop { position: absolute; left: calc(20 * var(--u)); right: calc(20 * var(--u)); top: calc(40 * var(--u)); z-index: 30; background: var(--p-fill); border: calc(2 * var(--u)) solid var(--p-line); box-shadow: 0 0 0 calc(var(--u)) #1e1626; padding: calc(6 * var(--u)) calc(8 * var(--u)); font-size: calc(6 * var(--u)); line-height: calc(10 * var(--u)); cursor: pointer; }
+.hintpop p { margin: 0 0 calc(4 * var(--u)); }
+.hintpop i { display: block; text-align: right; font-style: normal; font-size: calc(4.5 * var(--u)); color: #8a80a0; }
+.p-desc b.rec { color: #1e7a3e; font-weight: 400; }
+.p-desc b.kind { color: #4a6ab8; font-weight: 400; }
+.codebox { inset: calc(24 * var(--u)) calc(20 * var(--u)); gap: calc(5 * var(--u)); display: flex; flex-direction: column; }
+.codebox textarea { flex: 1; min-height: calc(50 * var(--u)); font: inherit; font-size: calc(5 * var(--u)); line-height: calc(7 * var(--u)); word-break: break-all; resize: none; border: var(--u) solid var(--p-line); background: #fff; color: var(--p-ink); padding: calc(3 * var(--u)); }
+.codebox .cb-hint { font-size: calc(5 * var(--u)); line-height: calc(8 * var(--u)); color: #6a6080; }
+.codebox .nb-btns { display: flex; gap: calc(6 * var(--u)); justify-content: center; }
+
 </style>
 <div id="screen">
   <canvas id="cv" width="304" height="224" aria-label="Adulting Quest game screen"></canvas>
@@ -428,6 +444,12 @@ const SKILLS = {
   hype_up:      { name: 'Hype Up', type: 'SOCIAL', power: 0, cost: 3, acc: 100, fx: { selfAtk: 2 }, desc: '"You got this!" Sharply raises Confidence.' },
   guilt_trip:   { name: 'Guilt Trip', type: 'SHADY', power: 65, cost: 3, acc: 95, fx: { anxious: 0.3 }, desc: '"After everything I\'ve done for you?" Moms don\'t lose Karma.' },
   packed_lunch: { name: 'Packed Lunch', type: 'CHILL', power: 0, cost: 4, acc: 100, fx: { heal: 0.45 }, desc: 'With a note in it. Restores a lot of Sanity.' },
+  budget:       { name: 'Zero-Based Budget', type: 'BRAINS', power: 90, cost: 7, acc: 100, fx: { foeAtk: -1 }, desc: 'Every dollar has a job. Hits hard and lowers Pressure.' },
+  cite_sources: { name: 'Cite Your Sources', type: 'BRAINS', power: 95, cost: 8, acc: 95, fx: { foeDef: -1 }, desc: '(Smith et al., 2019). Lowers the issue\'s Resistance.' },
+  delegate:     { name: 'Delegate', type: 'SOCIAL', power: 95, cost: 7, acc: 100, desc: '"Can you take a first pass at this?" Someone else\'s problem now.' },
+  side_hustle:  { name: 'Side Hustle', type: 'GRIT', power: 95, cost: 8, acc: 95, fx: { cash: 1.3 }, desc: 'Drives for three apps at once. Big damage, a little extra cash.' },
+  vacation:     { name: 'Use Your PTO', type: 'CHILL', power: 95, cost: 8, acc: 100, desc: 'Out of office. Do not contact. Big CHILL damage.' },
+  family_recipe:{ name: 'Family Recipe', type: 'CHILL', power: 0, cost: 5, acc: 100, fx: { heal: 0.6, cure: true }, desc: 'Grandma\'s soup. Restores a ton of Sanity and cures status.' },
   ghosting:     { name: 'Ghosting', type: 'SHADY', power: 0, cost: 2, acc: 100, fx: { flee: true, karma: -3 }, desc: 'Just stop responding. Escapes any wild issue. Costs Karma.' },
 };
 
@@ -515,6 +537,57 @@ const FOE_MOVES = {
   judgy_look:   { name: 'Judgy Look', power: 0, fx: { atkDown: 1 } },
   they_texted:  { name: '"hey stranger :)"', power: 0, fx: { anxious: 0.7 } },
   closure:      { name: 'No Closure', power: 92 },
+  // late wild issues
+  spores:       { name: 'Spores', power: 30, fx: { burnout: 0.4 } },
+  bass_drop:    { name: 'Bass Drop at 2 AM', power: 78 },
+  gridlock:     { name: 'Gridlock', power: 30, fx: { drain: 5 } },
+  honk:         { name: 'HONK', power: 80 },
+  flagged:      { name: 'Flagged: Urgent', power: 78 },
+  hard_inquiry: { name: 'Hard Inquiry', power: 35, fx: { defDown: 1 } },
+  // student loans
+  barely_dent:  { name: 'Barely a Dent', power: 0, fx: { atkDown: 1 } },
+  autopay_fail: { name: 'Autopay Failed', power: 80 },
+  interest_still:{ name: 'Interest Still Accrues', power: 40, fx: { drain: 5 } },
+  fax_only:     { name: 'Fax It To Us', power: 82 },
+  hold_music:   { name: 'Hold Music (4 hrs)', power: 0, fx: { anxious: 0.7 } },
+  transferred:  { name: 'Transferred Again', power: 84 },
+  compounding:  { name: 'Compounding', power: 0, fx: { selfAtk: 1 } },
+  capitalized:  { name: 'Capitalized', power: 86 },
+  still_owe:    { name: 'Somehow, Still $40K', power: 94 },
+  thirty_years: { name: 'Thirty-Year Term', power: 40, fx: { burnout: 0.5 } },
+  // masters degree
+  per_credit:   { name: 'Per Credit Hour', power: 86 },
+  lab_fee:      { name: 'Mystery Lab Fee', power: 40, fx: { drain: 5 } },
+  major_revisions:{ name: 'Major Revisions', power: 88 },
+  cite_me:      { name: '"Cite My Paper"', power: 0, fx: { atkDown: 1 } },
+  cram:         { name: 'Cram Session', power: 88 },
+  pop_quiz:     { name: 'Pop Quiz', power: 0, fx: { anxious: 0.7 } },
+  beakers:      { name: 'Wash 200 Beakers', power: 88 },
+  fume_hood:    { name: 'Fume Hood', power: 35, fx: { burnout: 0.5 } },
+  word_count:   { name: 'Word Count: 40,000', power: 96 },
+  defense:      { name: 'The Defense', power: 45, fx: { defDown: 1 } },
+  // career
+  circle_back:  { name: 'Let\'s Circle Back', power: 0, fx: { anxious: 0.7 } },
+  could_be_email:{ name: 'Could Have Been an Email', power: 90 },
+  per_my_last:  { name: 'Per My Last Email', power: 90 },
+  reply_needed: { name: 'Reply Needed by EOD', power: 40, fx: { drain: 6 } },
+  stretch_goal: { name: 'Stretch Goal', power: 92 },
+  missed_q:     { name: 'Missed the Quarter', power: 0, fx: { atkDown: 1 } },
+  sunday_scaries:{ name: 'Sunday Scaries', power: 40, fx: { burnout: 0.5 } },
+  no_pto:       { name: 'PTO Denied', power: 92 },
+  quick_chat:   { name: '"Got a Minute?"', power: 0, fx: { anxious: 0.8 } },
+  restructure:  { name: 'Restructuring', power: 100 },
+  // parents
+  biological_clock:{ name: 'Tick Tock', power: 92 },
+  cousin_did:   { name: 'Your Cousin Did It', power: 0, fx: { anxious: 0.7 } },
+  back_in_my_day:{ name: 'Back in My Day', power: 94 },
+  firm_handshake:{ name: 'Just Walk In With a Resume', power: 0, fx: { atkDown: 1 } },
+  two_dinners:  { name: 'Two Thanksgivings', power: 94 },
+  airfare:      { name: 'Holiday Airfare', power: 45, fx: { drain: 6 } },
+  printer_again:{ name: '"The Printer Again"', power: 94 },
+  what_password:{ name: '"What\'s My Password?"', power: 40, fx: { burnout: 0.5 } },
+  we_worry:     { name: '"We Just Worry"', power: 0, fx: { anxious: 0.8 } },
+  are_you_happy:{ name: '"But Are You HAPPY?"', power: 104 },
 };
 
 // ---------------------------------------------------------------- issues
@@ -562,6 +635,36 @@ const ISSUES = {
   situationship:  { name: 'Situationship', type: 'PEOPLE', base: [76, 74, 62, 60], xp: 88, cash: 0, shape: 'bubble', col: '#b080e0', moves: ['what_are_we', 'mixed_signals'], dex: 'Not dating. Not not dating. Eight months now.' },
   meet_parents:   { name: 'Meeting the Parents', type: 'STRESS', base: [78, 76, 64, 50], xp: 88, cash: 0, shape: 'house', col: '#d89a6a', moves: ['awkward_dinner', 'judgy_look'], dex: '"So. What do you do?" The question every parent has loaded.' },
   the_ex:         { name: 'THE EX', type: 'PEOPLE', base: [90, 84, 70, 64], xp: 100, cash: 0, shape: 'ghost', col: '#7a6aa0', moves: ['they_texted', 'closure'], dex: '"hey stranger :)" at 2 AM. Every. Single. Time.' },
+  mold:           { name: 'Mystery Mold', type: 'CHORE', base: [78, 74, 66, 40], xp: 90, cash: 6, shape: 'blob', col: '#7a9a3a', moves: ['spores', 'smother'], dex: 'Behind the fridge. It has a name now. It\'s Gary.' },
+  neighbor:       { name: 'Loud Neighbor', type: 'PEOPLE', base: [76, 78, 60, 62], xp: 90, cash: 6, shape: 'bubble', col: '#e0a040', moves: ['bass_drop', 'three_am'], dex: 'Learning the drums. Only after midnight. Only one song.' },
+  rent_due:       { name: 'Rent Due', type: 'MONEY', base: [80, 78, 62, 50], xp: 92, cash: 7, shape: 'house', col: '#a06a4a', moves: ['rent_hike', 'late_fee'], dex: 'The first of the month comes around faster every time.' },
+  credit_score:   { name: 'Credit Score', type: 'MONEY', base: [80, 80, 62, 55], xp: 92, cash: 7, shape: 'card', col: '#3aa86a', moves: ['hard_inquiry', 'fee_35'], dex: 'Dropped 40 points because you checked it. Seriously.' },
+  commute:        { name: 'Rush Hour', type: 'STRESS', base: [82, 80, 62, 58], xp: 94, cash: 6, shape: 'tire', col: '#5a5a5a', moves: ['gridlock', 'honk'], dex: 'Twelve miles. Ninety minutes. Every day.' },
+  email_backlog:  { name: 'Unread Emails', type: 'PAPERWORK', base: [80, 78, 66, 50], xp: 94, cash: 7, shape: 'envelope', col: '#8ab8e8', moves: ['flagged', 'unsub_me'], dex: 'The little red number just says 999+. It\'s lying. It\'s worse.' },
+  // student loans
+  min_payment:    { name: 'Minimum Payment', type: 'MONEY', base: [80, 76, 66, 52], xp: 92, cash: 0, shape: 'card', col: '#5a8a4a', moves: ['barely_dent', 'autopay_fail'], dex: 'Paying it every month. The balance went up anyway.' },
+  forbearance:    { name: 'Forbearance Form', type: 'PAPERWORK', base: [80, 74, 70, 45], xp: 92, cash: 0, shape: 'paper', col: '#a8b878', moves: ['interest_still', 'fax_only'], dex: 'Twenty-two pages. Must be faxed. What is a fax?' },
+  loan_servicer:  { name: 'Loan Servicer', type: 'PEOPLE', base: [82, 78, 64, 60], xp: 94, cash: 0, shape: 'phone', col: '#3a6a5a', moves: ['hold_music', 'transferred'], dex: '"Your call is important to us." It is not.' },
+  interest:       { name: 'Compound Interest', type: 'MONEY', base: [84, 80, 66, 58], xp: 95, cash: 0, shape: 'gear', col: '#2f9e57', moves: ['compounding', 'capitalized'], dex: 'The eighth wonder of the world. Unless you\'re the one paying it.' },
+  principal:      { name: 'THE PRINCIPAL', type: 'MONEY', base: [98, 86, 74, 56], xp: 110, cash: 0, shape: 'envelope', col: '#1e5a3a', magnifier: true, moves: ['still_owe', 'thirty_years'], dex: 'You borrowed $20K in 2015. It is now $41K. Math is fake.' },
+  // masters degree
+  tuition:        { name: 'Tuition Hike', type: 'MONEY', base: [82, 80, 66, 54], xp: 96, cash: 0, shape: 'envelope', col: '#6a4aa8', moves: ['per_credit', 'lab_fee'], dex: 'The university built a lazy river. You are paying for the lazy river.' },
+  reviewer_two:   { name: 'Reviewer #2', type: 'PEOPLE', base: [84, 82, 66, 60], xp: 98, cash: 0, shape: 'clipboard', col: '#8a2a4a', moves: ['major_revisions', 'cite_me'], dex: 'Has not read your paper. Has strong feelings about it.' },
+  finals_week:    { name: 'Finals Week', type: 'STRESS', base: [84, 82, 64, 58], xp: 98, cash: 0, shape: 'calendar', col: '#c0413a', moves: ['cram', 'pop_quiz'], dex: 'Four exams. Three days. One functioning brain cell.' },
+  lab_cleanup:    { name: 'Lab Cleanup', type: 'CHORE', base: [86, 80, 70, 40], xp: 98, cash: 0, shape: 'stack', col: '#c8e0e8', moves: ['beakers', 'fume_hood'], dex: 'Grad students: the cheapest dishwashers known to science.' },
+  thesis:         { name: 'THE THESIS', type: 'PAPERWORK', base: [102, 88, 76, 54], xp: 115, cash: 0, shape: 'paper', col: '#4a3a7a', magnifier: true, moves: ['word_count', 'defense'], dex: 'Chapter 3 has been "almost done" for fourteen months.' },
+  // career
+  standup:        { name: 'Daily Stand-Up', type: 'PEOPLE', base: [86, 82, 68, 62], xp: 100, cash: 0, shape: 'calendar', col: '#4a5a7a', moves: ['circle_back', 'could_be_email'], dex: 'Scheduled for 15 minutes. Has never once lasted 15 minutes.' },
+  inbox:          { name: 'Inbox: 2,847', type: 'PAPERWORK', base: [88, 82, 70, 56], xp: 100, cash: 0, shape: 'envelope', col: '#4a7ab0', moves: ['per_my_last', 'reply_needed'], dex: 'You achieved Inbox Zero once. For four seconds. In 2022.' },
+  quarterly:      { name: 'Quarterly Targets', type: 'MONEY', base: [88, 84, 68, 58], xp: 102, cash: 0, shape: 'clipboard', col: '#2f8e57', moves: ['stretch_goal', 'missed_q'], dex: 'Up and to the right. Always up and to the right.' },
+  burnout_foe:    { name: 'Burnout', type: 'STRESS', base: [90, 86, 66, 60], xp: 102, cash: 0, shape: 'cloud', col: '#5a4a6a', moves: ['sunday_scaries', 'no_pto'], dex: 'You said "I\'ll rest after this project." That was five projects ago.' },
+  the_boss:       { name: 'YOUR BOSS\'S BOSS', type: 'PEOPLE', base: [106, 92, 78, 62], xp: 120, cash: 0, shape: 'blob', col: '#3a3a4a', shades: true, moves: ['quick_chat', 'restructure'], dex: 'Knows your name. That\'s the scary part.' },
+  // parents
+  grandkids:      { name: '"So... Grandkids?"', type: 'PEOPLE', base: [90, 86, 70, 60], xp: 104, cash: 0, shape: 'bubble', col: '#f0a0b8', moves: ['biological_clock', 'cousin_did'], dex: 'Asked at every holiday, birthday and funeral since you turned 25.' },
+  advice:         { name: 'Unsolicited Advice', type: 'PAPERWORK', base: [90, 86, 74, 54], xp: 104, cash: 0, shape: 'clipboard', col: '#8a6a4a', moves: ['back_in_my_day', 'firm_handshake'], dex: '"Have you tried just asking for a raise?"' },
+  holidays:       { name: 'Holiday Travel', type: 'MONEY', base: [92, 88, 70, 58], xp: 106, cash: 0, shape: 'card', col: '#c05a3a', moves: ['two_dinners', 'airfare'], dex: 'Two families, one weekend, $900 in flights. Happy holidays!' },
+  tech_support:   { name: 'Family Tech Support', type: 'CHORE', base: [94, 86, 76, 44], xp: 106, cash: 0, shape: 'router', col: '#2d3a4a', moves: ['printer_again', 'what_password'], dex: '"The internet is broken." The computer was off.' },
+  big_talk:       { name: 'THE BIG TALK', type: 'STRESS', base: [110, 94, 80, 60], xp: 130, cash: 0, shape: 'house', col: '#c05a3a', moves: ['we_worry', 'are_you_happy'], dex: 'Starts with "Sit down, honey." Ends with a hug. Probably.' },
   audit:          { name: 'THE AUDIT', type: 'PAPERWORK', base: [90, 76, 70, 55], xp: 95, cash: 0, shape: 'clipboard', col: '#3a4a6a', magnifier: true, moves: ['line_by_line', 'scrutiny'], dex: 'Has questions about a $4 coffee from March.' },
 };
 
@@ -612,7 +715,7 @@ const PATHS = {
     base: { san: 70, conf: 62, comp: 55, hus: 55, energy: 2 },
     xpMult: 1.25, cashMult: 1.0, boost: 'BRAINS', debt: 3000, money: 25,
     start: ['wing_it', 'googling', 'small_talk'],
-    learn: { 6: 'deep_breaths', 9: 'passive_aggro', 12: 'read_manual', 15: 'spreadsheet', 19: 'networking', 23: 'therapy_talk' },
+    learn: { 6: 'deep_breaths', 9: 'passive_aggro', 12: 'read_manual', 15: 'spreadsheet', 19: 'networking', 23: 'therapy_talk', 27: 'boundaries', 31: 'side_hustle', 35: 'vacation' },
     pros: ['+25% XP from every issue', 'BRAINS skills hit 20% harder', 'Starts with GOOGLING IT'],
     cons: ['$3,000 student debt: 10% of all cash you earn goes to loans', 'Starts with only $25'],
     blurb: 'Four years, one diploma, a lot of ramen.',
@@ -622,7 +725,7 @@ const PATHS = {
     base: { san: 74, conf: 60, comp: 61, hus: 50, energy: 0 },
     xpMult: 1.0, cashMult: 1.15, boost: 'GRIT', debt: 800, money: 100,
     start: ['wing_it', 'elbow_grease', 'fix_it'],
-    learn: { 6: 'small_talk', 9: 'power_nap', 12: 'gaslight', 15: 'hustle', 19: 'boundaries', 23: 'all_nighter' },
+    learn: { 6: 'small_talk', 9: 'power_nap', 12: 'gaslight', 15: 'hustle', 19: 'boundaries', 23: 'all_nighter', 27: 'spreadsheet', 31: 'therapy_talk', 35: 'side_hustle' },
     pros: ['Tougher: more Sanity & Composure', 'GRIT skills hit 20% harder', '+15% cash, starts with FIX IT'],
     cons: ['$800 tool loan (10% of earnings)', 'Early mornings: less Energy'],
     blurb: 'Two years, real skills, and you can fix your own sink.',
@@ -632,7 +735,7 @@ const PATHS = {
     base: { san: 70, conf: 64, comp: 55, hus: 64, energy: 2 },
     xpMult: 0.9, cashMult: 1.4, boost: 'SOCIAL', debt: 0, money: 250,
     start: ['wing_it', 'small_talk', 'haggle'],
-    learn: { 6: 'elbow_grease', 9: 'gaslight', 12: 'charm', 15: 'networking', 19: 'power_nap', 23: 'hustle' },
+    learn: { 6: 'elbow_grease', 9: 'gaslight', 12: 'charm', 15: 'networking', 19: 'power_nap', 23: 'hustle', 27: 'spreadsheet', 31: 'therapy_talk', 35: 'vacation' },
     pros: ['+40% cash and faster (Hustle)', 'SOCIAL skills hit 20% harder', 'Starts with $250 and HAGGLE'],
     cons: ['No degree: 10% less XP', 'Starts at the bottom of the ladder'],
     blurb: 'Paycheck now, figure out the rest later.',
@@ -668,10 +771,10 @@ const ROUTES = [
   { a: 1, b: 2, lv: [8, 12],  enc: ['spam_call', 'laundry', 'overdraft', 'sunburn', 'printer_jam', 'group_chat'], need: 1 },
   { a: 2, b: 3, lv: [13, 17], enc: ['jury_duty', 'wedding_invite', 'ikea', 'insomnia', 'reply_all', 'overdraft'], need: 2 },
   { a: 3, b: 4, lv: [18, 21], enc: ['landlord', 'wifi', 'perf_review', 'ex_post', 'insomnia'], need: 3 },
-  { a: 4, b: 5, lv: [20, 23], enc: ['ex_post', 'dentist', 'allergies', 'group_project', 'ikea'], need: 0 },
-  { a: 5, b: 6, lv: [23, 26], enc: ['dentist', 'hoa', 'imposter', 'landlord', 'allergies'], need: 0 },
-  { a: 6, b: 7, lv: [25, 28], enc: ['perf_review', 'imposter', 'hoa', 'group_project', 'wifi'], need: 0 },
-  { a: 7, b: 0, lv: [29, 32], enc: ['imposter', 'landlord', 'dentist', 'hoa'], need: 7 },
+  { a: 4, b: 5, lv: [23, 26], enc: ['ex_post', 'dentist', 'allergies', 'group_project', 'mold', 'neighbor'], need: 4 },
+  { a: 5, b: 6, lv: [27, 30], enc: ['mold', 'rent_due', 'imposter', 'hoa', 'credit_score', 'neighbor'], need: 5 },
+  { a: 6, b: 7, lv: [30, 33], enc: ['commute', 'email_backlog', 'perf_review', 'imposter', 'credit_score'], need: 6 },
+  { a: 7, b: 0, lv: [34, 37], enc: ['commute', 'rent_due', 'email_backlog', 'landlord', 'hoa'], need: 7 },
 ];
 
 // ---------------------------------------------------------------- leaders
@@ -741,14 +844,71 @@ const LEADERS = {
     lose: 'It\'s not you, it\'s me. (It\'s you.) Come back when you\'ve worked on yourself.',
     tip: 'Dating throws PEOPLE, MONEY and STRESS issues. SOCIAL and SHADY crush PEOPLE, BRAINS handles MONEY, CHILL calms STRESS.',
   },
-  loans:   { title: 'STUDENT LOANS', town: 5, locked: true, perk: { clearDebt: true, name: 'DEBT FREEDOM', text: 'Your loans are PAID OFF. No more 10% cut from everything you earn.' }, badgeIcon: 'coin', color: '#5a8a4a',
-    closed: 'STUDENT LOANS is in forbearance. Interest is still accruing. (Coming in a future update.)' },
-  masters: { title: 'MASTERS DEGREE', town: 6, locked: true, perk: { xp: 1.2, name: 'A DIPLOMA', text: 'Framed and everything. You now earn 20% more XP from every fight.' }, badgeIcon: 'cap', color: '#6a4aa8',
-    closed: 'MASTERS DEGREE is writing a thesis. Due date: unknown. (Coming in a future update.)' },
-  career:  { title: 'CAREER', town: 7, locked: true, perk: { salary: true, name: 'A SALARY', text: 'Direct deposit! You now earn money just by walking around.' }, badgeIcon: 'case', color: '#3a4a5a',
-    closed: 'CAREER is in a meeting about meetings. (Coming in a future update.)' },
-  parents: { title: 'PARENTS', town: 0, locked: true, perk: { name: 'THEIR APPROVAL', text: '"We\'re proud of you." They finally said it.' }, badgeIcon: 'house', color: '#c05a3a',
-    closed: '"We\'ll talk when you\'ve done something with your life." (The final leader. Needs 7 milestones.)' },
+  loans: {
+    name: 'GATOR GREENBACK', title: 'STUDENT LOANS', town: 5, badge: 'Paid-in-Full Badge', badgeIcon: 'coin', color: '#5a8a4a',
+    team: [['min_payment', 27], ['forbearance', 27], ['loan_servicer', 28], ['interest', 29], ['principal', 31]], power: 1.1,
+    reward: 1300, skill: 'budget', look: 'glasses',
+    perk: { clearDebt: true, name: 'DEBT FREEDOM', text: 'Your loans are PAID OFF. No more cut from everything you earn.' },
+    pal: { h: '#2a3a1a', s: '#d8b088', c: '#3a6a3a', p: '#2a3a2a', b: '#1a1a1a', style: 'short', tie: '#c8b040' },
+    intro: [
+      'Well, well. Come on down to the bayou, friend. Mind the gators. And the interest.',
+      'Name\'s GATOR GREENBACK. I\'m STUDENT LOANS. I\'ve been with you since you were 18, and I ain\'t never leavin\'.',
+      'Let\'s talk about your... repayment options.',
+    ],
+    win: ['Paid... in FULL? Nobody pays in full. I need to sit down.', 'Here\'s your PAID-IN-FULL BADGE. Frame it. You earned it.'],
+    after: 'Don\'t you go takin\' out a car loan now. I got cousins.',
+    lose: 'No worries! I\'ll just add that to your balance.',
+    tip: 'STUDENT LOANS is mostly MONEY, with PAPERWORK and PEOPLE. BRAINS crushes MONEY and PAPERWORK. SOCIAL or SHADY for the Loan Servicer.',
+  },
+  masters: {
+    name: 'DEAN GOURDSWORTH', title: 'MASTERS DEGREE', town: 6, badge: 'Tassel Badge', badgeIcon: 'cap', color: '#6a4aa8',
+    team: [['tuition', 31], ['reviewer_two', 31], ['finals_week', 32], ['lab_cleanup', 33], ['thesis', 35]], power: 1.1,
+    reward: 1500, skill: 'cite_sources', look: 'glasses',
+    perk: { xp: 1.2, name: 'A DIPLOMA', text: 'Framed and everything. Your whole crew now earns 20% more XP from every fight.' },
+    pal: { h: '#e8e8e8', s: '#e8c0a0', c: '#6a4aa8', p: '#3a2a5a', b: '#2a1a1a', style: 'bald', tie: '#e8b030' },
+    intro: [
+      'Welcome to Hollow State University! Go Gourds! Your tuition check cleared, I hope?',
+      'I am DEAN GOURDSWORTH. I am the MASTERS DEGREE. Two more years. Twice the debt. Half the sleep.',
+      'Your thesis defense begins... NOW.',
+    ],
+    win: ['Remarkable. The committee is... satisfied. Barely.', 'You have earned the TASSEL BADGE. Move it to the left side. No, your OTHER left.'],
+    after: 'Have you considered a PhD? ...Why are you running?',
+    lose: 'Revise and resubmit. Your fee is non-refundable.',
+    tip: 'The DEAN tests everything: MONEY, PEOPLE, STRESS, CHORE and PAPERWORK. Bring a mix of skill types, and swap crew to cover what you can\'t.',
+  },
+  career: {
+    name: 'DIRECTOR DEADLINE', title: 'CAREER', town: 7, badge: 'Corner Office Badge', badgeIcon: 'case', color: '#3a4a5a',
+    team: [['standup', 35], ['inbox', 35], ['quarterly', 36], ['burnout_foe', 37], ['the_boss', 39]], power: 1.1,
+    reward: 1800, skill: 'delegate', look: 'glasses',
+    perk: { salary: true, name: 'A SALARY', text: 'Direct deposit! Benefits! A 401(k)! You now earn money just by walking around.' },
+    pal: { h: '#1a1a1a', s: '#c88858', c: '#2a2a3a', p: '#2a2a3a', b: '#1a1a1a', style: 'long', tie: '#c03a3a' },
+    intro: [
+      'You\'re late. The meeting started five minutes ago. Well, the pre-meeting.',
+      'I\'m DIRECTOR DEADLINE. I\'m CAREER. Not a job. A CAREER. There\'s a difference. Mostly the emails.',
+      'Let\'s see if you\'re leadership material. Bring your A-game. And a laptop charger.',
+    ],
+    win: ['Impressive. I\'m putting you up for promotion. More work, same pay, better title!', 'Here\'s the CORNER OFFICE BADGE. The corner office itself is "being renovated."'],
+    after: 'Take your PTO. Seriously. HR keeps asking me about it.',
+    lose: 'Let\'s set up a 1-on-1 to talk about your growth areas.',
+    tip: 'CAREER brings PEOPLE, PAPERWORK, MONEY and STRESS. SHADY hits PEOPLE and PAPERWORK hard, BRAINS handles MONEY, CHILL beats STRESS.',
+  },
+  parents: {
+    name: 'MOM & DAD', title: 'PARENTS', town: 0, need: 7, badge: 'Family Photo Badge', badgeIcon: 'house', color: '#c05a3a',
+    team: [['grandkids', 39], ['advice', 39], ['holidays', 40], ['tech_support', 41], ['big_talk', 44]], power: 1.1,
+    reward: 2000, skill: 'family_recipe', look: 'glasses',
+    perk: { name: 'THEIR APPROVAL', text: '"We\'re proud of you, kiddo." They finally said it. Out loud. In front of people.' },
+    pal: { h: '#8a7a6a', s: '#e8b890', c: '#c05a3a', p: '#5a4a3a', b: '#3a2a1a', style: 'short' },
+    intro: [
+      'Oh, honey, you made it! We rented the hall. It was cheaper than family therapy.',
+      'Your mother\'s on speaker. Say hi to your mother. ...She says you look thin.',
+      'We\'re PARENTS. We just want what\'s best for you. Now sit down. We need to TALK.',
+    ],
+    win: ['...You know what? You turned out alright, kiddo.', 'Here. The FAMILY PHOTO BADGE. Your mother cried. I didn\'t. (Dad cried.)'],
+    after: 'Call more. And take some leftovers. We made too much. We always make too much.',
+    lose: '"We\'re not mad. We\'re just disappointed." Come back when you\'re ready, sweetie.',
+    tip: 'PARENTS throw everything at you: PEOPLE, PAPERWORK, MONEY, CHORE and STRESS. Bring your whole crew, stock up on Pizza and Pep Talks, and use what beats what.',
+    closed: '"We\'ll talk when you\'ve done something with your life." (The hall opens once you have 7 LIFE MILESTONES.)',
+  },
 };
 const LEADER_ORDER = ['car', 'fitness', 'taxes', 'dating', 'loans', 'masters', 'career', 'parents'];
 
@@ -881,7 +1041,7 @@ const ALLIES = {
     name: 'CHAD', title: 'High School Best Friend', after: 'car', boost: 'SOCIAL',
     pal: { h: '#2a1a0a', s: '#c08860', c: '#3a9ad8', p: '#3a3a58', b: '#e8e8e8', style: 'short' },
     base: { san: 66, conf: 60, comp: 54, hus: 62, energy: 2 },
-    learn: [[1, 'small_talk'], [1, 'touch_grass'], [1, 'hype_up'], [12, 'networking'], [16, 'elbow_grease']],
+    learn: [[1, 'small_talk'], [1, 'touch_grass'], [1, 'hype_up'], [12, 'networking'], [16, 'elbow_grease'], [30, 'hustle'], [36, 'delegate']],
     shout: '"{NAME}?! NO WAY!"',
     pitch: ['It\'s me! CHAD! From high school! Chemistry lab partner! Your car-pool to prom!',
       'Dude, I haven\'t seen you since graduation. I heard you just beat CAR TROUBLE. That\'s insane.',
@@ -894,7 +1054,7 @@ const ALLIES = {
     name: 'SOPHIE', title: 'Significant Other', after: 'dating', boost: 'CHILL',
     pal: { h: '#3a1a1a', s: '#e8b890', c: '#e86a8a', p: '#3a3a5a', b: '#f4f4f4', style: 'long' },
     base: { san: 72, conf: 62, comp: 62, hus: 58, energy: 4 },
-    learn: [[1, 'touch_grass'], [1, 'deep_breaths'], [1, 'spreadsheet'], [1, 'therapy_talk'], [24, 'boundaries']],
+    learn: [[1, 'touch_grass'], [1, 'deep_breaths'], [1, 'spreadsheet'], [1, 'therapy_talk'], [24, 'boundaries'], [32, 'networking']],
     shout: '"Oh! Sorry, I wasn\'t looking where I was going!"',
     pitch: ['...Wait. Did you just survive VALENTINA? Nobody survives Valentina.',
       'I\'ve been on the apps for three years. Nothing. And then you walk out of THAT building.',
@@ -906,7 +1066,7 @@ const ALLIES = {
     name: 'MARCUS', title: 'Significant Other', after: 'dating', boost: 'GRIT',
     pal: { h: '#1a1a1a', s: '#9a6a4a', c: '#4a7ad8', p: '#3a3a4a', b: '#2a2a2a', style: 'short' },
     base: { san: 76, conf: 64, comp: 60, hus: 54, energy: 2 },
-    learn: [[1, 'fix_it'], [1, 'hustle'], [1, 'small_talk'], [1, 'meal_prep'], [24, 'networking']],
+    learn: [[1, 'fix_it'], [1, 'hustle'], [1, 'small_talk'], [1, 'meal_prep'], [24, 'networking'], [32, 'spreadsheet']],
     shout: '"Whoa! Sorry, I wasn\'t looking where I was going!"',
     pitch: ['...Wait. Did you just survive VALENTINA? Nobody survives Valentina.',
       'I\'ve been on the apps for three years. Nothing. And then you walk out of THAT building.',
@@ -1806,6 +1966,28 @@ const TRACKS = {
   leader: { bpm: 176,
     mel: 'D5:1 D5:1 F5:1 D5:1 A5:1 G5:1 F5:1 E5:1 F5:1 F5:1 A5:1 F5:1 C6:2 A5:2 A#5:1 A5:1 G5:1 F5:1 G5:1 F5:1 E5:1 C#5:1 D5:2 A4:2 D5:2 -:2',
     bass: 'D2:1 D3:1 D2:1 D3:1 D2:1 D3:1 D2:1 D3:1 F2:1 F3:1 F2:1 F3:1 F2:1 F3:1 F2:1 F3:1 A#1:1 A#2:1 A#1:1 A#2:1 A2:1 A3:1 A2:1 A3:1 D2:1 D3:1 D2:1 D3:1 D2:1 D3:1 D2:1 D3:1' },
+  // one theme per town biome (lead/bass pick the instrument, drums: k kick, s snare, h hat)
+  t_desert: { bpm: 104, lead: 'triangle', bassType: 'square', bassVol: 0.03, drums: 'k..hk.h.',
+    mel: 'A4:2 E5:2 D5:1 C5:1 B4:2 A4:2 G4:1 A4:1 E4:4 -:2 A4:2 C5:2 D5:1 E5:1 F5:2 E5:2 D5:1 C5:1 B4:4 -:2 A4:2 E5:2 D5:1 C5:1 B4:2 A4:1 G4:1 F4:2 E4:2 A4:6 -:2 E4:1 G#4:1 B4:1 D5:1 C5:2 B4:2 A4:4 -:2',
+    bass: 'A2:4 E2:4 A2:4 E2:4 F2:4 C3:4 E2:4 E2:4 A2:4 G2:4 F2:4 E2:4 A2:8 E2:4 E2:4 A2:8' },
+  t_beach: { bpm: 126, lead: 'sine', leadVol: 0.08, drums: 'k.hsk.hs',
+    mel: 'E5:1 G5:1 -:1 E5:1 C5:1 D5:2 E5:1 -:1 G4:1 A4:1 C5:2 A4:1 G4:2 F5:1 A5:1 -:1 F5:1 D5:1 E5:2 F5:1 -:1 E5:1 D5:1 C5:2 D5:1 C5:2',
+    bass: 'C3:3 C3:1 G2:2 C3:2 F2:3 F2:1 C3:2 G2:2 F2:3 F2:1 G2:2 B2:2 C3:3 G2:1 C3:4' },
+  t_snow: { bpm: 84, lead: 'sine', leadVol: 0.07, echo: true,
+    mel: 'A5:2 F#5:1 E5:1 D5:2 E5:2 F#5:2 A5:2 B5:4 G#5:2 A5:2 F#5:2 E5:2 D5:2 C#5:2 D5:6 -:2 F#5:2 G#5:2 A5:2 B5:2 C#6:2 B5:2 A5:4 G5:2 F#5:2 E5:2 C#5:2 D5:6 -:2',
+    bass: 'D3:4 A2:4 G2:4 D3:4 G2:4 A2:4 D3:8 D3:4 E3:4 A2:4 F#2:4 G2:4 A2:4 D3:8 D3:4' },
+  t_forest: { bpm: 108, lead: 'triangle', leadVol: 0.1, drums: 'k..h.h',
+    mel: 'D5:1 B4:1 D5:1 G5:2 F#5:1 E5:1 D5:1 B4:2 A4:1 G4:1 A4:1 B4:1 D5:2 -:2 E5:1 D5:1 B4:1 D5:2 G4:1 A4:1 B4:1 A4:2 G4:1 F#4:1 G4:4 -:2',
+    bass: 'G2:3 D3:3 G2:2 C3:3 G2:3 D3:2 E2:3 B2:3 C3:2 D3:3 D2:3 G2:2 G2:4' },
+  t_swamp: { bpm: 92, lead: 'sawtooth', leadVol: 0.03, drums: 'k..sk.h.s.',
+    mel: 'E4:2 G4:1 A4:1 A#4:1 B4:3 D5:2 B4:2 A4:1 G4:1 E4:4 -:2 A4:2 C5:1 D5:1 D#5:1 E5:3 D5:2 C5:2 A4:1 G4:1 E4:4 -:2',
+    bass: 'E2:2 G#2:2 B2:2 C#3:2 E2:2 G#2:2 B2:2 C#3:2 A2:2 C#3:2 E3:2 F#3:2 E2:2 G#2:2 B2:2 G#2:2 E2:2 G#2:2 B2:2 E2:2' },
+  t_farm: { bpm: 144, drums: 'k.s.k.s.',
+    mel: 'G4:1 B4:1 D5:1 B4:1 G4:1 B4:1 D5:2 E5:1 D5:1 B4:1 G4:1 A4:2 -:2 C5:1 E5:1 G5:1 E5:1 D5:1 B4:1 G4:2 A4:1 B4:1 A4:1 F#4:1 G4:2 -:2',
+    bass: 'G2:2 D3:2 G2:2 D3:2 C3:2 G2:2 D3:2 D2:2 C3:2 G2:2 G2:2 D3:2 D2:2 D3:2 G2:4' },
+  t_city: { bpm: 120, bassType: 'sawtooth', bassVol: 0.035, drums: 'k.hsk.hsk.hskhhs',
+    mel: 'C5:1 D#5:1 F5:1 -:1 G#5:1 G5:1 F5:2 D#5:1 C5:1 -:2 A#4:1 C5:2 -:1 C5:1 D#5:1 F5:1 -:1 A#5:1 G#5:1 G5:1 F5:1 D#5:1 F5:3 -:4',
+    bass: 'F2:1 F3:1 -:1 F2:1 D#3:1 F3:1 F2:2 C#2:1 C#3:1 -:1 C#2:1 C3:1 C#3:1 D#2:2 F2:1 F3:1 -:1 F2:1 G#2:1 A#2:1 C3:2 C2:1 C3:1 -:1 C2:1 D#2:1 E2:1 F2:2' },
   victory: { bpm: 150, once: true,
     mel: 'C5:1 C5:1 C5:1 C5:3 G#4:3 A#4:3 C5:2 A#4:1 C5:6',
     bass: 'C3:3 C3:3 G#2:3 A#2:3 C3:6' },
@@ -1855,6 +2037,12 @@ const Audio2 = {
     s.start(this.ctx.currentTime + when);
   },
 
+  drum(c, when) {
+    if (c === 'k') this.tone(150, 0.12, 'sine', 0.16, when, -110);
+    else if (c === 's') this.noise(0.09, 0.07, when);
+    else if (c === 'h') this.noise(0.025, 0.035, when);
+  },
+
   sfx(name) {
     if (!this.ctx) return;
     switch (name) {
@@ -1889,10 +2077,12 @@ const Audio2 = {
     if (!tr) return;
     const parse = (s) => s.split(/\s+/).filter(Boolean).map((tok) => { const [n, b] = tok.split(':'); return [NOTE(n), +b]; });
     const beat = 60 / tr.bpm / 2;
+    const t0 = this.ctx.currentTime + 0.1;
     const voices = [
-      { notes: parse(tr.mel), i: 0, t: this.ctx.currentTime + 0.1, type: 'square', vol: 0.045 },
-      { notes: parse(tr.bass), i: 0, t: this.ctx.currentTime + 0.1, type: 'triangle', vol: 0.09 },
+      { notes: parse(tr.mel), i: 0, t: t0, type: tr.lead || 'square', vol: tr.leadVol || 0.045, echo: tr.echo },
+      { notes: parse(tr.bass), i: 0, t: t0, type: tr.bassType || 'triangle', vol: tr.bassVol || 0.09 },
     ];
+    if (tr.drums) voices.push({ notes: tr.drums.split('').map((c) => [c, 1]), i: 0, t: t0, drum: true });
     this.track = { name, voices };
     const tick = () => {
       if (!this.ctx || this.track === null || this.track.name !== name) return;
@@ -1904,8 +2094,12 @@ const Audio2 = {
             v.i = 0;
           }
           const [f, b] = v.notes[v.i++];
-          const dur = b * beat;
-          if (f) this.tone(f, dur * 0.9, v.type, v.vol, v.t - this.ctx.currentTime);
+          const dur = b * beat, at = v.t - this.ctx.currentTime;
+          if (v.drum) this.drum(f, at);
+          else if (f) {
+            this.tone(f, dur * 0.9, v.type, v.vol, at);
+            if (v.echo) this.tone(f * 2, dur * 0.6, 'sine', v.vol * 0.35, at + beat * 0.5);
+          }
           v.t += dur;
         }
       }
@@ -2273,6 +2467,36 @@ const UI = {
   },
 
   // Name entry uses a real text field so phone keyboards work.
+  // Text box for save codes: read-only with COPY (and SHARE on phones), or editable with LOAD.
+  codeBox(o) {
+    const box = this.el('div', 'panel codebox', `<div class="p-title">${o.title}</div>
+      <textarea spellcheck="false" autocomplete="off" ${o.edit ? 'placeholder="AQ1-..."' : 'readonly'}>${o.text ? U.esc(o.text) : ''}</textarea>
+      <div class="cb-hint">${o.hint || ''}</div>
+      <div class="nb-btns">${o.edit ? '<button data-b="ok">LOAD</button>' : '<button data-b="copy">COPY</button>' + (navigator.share ? '<button data-b="share">SHARE</button>' : '')}<button data-b="close">${o.edit ? 'CANCEL' : 'DONE'}</button></div>`);
+    this.root.appendChild(box);
+    const ta = box.querySelector('textarea');
+    setTimeout(() => { ta.focus(); if (!o.edit) ta.select(); }, 50);
+    return new Promise((resolve) => {
+      const w = { onInput: (b) => { if (b === 'B' || b === 'ESC') done(null); return 'stop'; } };
+      const done = (v) => { UI.pop(w); box.remove(); resolve(v); };
+      ta.addEventListener('keydown', (e) => { if (e.key === 'Escape') done(null); e.stopPropagation(); });
+      box.addEventListener('click', async (e) => {
+        const b = e.target.closest('button');
+        if (!b) return;
+        if (b.dataset.b === 'close') done(null);
+        else if (b.dataset.b === 'ok') done(ta.value.trim());
+        else if (b.dataset.b === 'share') { try { await navigator.share({ title: 'Adulting Quest save', text: o.text }); } catch (err) { /* cancelled */ } }
+        else if (b.dataset.b === 'copy') {
+          ta.select();
+          let ok = false;
+          try { await navigator.clipboard.writeText(o.text); ok = true; } catch (err) { try { ok = document.execCommand('copy'); } catch (err2) { ok = false; } }
+          UI.toast(ok ? 'COPIED!' : 'Select the text and copy it');
+        }
+      });
+      this.push(w);
+    });
+  },
+
   askName(def) {
     const box = this.el('div', 'panel namebox', `<div class="p-title">What's your name?</div>
       <input id="nameIn" maxlength="10" autocomplete="off" spellcheck="false" value="${U.esc(def)}">
@@ -2531,7 +2755,7 @@ const World = {
         m.doors.set(m.idx(dx, dy), { locked: leader.closed });
       } else {
         const iid = Interiors.create(b, ti, dx, dy);
-        m.doors.set(m.idx(dx, dy), { to: iid });
+        m.doors.set(m.idx(dx, dy), b.kind === 'hall' && leader.need ? { to: iid, need: leader.need, msg: leader.closed } : { to: iid });
       }
     }
     // the hall door path goes up into a north exit road: make sure it reaches the main road
@@ -2834,12 +3058,13 @@ const Saves = {
     if (Battle.active) { await UI.say('You can\'t save in the middle of a battle.'); return; }
     const since = Game.lastSave != null ? Math.floor((Game.p.playTime - Game.lastSave) / 60) : null;
     let done = false;
-    await UI.list(() => this.slots.map((s) => this.row(s)), {
+    await UI.list(() => this.slots.map((s) => this.row(s)).concat([{ label: 'GET SAVE CODE', right: 'OTHER DEVICE', desc: 'Make a code you can paste on your phone or another computer to keep playing there.' }]), {
       title: 'SAVE GAME', start: Game.slot ? this.slots.indexOf(Game.slot) : 0,
       hint: 'Saves stay on this device.',
       headRight: () => (since == null ? '' : since < 1 ? 'SAVED JUST NOW' : `SAVED ${since} MIN AGO`),
       footer: () => 'A: save here · B: back',
       onAct: async (k) => {
+        if (k === this.slots.length) { await this.exportCode(); return 'keep'; }
         const slot = this.slots[k];
         if (this.read(slot) && !(await UI.confirm(`Overwrite ${this.label(slot)}?`))) { UI.closeDialog(); return 'keep'; }
         const ok = Game.save(slot);
@@ -2852,6 +3077,43 @@ const Saves = {
     });
     return done;
   },
+  // ---- save codes: move a save to another device by copy/paste
+  // AQ1- = deflate + base64url; AQ0- = plain base64url (old browsers)
+  b64(bytes) { let s = ''; for (const b of bytes) s += String.fromCharCode(b); return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); },
+  unb64(t) { const s = atob(t.replace(/-/g, '+').replace(/_/g, '/')); return Uint8Array.from(s, (c) => c.charCodeAt(0)); },
+  async pipe(bytes, Stream) { return new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(new Stream('deflate-raw'))).arrayBuffer()); },
+  async toCode(p) {
+    const raw = new TextEncoder().encode(JSON.stringify({ v: 2, p, at: Date.now() }));
+    if (window.CompressionStream) { try { return 'AQ1-' + this.b64(await this.pipe(raw, CompressionStream)); } catch (e) { /* fall through */ } }
+    return 'AQ0-' + this.b64(raw);
+  },
+  async fromCode(code) {
+    try {
+      const m = /AQ([01])-([A-Za-z0-9_-]+)/.exec(code.replace(/\s+/g, ''));
+      if (!m) return null;
+      let bytes = this.unb64(m[2]);
+      if (m[1] === '1') bytes = await this.pipe(bytes, DecompressionStream);
+      const d = JSON.parse(new TextDecoder().decode(bytes));
+      return d && d.p && d.p.name && typeof d.p.level === 'number' ? d : null;
+    } catch (e) { return null; }
+  },
+  async exportCode() {
+    if (Battle.active) return;
+    const code = await this.toCode(Game.p);
+    await UI.codeBox({ title: 'SAVE CODE', text: code, hint: 'Copy this code and send it to yourself (text, email, notes). On the other device, pick ENTER SAVE CODE on the title screen.' });
+  },
+  async importCode() {
+    const code = await UI.codeBox({ title: 'ENTER SAVE CODE', edit: true, hint: 'Paste a save code from another device.' });
+    if (!code) return null;
+    const d = await this.fromCode(code);
+    if (!d) { await UI.say('That code didn\'t work. Make sure you copied the whole thing, starting with AQ.'); UI.closeDialog(); return null; }
+    await UI.say(`Found ${this.summary(d)}. It will load into your AUTO save.`);
+    UI.closeDialog();
+    this.write('auto', d.p);
+    Game.slot = null;
+    return d.p;
+  },
+
   // title screen: pick a save to continue
   async loadMenu() {
     const slots = ['auto', ...this.slots].filter((s) => this.read(s));
@@ -2971,7 +3233,8 @@ const Game = {
     if (this.mode !== 'world') return;
     if (this.map.id !== 'world') { Audio2.music('inside'); return; }
     const r = World.regions[this.map.regionAt(this.pos.x, this.pos.y)];
-    Audio2.music(r && r.kind === 'route' ? 'route' : 'town');
+    if (!r || r.kind === 'route') { Audio2.music('route'); return; }
+    Audio2.music(TRACKS['t_' + r.biome] ? 't_' + r.biome : 'town');
   },
   checkRegion() {
     if (this.map.id !== 'world') { this.lastRegion = -1; return; }
@@ -3095,6 +3358,7 @@ const Game = {
     if (t === T.DOOR) {
       const door = m.doors.get(m.idx(nx, ny));
       if (door && door.locked) { this.run(() => UI.say(door.locked)); return; }
+      if (door && door.need && this.p.badges.length < door.need) { this.run(() => UI.say(door.msg)); return; }
     }
     if (m.solid(nx, ny) || m.npcAt(nx, ny)) {
       if (P.bumpT <= 0) { Audio2.sfx('bump'); P.bumpT = 0.3; }
@@ -3458,17 +3722,27 @@ const Menu = {
     const p = Game.p;
     let used = null;
     const ids = () => Object.keys(p.items).filter((id) => p.items[id] > 0).sort((a, b) => (ITEMS[b].key ? 1 : 0) - (ITEMS[a].key ? 1 : 0));
-    const rows = () => ids().map((id) => ({
-      label: ITEMS[id].name, right: ITEMS[id].key ? '' : '×' + p.items[id], desc: ITEMS[id].desc,
-      disabled: inBattle && !ITEMS[id].battle,
-    }));
+    const KIND = { sanity: 'HEALS SANITY', full: 'FULL HEAL', energy: 'RESTORES ENERGY', revive: 'REVIVES CREW', repel: 'FIELD ITEM', escape: 'ESCAPE', book: 'SKILL BOOK', outfit: 'OUTFIT', scratch: 'GAMBLE', drive: 'KEY ITEM', phone: 'KEY ITEM', none: 'KEY ITEM' };
+    const rows = () => ids().map((id) => {
+      const it = ITEMS[id], no = inBattle && !it.battle;
+      return {
+        label: it.name, right: it.key ? '' : '×' + p.items[id], disabled: no,
+        desc: `<b class="kind">${KIND[it.use] || 'ITEM'}</b> ${it.desc}${no ? ' <i>(Can\'t use this in battle.)</i>' : ''}`,
+      };
+    });
     await UI.list(rows, {
       title: 'BAG', empty: 'Your bag is empty. Even the gum is gone.',
       headRight: () => U.money(p.money),
       onAct: async (k) => {
         const id = ids()[k];
-        const r = await Items.use(id, inBattle);
+        let r = await Items.use(id, inBattle);
         if (r === 'used' && inBattle) { used = id; return 'close'; }
+        // healing items: offer another right away while someone still needs one
+        while (r === 'used' && p.items[id] > 0 && Items.wanted(id)) {
+          if (!(await UI.confirm(`Use another ${ITEMS[id].name}? (${p.items[id]} left)`))) { UI.closeDialog(); break; }
+          UI.closeDialog();
+          r = await Items.use(id, false);
+        }
         if (r === 'exit') { Menu.exit = true; return 'close'; }
         return inBattle ? 'keep' : 'keep';
       },
@@ -3548,6 +3822,15 @@ const Menu = {
 
 // ---------------------------------------------------------------- items
 const Items = {
+  // does anyone in the crew still benefit from this item right now?
+  wanted(id) {
+    const it = ITEMS[id], ms = Crew.members();
+    if (it.use === 'sanity') return ms.some((m) => m.sanity > 0 && m.sanity < Crew.stats(m).maxSanity);
+    if (it.use === 'full') return ms.some((m) => m.sanity > 0 && (m.sanity < Crew.stats(m).maxSanity || m.status));
+    if (it.use === 'energy') return ms.some((m) => m.sanity > 0 && m.energy < Crew.stats(m).maxEnergy);
+    if (it.use === 'revive') return ms.some((m) => m.sanity <= 0);
+    return false;
+  },
   // returns 'used' | 'no'
   async use(id, inBattle) {
     const p = Game.p, it = ITEMS[id];
@@ -3894,7 +4177,10 @@ const Scripts = {
     if (k.item) Game.give(k.item, 1);
     if (k.refund) { p.money += k.refund; Audio2.sfx('coin'); }
     if (k.debtPay && p.debt > 0) { const paid = Math.min(p.debt, k.debtPay); p.debt -= paid; await say(`$${paid} of debt: gone.${p.debt ? ` ($${p.debt} left.)` : ' Debt-free!'}`); }
-    if (k.clearDebt) p.debt = 0;
+    if (k.clearDebt) {
+      if (p.debt > 0) p.debt = 0;
+      else { p.money += 500; Audio2.sfx('coin'); await say('You never took out loans, so GATOR mailed you a $500 "loyalty bonus" instead. Suspicious, but okay.'); }
+    }
     if (k.item === 'gym_card') Crew.members().forEach((r) => { r.sanity = Crew.stats(r).maxSanity; });
   },
 
@@ -4047,6 +4333,9 @@ const Scripts = {
       1: 'Tow trucks everywhere. RUSTY\'s doing. Beat CAR TROUBLE in Dusty Gulch and we\'ll clear the road.',
       2: 'A crowd is doing burpees in the middle of the road. COACH MAX\'s orders. Beat FITNESS in Sunnyside Beach.',
       3: 'The pass is frozen solid with paperwork. Only those who\'ve beaten TAXES in Frostpeak may pass.',
+      4: 'Sorry, singles only past this point. Just kidding. Beat DATING in Pinewood and the road\'s yours.',
+      5: 'The bridge is held as collateral. Beat STUDENT LOANS in Boggy Bayou to get it back.',
+      6: 'Enrollment-verified students only. Beat MASTERS DEGREE in Harvest Hollow first.',
       7: 'Major construction. This shortcut only opens for folks with 7 LIFE MILESTONES.',
     }[g.ri];
     await say([why, `(You need ${r.need} Life Milestone${r.need > 1 ? 's' : ''}. You have ${Game.p.badges.length}.)`], { name: 'GUARD' });
@@ -4058,9 +4347,11 @@ const Scripts = {
     const stock = ti < SHOP_STOCK.length ? SHOP_STOCK[ti] : [...new Set(SHOP_STOCK.flat())];
     await say(`Welcome to QUIK STOP! We\'re on every corner. Literally every corner.${p.karma < 30 ? ' ...Oh. It\'s you. Prices are a little higher for you today.' : p.karma >= 80 ? ' Oh, it\'s you! Good-person discount, on the house!' : ''}`, { name: 'CLERK' });
     UI.closeDialog();
+    const recs = Hints.books(stock), nextL = Hints.next();
     await UI.list(() => stock.map((id) => ({
-      label: ITEMS[id].name, right: U.money(Game.priceOf(id)),
-      desc: ITEMS[id].desc + (p.items[id] ? ` <i>(You have ${p.items[id]}.)</i>` : '') + (ITEMS[id].skill && p.known.includes(ITEMS[id].skill) ? ' <i>(Already known.)</i>' : ''),
+      label: ITEMS[id].name, right: U.money(Game.priceOf(id)), icon: recs.includes(id) ? '<em class="tipchip">TIP</em>' : '',
+      desc: ITEMS[id].desc + (p.items[id] ? ` <i>(You have ${p.items[id]}.)</i>` : '') + (ITEMS[id].skill && p.known.includes(ITEMS[id].skill) ? ' <i>(Already known.)</i>' : '')
+        + (recs.includes(id) ? ` <b class="rec">TIP: recommended for ${LEADERS[nextL].title}: nothing you have hits its ${Hints.gaps(nextL).filter((t) => EFF[SKILLS[ITEMS[id].skill].type][t] > 1).join('/')} issues this hard.</b>` : ''),
     })), {
       title: 'QUIK STOP', headRight: () => U.money(p.money),
       footer: () => 'A: buy one · B: leave',
@@ -4126,7 +4417,7 @@ const Scripts = {
   async guide(key) {
     const L = LEADERS[key];
     if (Game.p.badges.includes(key)) { await say(['YO! You did it! Champion of ' + L.title + '!', 'Go show the next leader what you\'ve got!'], { name: 'HALL GUIDE' }); return; }
-    await say(['YO! Future champ! Here\'s some free advice.', L.tip, 'Stock up on Coffee and Comfort Food before you go up there!'], { name: 'HALL GUIDE' });
+    await say(['YO! Future champ! Here\'s some free advice.', ...Hints.leader(key), 'Stock up on Coffee and Comfort Food before you go up there!'], { name: 'HALL GUIDE' });
   },
 
   // ---------------------------------------------------------- leaders
@@ -4135,7 +4426,14 @@ const Scripts = {
     const nm = { name: L.name };
     if (p.badges.includes(key)) { await say(L.after, nm); return; }
     await say(L.intro, nm);
-    if (!(await UI.confirm(`Battle ${L.title}?`))) {
+    let go;
+    while (true) {
+      await say(`Battle ${L.title}?`, { noWait: true });
+      go = await UI.choose(['Battle!', 'Get a hint', 'Not yet'], { cls: 'side' });
+      if (go !== 1) break;
+      await say(Hints.leader(key));
+    }
+    if (go !== 0) {
       await say('Take your time. Issues don\'t go anywhere. That\'s kind of the problem.', nm);
       return;
     }
@@ -4359,6 +4657,7 @@ const Battle = {
     const ids = Crew.skills(p);
     const box = UI.el('div', 'skillmenu');
     let i = Math.min(this.lastSkill || 0, ids.length - 1);
+    const rec = Hints.best(p, s.foe);
     const render = () => {
       box.innerHTML = `<div class="sk-grid">${[0, 1, 2, 3].map((k) => {
         const id = ids[k];
@@ -4367,8 +4666,8 @@ const Battle = {
         const poor = sk.cost > p.energy;
         const mm = sk.power ? EFF[sk.type][s.foe.type] : 1;
         const tag = mm > 1 ? '<em class="tg se">2×</em>' : mm < 1 ? '<em class="tg nve">½</em>' : '';
-        return `<div class="sk${k === i ? ' sel' : ''}${poor ? ' poor' : ''}" data-k="${k}"><i class="dot" style="background:${t.color}"></i>${sk.name}${tag}</div>`;
-      }).join('')}</div>${this.skillInfo(ids[i])}`;
+        return `<div class="sk${k === i ? ' sel' : ''}${poor ? ' poor' : ''}${id === rec.id ? ' rec' : ''}" data-k="${k}"><i class="dot" style="background:${t.color}"></i>${sk.name}${tag}</div>`;
+      }).join('')}</div>${this.skillInfo(ids[i], ids[i] === rec.id ? rec.why : '')}`;
     };
     render();
     UI.root.appendChild(box);
@@ -4406,12 +4705,12 @@ const Battle = {
     });
   },
 
-  skillInfo(id) {
+  skillInfo(id, recWhy) {
     const sk = SKILLS[id], t = SKILL_TYPES[sk.type], f = this.s.foe;
     const m = sk.power ? EFF[sk.type][f.type] : 1;
     const eff = !sk.power ? 'Support' : m > 1 ? '<b class="se">2× damage!</b>' : m < 1 ? '<b class="nve">½ damage</b>' : 'Normal damage';
     return `<div class="sk-info"><div><b style="color:${t.color}">${t.label}</b></div>
-      <div>EN <b>${sk.cost}</b> / ${this.s.cur.energy}</div><div>${sk.power ? 'PWR ' + sk.power : ''}</div><div>${eff}</div></div>`;
+      <div>EN <b>${sk.cost}</b> / ${this.s.cur.energy}${sk.power ? ' · PWR ' + sk.power : ''}</div><div>${eff}</div>${recWhy ? `<div class="recwhy">BEST PICK: ${recWhy}</div>` : ''}</div>`;
   },
 
   // generic 2x2 menu used for the action grid
@@ -4796,11 +5095,15 @@ const Battle = {
   // ------------------------------------------------------------ HUD
   buildHUD() {
     const foe = UI.el('div', 'bhud foe hidden', `<div class="bh-row"><span class="nm"></span><span class="lv"></span></div>
-      <div class="bh-row"><span class="tchip"></span><span class="anx"></span></div><div class="weak"></div><div class="bar"><span>SEVERITY</span><i><b></b></i></div>`);
+      <div class="bh-row"><span class="tchip"></span><span class="anx"></span><span class="hintbtn" title="Hint: what works on this issue?">?</span></div><div class="weak"></div><div class="bar"><span>SEVERITY</span><i><b></b></i></div>`);
     const me = UI.el('div', 'bhud me hidden', `<div class="bh-row"><span class="nm"></span><span class="lv"></span></div>
       <div class="bar"><span>SANITY</span><i><b></b></i></div><div class="num san"></div>
       <div class="bar en"><span>ENERGY</span><i><b></b></i></div><div class="num en"></div>
       <div class="xp"><i></i></div><div class="st"></div><div class="pips"></div>`);
+    foe.querySelector('.hintbtn').addEventListener('pointerdown', (e) => {
+      e.preventDefault(); e.stopPropagation();
+      if (this.s && this.s.foe) { Audio2.sfx('select'); Hints.pop(Hints.battle(this.s.cur, this.s.foe)); }
+    });
     UI.root.appendChild(foe); UI.root.appendChild(me);
     this.hud = { foe, me };
     this._barKey = null;
@@ -4910,6 +5213,96 @@ const Battle = {
       x.drawImage(Art.portrait(Crew.pal(s.cur), Crew.look(s.cur), 'up'), 44 + slide + a.meX, 94);
     }
     x.restore();
+  },
+};
+
+// ---- src/hints.js
+'use strict';
+// Hints: which skill to use, which crew member to tag in, which books to buy
+// before the next leader. Everything reads the same EFF table the battles use.
+
+const Hints = {
+  // rough value of a damaging skill against an issue type (power x type x path boost)
+  value(fighter, id, type) {
+    const sk = SKILLS[id];
+    if (!sk.power) return 0;
+    return sk.power * EFF[sk.type][type] * (Crew.boost(fighter) === sk.type ? 1.2 : 1) * sk.acc / 100;
+  },
+
+  // The skill to highlight in the battle menu, with a one-line reason.
+  best(fighter, foe) {
+    const st = Crew.stats(fighter), ids = Crew.skills(fighter).filter((id) => SKILLS[id].cost <= fighter.energy);
+    const low = fighter.sanity < st.maxSanity * 0.35;
+    const healer = ids.filter((id) => SKILLS[id].fx && SKILLS[id].fx.heal >= 0.3).sort((a, b) => SKILLS[b].fx.heal - SKILLS[a].fx.heal)[0];
+    if (low && healer) return { id: healer, why: 'Your Sanity is low. Heal up first.' };
+    let id = null, v = 0;
+    for (const k of ids) { const x = this.value(fighter, k, foe.type); if (x > v) { v = x; id = k; } }
+    if (!id) return { id: null, why: '' };
+    const m = EFF[SKILLS[id].type][foe.type];
+    return { id, why: m > 1 ? `${SKILLS[id].type} beats ${foe.type}: double damage!` : m < 1 ? `Nothing you have beats ${foe.type}. This is your best shot.` : 'Your strongest hit right now.' };
+  },
+
+  // Longer advice for the "?" button in battle.
+  battle(fighter, foe) {
+    const b = this.best(fighter, foe);
+    const lines = [`${foe.name.toUpperCase()} is a ${foe.type} issue. ${Battle.counters(foe.type).join(' and ')} skills do double damage to it.`];
+    if (b.id) lines.push(`Best pick: ${SKILLS[b.id].name.toUpperCase()}. ${b.why}`);
+    if (!b.id || EFF[SKILLS[b.id].type][foe.type] <= 1) lines.push(Battle.advice(foe.type));
+    return lines;
+  },
+
+  next() { return Game.p ? LEADER_ORDER.find((k) => !Game.p.badges.includes(k)) : null; },
+  teamTypes(key) { return [...new Set(LEADERS[key].team.map(([id]) => ISSUES[id].type))]; },
+
+  // who in the crew can hit an issue type for double damage, and with what
+  answer(t) {
+    let best = null;
+    for (const r of Crew.members()) {
+      const pool = Crew.isMe(r) ? Game.p.known : Crew.skills(r);
+      for (const id of pool) if (SKILLS[id].power && EFF[SKILLS[id].type][t] > 1 && (!best || SKILLS[id].power > SKILLS[best.id].power)) best = { r, id };
+    }
+    return best;
+  },
+  // issue types in a leader's team that nobody in the crew can hit for double damage
+  gaps(key) { return this.teamTypes(key).filter((t) => !this.answer(t)); },
+
+  // books in this stock that fill a gap for the next leader
+  books(stock) {
+    const key = this.next();
+    if (!key) return [];
+    const gaps = this.gaps(key);
+    return stock.filter((id) => {
+      const it = ITEMS[id];
+      if (it.use !== 'book' || Game.p.known.includes(it.skill)) return false;
+      const sk = SKILLS[it.skill];
+      return sk.power > 0 && gaps.some((t) => EFF[sk.type][t] > 1);
+    });
+  },
+
+  // what the hall guide / leader hint says
+  leader(key) {
+    const L = LEADERS[key], types = this.teamTypes(key), gaps = this.gaps(key);
+    const lines = [L.tip];
+    const covered = types.filter((t) => !gaps.includes(t));
+    if (covered.length) lines.push('Your answers: ' + covered.map((t) => { const a = this.answer(t); return `${t}: ${Crew.isMe(a.r) ? 'your' : Crew.name(a.r) + '\'s'} ${SKILLS[a.id].name.toUpperCase()}`; }).join('. ') + '.');
+    if (gaps.length) {
+      const fix = gaps.map((t) => {
+        const book = Object.keys(ITEMS).find((id) => ITEMS[id].use === 'book' && SKILLS[ITEMS[id].skill].power && EFF[SKILLS[ITEMS[id].skill].type][t] > 1);
+        return `${t} (${Battle.counters(t).join('/')}${book ? `, try ${ITEMS[book].name}` : ''})`;
+      });
+      lines.push(`Nothing you have beats ${fix.join('; ')}. The QUIK STOP tags helpful books with TIP.`);
+    } else lines.push('You can cover every type on this team. Use CREW to swap in whoever has the answer!');
+    return lines;
+  },
+
+  // floating "?" explainer in battle
+  pop(lines) {
+    document.querySelectorAll('.hintpop').forEach((e) => e.remove());
+    const el = UI.el('div', 'hintpop', lines.map((t) => `<p>${t}</p>`).join('') + '<i>tap to close</i>');
+    const close = () => { el.remove(); clearTimeout(tm); };
+    const tm = setTimeout(close, 9000);
+    el.addEventListener('pointerdown', (e) => { e.preventDefault(); close(); });
+    UI.root.appendChild(el);
   },
 };
 
@@ -5052,12 +5445,16 @@ const Main = {
     const box = UI.el('div', 'titlecard', `<div class="logo"><span>ADULTING</span><span>QUEST</span></div>
       <div class="tag">Defeat 8 Life Leaders. Win at the game of life.</div>`);
     UI.root.appendChild(box);
-    const opts = saved ? ['CONTINUE', 'NEW GAME'] : ['NEW GAME'];
+    const opts = saved ? ['CONTINUE', 'NEW GAME', 'ENTER SAVE CODE'] : ['NEW GAME', 'ENTER SAVE CODE'];
     const k = await UI.choose(opts, { cls: 'titlemenu', cancel: false });
     box.remove();
     Audio2.unlock();
     if (opts[k] === 'CONTINUE') {
       const p = await Saves.loadMenu();
+      return p ? this.cont(p) : this.title();
+    }
+    if (opts[k] === 'ENTER SAVE CODE') {
+      const p = await Saves.importCode();
       return p ? this.cont(p) : this.title();
     }
     if (saved && !(await this.confirmOverwrite())) return this.title();
