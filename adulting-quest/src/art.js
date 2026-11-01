@@ -203,7 +203,6 @@ function tallGrass(x, b, theme) {
 
 function tree(x, b, theme, v) {
   const kind = b.tree, [c0, c1, c2] = b.canopy;
-  const [cv, cx] = [x.canvas, x];
   if (kind === 'tower') {
     const shades = ['#6a7484', '#7a6a6a', '#5a6a7a', '#8a8070'];
     const w = shades[v % 4];

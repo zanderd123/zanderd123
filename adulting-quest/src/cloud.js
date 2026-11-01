@@ -74,7 +74,9 @@ const Cloud = {
     if (!json || !this.backend) return;
     if (this.writing[slot]) { await this.writing[slot]; if (this.local(slot) !== json) return; }
     this.writing[slot] = this.backend.write(slot, { json, at: this.at(json) })
-      .catch((e) => { if (e && /not_granted|denied|permission|unauth/i.test(e.code || e.message || '')) this.readOnly = true; })
+      // a hiccup (unavailable / rate limit) retries on the next save; any
+      // other refusal means this viewer can't back up, so stop trying
+      .catch((e) => { if (!e || !['unavailable', 'resource_exhausted'].includes(e.code)) this.readOnly = true; })
       .finally(() => { delete this.writing[slot]; });
     return this.writing[slot];
   },

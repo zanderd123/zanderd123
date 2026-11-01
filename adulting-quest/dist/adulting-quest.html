@@ -154,6 +154,7 @@ body {
 .card-info b.neg { color: #b8402a; }
 .xpbar { display: inline-block; width: calc(50 * var(--u)); height: calc(4 * var(--u)); background: #d8d8e4; vertical-align: middle; }
 .xpbar i { display: block; height: 100%; background: #4a8ae8; }
+.xpnext { font-size: 0.8em; color: #4a6ab8; }
 .statgrid { display: grid; grid-template-columns: auto auto auto auto; gap: 0 calc(6 * var(--u)); margin-top: calc(5 * var(--u)); }
 .statgrid b { text-align: right; font-weight: 400; }
 .badges { display: grid; grid-template-columns: repeat(4, 1fr); gap: calc(3 * var(--u)); }
@@ -217,6 +218,7 @@ body {
 .num { text-align: right; font-size: calc(6 * var(--u)); line-height: calc(8 * var(--u)); }
 .bhud .xp { height: calc(2 * var(--u)); background: #d8d8e4; margin-top: calc(2 * var(--u)); }
 .bhud .xp i { display: block; height: 100%; background: #4a8ae8; }
+.bhud .xpn { text-align: right; font-size: calc(5 * var(--u)); line-height: calc(7 * var(--u)); color: #4a6ab8; }
 .bhud .st { position: absolute; left: calc(6 * var(--u)); top: calc(-9 * var(--u)); display: flex; gap: calc(3 * var(--u)); }
 .bhud .st em { font-style: normal; font-size: calc(5 * var(--u)); line-height: 1; color: #fff; padding: calc(2 * var(--u)) calc(3 * var(--u)); text-shadow: none; }
 .bhud .st .bo { background: #c8402a; }
@@ -1290,7 +1292,6 @@ function tallGrass(x, b, theme) {
 
 function tree(x, b, theme, v) {
   const kind = b.tree, [c0, c1, c2] = b.canopy;
-  const [cv, cx] = [x.canvas, x];
   if (kind === 'tower') {
     const shades = ['#6a7484', '#7a6a6a', '#5a6a7a', '#8a8070'];
     const w = shades[v % 4];
@@ -3081,7 +3082,9 @@ const Cloud = {
     if (!json || !this.backend) return;
     if (this.writing[slot]) { await this.writing[slot]; if (this.local(slot) !== json) return; }
     this.writing[slot] = this.backend.write(slot, { json, at: this.at(json) })
-      .catch((e) => { if (e && /not_granted|denied|permission|unauth/i.test(e.code || e.message || '')) this.readOnly = true; })
+      // a hiccup (unavailable / rate limit) retries on the next save; any
+      // other refusal means this viewer can't back up, so stop trying
+      .catch((e) => { if (!e || !['unavailable', 'resource_exhausted'].includes(e.code)) this.readOnly = true; })
       .finally(() => { delete this.writing[slot]; });
     return this.writing[slot];
   },
@@ -3235,6 +3238,10 @@ const Stats = {
     };
   },
   xpFor(L) { return Math.floor(0.8 * L * L * L); },
+  MAX_LEVEL: 60,
+  // XP still needed for the next level (0 at the cap)
+  toNext(p) { return p.level >= this.MAX_LEVEL ? 0 : Math.max(0, this.xpFor(p.level + 1) - p.xp); },
+  nextText(p) { return p.level >= this.MAX_LEVEL ? 'MAX LEVEL' : `${this.toNext(p)} XP to Lv${p.level + 1}`; },
   foe(id, L) {
     const d = ISSUES[id], [h, a, df, s] = d.base;
     return {
@@ -3707,7 +3714,6 @@ const Game = {
       ents.push({ y: ny, draw: () => this.drawEntity(x, n, nx - cx, ny - cy, m) });
     }
     if (!o.noPlayer && this.p) {
-      const P = this.pos;
       ents.push({ y: ppy, draw: () => this.drawPlayer(x, ppx - cx, ppy - cy, m) });
     }
     ents.sort((a, b) => a.y - b.y).forEach((e) => e.draw());
@@ -3866,7 +3872,7 @@ const Menu = {
           <div class="card-info">
             <div class="big">${U.esc(p.name)}</div>
             <div>Age ${Game.age()} · ${path ? path.name : 'No path yet'}</div>
-            <div>Level ${p.level} <span class="xpbar"><i style="width:${xpPct}%"></i></span></div>
+            <div>Level ${p.level} <span class="xpbar"><i style="width:${p.level >= Stats.MAX_LEVEL ? 100 : xpPct}%"></i></span> <span class="xpnext">${Stats.nextText(p)}</span></div>
             <div>Cash <b>${U.money(p.money)}</b>${p.debt ? ` · Debt <b class="neg">${U.money(p.debt)}</b>` : ''}</div>
             <div>Karma <b>${p.karma}</b> (${Game.karmaLabel()})</div>
           </div>
@@ -4444,7 +4450,7 @@ const Scripts = {
   async shop(ti) {
     const p = Game.p;
     const stock = ti < SHOP_STOCK.length ? SHOP_STOCK[ti] : [...new Set(SHOP_STOCK.flat())];
-    await say(`Welcome to QUIK STOP! We\'re on every corner. Literally every corner.${p.karma < 30 ? ' ...Oh. It\'s you. Prices are a little higher for you today.' : p.karma >= 80 ? ' Oh, it\'s you! Good-person discount, on the house!' : ''}`, { name: 'CLERK' });
+    await say(`Welcome to QUIK STOP! We're on every corner. Literally every corner.${p.karma < 30 ? ' ...Oh. It\'s you. Prices are a little higher for you today.' : p.karma >= 80 ? ' Oh, it\'s you! Good-person discount, on the house!' : ''}`, { name: 'CLERK' });
     UI.closeDialog();
     const recs = Hints.books(stock), nextL = Hints.next();
     await UI.list(() => stock.map((id) => ({
@@ -4728,7 +4734,6 @@ const Battle = {
 
   // ------------------------------------------------------------ main loop
   async loop() {
-    const s = this.s;
     while (true) {
       const act = await this.chooseAction();
       if (act.kind === 'none') continue;
@@ -4738,7 +4743,6 @@ const Battle = {
   },
 
   async chooseAction() {
-    const p = Game.p;
     await UI.say(`What will\n${Crew.name(this.s.cur)} do?`, { noWait: true });
     const i = await this.grid(['SKILLS', 'BAG', 'CREW', 'AVOID'], 'actmenu', this.lastAct || 0, false);
     this.lastAct = i;
@@ -5064,7 +5068,8 @@ const Battle = {
     const path = PATHS[p.path] || PATHS.college;
     const xp = Math.max(1, Math.floor(d.xp * f.lvl / 7 * (s.leader ? 1.5 : 1) * path.xpMult * (Game.perk('masters') ? 1.2 : 1)));
     p.xp += xp;
-    await UI.say(Game.p.crew.length ? `The crew gained ${xp} XP!` : `{NAME} gained ${xp} XP!`, { auto: 800 });
+    const left = Stats.toNext(p) > 0 && p.level < Stats.MAX_LEVEL ? ` (${Stats.nextText(p)})` : '';
+    await UI.say((Game.p.crew.length ? `The crew gained ${xp} XP!` : `{NAME} gained ${xp} XP!`) + left, { auto: 800 });
     await this.levelUps();
     if (s.wild) {
       const cash = Math.max(1, Math.floor(d.cash * f.lvl * path.cashMult * s.cashMult * (0.8 + Math.random() * 0.4)));
@@ -5090,7 +5095,7 @@ const Battle = {
 
   async levelUps() {
     const p = Game.p;
-    while (p.level < 60 && p.xp >= Stats.xpFor(p.level + 1)) {
+    while (p.level < Stats.MAX_LEVEL && p.xp >= Stats.xpFor(p.level + 1)) {
       const b = Game.stats();
       const before = Crew.members().map((r) => [r, Crew.stats(r)]);
       p.level++;
@@ -5208,7 +5213,7 @@ const Battle = {
     const me = UI.el('div', 'bhud me hidden', `<div class="bh-row"><span class="nm"></span><span class="lv"></span></div>
       <div class="bar"><span>SANITY</span><i><b></b></i></div><div class="num san"></div>
       <div class="bar en"><span>ENERGY</span><i><b></b></i></div><div class="num en"></div>
-      <div class="xp"><i></i></div><div class="st"></div><div class="pips"></div>`);
+      <div class="xp"><i></i></div><div class="xpn"></div><div class="st"></div><div class="pips"></div>`);
     foe.querySelector('.hintbtn').addEventListener('pointerdown', (e) => {
       e.preventDefault(); e.stopPropagation();
       if (this.s && this.s.foe) { Audio2.sfx('select'); Hints.pop(Hints.battle(this.s.cur, this.s.foe)); }
@@ -5240,7 +5245,8 @@ const Battle = {
     en.style.width = (p.energy / st.maxEnergy * 100) + '%';
     h.me.querySelector('.num.en').textContent = `${p.energy}/${st.maxEnergy}`;
     const P = Game.p, cur = Stats.xpFor(P.level), nx = Stats.xpFor(P.level + 1);
-    h.me.querySelector('.xp i').style.width = (U.clamp((P.xp - cur) / (nx - cur), 0, 1) * 100) + '%';
+    h.me.querySelector('.xp i').style.width = (P.level >= Stats.MAX_LEVEL ? 100 : U.clamp((P.xp - cur) / (nx - cur), 0, 1) * 100) + '%';
+    h.me.querySelector('.xpn').textContent = Stats.nextText(P);
     const tags = [];
     if (p.status === 'burnout') tags.push('<em class="bo">BURNT OUT</em>');
     if (s.meAnx) tags.push('<em class="ax">ANXIOUS</em>');

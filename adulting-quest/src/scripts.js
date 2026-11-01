@@ -285,7 +285,7 @@ const Scripts = {
   async shop(ti) {
     const p = Game.p;
     const stock = ti < SHOP_STOCK.length ? SHOP_STOCK[ti] : [...new Set(SHOP_STOCK.flat())];
-    await say(`Welcome to QUIK STOP! We\'re on every corner. Literally every corner.${p.karma < 30 ? ' ...Oh. It\'s you. Prices are a little higher for you today.' : p.karma >= 80 ? ' Oh, it\'s you! Good-person discount, on the house!' : ''}`, { name: 'CLERK' });
+    await say(`Welcome to QUIK STOP! We're on every corner. Literally every corner.${p.karma < 30 ? ' ...Oh. It\'s you. Prices are a little higher for you today.' : p.karma >= 80 ? ' Oh, it\'s you! Good-person discount, on the house!' : ''}`, { name: 'CLERK' });
     UI.closeDialog();
     const recs = Hints.books(stock), nextL = Hints.next();
     await UI.list(() => stock.map((id) => ({

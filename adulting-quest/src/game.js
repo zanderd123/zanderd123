@@ -134,6 +134,10 @@ const Stats = {
     };
   },
   xpFor(L) { return Math.floor(0.8 * L * L * L); },
+  MAX_LEVEL: 60,
+  // XP still needed for the next level (0 at the cap)
+  toNext(p) { return p.level >= this.MAX_LEVEL ? 0 : Math.max(0, this.xpFor(p.level + 1) - p.xp); },
+  nextText(p) { return p.level >= this.MAX_LEVEL ? 'MAX LEVEL' : `${this.toNext(p)} XP to Lv${p.level + 1}`; },
   foe(id, L) {
     const d = ISSUES[id], [h, a, df, s] = d.base;
     return {
@@ -606,7 +610,6 @@ const Game = {
       ents.push({ y: ny, draw: () => this.drawEntity(x, n, nx - cx, ny - cy, m) });
     }
     if (!o.noPlayer && this.p) {
-      const P = this.pos;
       ents.push({ y: ppy, draw: () => this.drawPlayer(x, ppx - cx, ppy - cy, m) });
     }
     ents.sort((a, b) => a.y - b.y).forEach((e) => e.draw());
@@ -765,7 +768,7 @@ const Menu = {
           <div class="card-info">
             <div class="big">${U.esc(p.name)}</div>
             <div>Age ${Game.age()} · ${path ? path.name : 'No path yet'}</div>
-            <div>Level ${p.level} <span class="xpbar"><i style="width:${xpPct}%"></i></span></div>
+            <div>Level ${p.level} <span class="xpbar"><i style="width:${p.level >= Stats.MAX_LEVEL ? 100 : xpPct}%"></i></span> <span class="xpnext">${Stats.nextText(p)}</span></div>
             <div>Cash <b>${U.money(p.money)}</b>${p.debt ? ` · Debt <b class="neg">${U.money(p.debt)}</b>` : ''}</div>
             <div>Karma <b>${p.karma}</b> (${Game.karmaLabel()})</div>
           </div>

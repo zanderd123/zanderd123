@@ -100,7 +100,6 @@ const Battle = {
 
   // ------------------------------------------------------------ main loop
   async loop() {
-    const s = this.s;
     while (true) {
       const act = await this.chooseAction();
       if (act.kind === 'none') continue;
@@ -110,7 +109,6 @@ const Battle = {
   },
 
   async chooseAction() {
-    const p = Game.p;
     await UI.say(`What will\n${Crew.name(this.s.cur)} do?`, { noWait: true });
     const i = await this.grid(['SKILLS', 'BAG', 'CREW', 'AVOID'], 'actmenu', this.lastAct || 0, false);
     this.lastAct = i;
@@ -436,7 +434,8 @@ const Battle = {
     const path = PATHS[p.path] || PATHS.college;
     const xp = Math.max(1, Math.floor(d.xp * f.lvl / 7 * (s.leader ? 1.5 : 1) * path.xpMult * (Game.perk('masters') ? 1.2 : 1)));
     p.xp += xp;
-    await UI.say(Game.p.crew.length ? `The crew gained ${xp} XP!` : `{NAME} gained ${xp} XP!`, { auto: 800 });
+    const left = Stats.toNext(p) > 0 && p.level < Stats.MAX_LEVEL ? ` (${Stats.nextText(p)})` : '';
+    await UI.say((Game.p.crew.length ? `The crew gained ${xp} XP!` : `{NAME} gained ${xp} XP!`) + left, { auto: 800 });
     await this.levelUps();
     if (s.wild) {
       const cash = Math.max(1, Math.floor(d.cash * f.lvl * path.cashMult * s.cashMult * (0.8 + Math.random() * 0.4)));
@@ -462,7 +461,7 @@ const Battle = {
 
   async levelUps() {
     const p = Game.p;
-    while (p.level < 60 && p.xp >= Stats.xpFor(p.level + 1)) {
+    while (p.level < Stats.MAX_LEVEL && p.xp >= Stats.xpFor(p.level + 1)) {
       const b = Game.stats();
       const before = Crew.members().map((r) => [r, Crew.stats(r)]);
       p.level++;
@@ -580,7 +579,7 @@ const Battle = {
     const me = UI.el('div', 'bhud me hidden', `<div class="bh-row"><span class="nm"></span><span class="lv"></span></div>
       <div class="bar"><span>SANITY</span><i><b></b></i></div><div class="num san"></div>
       <div class="bar en"><span>ENERGY</span><i><b></b></i></div><div class="num en"></div>
-      <div class="xp"><i></i></div><div class="st"></div><div class="pips"></div>`);
+      <div class="xp"><i></i></div><div class="xpn"></div><div class="st"></div><div class="pips"></div>`);
     foe.querySelector('.hintbtn').addEventListener('pointerdown', (e) => {
       e.preventDefault(); e.stopPropagation();
       if (this.s && this.s.foe) { Audio2.sfx('select'); Hints.pop(Hints.battle(this.s.cur, this.s.foe)); }
@@ -612,7 +611,8 @@ const Battle = {
     en.style.width = (p.energy / st.maxEnergy * 100) + '%';
     h.me.querySelector('.num.en').textContent = `${p.energy}/${st.maxEnergy}`;
     const P = Game.p, cur = Stats.xpFor(P.level), nx = Stats.xpFor(P.level + 1);
-    h.me.querySelector('.xp i').style.width = (U.clamp((P.xp - cur) / (nx - cur), 0, 1) * 100) + '%';
+    h.me.querySelector('.xp i').style.width = (P.level >= Stats.MAX_LEVEL ? 100 : U.clamp((P.xp - cur) / (nx - cur), 0, 1) * 100) + '%';
+    h.me.querySelector('.xpn').textContent = Stats.nextText(P);
     const tags = [];
     if (p.status === 'burnout') tags.push('<em class="bo">BURNT OUT</em>');
     if (s.meAnx) tags.push('<em class="ax">ANXIOUS</em>');

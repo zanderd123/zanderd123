@@ -143,6 +143,7 @@ body {
 .card-info b.neg { color: #b8402a; }
 .xpbar { display: inline-block; width: calc(50 * var(--u)); height: calc(4 * var(--u)); background: #d8d8e4; vertical-align: middle; }
 .xpbar i { display: block; height: 100%; background: #4a8ae8; }
+.xpnext { font-size: 0.8em; color: #4a6ab8; }
 .statgrid { display: grid; grid-template-columns: auto auto auto auto; gap: 0 calc(6 * var(--u)); margin-top: calc(5 * var(--u)); }
 .statgrid b { text-align: right; font-weight: 400; }
 .badges { display: grid; grid-template-columns: repeat(4, 1fr); gap: calc(3 * var(--u)); }
@@ -206,6 +207,7 @@ body {
 .num { text-align: right; font-size: calc(6 * var(--u)); line-height: calc(8 * var(--u)); }
 .bhud .xp { height: calc(2 * var(--u)); background: #d8d8e4; margin-top: calc(2 * var(--u)); }
 .bhud .xp i { display: block; height: 100%; background: #4a8ae8; }
+.bhud .xpn { text-align: right; font-size: calc(5 * var(--u)); line-height: calc(7 * var(--u)); color: #4a6ab8; }
 .bhud .st { position: absolute; left: calc(6 * var(--u)); top: calc(-9 * var(--u)); display: flex; gap: calc(3 * var(--u)); }
 .bhud .st em { font-style: normal; font-size: calc(5 * var(--u)); line-height: 1; color: #fff; padding: calc(2 * var(--u)) calc(3 * var(--u)); text-shadow: none; }
 .bhud .st .bo { background: #c8402a; }
