@@ -653,6 +653,21 @@ const Battle = {
     }
   },
 
+  backdrop(biome, b) {
+    return Art.get('battlebg|' + biome, () => {
+      const [c, x] = U.canvas(VIEW_W + 8, VIEW_H);
+      const gr = x.createLinearGradient(0, 0, 0, 72);
+      gr.addColorStop(0, b.sky[0]); gr.addColorStop(1, b.sky[1]);
+      x.fillStyle = gr; x.fillRect(0, 0, VIEW_W + 8, 72);
+      x.fillStyle = U.shade(b.field, 0.12); x.fillRect(0, 64, VIEW_W + 8, 40);
+      x.fillStyle = U.shade(b.field, 0.22); x.fillRect(0, 64, VIEW_W + 8, 2);
+      x.fillStyle = b.field; x.fillRect(0, 104, VIEW_W + 8, VIEW_H - 104);
+      x.fillStyle = U.shade(b.field, -0.08);
+      for (let y = 108; y < VIEW_H; y += 6) x.fillRect(0, y, VIEW_W + 8, 2);
+      return { img: c, rim: U.shade(b.field, -0.24), top: U.shade(b.field, -0.1) };
+    });
+  },
+
   render(x) {
     const s = this.s;
     if (!s) return;
@@ -660,22 +675,15 @@ const Battle = {
     const sh = a.shake > 0 ? Math.round((Math.random() - 0.5) * 6) : 0;
     x.save();
     x.translate(sh, 0);
-    // sky, horizon and ground bands
-    const [sky1, sky2] = b.sky;
-    const gr = x.createLinearGradient(0, 0, 0, 72);
-    gr.addColorStop(0, sky1); gr.addColorStop(1, sky2);
-    x.fillStyle = gr; x.fillRect(-4, 0, VIEW_W + 8, 72);
-    x.fillStyle = U.shade(b.field, 0.12); x.fillRect(-4, 64, VIEW_W + 8, 40);
-    x.fillStyle = U.shade(b.field, 0.22); x.fillRect(-4, 64, VIEW_W + 8, 2);
-    x.fillStyle = b.field; x.fillRect(-4, 104, VIEW_W + 8, VIEW_H - 104);
-    x.fillStyle = U.shade(b.field, -0.08);
-    for (let y = 108; y < VIEW_H; y += 6) x.fillRect(-4, y, VIEW_W + 8, 2);
+    // sky, horizon and ground bands (drawn once per biome, then reused)
+    const bg = this.backdrop(s.biome, b);
+    x.drawImage(bg.img, -4, 0);
     // platforms
     const slide = a.slide * 260;
-    disc(x, 230 - slide, 92, 48, 11, U.shade(b.field, -0.24));
-    disc(x, 230 - slide, 91, 44, 9, U.shade(b.field, -0.1));
-    disc(x, 74 + slide, 160, 60, 12, U.shade(b.field, -0.24));
-    disc(x, 74 + slide, 159, 56, 10, U.shade(b.field, -0.1));
+    disc(x, 230 - slide, 92, 48, 11, bg.rim);
+    disc(x, 230 - slide, 91, 44, 9, bg.top);
+    disc(x, 74 + slide, 160, 60, 12, bg.rim);
+    disc(x, 74 + slide, 159, 56, 10, bg.top);
     // foe / leader
     if (a.showLeader && s.leader) {
       const L = LEADERS[s.leader];

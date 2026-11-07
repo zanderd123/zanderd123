@@ -47,6 +47,13 @@ const OUTLINE = '#1e1626';
 
 const Art = {
   cache: new Map(),
+  palKeys: new WeakMap(),
+  // palettes are plain objects reused every frame; stringify each one once
+  palKey(pal) {
+    let k = this.palKeys.get(pal);
+    if (!k) { k = JSON.stringify(pal); this.palKeys.set(pal, k); }
+    return k;
+  },
   get(key, make) {
     let c = this.cache.get(key);
     if (!c) { c = make(); this.cache.set(key, c); }
@@ -56,13 +63,16 @@ const Art = {
 
 // ---------------------------------------------------------------- primitives
 function px(x, c, X, Y, w = 1, h = 1) { x.fillStyle = c; x.fillRect(Math.round(X), Math.round(Y), Math.round(w), Math.round(h)); }
+// filled pixel ellipse, one fillRect per row (same pixels as testing each one)
 function disc(x, cx, cy, rx, ry, c) {
   x.fillStyle = c;
   for (let y = Math.floor(cy - ry); y <= Math.ceil(cy + ry); y++) {
+    let a = null, b = null;
     for (let X = Math.floor(cx - rx); X <= Math.ceil(cx + rx); X++) {
       const dx = (X + 0.5 - cx) / rx, dy = (y + 0.5 - cy) / ry;
-      if (dx * dx + dy * dy <= 1) x.fillRect(X, y, 1, 1);
+      if (dx * dx + dy * dy <= 1) { if (a === null) a = X; b = X; }
     }
+    if (a !== null) x.fillRect(a, y, b - a + 1, 1);
   }
 }
 // Darken every transparent pixel that touches an opaque one.
@@ -535,7 +545,7 @@ function buildChar(cf, dir, fr) {
 // Returns {down:[stand,stepA,stepB], up, left, right}; 20x24 canvases drawn
 // at (tileX - 2, tileY - 8).
 Art.character = function (pal, look) {
-  const key = 'chr|' + JSON.stringify(pal) + '|' + look;
+  const key = 'chr|' + this.palKey(pal) + '|' + look;
   return this.get(key, () => {
     const cf = charStyle(pal, look), out = {};
     for (const dir of ['down', 'up', 'right']) out[dir] = [0, 1, 2].map((f) => buildChar(cf, dir, f));
@@ -839,7 +849,7 @@ function drawFace(x, cx, cy, ink) {
 
 // Big portrait used in battles and cutscenes: a character scaled 4x.
 Art.portrait = function (pal, look, dir = 'down') {
-  return this.get('portrait|' + JSON.stringify(pal) + '|' + look + '|' + dir, () => {
+  return this.get('portrait|' + this.palKey(pal) + '|' + look + '|' + dir, () => {
     const src = Art.character(pal, look)[dir][0];
     const [c, x] = U.canvas(60, 72);
     x.drawImage(src, 0, 0, 60, 72);

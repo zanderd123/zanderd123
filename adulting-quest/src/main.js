@@ -185,6 +185,16 @@ const Main = {
     if (Game.p.badges.includes('fitness') && !Game.p.items.gym_card) Game.give('gym_card', 1);
     if (!Game.p.visited || !Game.p.visited.length) Game.p.visited = [0, ...TOWNS.map((t, i) => i).filter((i) => i > 0 && i <= Game.p.badges.length)];
     if (!World.maps[Game.p.map]) Object.assign(Game.p, { map: 'house-0-0', x: 2, y: 3 });
+    // drop anything this version doesn't know (old saves, hand-edited codes)
+    const P = Game.p;
+    P.known = P.known.filter((id) => SKILLS[id]);
+    P.equipped = P.equipped.filter((id) => P.known.includes(id)).slice(0, 4);
+    if (!P.known.length) P.known = ['wing_it'];
+    if (!P.equipped.length) P.equipped = [P.known[0]];
+    for (const id of Object.keys(P.items)) if (!ITEMS[id] || !(P.items[id] > 0)) delete P.items[id];
+    P.badges = P.badges.filter((k) => LEADERS[k]);
+    if (!P.respawn || !World.maps[P.respawn.map]) P.respawn = Game.newPlayer(P.name).respawn;
+    if (P.path && !PATHS[P.path]) P.path = 'college';
     await Game.fadeTo(1, 300);
     Game.mode = 'world';
     World.refreshGates();

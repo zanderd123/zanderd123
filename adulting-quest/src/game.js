@@ -180,7 +180,13 @@ const Game = {
   sanityMult(p = this.p) { return p && p.badges && p.badges.includes('fitness') ? 1.1 : 1; },
   // 18 out of high school, 32 when all eight leaders are done
   age() { return 18 + Math.floor(this.p.badges.length * 1.75); },
-  heroPal() { const H = HEROES[this.p.hero] || HEROES.boy; return { ...H.pal, c: this.p.outfit }; },
+  heroPal() {
+    const hero = this.p.hero, outfit = this.p.outfit, m = this._heroPal;
+    if (m && m.hero === hero && m.outfit === outfit) return m.pal;
+    const H = HEROES[hero] || HEROES.boy;
+    this._heroPal = { hero, outfit, pal: { ...H.pal, c: outfit } };
+    return this._heroPal.pal;
+  },
   heroLook() { return (HEROES[this.p.hero] || HEROES.boy).look; },
   playableDone() { return LEADER_ORDER.every((k) => LEADERS[k].locked || this.p.badges.includes(k)); },
   fullHeal() { Crew.healAll(); },

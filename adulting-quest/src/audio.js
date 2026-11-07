@@ -106,7 +106,7 @@ const Audio2 = {
   },
 
   sfx(name) {
-    if (!this.ctx) return;
+    if (!this.ctx || this.muted) return;
     switch (name) {
       case 'blip': this.tone(880, 0.03, 'square', 0.02); break;
       case 'move': this.tone(660, 0.04, 'square', 0.04); break;
@@ -157,6 +157,9 @@ const Audio2 = {
           }
           const [f, b] = v.notes[v.i++];
           const dur = b * beat, at = v.t - this.ctx.currentTime;
+          // keep time but make no sound while muted, or for notes a
+          // throttled background tab already missed (no catch-up burst)
+          if (this.muted || at < -0.05) { v.t += dur; continue; }
           if (v.drum) this.drum(f, at);
           else if (f) {
             this.tone(f, dur * 0.9, v.type, v.vol, at);
