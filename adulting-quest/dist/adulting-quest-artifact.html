@@ -1130,6 +1130,13 @@ const OUTLINE = '#1e1626';
 
 const Art = {
   cache: new Map(),
+  palKeys: new WeakMap(),
+  // palettes are plain objects reused every frame; stringify each one once
+  palKey(pal) {
+    let k = this.palKeys.get(pal);
+    if (!k) { k = JSON.stringify(pal); this.palKeys.set(pal, k); }
+    return k;
+  },
   get(key, make) {
     let c = this.cache.get(key);
     if (!c) { c = make(); this.cache.set(key, c); }
@@ -1139,13 +1146,16 @@ const Art = {
 
 // ---------------------------------------------------------------- primitives
 function px(x, c, X, Y, w = 1, h = 1) { x.fillStyle = c; x.fillRect(Math.round(X), Math.round(Y), Math.round(w), Math.round(h)); }
+// filled pixel ellipse, one fillRect per row (same pixels as testing each one)
 function disc(x, cx, cy, rx, ry, c) {
   x.fillStyle = c;
   for (let y = Math.floor(cy - ry); y <= Math.ceil(cy + ry); y++) {
+    let a = null, b = null;
     for (let X = Math.floor(cx - rx); X <= Math.ceil(cx + rx); X++) {
       const dx = (X + 0.5 - cx) / rx, dy = (y + 0.5 - cy) / ry;
-      if (dx * dx + dy * dy <= 1) x.fillRect(X, y, 1, 1);
+      if (dx * dx + dy * dy <= 1) { if (a === null) a = X; b = X; }
     }
+    if (a !== null) x.fillRect(a, y, b - a + 1, 1);
   }
 }
 // Darken every transparent pixel that touches an opaque one.
@@ -1618,7 +1628,7 @@ function buildChar(cf, dir, fr) {
 // Returns {down:[stand,stepA,stepB], up, left, right}; 20x24 canvases drawn
 // at (tileX - 2, tileY - 8).
 Art.character = function (pal, look) {
-  const key = 'chr|' + JSON.stringify(pal) + '|' + look;
+  const key = 'chr|' + this.palKey(pal) + '|' + look;
   return this.get(key, () => {
     const cf = charStyle(pal, look), out = {};
     for (const dir of ['down', 'up', 'right']) out[dir] = [0, 1, 2].map((f) => buildChar(cf, dir, f));
@@ -1922,7 +1932,7 @@ function drawFace(x, cx, cy, ink) {
 
 // Big portrait used in battles and cutscenes: a character scaled 4x.
 Art.portrait = function (pal, look, dir = 'down') {
-  return this.get('portrait|' + JSON.stringify(pal) + '|' + look + '|' + dir, () => {
+  return this.get('portrait|' + this.palKey(pal) + '|' + look + '|' + dir, () => {
     const src = Art.character(pal, look)[dir][0];
     const [c, x] = U.canvas(60, 72);
     x.drawImage(src, 0, 0, 60, 72);
@@ -2039,7 +2049,7 @@ const Audio2 = {
   },
 
   sfx(name) {
-    if (!this.ctx) return;
+    if (!this.ctx || this.muted) return;
     switch (name) {
       case 'blip': this.tone(880, 0.03, 'square', 0.02); break;
       case 'move': this.tone(660, 0.04, 'square', 0.04); break;
@@ -2090,6 +2100,9 @@ const Audio2 = {
           }
           const [f, b] = v.notes[v.i++];
           const dur = b * beat, at = v.t - this.ctx.currentTime;
+          // keep time but make no sound while muted, or for notes a
+          // throttled background tab already missed (no catch-up burst)
+          if (this.muted || at < -0.05) { v.t += dur; continue; }
           if (v.drum) this.drum(f, at);
           else if (f) {
             this.tone(f, dur * 0.9, v.type, v.vol, at);
@@ -3278,7 +3291,13 @@ const Game = {
   sanityMult(p = this.p) { return p && p.badges && p.badges.includes('fitness') ? 1.1 : 1; },
   // 18 out of high school, 32 when all eight leaders are done
   age() { return 18 + Math.floor(this.p.badges.length * 1.75); },
-  heroPal() { const H = HEROES[this.p.hero] || HEROES.boy; return { ...H.pal, c: this.p.outfit }; },
+  heroPal() {
+    const hero = this.p.hero, outfit = this.p.outfit, m = this._heroPal;
+    if (m && m.hero === hero && m.outfit === outfit) return m.pal;
+    const H = HEROES[hero] || HEROES.boy;
+    this._heroPal = { hero, outfit, pal: { ...H.pal, c: outfit } };
+    return this._heroPal.pal;
+  },
   heroLook() { return (HEROES[this.p.hero] || HEROES.boy).look; },
   playableDone() { return LEADER_ORDER.every((k) => LEADERS[k].locked || this.p.badges.includes(k)); },
   fullHeal() { Crew.healAll(); },
@@ -3785,7 +3804,7 @@ const Menu = {
         } else if (p.equipped.length < 4) {
           p.equipped.push(id);
         } else {
-          const j = await UI.choose(p.equipped.map((e) => 'Swap out ' + SKILLS[e].name), { cls: 'side' });
+          const j = await UI.choose(p.equipped.map((e) => `Swap out ${SKILLS[e].name} (${SKILLS[e].type})`), { cls: 'side' });
           if (j >= 0) p.equipped[j] = id;
         }
         return 'keep';
@@ -5121,8 +5140,8 @@ const Battle = {
   async offerSkill(id) {
     const p = Game.p;
     if (p.equipped.includes(id)) return;
-    await UI.say(`{NAME} already has 4 skills equipped. Swap one out for ${SKILLS[id].name.toUpperCase()}?`, { noWait: true });
-    const opts = p.equipped.map((e) => 'Swap ' + SKILLS[e].name).concat(['Keep current']);
+    await UI.say(`{NAME} already has 4 skills equipped. Swap one out for ${SKILLS[id].name.toUpperCase()} (${SKILLS[id].type})?`, { noWait: true });
+    const opts = p.equipped.map((e) => `Swap ${SKILLS[e].name} (${SKILLS[e].type})`).concat(['Keep current']);
     const j = await UI.choose(opts, { cls: 'side' });
     if (j >= 0 && j < p.equipped.length) {
       const old = p.equipped[j];
@@ -5281,6 +5300,21 @@ const Battle = {
     }
   },
 
+  backdrop(biome, b) {
+    return Art.get('battlebg|' + biome, () => {
+      const [c, x] = U.canvas(VIEW_W + 8, VIEW_H);
+      const gr = x.createLinearGradient(0, 0, 0, 72);
+      gr.addColorStop(0, b.sky[0]); gr.addColorStop(1, b.sky[1]);
+      x.fillStyle = gr; x.fillRect(0, 0, VIEW_W + 8, 72);
+      x.fillStyle = U.shade(b.field, 0.12); x.fillRect(0, 64, VIEW_W + 8, 40);
+      x.fillStyle = U.shade(b.field, 0.22); x.fillRect(0, 64, VIEW_W + 8, 2);
+      x.fillStyle = b.field; x.fillRect(0, 104, VIEW_W + 8, VIEW_H - 104);
+      x.fillStyle = U.shade(b.field, -0.08);
+      for (let y = 108; y < VIEW_H; y += 6) x.fillRect(0, y, VIEW_W + 8, 2);
+      return { img: c, rim: U.shade(b.field, -0.24), top: U.shade(b.field, -0.1) };
+    });
+  },
+
   render(x) {
     const s = this.s;
     if (!s) return;
@@ -5288,22 +5322,15 @@ const Battle = {
     const sh = a.shake > 0 ? Math.round((Math.random() - 0.5) * 6) : 0;
     x.save();
     x.translate(sh, 0);
-    // sky, horizon and ground bands
-    const [sky1, sky2] = b.sky;
-    const gr = x.createLinearGradient(0, 0, 0, 72);
-    gr.addColorStop(0, sky1); gr.addColorStop(1, sky2);
-    x.fillStyle = gr; x.fillRect(-4, 0, VIEW_W + 8, 72);
-    x.fillStyle = U.shade(b.field, 0.12); x.fillRect(-4, 64, VIEW_W + 8, 40);
-    x.fillStyle = U.shade(b.field, 0.22); x.fillRect(-4, 64, VIEW_W + 8, 2);
-    x.fillStyle = b.field; x.fillRect(-4, 104, VIEW_W + 8, VIEW_H - 104);
-    x.fillStyle = U.shade(b.field, -0.08);
-    for (let y = 108; y < VIEW_H; y += 6) x.fillRect(-4, y, VIEW_W + 8, 2);
+    // sky, horizon and ground bands (drawn once per biome, then reused)
+    const bg = this.backdrop(s.biome, b);
+    x.drawImage(bg.img, -4, 0);
     // platforms
     const slide = a.slide * 260;
-    disc(x, 230 - slide, 92, 48, 11, U.shade(b.field, -0.24));
-    disc(x, 230 - slide, 91, 44, 9, U.shade(b.field, -0.1));
-    disc(x, 74 + slide, 160, 60, 12, U.shade(b.field, -0.24));
-    disc(x, 74 + slide, 159, 56, 10, U.shade(b.field, -0.1));
+    disc(x, 230 - slide, 92, 48, 11, bg.rim);
+    disc(x, 230 - slide, 91, 44, 9, bg.top);
+    disc(x, 74 + slide, 160, 60, 12, bg.rim);
+    disc(x, 74 + slide, 159, 56, 10, bg.top);
     // foe / leader
     if (a.showLeader && s.leader) {
       const L = LEADERS[s.leader];
@@ -5603,6 +5630,16 @@ const Main = {
     if (Game.p.badges.includes('fitness') && !Game.p.items.gym_card) Game.give('gym_card', 1);
     if (!Game.p.visited || !Game.p.visited.length) Game.p.visited = [0, ...TOWNS.map((t, i) => i).filter((i) => i > 0 && i <= Game.p.badges.length)];
     if (!World.maps[Game.p.map]) Object.assign(Game.p, { map: 'house-0-0', x: 2, y: 3 });
+    // drop anything this version doesn't know (old saves, hand-edited codes)
+    const P = Game.p;
+    P.known = P.known.filter((id) => SKILLS[id]);
+    P.equipped = P.equipped.filter((id) => P.known.includes(id)).slice(0, 4);
+    if (!P.known.length) P.known = ['wing_it'];
+    if (!P.equipped.length) P.equipped = [P.known[0]];
+    for (const id of Object.keys(P.items)) if (!ITEMS[id] || !(P.items[id] > 0)) delete P.items[id];
+    P.badges = P.badges.filter((k) => LEADERS[k]);
+    if (!P.respawn || !World.maps[P.respawn.map]) P.respawn = Game.newPlayer(P.name).respawn;
+    if (P.path && !PATHS[P.path]) P.path = 'college';
     await Game.fadeTo(1, 300);
     Game.mode = 'world';
     World.refreshGates();

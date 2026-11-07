@@ -693,7 +693,7 @@ const Menu = {
         } else if (p.equipped.length < 4) {
           p.equipped.push(id);
         } else {
-          const j = await UI.choose(p.equipped.map((e) => 'Swap out ' + SKILLS[e].name), { cls: 'side' });
+          const j = await UI.choose(p.equipped.map((e) => `Swap out ${SKILLS[e].name} (${SKILLS[e].type})`), { cls: 'side' });
           if (j >= 0) p.equipped[j] = id;
         }
         return 'keep';

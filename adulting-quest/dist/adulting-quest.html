@@ -3810,7 +3810,7 @@ const Menu = {
         } else if (p.equipped.length < 4) {
           p.equipped.push(id);
         } else {
-          const j = await UI.choose(p.equipped.map((e) => 'Swap out ' + SKILLS[e].name), { cls: 'side' });
+          const j = await UI.choose(p.equipped.map((e) => `Swap out ${SKILLS[e].name} (${SKILLS[e].type})`), { cls: 'side' });
           if (j >= 0) p.equipped[j] = id;
         }
         return 'keep';
@@ -5146,8 +5146,8 @@ const Battle = {
   async offerSkill(id) {
     const p = Game.p;
     if (p.equipped.includes(id)) return;
-    await UI.say(`{NAME} already has 4 skills equipped. Swap one out for ${SKILLS[id].name.toUpperCase()}?`, { noWait: true });
-    const opts = p.equipped.map((e) => 'Swap ' + SKILLS[e].name).concat(['Keep current']);
+    await UI.say(`{NAME} already has 4 skills equipped. Swap one out for ${SKILLS[id].name.toUpperCase()} (${SKILLS[id].type})?`, { noWait: true });
+    const opts = p.equipped.map((e) => `Swap ${SKILLS[e].name} (${SKILLS[e].type})`).concat(['Keep current']);
     const j = await UI.choose(opts, { cls: 'side' });
     if (j >= 0 && j < p.equipped.length) {
       const old = p.equipped[j];

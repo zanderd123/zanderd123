@@ -493,8 +493,8 @@ const Battle = {
   async offerSkill(id) {
     const p = Game.p;
     if (p.equipped.includes(id)) return;
-    await UI.say(`{NAME} already has 4 skills equipped. Swap one out for ${SKILLS[id].name.toUpperCase()}?`, { noWait: true });
-    const opts = p.equipped.map((e) => 'Swap ' + SKILLS[e].name).concat(['Keep current']);
+    await UI.say(`{NAME} already has 4 skills equipped. Swap one out for ${SKILLS[id].name.toUpperCase()} (${SKILLS[id].type})?`, { noWait: true });
+    const opts = p.equipped.map((e) => `Swap ${SKILLS[e].name} (${SKILLS[e].type})`).concat(['Keep current']);
     const j = await UI.choose(opts, { cls: 'side' });
     if (j >= 0 && j < p.equipped.length) {
       const old = p.equipped[j];
