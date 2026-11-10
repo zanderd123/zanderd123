@@ -4,6 +4,8 @@ A GBA-style top-down RPG about ages 20–32. Pick a path with Dr. Street, walk
 eight towns, fight everyday issues in the tall grass with life skills, and beat
 the eight Life Leaders to win at the game of life.
 
+Play online: https://zanderd123.github.io/zanderd123/adulting-quest/ (no account needed).
+
 Play: open `dist/adulting-quest.html` in any browser (double-click works, no
 server needed). Phones get an on-screen D-pad, A/B and MENU.
 
