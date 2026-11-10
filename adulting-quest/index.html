@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Adulting Quest</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="screen">
+  <canvas id="cv" width="304" height="224" aria-label="Adulting Quest game screen"></canvas>
+  <div id="ui"></div>
+</div>
+<div id="hint"><b>Arrows/WASD</b> move · <b>Space</b> talk / A · <b>Shift</b> run / B · <b>Esc</b> menu · <b>M</b> music</div>
+<div id="pad">
+  <div class="dpad">
+    <button type="button" data-btn="up" class="u" aria-label="Up">&#9650;</button>
+    <button type="button" data-btn="left" class="l" aria-label="Left">&#9664;</button>
+    <button type="button" data-btn="right" class="r" aria-label="Right">&#9654;</button>
+    <button type="button" data-btn="down" class="d" aria-label="Down">&#9660;</button>
+  </div>
+  <button type="button" data-btn="START" class="menubtn">MENU</button>
+  <div class="ab"><button type="button" data-btn="B" class="b" aria-label="B: run or back">B</button><button type="button" data-btn="A" class="a" aria-label="A: talk or confirm">A</button></div>
+</div>
+<!-- scripts: order matters (see build.mjs) -->
+<script src="src/util.js"></script>
+<script src="src/data.js"></script>
+<script src="src/art.js"></script>
+<script src="src/audio.js"></script>
+<script src="src/ui.js"></script>
+<script src="src/world.js"></script>
+<script src="src/cloud.js"></script>
+<script src="src/game.js"></script>
+<script src="src/crew.js"></script>
+<script src="src/ending.js"></script>
+<script src="src/scripts.js"></script>
+<script src="src/battle.js"></script>
+<script src="src/hints.js"></script>
+<script src="src/main.js"></script>
+</body>
+</html>
