@@ -1159,7 +1159,7 @@ details.numbers summary { cursor: pointer; color: var(--muted); font-weight: 800
         const a = r.int(4, 12), b = r.int(a + 1, 20), t = r.int(1, a - 1);
         const left = 1 - t * (1 / a + 1 / b), more = left * b;
         if (left <= 0 || Math.abs(more * 2 - Math.round(more * 2)) > 1e-9) continue;
-        const f = v => `${+v.toFixed(1)} days`;
+        const f = v => `${+v.toFixed(1)} day${+v.toFixed(1) === 1 ? '' : 's'}`;
         const q = { prompt: `Ana can paint a fence in ${a} days and Ben in ${b} days. They work together for ${t} day${t > 1 ? 's' : ''}, then Ana leaves. How many more days does Ben need to finish?`, stem: null,
           hint: 'Work in "fences per day". Find how much is done in the time together, then how long Ben needs for the rest.',
           why: `Together they do 1/${a} + 1/${b} of the fence a day, so in ${t} day${t > 1 ? 's' : ''} ${+(t * (1 / a + 1 / b)).toFixed(4)} of it. That leaves ${+left.toFixed(4)}, which takes Ben ${f(more)}.`, mono: true };
