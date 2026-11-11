@@ -38,7 +38,17 @@ A daily brain workout: one IQ-style question a day, plus unlimited practice.
   for every game, and the daily calendar.
 - XP, levels, practice combos, confetti and optional sound effects.
 
-Hard is built to need several steps of reasoning: cubic and three-term
+Difficulty moved up a full step in November 2026: Easy now serves what was
+Medium, Medium what was Hard, and Hard is an expert tier (digit-sum and
+three-way woven sequences, letter lists and powers of two past Z, mixtures,
+reversed digits and two-equation ages, seven-person orderings, four
+knights-and-knaves islanders, four-house puzzles with person, colour, pet and
+drink, pattern grids with size as a fourth feature, and turn-then-flip
+spatial questions). Every game also gained an expert setting, the workout has
+five longer rounds, and the Daily Grid is 9×9 on every level. Questions of the
+Day before 12 November keep their original level so past answers still match.
+
+The previous Hard, now Medium, needs several steps of reasoning: cubic and three-term
 sequences, letter series that wrap past Z, pattern grids with an addition
 rule, six-person orderings, harder knights-and-knaves statements, four-house
 deduction puzzles, pipe, round-trip and clock-angle problems, and larger

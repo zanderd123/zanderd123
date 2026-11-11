@@ -668,7 +668,11 @@ details.numbers summary { cursor: pointer; color: var(--muted); font-weight: 800
     { id: 'focus', name: 'Focus', short: 'Focus', game: true },
   ];
   const DIFFS = ['easy', 'medium', 'hard'];
-  const TARGET = { easy: '~1 min', medium: '~2–3 min', hard: '~5–8 min' };
+  const TARGET = { easy: '~2 min', medium: '~3–5 min', hard: '~5–10 min' };
+  // What each difficulty generates. The original easy pool is retired; Hard is the expert tier.
+  const LEVEL = { easy: 'medium', medium: 'hard', hard: 'expert' };
+  // Questions of the Day before this day keep the old mapping, so past answers still match.
+  const DAILY_CUT = 19;
 
   // Builds the option list: the answer plus distinct distractors, shuffled.
   function finalize(r, q, answer, distractors, n, keyOf) {
@@ -811,6 +815,63 @@ details.numbers summary { cursor: pointer; color: var(--muted); font-weight: 800
       },
     ],
   };
+  const digitSum = x => String(Math.abs(x)).split('').reduce((a, d) => a + Number(d), 0);
+  const PRIMES = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43];
+  SEQ.expert = [
+    r => {
+      const t = [r.int(11, 49)];
+      for (let i = 0; i < 7; i++) t.push(t[i] + digitSum(t[i]));
+      return { t, why: `Each term adds the sum of its own digits: for example ${t[2]} + ${String(t[2]).split('').join(' + ')} = ${t[3]}.`,
+        hint: 'The jumps are irregular. Look at the digits of each number.' };
+    },
+    r => {
+      const j = r.int(0, 4), k = r.pick([-2, -1, 1, 2]);
+      const t = PRIMES.slice(j, j + 7).map(p => p * p + k);
+      return { t, why: `Each term is a prime squared ${k > 0 ? 'plus' : 'minus'} ${Math.abs(k)}: ${PRIMES.slice(j, j + 3).map(p => p + '²').join(', ')}…`,
+        hint: `Try ${k > 0 ? 'subtracting' : 'adding'} a small number from every term, then look for squares of a special kind of number.` };
+    },
+    r => {
+      const s = r.int(1, 5), a = r.int(1, 4), m = r.pick([2, 3]);
+      const t = [s];
+      for (let i = 1; i < 8; i++) t.push(i % 2 ? t[i - 1] + a + (i - 1) : t[i - 1] * m);
+      return { t, why: `The steps alternate between adding and multiplying by ${m}, and the number added grows by 2 each time: +${a}, ×${m}, +${a + 2}, ×${m}, +${a + 4}…`,
+        hint: 'Two different steps take turns, and one of them changes each time.' };
+    },
+    r => {
+      const a = r.int(1, 9), d = r.int(2, 7), b = r.int(1, 3), c = r.int(40, 90), e = r.int(3, 9);
+      const t = [];
+      for (let i = 0; i < 9; i++) { const k = Math.floor(i / 3); t.push(i % 3 === 0 ? a + d * k : i % 3 === 1 ? b * 2 ** k : c - e * k); }
+      return { t, why: `Three series are woven together, every third term: one adds ${d}, one doubles, one subtracts ${e}.`,
+        hint: 'Every other term is not enough. Try every third term.' };
+    },
+    r => {
+      const k = r.pick([3, 4]), a = r.int(1, 3), b = r.int(a + 1, a + 4);
+      const t = [a, b];
+      for (let i = 2; i < 8; i++) t.push(k * t[i - 1] - t[i - 2]);
+      return { t, why: `Each term is ${k}× the previous term minus the one before that: ${k}·${t[2]} − ${t[1]} = ${t[3]}.`,
+        hint: 'Each term depends on the two before it. Try a multiple of one minus the other.' };
+    },
+    r => {
+      const s = r.int(2, 4), sgn = r.pick([1, -1]);
+      const t = [s];
+      for (let n = 2; n <= 7; n++) t.push(t[t.length - 1] * n + sgn * n);
+      return { t, why: `Multiply by the position, then ${sgn > 0 ? 'add' : 'subtract'} it: ×2 ${sgn > 0 ? '+' : '−'} 2, ×3 ${sgn > 0 ? '+' : '−'} 3, ×4 ${sgn > 0 ? '+' : '−'} 4…`,
+        hint: 'Divide each term by the one before it. What multiplier, roughly, and what is left over?' };
+    },
+    r => {
+      const a = r.int(1, 4), c = r.int(1, 3);
+      const t = [a];
+      for (let i = 1; i < 8; i++) t.push(t.reduce((x, y) => x + y, 0) + c * i);
+      return { t, why: `Each term is the sum of all the terms before it, plus ${c === 1 ? 'its position' : `${c}× its position`}.`,
+        hint: 'Keep a running total of everything so far.' };
+    },
+    r => {
+      const t = [];
+      for (let n = 1; n <= 9; n++) t.push(n % 2 ? n * n : n * n * n);
+      return { t, why: 'Odd positions are squares (1², 3², 5²…) and even positions are cubes (2³, 4³, 6³…) of the position number.',
+        hint: 'Read every other number, and compare each with its position.' };
+    },
+  ];
   function genSequences(r, diff) {
     const p = r.pick(SEQ[diff])(r);
     const shown = p.t.slice(0, -1), ans = p.t[p.t.length - 1];
@@ -918,6 +979,46 @@ details.numbers summary { cursor: pointer; color: var(--muted); font-weight: 800
       },
     ],
   };
+  const LISTS = [
+    ['ONE TWO THREE FOUR FIVE SIX SEVEN EIGHT NINE TEN', 'the number words one, two, three…'],
+    ['JANUARY FEBRUARY MARCH APRIL MAY JUNE JULY AUGUST SEPTEMBER OCTOBER NOVEMBER DECEMBER', 'the months of the year'],
+    ['MONDAY TUESDAY WEDNESDAY THURSDAY FRIDAY SATURDAY SUNDAY', 'the days of the week'],
+    ['MERCURY VENUS EARTH MARS JUPITER SATURN URANUS NEPTUNE', 'the planets in order from the Sun'],
+    ['RED ORANGE YELLOW GREEN BLUE INDIGO VIOLET', 'the colours of the rainbow'],
+    ['Q W E R T Y U I O P', 'the top row of a keyboard'],
+    ['DO RE MI FA SO LA TI', 'the sol-fa notes do, re, mi…'],
+  ];
+  LETTERS.expert = [
+    r => {
+      const [list, what] = r.pick(LISTS), words = list.split(' ');
+      const start = r.int(0, Math.max(0, words.length - 7)), len = Math.min(words.length - start, r.int(6, 8));
+      const pos = words.slice(start, start + len).map(w => w.charCodeAt(0) - 65);
+      return { items: pos.slice(0, -1).map(L), ans: L(pos[pos.length - 1]), near: pos[pos.length - 1],
+        why: `These are the first letters of ${what}.`,
+        hint: 'Not every letter series is arithmetic. Could these be the initials of a familiar list?' };
+    },
+    r => {
+      const j = r.int(0, 2), pos = [0, 1, 2, 3, 4, 5, 6].map(i => 2 ** (i + j) - 1);
+      return { items: pos.slice(0, 6).map(L), ans: L(pos[6]), near: pos[6],
+        why: `As alphabet positions the letters are powers of two (${2 ** j}, ${2 ** (j + 1)}, ${2 ** (j + 2)}…), counted round the alphabet past Z.`,
+        hint: 'Turn letters into numbers. They grow fast, so keep counting round from A after Z.' };
+    },
+    r => {
+      const j = r.int(5, 7), P = PRIMES.slice(j, j + 7);
+      const pos = P.map(p => p - 1);
+      return { items: pos.slice(0, 6).map(L), ans: L(pos[6]), near: pos[6],
+        why: `As alphabet positions the letters are the primes ${P.slice(0, 4).join(', ')}…, counted round past Z.`,
+        hint: 'Number the letters, and allow for going round the alphabet more than once.' };
+    },
+    r => {
+      const s = r.int(0, 25), a = r.int(3, 5);
+      const pos = [s];
+      for (let i = 1; i < 8; i++) pos.push(pos[i - 1] + (i % 2 ? a + i - 1 : -Math.floor(i / 2)));
+      return { items: pos.slice(0, 7).map(L), ans: L(pos[7]), near: pos[7],
+        why: `Forward steps grow (+${a}, +${a + 2}, +${a + 4}…) while backward steps grow too (−1, −2, −3…), wrapping round the alphabet.`,
+        hint: 'Write the steps as numbers. Both the forward and the backward steps change.' };
+    },
+  ];
   function genLetters(r, diff) {
     const p = r.pick(LETTERS[diff])(r);
     let ds = [];
@@ -1002,7 +1103,86 @@ details.numbers summary { cursor: pointer; color: var(--muted); font-weight: 800
     q.options = q.options.map(fmt);
     return q;
   }
+  OPS.expert = [
+    { f: (a, b) => a * a + b * b - a * b, t: 'a² + b² − ab' }, { f: (a, b) => a * a * a - b, t: 'a³ − b' },
+    { f: (a, b) => a * b + (a - b) ** 2, t: 'ab + (a − b)²' }, { f: (a, b) => a * a + 2 * b * b, t: 'a² + 2b²' },
+    { f: (a, b) => 2 * a * a - b * b, t: '2a² − b²' }, { f: (a, b) => a * b * b - a, t: 'ab² − a' },
+    { f: (a, b) => (a + b) * (a - b) + b, t: '(a + b)(a − b) + b' }, { f: (a, b) => a * (a - b) * b, t: 'a·b·(a − b)' },
+  ];
+  function genExpertArithmetic(r) {
+    const kind = r.int(0, 6);
+    if (kind === 0) return genMysteryOp(r, 'expert');
+    if (kind === 1) {
+      for (;;) {
+        const x = r.pick([10, 12, 15, 18, 20, 24, 30, 36, 40, 45, 50, 60]), p = r.pick([20, 25, 30, 40, 45, 50, 60]), q = r.pick([10, 12, 15, 18, 20, 24, 25, 30, 36]);
+        if (q >= p) continue;
+        const ans = x * (p - q) / q;
+        if (Math.abs(ans * 10 - Math.round(ans * 10)) > 1e-9) continue;
+        const f = v => `${+v.toFixed(1)} L`;
+        const q2 = { prompt: `You have ${x} litres of a ${p}% salt solution. How much pure water must you add to dilute it to ${q}%?`, stem: null,
+          hint: 'The amount of salt never changes. Work out how much salt there is first.',
+          why: `Salt: ${p}% of ${x} L = ${+(x * p / 100).toFixed(2)} L. At ${q}% that much salt needs ${+(x * p / q).toFixed(2)} L of solution in total, so add ${f(ans)} of water.`, mono: true };
+        return finalize(r, q2, f(ans), [x * (p - q) / 100, x * (p - q) / p, ans + x / 10, ans * 2, x * p / q, ans - 2].filter(v => v > 0).map(f), 4);
+      }
+    }
+    if (kind === 2) {
+      const a = r.int(1, 7), b = r.int(a + 1, 9), n = 10 * a + b;
+      const q = { prompt: `A two-digit number's digits add up to ${a + b}. Reversing its digits makes it ${9 * (b - a)} bigger. What is the number?`, stem: null,
+        hint: 'Write the number as 10x + y. Reversing gives 10y + x. Turn both facts into equations.',
+        why: `10y + x − (10x + y) = 9(y − x) = ${9 * (b - a)}, so y − x = ${b - a}. With x + y = ${a + b}: x = ${a}, y = ${b}. The number is ${n}.`, mono: true };
+      return finalize(r, q, n, [10 * b + a, n + 9, n - 9, n + 18, n - 18, 10 * (a + 1) + (b - 1), n + 1, n - 1].filter(v => v > 9 && v < 100), 4);
+    }
+    if (kind === 3) {
+      for (;;) {
+        const k = r.pick([3, 4, 5]), m = r.pick([2, 3]), n = r.int(4, 20);
+        if (m >= k || (n * (m - 1)) % (k - m)) continue;
+        const B = n * (m - 1) / (k - m), A = k * B, who = r.shuffle(['Mia', 'Leo', 'Zara', 'Sam', 'Nina', 'Owen']);
+        if (B < 3 || A > 90) continue;
+        const q = { prompt: `${who[0]} is ${k} times as old as ${who[1]}. In ${n} years, ${who[0]} will be ${m === 2 ? 'twice' : 'three times'} as old as ${who[1]}. How old is ${who[0]} now?`, stem: null,
+          hint: `Call ${who[1]}'s age now B. Write ${who[0]}'s age now, and both ages in ${n} years.`,
+          why: `${k}B + ${n} = ${m}(B + ${n}) gives ${k - m}B = ${n * (m - 1)}, so B = ${B} and ${who[0]} is ${k} × ${B} = ${A}.`, mono: true };
+        return finalize(r, q, A, numDistractors(r, A, [B, A + n, k * (B + 1), m * B]), 4);
+      }
+    }
+    if (kind === 4) {
+      const g = r.pick([5, 10, 20, 25]), yrs = r.pick([2, 3]), fall = r.pick([10, 20, 25, 30]);
+      const net = Math.round(((1 + g / 100) ** yrs * (1 - fall / 100) - 1) * 1000) / 10;
+      const f = v => (v === 0 ? 'No change' : `${v > 0 ? '+' : '−'}${Math.abs(v)}%`);
+      const q = { prompt: `A town's population grows by ${g}% a year for ${yrs} years, then falls by ${fall}% in one year. What is the overall change, to one decimal place?`, stem: null,
+        hint: 'Multiply the growth factors, do not add the percentages.',
+        why: `Overall factor: ${(1 + g / 100).toFixed(2)}^${yrs} × ${(1 - fall / 100).toFixed(2)} = ${((1 + g / 100) ** yrs * (1 - fall / 100)).toFixed(4)}, which is ${f(net).toLowerCase()}.`, mono: true };
+      const naive = g * yrs - fall;
+      return finalize(r, q, f(net), [naive, net + 2.5, net - 2.5, net + 1, net - 1.5].map(v => Math.round(v * 10) / 10).map(f), 4);
+    }
+    if (kind === 5) {
+      for (;;) {
+        const a = r.int(4, 12), b = r.int(a + 1, 20), t = r.int(1, a - 1);
+        const left = 1 - t * (1 / a + 1 / b), more = left * b;
+        if (left <= 0 || Math.abs(more * 2 - Math.round(more * 2)) > 1e-9) continue;
+        const f = v => `${+v.toFixed(1)} days`;
+        const q = { prompt: `Ana can paint a fence in ${a} days and Ben in ${b} days. They work together for ${t} day${t > 1 ? 's' : ''}, then Ana leaves. How many more days does Ben need to finish?`, stem: null,
+          hint: 'Work in "fences per day". Find how much is done in the time together, then how long Ben needs for the rest.',
+          why: `Together they do 1/${a} + 1/${b} of the fence a day, so in ${t} day${t > 1 ? 's' : ''} ${+(t * (1 / a + 1 / b)).toFixed(4)} of it. That leaves ${+left.toFixed(4)}, which takes Ben ${f(more)}.`, mono: true };
+        return finalize(r, q, f(more), [b - t, more + 1, more - 1, left * a, b * (1 - t / a), more + 0.5].filter(v => v > 0).map(f), 4);
+      }
+    }
+    // Three symbols with a product, a sum and a difference: solved by brute force to be sure it is unique.
+    for (;;) {
+      const x = r.int(2, 12), y = r.int(2, 12), z = r.int(1, 11);
+      if (x === y || y === z || x <= z) continue;
+      const P = x * y, S = y + z, D = x - z;
+      const sols = [];
+      for (let a = 1; a <= 30; a++) for (let b = 1; b <= 30; b++) for (let c = 1; c <= 30; c++) if (a * b === P && b + c === S && a - c === D) sols.push([a, b, c]);
+      if (sols.length !== 1) continue;
+      const ans = x + y * z;
+      const q = { prompt: 'Each symbol stands for a positive whole number. What is ● + ▲ × ■?', stem: { kind: 'lines', mono: true, items: [`● × ▲ = ${P}`, `▲ + ■ = ${S}`, `● − ■ = ${D}`] },
+        hint: 'List the ways to make the product, then test each against the other two lines.',
+        why: `Try each factor pair of ${P}: only ● = ${x}, ▲ = ${y} works, since then ■ = ${S} − ${y} = ${z} and ${x} − ${z} = ${D}. So ${x} + ${y} × ${z} = ${ans} (multiplication first).`, mono: true };
+      return finalize(r, q, ans, numDistractors(r, ans, [(x + y) * z, x * y + z, x + y + z, ans + y]), 5);
+    }
+  }
   function genArithmetic(r, diff) {
+    if (diff === 'expert') return genExpertArithmetic(r);
     if (diff === 'easy') {
       const kind = r.int(0, 3);
       if (kind === 0) {
@@ -1151,7 +1331,8 @@ details.numbers summary { cursor: pointer; color: var(--muted); font-weight: 800
     { more: 'faster than', less: 'slower than', top: 'fastest', bottom: 'slowest' },
     { more: 'heavier than', less: 'lighter than', top: 'heaviest', bottom: 'lightest' },
   ];
-  const ORD = ['', 'second', 'third', 'fourth', 'fifth'];
+  const ORD = ['', 'second', 'third', 'fourth', 'fifth', 'sixth'];
+  const PERMS = {};
   function perms(n) {
     const out = [], a = [...Array(n).keys()];
     (function go(k) {
@@ -1165,7 +1346,7 @@ details.numbers summary { cursor: pointer; color: var(--muted); font-weight: 800
     // order[0] is the top. A clue [i, j] says person i ranks above person j.
     const order = r.shuffle([...Array(n).keys()]);
     const rank = []; order.forEach((p, k) => { rank[p] = k; });
-    const all = perms(n);
+    const all = PERMS[n] || (PERMS[n] = perms(n));
     const fits = (clues, perm) => {
       const rk = []; perm.forEach((p, k) => { rk[p] = k; });
       return clues.every(([i, j]) => rk[i] < rk[j]);
@@ -1223,7 +1404,7 @@ details.numbers summary { cursor: pointer; color: var(--muted); font-weight: 800
       const describe = A => {
         const k = names.filter((_, i) => A[i]);
         if (!k.length) return 'Nobody is a knight';
-        if (k.length === n) return n === 2 ? 'Both are knights' : 'All three are knights';
+        if (k.length === n) return n === 2 ? 'Both are knights' : n === 3 ? 'All three are knights' : 'All four are knights';
         if (k.length === 1) return `Only ${k[0]}`;
         return `${k.slice(0, -1).join(', ')} and ${k[k.length - 1]}`;
       };
@@ -1265,84 +1446,109 @@ details.numbers summary { cursor: pointer; color: var(--muted); font-weight: 800
   function genLogic(r, diff) {
     if (diff === 'easy') return r.chance(0.55) ? genOrdering(r, 3) : genDays(r, 'easy');
     if (diff === 'medium') { const k = r.int(0, 2); return k === 0 ? genOrdering(r, 4) : k === 1 ? genKnights(r, 2) : genDays(r, 'medium'); }
+    if (diff === 'expert') { const k = r.int(0, 2); return k === 0 ? genOrdering(r, 7) : k === 1 ? genKnights(r, 4) : genHouses(r, true); }
     const k = r.int(0, 2);
     return k === 0 ? genOrdering(r, 6) : k === 1 ? genKnights(r, 3) : genHouses(r);
   }
-  // Einstein-style deduction: four houses in a row, each with one person, colour and pet.
-  const COLOURS = ['red', 'blue', 'green', 'yellow'], PETS = ['cat', 'dog', 'fish', 'bird'];
+  // Einstein-style deduction: four houses in a row, each with one person, colour and pet (and on expert, a drink).
+  const COLOURS = ['red', 'blue', 'green', 'yellow'], PETS = ['cat', 'dog', 'fish', 'bird'], DRINKS = ['tea', 'coffee', 'milk', 'juice'];
   let PERM4 = null;
-  function genHouses(r) {
+  const WORLDS = {};
+  // Each world is a flat list: the house (0–3) of each person, then of each colour, pet and drink.
+  const OFF = { p: 0, c: 4, t: 8, d: 12 };
+  function worlds(drinks) {
+    if (WORLDS[drinks]) return WORLDS[drinks];
     PERM4 = PERM4 || perms(4);
-    const names = r.shuffle(NAMES).slice(0, 4);
-    // A world: home[p] = house of person p, col[h] / pet[h] = colour / pet of house h (0 = leftmost).
-    const sol = { home: r.pick(PERM4), col: r.pick(PERM4), pet: r.pick(PERM4) };
     const all = [];
-    for (const home of PERM4) for (const col of PERM4) for (const pet of PERM4) all.push({ home, col, pet });
-    const houseOf = (w, kind, v) => kind === 'p' ? w.home[v] : (kind === 'c' ? w.col : w.pet).indexOf(v);
-    const label = (kind, v) => kind === 'p' ? names[v] : kind === 'c' ? `the ${COLOURS[v]} house` : `the ${PETS[v]} owner`;
+    for (const a of PERM4) for (const b of PERM4) for (const c of PERM4) {
+      if (drinks) for (const d of PERM4) all.push(Int8Array.from([...a, ...b, ...c, ...d]));
+      else all.push(Int8Array.from([...a, ...b, ...c]));
+    }
+    return (WORLDS[drinks] = all);
+  }
+  function genHouses(r, drinks) {
+    const all = worlds(!!drinks);
+    const names = r.shuffle(NAMES).slice(0, 4);
+    const kinds = drinks ? ['c', 't', 'd'] : ['c', 't'];
+    const sol = r.pick(all);
+    const houseOf = (w, kind, v) => w[OFF[kind] + v];
+    const at = (kind, h) => { for (let v = 0; v < 4; v++) if (sol[OFF[kind] + v] === h) return v; return -1; };
+    const noun = (kind, v) => (kind === 'p' ? names[v] : kind === 'c' ? `the ${COLOURS[v]} house` : kind === 't' ? `the ${PETS[v]} owner` : `the ${DRINKS[v]} drinker`);
+    const has = (kind, v) => (kind === 'c' ? `lives in the ${COLOURS[v]} house` : kind === 't' ? `owns the ${PETS[v]}` : kind === 'd' ? `drinks ${DRINKS[v]}` : `is ${names[v]}`);
+    const hasNot = (kind, v) => (kind === 'c' ? `does not live in the ${COLOURS[v]} house` : kind === 't' ? `does not own the ${PETS[v]}` : `does not drink ${DRINKS[v]}`);
     const cap = t => t[0].toUpperCase() + t.slice(1);
-    // Candidate clues, each true in the solution.
     const things = [];
-    for (let v = 0; v < 4; v++) { things.push(['p', v]); things.push(['c', v]); things.push(['t', v]); }
+    for (let v = 0; v < 4; v++) { things.push(['p', v]); kinds.forEach(k => things.push([k, v])); }
     const clues = [];
     for (const [k1, v1] of things) for (const [k2, v2] of things) {
       if (k1 === k2) continue;
       const h1 = houseOf(sol, k1, v1), h2 = houseOf(sol, k2, v2);
-      const subj = k1 === 'c' ? `The ${COLOURS[v1]} house` : cap(label(k1, v1));
-      const obj = k2 === 'p' ? names[v2] : label(k2, v2);
-      if (h1 === h2 && k1 !== 'c') clues.push({ text: k2 === 'c' ? `${subj} lives in the ${COLOURS[v2]} house.` : k2 === 't' ? `${subj} owns the ${PETS[v2]}.` : `${subj} is ${obj}.`, f: w => houseOf(w, k1, v1) === houseOf(w, k2, v2) });
-      if (h1 !== h2 && k1 !== 'c' && k2 !== 'p') clues.push({ text: k2 === 'c' ? `${subj} does not live in the ${COLOURS[v2]} house.` : `${subj} does not own the ${PETS[v2]}.`, f: w => houseOf(w, k1, v1) !== houseOf(w, k2, v2) });
-      const verb = k1 === 'c' ? 'is' : 'lives', it = k2 === 'c' ? 'it' : 'them';
-      if (h2 === h1 + 1) clues.push({ text: `${subj} ${verb} directly left of ${k2 === 'c' ? `the ${COLOURS[v2]} house` : obj}.`, f: w => houseOf(w, k2, v2) === houseOf(w, k1, v1) + 1 });
-      if (Math.abs(h1 - h2) === 1 && k1 < k2) clues.push({ text: `${subj} ${k1 === 'c' ? 'is' : 'lives'} next to ${k2 === 'c' ? `the ${COLOURS[v2]} house` : obj}.`, f: w => Math.abs(houseOf(w, k1, v1) - houseOf(w, k2, v2)) === 1 });
-      if (h1 < h2 - 1) clues.push({ text: `${subj} ${verb} somewhere left of ${k2 === 'c' ? `the ${COLOURS[v2]} house` : obj}, but not next to ${it}.`, f: w => houseOf(w, k1, v1) < houseOf(w, k2, v2) - 1 });
+      const subj = cap(noun(k1, v1)), verb = k1 === 'c' ? 'is' : 'lives', it = k2 === 'c' ? 'it' : 'them';
+      const i1 = OFF[k1] + v1, i2 = OFF[k2] + v2;
+      if (h1 === h2 && k1 !== 'c') clues.push({ text: `${subj} ${has(k2, v2)}.`, f: w => w[i1] === w[i2] });
+      if (h1 !== h2 && k1 !== 'c' && k2 !== 'p') clues.push({ text: `${subj} ${hasNot(k2, v2)}.`, f: w => w[i1] !== w[i2] });
+      if (h2 === h1 + 1) clues.push({ text: `${subj} ${verb} directly left of ${noun(k2, v2)}.`, f: w => w[i2] === w[i1] + 1 });
+      if (Math.abs(h1 - h2) === 1 && k1 < k2) clues.push({ text: `${subj} ${verb} next to ${noun(k2, v2)}.`, f: w => w[i1] - w[i2] === 1 || w[i2] - w[i1] === 1 });
+      if (h1 < h2 - 1) clues.push({ text: `${subj} ${verb} somewhere left of ${noun(k2, v2)}, but not next to ${it}.`, f: w => w[i1] < w[i2] - 1 });
     }
     for (const [k1, v1] of things) {
-      const h = houseOf(sol, k1, v1), subj = k1 === 'c' ? `The ${COLOURS[v1]} house` : cap(label(k1, v1));
-      if (h === 0 || h === 3) clues.push({ text: `${subj} ${k1 === 'c' ? 'is' : 'lives'} at one end of the row.`, f: w => [0, 3].includes(houseOf(w, k1, v1)) });
-      if (h === 1 || h === 2) clues.push({ text: `${subj} ${k1 === 'c' ? 'is not' : 'does not live'} at either end of the row.`, f: w => [1, 2].includes(houseOf(w, k1, v1)) });
+      const h = houseOf(sol, k1, v1), subj = cap(noun(k1, v1));
+      const i1 = OFF[k1] + v1;
+      if (h === 0 || h === 3) clues.push({ text: `${subj} ${k1 === 'c' ? 'is' : 'lives'} at one end of the row.`, f: w => w[i1] === 0 || w[i1] === 3 });
+      if (h === 1 || h === 2) clues.push({ text: `${subj} ${k1 === 'c' ? 'is not' : 'does not live'} at either end of the row.`, f: w => w[i1] === 1 || w[i1] === 2 });
     }
-    // Prefer relational clues: give each a weight and draw without replacement.
     let pool = r.shuffle(clues), chosen = [], live = all;
     while (live.length > 1 && pool.length) {
       const c = pool.shift();
       const next = live.filter(c.f);
       if (next.length < live.length) { chosen.push(c); live = next; }
     }
-    if (live.length !== 1) return genHouses(r); // ran out of clues before the answer was certain
-    // Drop any clue the others already imply, so every clue matters.
-    for (const c of r.shuffle(chosen.slice())) {
-      const rest = chosen.filter(x => x !== c);
-      if (all.filter(w => rest.every(x => x.f(w))).length === 1) chosen = rest;
+    if (live.length !== 1) return genHouses(r, drinks); // ran out of clues before the answer was certain
+    // Drop clues the others already imply. A clue can go when no other world fails it alone.
+    const fails = [];
+    for (const w of all) {
+      if (w === live[0]) continue;
+      const f = [];
+      for (let i = 0; i < chosen.length && f.length <= 6; i++) if (!chosen[i].f(w)) f.push(i);
+      if (f.length <= 6) fails.push(f);
     }
-    const ask = r.int(0, 1) ? ['t', r.int(0, 3)] : ['c', r.int(0, 3)];
-    const h = houseOf(sol, ask[0], ask[1]);
-    const ansP = sol.home.indexOf(h);
-    const table = [0, 1, 2, 3].map(x => `House ${x + 1}: ${names[sol.home.indexOf(x)]}, ${COLOURS[sol.col[x]]}, ${PETS[sol.pet[x]]}`).join('. ');
+    const active = new Set(chosen.map((_, i) => i));
+    for (const i of r.shuffle([...active])) {
+      const blocked = fails.some(f => { let n = 0, only = -1; for (const j of f) if (active.has(j)) { n++; only = j; if (n > 1) break; } return n === 1 && only === i; });
+      if (!blocked) active.delete(i);
+    }
+    let kept = [...active].map(i => chosen[i]);
+    if (all.filter(w => kept.every(c => c.f(w))).length !== 1) kept = chosen;
+    const askKind = r.pick(kinds), askV = r.int(0, 3);
+    const h = houseOf(sol, askKind, askV);
+    const table = [0, 1, 2, 3].map(x => `House ${x + 1}: ${names[at('p', x)]}, ${COLOURS[at('c', x)]}, ${PETS[at('t', x)]}${drinks ? ', ' + DRINKS[at('d', x)] : ''}`).join('. ');
+    const askText = askKind === 't' ? `Who owns the ${PETS[askV]}?` : askKind === 'c' ? `Who lives in the ${COLOURS[askV]} house?` : `Who drinks ${DRINKS[askV]}?`;
     const q = {
-      prompt: ask[0] === 't' ? `Four houses stand in a row, numbered 1 to 4 from the left. Who owns the ${PETS[ask[1]]}?` : `Four houses stand in a row, numbered 1 to 4 from the left. Who lives in the ${COLOURS[ask[1]]} house?`,
-      stem: { kind: 'lines', items: ['Each house has one person, one colour and one pet, all different.'].concat(r.shuffle(chosen).map(c => c.text)) },
-      hint: 'Draw a table with four columns for the houses and rows for person, colour and pet. Start with clues that pin something to one exact place.',
+      prompt: `Four houses stand in a row, numbered 1 to 4 from the left. ${askText}`,
+      stem: { kind: 'lines', items: [`Each house has one person, one colour${drinks ? ', one pet and one drink' : ' and one pet'}, all different.`].concat(r.shuffle(kept).map(c => c.text)) },
+      hint: `Draw a table with four columns for the houses and rows for person, colour, pet${drinks ? ' and drink' : ''}. Start with clues that pin something to one exact place, and use "not" clues to cross things out.`,
       why: `${table}. Every clue fits only this arrangement.`,
     };
-    return finalize(r, q, names[ansP], r.shuffle(names), 4);
+    return finalize(r, q, names[at('p', h)], r.shuffle(names), 4);
   }
 
   /* ---------- Pattern matrices ---------- */
-  const DOMAIN = { shape: ['circle', 'square', 'triangle', 'diamond'], count: [1, 2, 3], fill: ['none', 'grey', 'solid'] };
+  const DOMAIN = { shape: ['circle', 'square', 'triangle', 'diamond'], count: [1, 2, 3], fill: ['none', 'grey', 'solid'], size: ['small', 'medium', 'large'] };
   const FILLWORD = { none: 'outlined', grey: 'grey', solid: 'black' };
-  const ATTRNAME = { shape: 'shape', count: 'number of shapes', fill: 'shading' };
+  const ATTRNAME = { shape: 'shape', count: 'number of shapes', fill: 'shading', size: 'size' };
   const vword = (a, v) => (a === 'fill' ? FILLWORD[v] : a === 'shape' ? v + 's' : String(v));
-  function describeCell(c) { return `${c.count} ${FILLWORD[c.fill]} ${c.shape}${c.count > 1 ? 's' : ''}`; }
+  function describeCell(c) { return `${c.count} ${c.size ? c.size + ' ' : ''}${FILLWORD[c.fill]} ${c.shape}${c.count > 1 ? 's' : ''}`; }
   function genMatrices(r, diff) {
-    const attrs = ['shape', 'count', 'fill'];
-    const nv = { easy: 1, medium: 2, hard: 3 }[diff];
+    const expert = diff === 'expert';
+    const attrs = expert ? ['shape', 'count', 'fill', 'size'] : ['shape', 'count', 'fill'];
+    const nv = { easy: 1, medium: 2, hard: 3, expert: 4 }[diff];
     const vary = r.shuffle(attrs).slice(0, nv);
     const spec = {};
     vary.forEach((a, i) => {
       let type;
       if (diff === 'easy') type = r.pick(['across', 'down']);
       else if (diff === 'medium') type = i === 0 ? 'latin' : r.pick(['across', 'down']);
+      else if (expert && a === 'size') type = r.pick(['across', 'down', 'latin']);
       else type = a === 'count' ? 'sum' : 'latin';
       const vals = a === 'count' && type !== 'latin' ? [1, 2, 3] : r.shuffle(DOMAIN[a]).slice(0, 3);
       // 'sum': the third cell in each row holds as many shapes as the first two together.
@@ -1360,7 +1566,7 @@ details.numbers summary { cursor: pointer; color: var(--muted); font-weight: 800
     const cells = [];
     for (let row = 0; row < 3; row++) for (let col = 0; col < 3; col++) cells.push(at(row, col));
     const ans = cells[8];
-    const key = c => `${c.shape}|${c.count}|${c.fill}`;
+    const key = c => `${c.shape}|${c.count}|${c.fill}|${c.size || ''}`;
     const ds = [];
     const one = [];
     for (const a of attrs) for (const v of r.shuffle(DOMAIN[a])) if (v !== ans[a]) one.push({ ...ans, [a]: v });
@@ -1373,7 +1579,7 @@ details.numbers summary { cursor: pointer; color: var(--muted); font-weight: 800
     }
     const rules = attrs.map(a => {
       const s = spec[a], name = ATTRNAME[a];
-      if (s.type === 'const') return a === 'count' ? `Every cell has ${s.v} shape${s.v > 1 ? 's' : ''}.` : `Every shape is ${a === 'shape' ? 'a ' + s.v : FILLWORD[s.v]}.`;
+      if (s.type === 'const') return a === 'count' ? `Every cell has ${s.v} shape${s.v > 1 ? 's' : ''}.` : `Every shape is ${a === 'shape' ? 'a ' + s.v : a === 'size' ? s.v : FILLWORD[s.v]}.`;
       if (s.type === 'sum') return 'In each row, the third cell has as many shapes as the first two cells put together.';
       const list = s.vals.map(v => vword(a, v));
       if (s.type === 'latin') return `Each row has one of each ${name === 'number of shapes' ? 'count' : name}: ${list[0]}, ${list[1]} and ${list[2]}, in a shifting order.`;
@@ -1382,7 +1588,7 @@ details.numbers summary { cursor: pointer; color: var(--muted); font-weight: 800
     const q = {
       prompt: 'Which cell completes the grid?',
       stem: { kind: 'matrix', cells: cells.slice(0, 8) },
-      hint: nv === 1 ? 'Only one feature changes. Find it.' : diff === 'hard' ? 'Take one feature at a time. For the number of shapes, try adding across each row.' : 'Take one feature at a time (shape, number, shading) and check each row.',
+      hint: nv === 1 ? 'Only one feature changes. Find it.' : expert ? 'Four features change: shape, number, shading and size. Check them one at a time, and try adding across each row for the number.' : diff === 'hard' ? 'Take one feature at a time. For the number of shapes, try adding across each row.' : 'Take one feature at a time (shape, number, shading) and check each row.',
       why: rules.join(' ') + ` So the missing cell has ${describeCell(ans)}.`,
       visual: true,
     };
@@ -1437,6 +1643,24 @@ details.numbers summary { cursor: pointer; color: var(--muted); font-weight: 800
     ['hard', 'compound', ['MARK', 'WORM', 'CASE'], 'BOOK', ['BOARD', 'LAND', 'BENCH'], 'Bookmark, bookworm, bookcase.'],
     ['hard', 'compound', ['LINE', 'SCAPE', 'LORD'], 'LAND', ['SKY', 'SEA', 'WAR'], 'Landline, landscape, landlord.'],
   ];
+  VERBAL.push(
+    ['expert', 'analogy', ['Obsequious', 'Servile', 'Truculent'], 'Aggressive', ['Truthful', 'Lazy', 'Talkative'], 'Obsequious means servile; truculent means aggressive and defiant.'],
+    ['expert', 'analogy', ['Pusillanimous', 'Brave', 'Parsimonious'], 'Generous', ['Stingy', 'Careful', 'Wealthy'], 'Pusillanimous (cowardly) is the opposite of brave; parsimonious (stingy) is the opposite of generous.'],
+    ['expert', 'analogy', ['Herpetology', 'Reptiles', 'Ichthyology'], 'Fish', ['Insects', 'Birds', 'Fossils'], 'Herpetology studies reptiles; ichthyology studies fish.'],
+    ['expert', 'analogy', ['Ornithology', 'Birds', 'Entomology'], 'Insects', ['Words', 'Fungi', 'Rocks'], 'Ornithology studies birds; entomology studies insects. (Etymology, the study of words, is the trap.)'],
+    ['expert', 'analogy', ['Sextant', 'Navigation', 'Theodolite'], 'Surveying', ['Astronomy', 'Weather', 'Medicine'], 'A sextant is an instrument for navigation; a theodolite is an instrument for surveying land.'],
+    ['expert', 'analogy', ['Fathom', 'Depth', 'Knot'], 'Speed', ['Rope', 'Distance', 'Wind'], 'A fathom is a unit of depth; a knot is a unit of speed.'],
+    ['expert', 'analogy', ['Myriad', 'Countless', 'Paucity'], 'Scarcity', ['Abundance', 'Poverty', 'Silence'], 'Myriad means countless; paucity means scarcity.'],
+    ['expert', 'analogy', ['Cacophony', 'Sound', 'Malodour'], 'Smell', ['Taste', 'Sight', 'Touch'], 'A cacophony is an unpleasant sound; a malodour is an unpleasant smell.'],
+    ['expert', 'analogy', ['Sanguine', 'Optimistic', 'Lugubrious'], 'Mournful', ['Lucky', 'Greedy', 'Slippery'], 'Sanguine means optimistic; lugubrious means mournful.'],
+    ['expert', 'analogy', ['Laconic', 'Words', 'Abstemious'], 'Food and drink', ['Money', 'Sleep', 'Effort'], 'A laconic person is sparing with words; an abstemious person is sparing with food and drink.'],
+    ['expert', 'odd', ['Ubiquitous', 'Pervasive', 'Omnipresent', 'Esoteric'], 'Esoteric', [], 'Esoteric means known to only a few; the rest mean found everywhere.'],
+    ['expert', 'odd', ['Recalcitrant', 'Obstinate', 'Intransigent', 'Malleable'], 'Malleable', [], 'Malleable means easily shaped or influenced; the rest mean stubborn.'],
+    ['expert', 'odd', ['Isthmus', 'Peninsula', 'Archipelago', 'Estuary'], 'Estuary', [], 'An estuary is a body of water; the rest are landforms.'],
+    ['expert', 'odd', ['Hexagon', 'Octagon', 'Decagon', 'Polyhedron'], 'Polyhedron', [], 'A polyhedron is a solid; the rest are flat polygons.'],
+    ['expert', 'compound', ['FLAKE', 'BALL', 'DRIFT'], 'SNOW', ['CORN', 'FIRE', 'SAND'], 'Snowflake, snowball, snowdrift.'],
+    ['expert', 'compound', ['MARE', 'FALL', 'CAP'], 'NIGHT', ['DAY', 'SNOW', 'WATER'], 'Nightmare, nightfall, nightcap.'],
+  );
   function genVerbal(r, diff, avoid) {
     const pool = VERBAL.filter(v => v[0] === diff);
     const fresh = pool.filter(v => !(avoid || []).includes(VERBAL.indexOf(v)));
@@ -1484,6 +1708,7 @@ details.numbers summary { cursor: pointer; color: var(--muted); font-weight: 800
     return normP(cells);
   }
   function genSpatial(r, diff) {
+    if (diff === 'expert') return genTurnFlip(r);
     const n = { easy: 5, medium: 6, hard: 9 }[diff], nOpts = diff === 'hard' ? 6 : 4;
     for (let tries = 0; ; tries++) {
       const shape = polyomino(r, n, diff === 'hard' ? 4 : 3 + (n > 5 ? 1 : 0));
@@ -1518,12 +1743,35 @@ details.numbers summary { cursor: pointer; color: var(--muted); font-weight: 800
     }
   }
 
+  // Two moves in the head: turn, then flip left-to-right. The other options are the rest of the
+  // shape's eight orientations, so only careful tracking finds the right one.
+  function genTurnFlip(r) {
+    for (let tries = 0; ; tries++) {
+      const shape = polyomino(r, r.int(7, 9), 4);
+      const orient = [];
+      for (let k = 0; k < 4; k++) { orient.push(turns(shape, k)); orient.push(turns(flipP(shape), k)); }
+      if (new Set(orient.map(keyP)).size < 8 && tries < 400) continue;
+      const k = r.int(1, 3), ans = normP(flipP(turns(shape, k)));
+      const ds = r.shuffle(orient.filter(o => keyP(o) !== keyP(ans)));
+      const turnText = { 1: 'a quarter turn clockwise', 2: 'a half turn', 3: 'a quarter turn anticlockwise' }[k];
+      const q = {
+        prompt: `Give this shape ${turnText}, then flip it over left-to-right (as in a mirror). Which option shows the result?`,
+        stem: { kind: 'poly', cells: shape },
+        hint: 'Follow one distinctive square through both moves: first where the turn puts it, then where the mirror puts it.',
+        visual: true, render: 'poly', transformK: k,
+      };
+      finalize(r, q, ans, ds, 6, keyP);
+      q.why = `${'ABCDEF'[q.answer]} is the shape after ${turnText} and a left-to-right flip. The other options are other turns and flips of the same shape, so every option has exactly the right squares, only one is in the right orientation.`;
+      return q;
+    }
+  }
+
   const GEN = { spatial: genSpatial, sequences: genSequences, letters: genLetters, arithmetic: genArithmetic, logic: genLogic, matrices: genMatrices, verbal: genVerbal };
 
-  function generate({ seed, cat, diff, avoid }) {
-    const r = rng(seed >>> 0);
-    const q = GEN[cat](r, diff, avoid);
-    q.cat = cat; q.diff = diff; q.seed = seed >>> 0; q.target = TARGET[diff];
+  function generate({ seed, cat, diff, avoid, raw }) {
+    const r = rng(seed >>> 0), level = raw ? diff : LEVEL[diff];
+    const q = GEN[cat](r, level, avoid);
+    q.cat = cat; q.diff = diff; q.level = level; q.seed = seed >>> 0; q.target = TARGET[diff];
     return q;
   }
 
@@ -1536,7 +1784,7 @@ details.numbers summary { cursor: pointer; color: var(--muted); font-weight: 800
     let q = null;
     for (let i = 0; i <= n; i++) {
       for (let k = 0; ; k++) {
-        q = generate({ seed: hashStr('daily:' + keyAt(i) + (k ? ':' + k : '')), cat: DAILY_CATS[i % DAILY_CATS.length], diff: 'medium' });
+        q = generate({ seed: hashStr('daily:' + keyAt(i) + (k ? ':' + k : '')), cat: DAILY_CATS[i % DAILY_CATS.length], diff: 'medium', raw: i < DAILY_CUT });
         const f = fingerprint(q);
         if (!seen.has(f) || k > 50) { seen.add(f); if (onDay) onDay(i, f, k); break; }
       }
@@ -1546,7 +1794,9 @@ details.numbers summary { cursor: pointer; color: var(--muted); font-weight: 800
 
   /* ---------- Daily Grid: a number-placement puzzle with exactly one solution ---------- */
   // Easy is 6×6 with 2×3 boxes; Medium and Hard are 9×9 with 3×3 boxes and fewer givens.
-  const GRID = { easy: { n: 6, br: 2, bc: 3, givens: 14 }, medium: { n: 9, br: 3, bc: 3, givens: 34 }, hard: { n: 9, br: 3, bc: 3, givens: 23 } };
+  const GRID = { easy: { n: 9, br: 3, bc: 3, givens: 36 }, medium: { n: 9, br: 3, bc: 3, givens: 30 }, hard: { n: 9, br: 3, bc: 3, givens: 24 } };
+  // The grids before the difficulty change, kept so earlier days still show what was played.
+  const GRID_V1 = { easy: { n: 6, br: 2, bc: 3, givens: 14 }, medium: { n: 9, br: 3, bc: 3, givens: 34 }, hard: { n: 9, br: 3, bc: 3, givens: 23 } };
   function gridPeers(n, br, bc) {
     const peers = [];
     for (let i = 0; i < n * n; i++) {
@@ -1581,8 +1831,8 @@ details.numbers summary { cursor: pointer; color: var(--muted); font-weight: 800
     })();
     return found;
   }
-  function makeGrid(seed, diff) {
-    const r = rng(seed >>> 0), cfg = GRID[diff], n = cfg.n;
+  function makeGrid(seed, diff, v1) {
+    const r = rng(seed >>> 0), cfg = (v1 ? GRID_V1 : GRID)[diff], n = cfg.n;
     const peers = gridPeers(n, cfg.br, cfg.bc);
     const out = []; out.shuffle = r.shuffle;
     countSolutions(new Array(n * n).fill(0), n, peers, 1, out);
@@ -1597,7 +1847,7 @@ details.numbers summary { cursor: pointer; color: var(--muted); font-weight: 800
     return { n, br: cfg.br, bc: cfg.bc, diff, puzzle: puzzle.join(''), solution: solution.join(''), peers };
   }
 
-  root.QEngine = { generate, daily, fingerprint, makeGrid, countSolutions, rng, hashStr, CATEGORIES, DIFFS, TARGET, describeCell };
+  root.QEngine = { generate, daily, fingerprint, makeGrid, countSolutions, rng, LEVEL, DAILY_CUT, hashStr, CATEGORIES, DIFFS, TARGET, describeCell };
 })(typeof window !== 'undefined' ? window : globalThis);
 </script>
 
@@ -2071,6 +2321,9 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
   const hydrate = s => { const b = blank(); const out = Object.assign(b, s); out.prefs = Object.assign(blank().prefs, s.prefs || {}); return out; };
   let state = blank();
   try { const s = JSON.parse(localStorage.getItem(LS) || 'null'); if (s && s.v === 1) state = hydrate(s); } catch (e) {}
+  // The games got harder in November 2026, so bests set on the easier versions start fresh.
+  function migrate(st) { if (!st.harder) { st.bests = {}; st.harder = true; } return st; }
+  state = migrate(state);
   let remote = null, saving = false, again = false;
 
   async function pushRemote() {
@@ -2099,7 +2352,7 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
       remote = ref;
       const theirs = snap.exists && snap.data() && snap.data().json ? JSON.parse(snap.data().json) : null;
       if (theirs && theirs.v === 1 && (theirs.updatedAt || 0) > (state.updatedAt || 0)) {
-        state = hydrate(theirs); saveLocal(); renderAll();
+        state = migrate(hydrate(theirs)); saveLocal(); renderAll();
       } else if (state.updatedAt) pushRemote();
       setSync('Progress saved to your account');
       board.connect(db, user, id);
@@ -2108,7 +2361,7 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
 
   /* ---------- scoring ---------- */
   // Brain Score works like a chess rating: beating harder questions moves it more.
-  const QR = { easy: 850, medium: 1050, hard: 1250 };
+  const QR = { easy: 1000, medium: 1200, hard: 1400 };
   function rate(R, diff, ok, hint, n, score) {
     const exp = 1 / (1 + 10 ** ((QR[diff] - R) / 400));
     const s = score !== undefined ? score : ok ? (hint ? 0.6 : 1) : 0;
@@ -2291,7 +2544,7 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
   const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
   function shapeSVG(c) {
     const P = { 1: [[50, 50]], 2: [[29, 50], [71, 50]], 3: [[50, 27], [27, 71], [73, 71]] }[c.count];
-    const s = c.count === 1 ? 22 : 15;
+    const s = (c.count === 1 ? 22 : 15) * ({ small: 0.68, medium: 1, large: 1.25 }[c.size] || 1);
     const cls = `sh f-${c.fill}`;
     const parts = P.map(([x, y]) => {
       if (c.shape === 'circle') return `<circle class="${cls}" cx="${x}" cy="${y}" r="${s}"/>`;
@@ -2679,6 +2932,13 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
   const rnd = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
   function speedProblem(diff) {
     const k = Math.random();
+    if (diff === 'expert') {
+      if (k < 0.25) { const a = rnd(13, 49), b = rnd(3, 9); return [`${a} × ${b}`, a * b]; }
+      if (k < 0.45) { const a = rnd(11, 25); return [`${a}²`, a * a]; }
+      if (k < 0.65) { const b = rnd(6, 15), a = rnd(11, 30); return [`${a * b} ÷ ${b}`, a]; }
+      if (k < 0.85) { const a = rnd(201, 999), b = rnd(102, a - 1); return [`${a} − ${b}`, a - b]; }
+      const p = [10, 15, 20, 25, 30, 40, 60, 75][rnd(0, 7)], v = rnd(2, 24) * 20; return [`${p}% of ${v}`, p * v / 100];
+    }
     if (diff === 'easy') {
       if (k < 0.5) { const a = rnd(2, 12), b = rnd(2, 12); return [`${a} + ${b}`, a + b]; }
       const a = rnd(6, 20), b = rnd(1, a); return [`${a} − ${b}`, a - b];
@@ -2693,7 +2953,7 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
     if (k < 0.8) { const a = rnd(25, 99), b = rnd(25, 99); return [`${a} + ${b}`, a + b]; }
     const a = rnd(3, 9), b = rnd(3, 9), c = rnd(2, 20); return [`${a} × ${b} + ${c}`, a * b + c];
   }
-  const SPEED_TARGET = { easy: 20, medium: 14, hard: 9 }; // a strong score per 60 seconds
+  const SPEED_TARGET = { easy: 20, medium: 14, hard: 9, expert: 7 }; // a strong score per 60 seconds
   function SpeedGame(host, o) {
     const item = { cat: 'speed', diff: o.diff };
     const g = gameShell(host, item, o.label);
@@ -2721,7 +2981,7 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
       api.iv = setInterval(tick, 100);
     }
     function next() {
-      prob = speedProblem(o.diff);
+      prob = speedProblem(o.lvl);
       probEl.textContent = prob[0] + ' = ?';
       typed = ''; box.textContent = ' '; box.className = 'answer-box';
       sc.textContent = '';
@@ -2752,7 +3012,7 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
     function finish() {
       over = true; api.done = true; clearInterval(api.iv);
       const acc = right + wrong ? right / (right + wrong) : 0;
-      const s = Math.min(1, right / (SPEED_TARGET[o.diff] * o.secs / 60)) * Math.sqrt(acc);
+      const s = Math.min(1, right / (SPEED_TARGET[o.lvl] * o.secs / 60)) * Math.sqrt(acc);
       g.body.textContent = '';
       g.body.appendChild(el('div', 'big-count', String(right)));
       g.body.appendChild(el('p', 'note', `right in ${o.secs} seconds${wrong ? `, ${wrong} slip${wrong > 1 ? 's' : ''}` : ''}`));
@@ -2768,9 +3028,9 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
     return api;
   }
 
-  const MEM = { easy: { n: 3, start: 3 }, medium: { n: 4, start: 4 }, hard: { n: 5, start: 5 } };
+  const MEM = { easy: { n: 3, start: 3 }, medium: { n: 4, start: 4 }, hard: { n: 5, start: 5 }, expert: { n: 5, start: 7 } };
   function MemoryGame(host, o) {
-    const item = { cat: 'memory', diff: o.diff }, cfg = MEM[o.diff];
+    const item = { cat: 'memory', diff: o.diff }, cfg = MEM[o.lvl];
     const g = gameShell(host, item, o.label);
     const api = { done: false, iv: 0, t: 0, key: () => false, stop() { clearInterval(api.iv); clearTimeout(api.t); } };
     const maxRounds = o.rounds || 12, lives = o.rounds ? Infinity : 2;
@@ -2807,7 +3067,7 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
         grid.classList.remove('showing');
         status.textContent = `Your turn: tap the ${span} squares that lit up.`;
         cells.forEach(b => { b.disabled = false; });
-      }, 900 + 380 * span);
+      }, o.lvl === 'expert' ? 650 + 300 * span : 900 + 380 * span);
       cells.forEach((b, i) => b.addEventListener('click', () => {
         if (settled || b.classList.contains('found')) return;
         if (target.has(i)) {
@@ -2841,12 +3101,12 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
   }
 
   const INKS = [['Red', '--ink-red', 'r'], ['Blue', '--ink-blue', 'b'], ['Green', '--ink-green', 'g'], ['Yellow', '--ink-yellow', 'y']];
-  const FOCUS_TARGET = { easy: 18, medium: 15, hard: 12 }; // a strong score per 30 seconds
+  const FOCUS_TARGET = { easy: 18, medium: 15, hard: 12, expert: 10 }; // a strong score per 30 seconds
   function FocusGame(host, o) {
     const item = { cat: 'focus', diff: o.diff };
     const g = gameShell(host, item, o.label);
     const api = { done: false, iv: 0, key: () => false, stop() { clearInterval(api.iv); } };
-    const tricky = o.diff === 'easy' ? 0.5 : 0.8, flips = o.diff === 'hard';
+    const tricky = o.lvl === 'expert' ? 0.9 : 0.8, flips = o.lvl === 'hard' || o.lvl === 'expert', flipRate = o.lvl === 'expert' ? 0.45 : 0.3;
     let right = 0, wrong = 0, t0 = 0, over = false, trial = null, wordEl, ruleEl, sc, setBar, btns;
     countIn(g.body, 'Tap the colour of the ink, not the word',
       `The word BLUE might be printed in red ink. Tap Red. ${flips ? 'Watch the yellow banner: sometimes it asks for the word instead.' : ''} You have ${o.secs} seconds. Keys 1–4 work too.`, play, api, o.why);
@@ -2879,7 +3139,7 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
         word = rnd(0, 3);
         ink = word;
         if (Math.random() < tricky) while (ink === word) ink = rnd(0, 3);
-        rule = flips && Math.random() < 0.3 ? 'word' : 'ink';
+        rule = flips && Math.random() < flipRate ? 'word' : 'ink';
       } while (trial && word === trial.word && ink === trial.ink && rule === trial.rule);
       trial = { word, ink, rule, want: rule === 'ink' ? ink : word };
       ruleEl.textContent = rule === 'ink' ? 'Tap the INK colour' : 'Tap the WORD';
@@ -2911,7 +3171,7 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
       over = true; api.done = true; clearInterval(api.iv); clearTimeout(shown);
       wordEl.style.visibility = '';
       const acc = right + wrong ? right / (right + wrong) : 0;
-      const s = acc * Math.min(1, right / (FOCUS_TARGET[o.diff] * o.secs / 30));
+      const s = acc * Math.min(1, right / (FOCUS_TARGET[o.lvl] * o.secs / 30));
       g.body.textContent = '';
       g.body.appendChild(el('div', 'big-count', String(right)));
       g.body.appendChild(el('p', 'note', `right in ${o.secs} seconds · ${Math.round(acc * 100)}% accurate`));
@@ -2928,14 +3188,14 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
   }
 
   /* Memory: Sequence (repeat the order squares light up in) */
-  const SEQ_START = { easy: 3, medium: 4, hard: 5 };
+  const SEQ_START = { easy: 3, medium: 4, hard: 5, expert: 6 };
   function SequenceGame(host, o) {
     const item = { cat: 'memory', diff: o.diff };
     const g = gameShell(host, item, o.label);
     const api = { done: false, iv: 0, t: 0, key: () => false, stop() { clearInterval(api.iv); clearTimeout(api.t); } };
     const maxRounds = o.rounds || 12, lives = o.rounds ? Infinity : 2;
-    const on = o.diff === 'hard' ? 430 : 560, off = o.diff === 'hard' ? 150 : 200;
-    let round = 0, passed = 0, fails = 0, len = SEQ_START[o.diff], longest = 0;
+    const on = { expert: 360, hard: 430 }[o.lvl] || 560, off = { expert: 120, hard: 150 }[o.lvl] || 200;
+    let round = 0, passed = 0, fails = 0, len = SEQ_START[o.lvl], longest = 0;
     const t0 = Date.now();
     countIn(g.body, 'Repeat the order',
       `Squares light up one at a time. Tap them back in the same order. ${o.rounds ? `${o.rounds} rounds.` : 'Each perfect round adds one more. Two misses ends the game.'}`, nextRound, api, o.why);
@@ -3002,13 +3262,13 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
   }
 
   /* Memory: Number Span (digits one at a time, typed back; backwards on Hard) */
-  const DIG_START = { easy: 4, medium: 5, hard: 4 };
+  const DIG_START = { easy: 4, medium: 5, hard: 4, expert: 6 };
   function DigitGame(host, o) {
-    const item = { cat: 'memory', diff: o.diff }, back = o.diff === 'hard';
+    const item = { cat: 'memory', diff: o.diff }, back = o.lvl === 'hard' || o.lvl === 'expert';
     const g = gameShell(host, item, o.label);
     const api = { done: false, iv: 0, t: 0, key: () => false, stop() { clearInterval(api.iv); clearTimeout(api.t); } };
-    const maxRounds = o.rounds || 12, lives = o.rounds ? Infinity : 2, show = back ? 750 : 850;
-    let round = 0, passed = 0, fails = 0, len = DIG_START[o.diff], longest = 0, typing = null;
+    const maxRounds = o.rounds || 12, lives = o.rounds ? Infinity : 2, show = o.lvl === 'expert' ? 650 : back ? 750 : 850;
+    let round = 0, passed = 0, fails = 0, len = DIG_START[o.lvl], longest = 0, typing = null;
     const t0 = Date.now();
     countIn(g.body, back ? 'Remember the numbers, then type them backwards' : 'Remember the numbers',
       `Digits appear one at a time. When they stop, type them ${back ? 'in reverse order (last one first)' : 'in the same order'}. ${o.rounds ? `${o.rounds} rounds.` : 'Each perfect round adds a digit. Two misses ends the game.'}`, nextRound, api, o.why);
@@ -3095,6 +3355,13 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
 
   /* Speed: Quick Compare (tap the bigger amount) */
   function comparePair(diff) {
+    if (diff === 'expert') {
+      // Two products, close together: no shortcut but working both out.
+      for (;;) {
+        const a = rnd(11, 19), b = rnd(3, 9), c = rnd(11, 19), d = rnd(3, 9), gap = Math.abs(a * b - c * d);
+        if (gap && gap <= 8 && !(a === c && b === d)) return [[`${a} × ${b}`, a * b], [`${c} × ${d}`, c * d]];
+      }
+    }
     const mk = () => {
       if (diff === 'easy') { const v = rnd(10, 99); return [String(v), v]; }
       if (diff === 'medium') { if (Math.random() < 0.55) { const a = rnd(10, 60), b = rnd(3, 30); return [`${a} + ${b}`, a + b]; } const v = rnd(20, 90); return [String(v), v]; }
@@ -3107,13 +3374,13 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
       return [L, R];
     }
   }
-  const COMPARE_TARGET = { easy: 50, medium: 32, hard: 24 }; // a strong score per 60 seconds
+  const COMPARE_TARGET = { easy: 50, medium: 32, hard: 24, expert: 18 }; // a strong score per 60 seconds
   function CompareGame(host, o) {
     const item = { cat: 'speed', diff: o.diff };
     const g = gameShell(host, item, o.label);
     const api = { done: false, iv: 0, key: () => false, stop() { clearInterval(api.iv); } };
     let right = 0, wrong = 0, pair = null, over = false, btns, sc;
-    countIn(g.body, 'Tap the bigger one', `Two amounts appear. Tap the larger as fast as you can${o.diff === 'easy' ? '' : ' (you may need to work it out)'}. ${o.secs} seconds. Arrow keys work too.`, play, api, o.why);
+    countIn(g.body, 'Tap the bigger one', `Two amounts appear. Tap the larger as fast as you can${o.lvl === 'easy' ? '' : ' (you may need to work it out)'}. ${o.secs} seconds. Arrow keys work too.`, play, api, o.why);
     function play() {
       g.body.textContent = '';
       const setBar = countdownBar(g.body);
@@ -3125,7 +3392,7 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
       timed(api, o.secs, setBar, finish);
     }
     function next() {
-      pair = comparePair(o.diff);
+      pair = comparePair(o.lvl);
       btns.forEach((b, i) => { b.textContent = pair[i][0]; });
       sc.querySelector('b').textContent = right;
     }
@@ -3139,7 +3406,7 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
     }
     function finish() {
       over = true; api.done = true;
-      const s = timedResult(g, right, wrong, o.secs, COMPARE_TARGET[o.diff] * o.secs / 60);
+      const s = timedResult(g, right, wrong, o.secs, COMPARE_TARGET[o.lvl] * o.secs / 60);
       o.onDone({ item, s, secs: o.secs, summary: `${right} right`, best: [`compare-${o.diff}-${o.secs}`, right], after: g.after });
     }
     api.key = e => {
@@ -3156,8 +3423,9 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
     easy: ['circle', 'square', 'triangle', 'star', 'cross', 'diamond'],
     medium: ['circle', 'square', 'triangle', 'star', 'cross', 'diamond', 'ring', 'tri-down'],
     hard: ['tri-up', 'tri-down', 'tri-left', 'tri-right', 'half-l', 'half-r', 'half-t', 'half-b'],
+    expert: ['tri-up', 'tri-down', 'tri-left', 'tri-right', 'half-l', 'half-r', 'half-t', 'half-b'],
   };
-  const SYM_LEN = { easy: 4, medium: 5, hard: 6 };
+  const SYM_LEN = { easy: 4, medium: 5, hard: 6, expert: 8 };
   function starPts(cx, cy, n, r1, r2) {
     const pts = [];
     for (let i = 0; i < n * 2; i++) { const a = -Math.PI / 2 + i * Math.PI / n, r = i % 2 ? r2 : r1; pts.push(`${(cx + r * Math.cos(a)).toFixed(1)},${(cy + r * Math.sin(a)).toFixed(1)}`); }
@@ -3184,12 +3452,12 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
     }[id];
     return `<svg viewBox="0 0 40 40" aria-hidden="true">${body}</svg>`;
   }
-  const SYMBOL_TARGET = { easy: 36, medium: 28, hard: 20 }; // a strong score per 60 seconds
+  const SYMBOL_TARGET = { easy: 36, medium: 28, hard: 20, expert: 15 }; // a strong score per 60 seconds
   function SymbolGame(host, o) {
     const item = { cat: 'speed', diff: o.diff };
     const g = gameShell(host, item, o.label);
     const api = { done: false, iv: 0, key: () => false, stop() { clearInterval(api.iv); } };
-    const set = SYM_SETS[o.diff], n = SYM_LEN[o.diff];
+    const set = SYM_SETS[o.lvl], n = SYM_LEN[o.lvl];
     let right = 0, wrong = 0, trial = null, over = false, rowA, rowB, sc;
     const choiceBtns = {};
     countIn(g.body, 'Same or different?', `Two rows of symbols appear. Decide as fast as you can whether they are exactly the same. ${o.secs} seconds. Keys: S for same, D for different.`, play, api, o.why);
@@ -3225,7 +3493,7 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
     }
     function finish() {
       over = true; api.done = true;
-      const s = timedResult(g, right, wrong, o.secs, SYMBOL_TARGET[o.diff] * o.secs / 60);
+      const s = timedResult(g, right, wrong, o.secs, SYMBOL_TARGET[o.lvl] * o.secs / 60);
       o.onDone({ item, s, secs: o.secs, summary: `${right} right`, best: [`symbols-${o.diff}-${o.secs}`, right], after: g.after });
     }
     api.key = e => {
@@ -3240,12 +3508,12 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
 
   /* Focus: Arrow Flanker (which way does the middle arrow point?) */
   const ARROW = dir => `<svg viewBox="0 0 40 40" aria-hidden="true"><path class="arrow" transform="${dir < 0 ? 'rotate(180 20 20)' : ''}" d="M4 15h18V6l15 14-15 14v-9H4z"/></svg>`;
-  const FLANK_TARGET = { easy: 26, medium: 22, hard: 18 }; // a strong score per 30 seconds
+  const FLANK_TARGET = { easy: 26, medium: 22, hard: 18, expert: 15 }; // a strong score per 30 seconds
   function FlankerGame(host, o) {
     const item = { cat: 'focus', diff: o.diff };
     const g = gameShell(host, item, o.label);
     const api = { done: false, iv: 0, key: () => false, stop() { clearInterval(api.iv); } };
-    const n = o.diff === 'hard' ? 7 : 5, same = { easy: 0.5, medium: 0.3, hard: 0.25 }[o.diff];
+    const n = { hard: 7, expert: 9 }[o.lvl] || 5, same = { easy: 0.5, medium: 0.3, hard: 0.25, expert: 0.2 }[o.lvl];
     let right = 0, wrong = 0, trial = null, over = false, row, sc, blink = 0;
     const dirBtns = {};
     countIn(g.body, 'Which way does the middle arrow point?', `A row of arrows appears. Only the one in the middle counts; ignore the others. ${o.secs} seconds. Arrow keys work too.`, play, api, o.why);
@@ -3271,7 +3539,8 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
       blink = setTimeout(() => { row.style.visibility = ''; }, 90);
       row.innerHTML = Array.from({ length: n }, (_, i) => ARROW(i === (n - 1) / 2 ? mid : flank)).join('');
       row.setAttribute('aria-label', `Middle arrow points ${mid < 0 ? 'left' : 'right'}`);
-      row.style.transform = o.diff === 'hard' ? `translateX(${rnd(-30, 30)}px)` : '';
+      const j = { hard: 30, expert: 60 }[o.lvl] || 0;
+      row.style.transform = j ? `translateX(${rnd(-j, j)}px)` : '';
       sc.querySelector('b').textContent = right;
     }
     function answer(d) {
@@ -3283,7 +3552,7 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
     }
     function finish() {
       over = true; api.done = true; clearTimeout(blink);
-      const s = timedResult(g, right, wrong, o.secs, FLANK_TARGET[o.diff] * o.secs / 30);
+      const s = timedResult(g, right, wrong, o.secs, FLANK_TARGET[o.lvl] * o.secs / 30);
       o.onDone({ item, s, secs: o.secs, summary: `${right} right`, best: [`arrows-${o.diff}-${o.secs}`, right], after: g.after });
     }
     api.key = e => {
@@ -3296,10 +3565,10 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
   }
 
   /* Focus: Star Catch (go/no-go: tap for stars, hold back for anything else) */
-  const GO_WINDOW = { easy: 1100, medium: 900, hard: 750 };
+  const GO_WINDOW = { easy: 1100, medium: 900, hard: 750, expert: 600 };
   function goItem(diff) {
-    if (Math.random() < 0.7) return { go: true, svg: `<polygon points="${starPts(60, 63, 5, 52, 22)}" fill="var(--gold)" stroke="var(--ink)" stroke-width="4" stroke-linejoin="round"/>` };
-    const lure = diff === 'easy' ? 'circle-red' : diff === 'medium' ? pick(['circle-gold', 'square-gold']) : pick(['star4', 'star6', 'circle-gold']);
+    if (Math.random() < (diff === 'expert' ? 0.6 : 0.7)) return { go: true, svg: `<polygon points="${starPts(60, 63, 5, 52, 22)}" fill="var(--gold)" stroke="var(--ink)" stroke-width="4" stroke-linejoin="round"/>` };
+    const lure = diff === 'easy' ? 'circle-red' : diff === 'medium' ? pick(['circle-gold', 'square-gold']) : diff === 'expert' ? pick(['star4', 'star6']) : pick(['star4', 'star6', 'circle-gold']);
     const svg = {
       'circle-red': '<circle cx="60" cy="60" r="46" fill="var(--bad)" stroke="var(--ink)" stroke-width="4"/>',
       'circle-gold': '<circle cx="60" cy="60" r="46" fill="var(--gold)" stroke="var(--ink)" stroke-width="4"/>',
@@ -3313,10 +3582,10 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
     const item = { cat: 'focus', diff: o.diff };
     const g = gameShell(host, item, o.label);
     const api = { done: false, iv: 0, t: 0, key: () => false, stop() { clearTimeout(api.t); clearInterval(api.iv); } };
-    const trials = o.trials || 30, win = GO_WINDOW[o.diff];
+    const trials = o.trials || 30, win = GO_WINDOW[o.lvl];
     let i = 0, hits = 0, misses = 0, oops = 0, holds = 0, cur = null, stage, sc, over = false;
     const t0 = Date.now();
-    countIn(g.body, 'Catch the stars', `Shapes flash up one at a time. Tap only when you see a five-point star, and hold back for anything else${o.diff === 'hard' ? ', even other stars' : ''}. ${trials} shapes. Space bar works too.`, play, api, o.why);
+    countIn(g.body, 'Catch the stars', `Shapes flash up one at a time. Tap only when you see a five-point star, and hold back for anything else${o.lvl === 'hard' || o.lvl === 'expert' ? ', even other stars' : ''}. ${trials} shapes. Space bar works too.`, play, api, o.why);
     function play() {
       g.body.textContent = '';
       sc = scoreLine(g.body, [['Shape', `0 of ${trials}`], ['Caught', 0], ['Slips', 0]]);
@@ -3338,7 +3607,7 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
       stage.className = 'go-stage';
       if (i >= trials) return finish();
       i++;
-      cur = goItem(o.diff);
+      cur = goItem(o.lvl);
       cur.tapped = false;
       stage.innerHTML = `<svg viewBox="0 0 120 120" aria-hidden="true">${cur.svg}</svg>`;
       update();
@@ -3375,43 +3644,43 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
   // Three games per skill. `why` is the "How this helps your brain" box shown before play.
   const GAMES = {
     memory: [
-      { id: 'grid', name: 'Pattern Grid', run: MemoryGame, practice: {}, workout: { rounds: 3 }, best: d => `memory-${d}`, unit: 'squares',
+      { id: 'grid', name: 'Pattern Grid', run: MemoryGame, practice: {}, workout: { rounds: 4 }, best: d => `memory-${d}`, unit: 'squares',
         helps: 'Remember where the squares lit up.',
         why: 'Trains visual working memory: holding a picture in mind for a few seconds. You use it to remember where you parked or to keep a route in your head.',
         peanut: 'Pattern Grid! Watch where the squares light up, then tap them back.' },
-      { id: 'sequence', name: 'Sequence', run: SequenceGame, practice: {}, workout: { rounds: 3 }, best: d => `sequence-${d}`, unit: 'long',
+      { id: 'sequence', name: 'Sequence', run: SequenceGame, practice: {}, workout: { rounds: 4 }, best: d => `sequence-${d}`, unit: 'long',
         helps: 'Repeat the order squares light up in.',
         why: 'Trains sequential memory: keeping things in the right order, like directions or the steps of a recipe. It is based on the Corsi block test psychologists use to measure memory span.',
         peanut: 'Sequence! Watch the order, then copy it. Humming the tune helps.' },
-      { id: 'digits', name: 'Number Span', run: DigitGame, practice: {}, workout: { rounds: 3 }, best: d => `digits-${d}`, unit: 'digits',
+      { id: 'digits', name: 'Number Span', run: DigitGame, practice: {}, workout: { rounds: 4 }, best: d => `digits-${d}`, unit: 'digits',
         helps: 'Hold a string of digits in your head. Hard mode is backwards.',
         why: 'Trains verbal working memory, the mental notepad you use to hold a phone number or a total in your head. Digit span is a classic part of IQ tests. Backwards makes you hold and rearrange at the same time.',
         peanut: 'Number Span! Say the digits to yourself as they appear.' },
     ],
     speed: [
-      { id: 'sums', name: 'Speed Maths', run: SpeedGame, practice: { secs: 60 }, workout: { secs: 30 }, best: d => `speed-${d}-60`, unit: 'sums',
+      { id: 'sums', name: 'Speed Maths', run: SpeedGame, practice: { secs: 60 }, workout: { secs: 45 }, best: d => `speed-${d}-60`, unit: 'sums',
         helps: 'Quick sums against the clock.',
         why: 'Builds number fluency and processing speed: how fast you take in information and act on it. When basic sums are automatic, your attention is free for harder problems.',
         peanut: 'Speed Maths! As many sums as you can before the bar runs out.' },
-      { id: 'compare', name: 'Quick Compare', run: CompareGame, practice: { secs: 45 }, workout: { secs: 30 }, best: d => `compare-${d}-45`, unit: 'right',
+      { id: 'compare', name: 'Quick Compare', run: CompareGame, practice: { secs: 45 }, workout: { secs: 45 }, best: d => `compare-${d}-45`, unit: 'right',
         helps: 'Tap the bigger amount, fast.',
         why: 'Trains number sense and quick decisions: judging amounts at a glance, as you do when comparing prices or splitting a bill.',
         peanut: 'Quick Compare! Bigger one, quick as you can.' },
-      { id: 'symbols', name: 'Symbol Match', run: SymbolGame, practice: { secs: 45 }, workout: { secs: 30 }, best: d => `symbols-${d}-45`, unit: 'right',
+      { id: 'symbols', name: 'Symbol Match', run: SymbolGame, practice: { secs: 45 }, workout: { secs: 45 }, best: d => `symbols-${d}-45`, unit: 'right',
         helps: 'Spot whether two rows of symbols match.',
         why: 'Trains perceptual speed: spotting small differences quickly and accurately. It is close to the symbol-search tasks in IQ tests, and helps with proofreading and checking details.',
         peanut: 'Symbol Match! Same or different? Trust your eyes.' },
     ],
     focus: [
-      { id: 'colour', name: 'Colour Clash', run: FocusGame, practice: { secs: 30 }, workout: { secs: 20 }, best: d => `focus-${d}-30`, unit: 'right',
+      { id: 'colour', name: 'Colour Clash', run: FocusGame, practice: { secs: 30 }, workout: { secs: 25 }, best: d => `focus-${d}-30`, unit: 'right',
         helps: 'Tap the ink colour, not the word.',
         why: 'Trains inhibitory control: stopping an automatic habit (reading the word) to do what you meant to do. This is the Stroop test, used for decades to study attention.',
         peanut: 'Colour Clash! Ink colour, not the word. Harder than it sounds.' },
-      { id: 'arrows', name: 'Arrow Flanker', run: FlankerGame, practice: { secs: 30 }, workout: { secs: 20 }, best: d => `arrows-${d}-30`, unit: 'right',
+      { id: 'arrows', name: 'Arrow Flanker', run: FlankerGame, practice: { secs: 30 }, workout: { secs: 25 }, best: d => `arrows-${d}-30`, unit: 'right',
         helps: 'Follow the middle arrow and ignore the rest.',
         why: 'Trains selective attention: focusing on one thing while ignoring distractions right next to it, like reading in a noisy café. Based on the flanker task, a standard attention test.',
         peanut: 'Arrow Flanker! Only the middle arrow counts.' },
-      { id: 'stars', name: 'Star Catch', run: StarGame, practice: { trials: 30 }, workout: { trials: 20 }, best: d => `stars-${d}-30`, unit: 'points',
+      { id: 'stars', name: 'Star Catch', run: StarGame, practice: { trials: 30 }, workout: { trials: 25 }, best: d => `stars-${d}-30`, unit: 'points',
         helps: 'Tap for stars, hold back for everything else.',
         why: 'Trains impulse control and sustained attention: acting fast on what matters and holding back on what does not. It is a go/no-go task, used to study self-control.',
         peanut: 'Star Catch! Tap the stars, and only the stars.' },
@@ -3419,7 +3688,7 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
   };
   const ALL_GAMES = [].concat(GAMES.memory, GAMES.speed, GAMES.focus);
   function runGame(gm, host, o) {
-    return gm.run(host, Object.assign({}, o, { why: gm.why }));
+    return gm.run(host, Object.assign({}, o, { why: gm.why, lvl: E.LEVEL[o.diff] }));
   }
   // Records a finished game, shows XP and personal bests, and has Peanut react.
   function finishGame(res, mode) {
@@ -3443,7 +3712,7 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
   /* ---------- 3-minute workout ---------- */
   let workout = null;
   // Each skill's Brain Score picks how hard its workout round is.
-  const autoDiff = cat => { const v = state.rc[cat] || 1000; return v < 1000 ? 'easy' : v < 1150 ? 'medium' : 'hard'; };
+  const autoDiff = cat => { const v = state.rc[cat] || 1000; return v < 950 ? 'easy' : v < 1150 ? 'medium' : 'hard'; };
   function planWorkout() {
     const turn = dayIndex(todayKey) + ((state.workouts[todayKey] || {}).n || 0);
     const gm = cat => GAMES[cat][((turn % 3) + 3) % 3];
@@ -3451,14 +3720,14 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
       { kind: 'game', cat: 'speed', game: gm('speed'), name: `Warm-up: ${gm('speed').name}` },
       state.daily[todayKey] ? { kind: 'question', name: 'Bonus question' } : { kind: 'qotd', name: 'Question of the Day' },
       { kind: 'game', cat: 'memory', game: gm('memory'), name: `Memory: ${gm('memory').name}` },
-      state.words[todayKey] ? { kind: 'game', cat: 'focus', game: gm('focus'), name: `Focus: ${gm('focus').name}` } : { kind: 'word', name: 'Word of the Day' },
-    ];
+      { kind: 'game', cat: 'focus', game: gm('focus'), name: `Focus: ${gm('focus').name}` },
+    ].concat(state.words[todayKey] ? [] : [{ kind: 'word', name: 'Word of the Day' }]);
   }
   function workoutCard(host) {
     const done = state.workouts[todayKey];
     const c = el('section', 'workout-card');
-    c.appendChild(el('h2', '', done ? `Workout done in ${fmtTime(done.secs)}. Brain warmed up!` : 'Your 3-minute brain workout'));
-    c.appendChild(el('p', '', done ? `+${done.xp} XP. Run it again any time, or head to Practice.` : 'Four quick rounds back to back. The difficulty adjusts to how you are doing.'));
+    c.appendChild(el('h2', '', done ? `Workout done in ${fmtTime(done.secs)}. Brain warmed up!` : 'Your daily brain workout'));
+    c.appendChild(el('p', '', done ? `+${done.xp} XP. Run it again any time, or head to Practice.` : `${planWorkout().length} rounds back to back, about 5 minutes. Each round's difficulty follows your Brain Score in that skill.`));
     const ol = el('ol', 'steps');
     planWorkout().forEach((st, i) => { const li = el('li', done ? 'done' : ''); li.appendChild(el('b', '', String(i + 1))); li.appendChild(document.createTextNode(st.name)); ol.appendChild(li); });
     c.appendChild(ol);
@@ -3928,12 +4197,13 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
   /* ---------- Daily Grid ---------- */
   // Three puzzles a day (6×6 Easy, 9×9 Medium and Hard), the same for everyone.
   const GRID_XP = { easy: 20, medium: 35, hard: 50 };
-  const GRID_LABEL = { easy: 'Easy 6×6', medium: 'Medium 9×9', hard: 'Hard 9×9' };
+  const gridV1 = () => dayIndex(todayKey) < E.DAILY_CUT;
+  const GRID_LABEL = new Proxy({}, { get: (_, d) => `${DIFF_LABEL[d]} ${gridV1() && d === 'easy' ? '6×6' : '9×9'}` });
   let gridDiff = null, gridGame = null;
   const gridCache = {};
   function dailyGrid(diff) {
     const k = `${todayKey}-${diff}`;
-    return gridCache[k] || (gridCache[k] = E.makeGrid(E.hashStr('grid:' + k), diff));
+    return gridCache[k] || (gridCache[k] = E.makeGrid(E.hashStr('grid:' + k), diff, gridV1()));
   }
   function renderGridCard(host) {
     if (gridGame) gridGame.stop();
@@ -4003,7 +4273,7 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
   function GridGame(host, g, o) {
     const n = g.n, givens = g.puzzle.split('').map(Number), sol = g.solution.split('').map(Number);
     const vals = givens.slice();
-    if (o.prog && o.prog.v) o.prog.v.split('').forEach((ch, i) => { if (!givens[i]) vals[i] = Number(ch); });
+    if (o.prog && o.prog.v && o.prog.v.length === n * n) o.prog.v.split('').forEach((ch, i) => { if (!givens[i]) vals[i] = Number(ch); });
     if (o.solved) sol.forEach((v, i) => { vals[i] = v; });
     const notes = vals.map(() => new Set());
     let sel = givens.findIndex(v => !v), noteMode = false, done = !!o.solved;

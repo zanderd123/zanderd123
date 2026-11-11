@@ -24,7 +24,9 @@ const fail = (q, msg) => { if (failures++ < 15) console.log('FAIL', q.cat, q.dif
 
 for (const { id: cat } of E.CATEGORIES.filter(c => !c.game)) {
   for (const diff of E.DIFFS) {
-    for (let seed = 1; seed <= 3000; seed++) {
+    // Hard logic includes the four-house puzzles, which take ~50 ms each to build; 600 is plenty.
+    const runs = cat === 'logic' && diff === 'hard' ? 600 : 3000;
+    for (let seed = 1; seed <= runs; seed++) {
       const q = E.generate({ seed, cat, diff });
       total++;
       const min = MIN[cat] || (cat === 'logic' ? 3 : 4);
@@ -37,8 +39,17 @@ for (const { id: cat } of E.CATEGORIES.filter(c => !c.game)) {
         const norm = cs => { const a = Math.min(...cs.map(x => x[0])), b = Math.min(...cs.map(x => x[1])); return JSON.stringify(cs.map(([r, c]) => [r - a, c - b]).sort((x, y) => x[0] - y[0] || x[1] - y[1])); };
         const turnsOf = new Set(); let cs = q.stem.cells;
         for (let k = 0; k < 4; k++) { turnsOf.add(norm(cs)); cs = cs.map(([r, c]) => [c, -r]); }
-        const hits = q.options.filter(o => turnsOf.has(norm(o))).length;
-        if (hits !== 1) fail(q, `${hits} options are turns of the shape`);
+        if (q.transformK) {
+          // Turn-then-flip: exactly one option is the shape turned k quarter turns clockwise, then mirrored left-to-right.
+          let t = q.stem.cells;
+          for (let k = 0; k < q.transformK; k++) t = t.map(([r, c]) => [c, -r]);
+          const want = norm(t.map(([r, c]) => [r, -c]));
+          const hits = q.options.map(norm).filter(o => o === want).length;
+          if (hits !== 1 || norm(q.options[q.answer]) !== want) fail(q, `turn-then-flip: ${hits} matching options`);
+        } else {
+          const hits = q.options.filter(o => turnsOf.has(norm(o))).length;
+          if (hits !== 1) fail(q, `${hits} options are turns of the shape`);
+        }
       }
       const text = [q.prompt, q.hint, q.why, JSON.stringify(q.stem), ...keys].join(' ');
       if (bad.test(text)) fail(q, 'bad text: ' + text.match(bad)[0]);
