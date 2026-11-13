@@ -33,6 +33,14 @@ A daily brain workout: one IQ-style question a day, plus unlimited practice.
   down), and answers revealed at the end. The Test Score is estimated on the
   Brain Score scale. It is a practice score, not an IQ: there is no norming
   group behind it, and scores rise with practice.
+- **Puzzles** (the Puzzle Vault): long logic problems to come back to over
+  days. Five-house "who owns the zebra?" grids (the zebra and water are never
+  mentioned), a weekly Puzzle of the Week with jobs as a fifth attribute,
+  4- and 5-digit code breakers, "who did it?" cases where you know how many
+  statements are true, and 16 classics (pirates' gold, Cara's birthday, sum
+  and product, the egg drop, the bridge at night…). Each has a working grid or
+  notes that are saved, three staged hints, answer checking, a full solution,
+  and the time spent thinking.
 - **Progress**: Test Score history, this week vs last week, Brain Score and
   accuracy trends (7 days to all time), skill per category, personal bests
   for every game, and the daily calendar.
@@ -76,7 +84,10 @@ worked explanation.
     challenge-check.mjs  node quotient/challenge-check.mjs -> checks every Challenge
                        of the Day template against an independent method
                        (simulation, brute-force search, numerical integration)
-    check.mjs          node quotient/check.mjs -> checks 63,000 generated questions,
+    puzzle-check.mjs   node quotient/puzzle-check.mjs -> confirms every generated
+                       grid, code and case has exactly one answer (with a second,
+                       independent solver) and re-derives every classic's answer
+    check.mjs          node quotient/check.mjs -> checks 60,600 generated questions,
                        ten years of daily questions for repeats, 120 Daily Grids
                        for a single solution, and the word list
     app/               open app/index.html in any browser, or host the folder

@@ -121,7 +121,7 @@ button { font: inherit; color: inherit; touch-action: manipulation; -webkit-tap-
 @keyframes bump { 30% { transform: scale(1.18); } 60% { transform: scale(.95); } }
 
 /* Tabs */
-.tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.tabs { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
 .tab { padding: 9px 6px; font-family: var(--display); font-weight: 600; font-size: 1.05rem; }
 .tab[aria-selected="true"] { background: var(--ink); color: var(--card); }
 
@@ -467,6 +467,46 @@ details.numbers summary { cursor: pointer; color: var(--muted); font-weight: 800
 .chal-steps li { padding-left: 4px; }
 .chal-confirm { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding: 10px 12px; border-radius: 14px; background: var(--soft); border: 2px solid var(--line); font-weight: 800; }
 
+/* Puzzle Vault */
+.vault { display: flex; flex-direction: column; gap: 16px; }
+.vstats { display: flex; gap: 14px; flex-wrap: wrap; font-weight: 800; color: var(--line); }
+.vstats b { font-family: var(--display); color: var(--card); font-size: 1.15rem; }
+.vlist { display: flex; flex-direction: column; gap: 10px; }
+.vrow { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 2px solid var(--line); border-radius: 14px; background: var(--card); flex-wrap: wrap; }
+.vrow .t { flex: 1 1 180px; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.vrow .t b { font-family: var(--display); font-weight: 600; font-size: 1.05rem; }
+.vrow .t span { color: var(--muted); font-size: 0.85rem; font-weight: 700; }
+.vchip { font-family: var(--display); font-weight: 600; font-size: 0.78rem; padding: 2px 10px; border-radius: 999px; border: 2px solid var(--ink); background: var(--soft); white-space: nowrap; }
+.vchip.solved { background: var(--good); color: var(--card); border-color: var(--good); }
+.vchip.going { background: var(--gold); }
+.vchip.revealed { background: var(--bad-soft); border-color: var(--bad); color: var(--bad); }
+.vmakers { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.vmaker { display: flex; flex-direction: column; gap: 8px; padding: 14px; border: 2px solid var(--line); border-radius: 16px; background: var(--card); min-width: 0; }
+.vmaker h3 { margin: 0; font-family: var(--display); font-weight: 600; font-size: 1.1rem; }
+.vmaker p { margin: 0; color: var(--muted); font-size: 0.88rem; font-weight: 700; flex: 1; }
+.vmaker .btn { padding: 7px 10px; font-size: 0.92rem; }
+.vclues { margin: 0; padding-left: 24px; display: flex; flex-direction: column; gap: 6px; font-weight: 600; }
+.vclues li { padding-left: 2px; }
+.vtablewrap { overflow-x: auto; }
+.vgrid { border-collapse: collapse; width: 100%; min-width: 320px; }
+.vgrid th { font-family: var(--display); font-weight: 600; font-size: 0.85rem; padding: 4px; color: var(--muted); text-align: center; }
+.vgrid th.k { text-align: left; }
+.vgrid td { padding: 3px; }
+.vgrid select { width: 100%; font: inherit; font-size: 0.82rem; font-weight: 700; padding: 5px 2px; border: 2px solid var(--line); border-radius: 8px; background: var(--soft); color: var(--ink); }
+.vgrid select.set { border-color: var(--accent); background: var(--accent-soft); }
+.vguess { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.vguess .digits { display: flex; gap: 5px; }
+.vguess .digits span { width: 34px; height: 40px; display: grid; place-items: center; border: 2.5px solid var(--ink); border-radius: 9px; background: var(--soft); font-family: var(--display); font-weight: 600; font-size: 1.25rem; }
+.vguess .fb { font-weight: 800; font-size: 0.92rem; color: var(--muted); flex: 1 1 160px; }
+.vnotes { width: 100%; min-height: 110px; font: inherit; font-size: 0.95rem; padding: 10px 12px; border: 2px solid var(--line); border-radius: 12px; background: var(--soft); color: var(--ink); resize: vertical; }
+.vhints { display: flex; flex-direction: column; gap: 8px; }
+.vanswer { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.vanswer label { font-weight: 800; }
+.vanswer select, .vanswer input { font: inherit; font-family: var(--display); font-weight: 600; font-size: 1.1rem; padding: 8px 12px; border: 2.5px solid var(--ink); border-radius: 12px; background: var(--soft); color: var(--ink); min-width: 0; }
+.vanswer input { flex: 1 1 140px; }
+.vback { align-self: flex-start; }
+@media (max-width: 560px) { .vmakers { grid-template-columns: 1fr; } }
+
 /* Test mode */
 .test-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .test-bar .lbl { font-family: var(--display); font-weight: 600; font-size: 1.1rem; }
@@ -504,7 +544,9 @@ details.numbers summary { cursor: pointer; color: var(--muted); font-weight: 800
   .sheet { padding: 16px 14px 18px; }
   .skill { grid-template-columns: 92px 1fr 78px; }
   .bests { grid-template-columns: 1fr; }
-  .tab { font-size: 0.95rem; padding: 9px 2px; }
+  .tab { font-size: 0.84rem; padding: 9px 1px; }
+  .tabs { gap: 5px; }
+  .vgrid select { font-size: 0.72rem; padding: 4px 1px; }
   .dgrid button { font-size: 1.15rem; }
   .board .who img { display: none; }
   .board td { padding: 8px 4px; }
@@ -550,6 +592,7 @@ details.numbers summary { cursor: pointer; color: var(--muted); font-weight: 800
     <button class="press tab" role="tab" id="tab-daily" aria-selected="true">Today</button>
     <button class="press tab" role="tab" id="tab-practice" aria-selected="false">Practice</button>
     <button class="press tab" role="tab" id="tab-test" aria-selected="false">Test</button>
+    <button class="press tab" role="tab" id="tab-vault" aria-selected="false">Puzzles</button>
     <button class="press tab" role="tab" id="tab-progress" aria-selected="false">Progress</button>
   </nav>
 
@@ -613,6 +656,8 @@ details.numbers summary { cursor: pointer; color: var(--muted); font-weight: 800
   </section>
 
   <section id="view-test" hidden></section>
+
+  <section id="view-vault" hidden></section>
 
   <section id="view-progress" hidden></section>
 
@@ -2159,6 +2204,295 @@ details.numbers summary { cursor: pointer; color: var(--muted); font-weight: 800
 })(typeof window !== 'undefined' ? window : globalThis);
 </script>
 
+<script id="puzzles">
+/* Puzzle Vault: long logic problems with staged hints and full solutions.
+   Logic grids, code breakers and "who did it?" cases are generated from a seed with a
+   solver that guarantees exactly one answer; the classics are hand-written, and
+   puzzle-check.mjs re-derives every classic answer by brute force. */
+(function (root) {
+  'use strict';
+  const E = root.QEngine;
+  const cap = t => t[0].toUpperCase() + t.slice(1);
+  function perms(n) {
+    const out = [], a = [...Array(n).keys()];
+    (function go(k) { if (k === n) { out.push(a.slice()); return; } for (let i = k; i < n; i++) { [a[k], a[i]] = [a[i], a[k]]; go(k + 1); [a[k], a[i]] = [a[i], a[k]]; } })(0);
+    return out;
+  }
+  const P5 = perms(5);
+  const NAMES = ['Ava', 'Ben', 'Cleo', 'Dev', 'Esme', 'Finn', 'Hana', 'Jude', 'Kai', 'Lola', 'Omar', 'Rosa', 'Theo', 'Uma'];
+
+  /* ---------------- Logic grid: five houses ---------------- */
+  // Kinds: p person, c colour, t pet, d drink, j job. A solution maps each value to a house 0–4.
+  const VALUES = {
+    c: ['red', 'green', 'white', 'yellow', 'blue'],
+    t: ['dog', 'cat', 'horse', 'bird', 'zebra'],
+    d: ['tea', 'coffee', 'milk', 'juice', 'water'],
+    j: ['doctor', 'chef', 'pilot', 'teacher', 'artist'],
+  };
+  const KIND_NAME = { p: 'Person', c: 'Colour', t: 'Pet', d: 'Drink', j: 'Job' };
+  const ORDINAL = ['first', 'second', 'middle', 'fourth', 'last'];
+  function makeGrid(seed, jobs) {
+    const r = E.rng(seed >>> 0);
+    const kinds = jobs ? ['p', 'c', 't', 'd', 'j'] : ['p', 'c', 't', 'd'];
+    const names = r.shuffle(NAMES).slice(0, 5);
+    const label = k => (k === 'p' ? names : VALUES[k]);
+    const sol = {}; kinds.forEach(k => { sol[k] = r.pick(P5); });
+    const noun = (k, v) => (k === 'p' ? names[v] : k === 'c' ? `the ${VALUES.c[v]} house` : k === 't' ? `the ${VALUES.t[v]} owner` : k === 'd' ? `the ${VALUES.d[v]} drinker` : `the ${VALUES.j[v]}`);
+    const has = (k, v) => (k === 'p' ? `is ${names[v]}` : k === 'c' ? `lives in the ${VALUES.c[v]} house` : k === 't' ? `keeps the ${VALUES.t[v]}` : k === 'd' ? `drinks ${VALUES.d[v]}` : `is the ${VALUES.j[v]}`);
+    const hasNot = (k, v) => (k === 'c' ? `does not live in the ${VALUES.c[v]} house` : k === 't' ? `does not keep the ${VALUES.t[v]}` : k === 'd' ? `does not drink ${VALUES.d[v]}` : `is not the ${VALUES.j[v]}`);
+    // The zebra and water are never mentioned: finding them is the point.
+    const hidden = (k, v) => (k === 't' && v === 4) || (k === 'd' && v === 4);
+    const things = [];
+    kinds.forEach(k => { for (let v = 0; v < 5; v++) if (!hidden(k, v)) things.push([k, v]); });
+    const at = (k, v) => sol[k][v];
+    const pool = [];
+    const add = (w, c) => { for (let i = 0; i < w; i++) pool.push(c); };
+    for (const [k1, v1] of things) {
+      const h = at(k1, v1), subj = cap(noun(k1, v1)), verb = k1 === 'c' ? 'is' : 'lives';
+      if (h === 0 || h === 2 || h === 4) add(1, { ks: [k1], text: `${subj} ${verb} in the ${ORDINAL[h]} house.`, f: s => s[k1][v1] === h });
+      for (const [k2, v2] of things) {
+        if (k1 === k2) continue;
+        const h2 = at(k2, v2), it = k2 === 'c' ? 'it' : 'them';
+        const ks = [k1, k2], f2 = fn => ({ ks, f: s => fn(s[k1][v1], s[k2][v2]) });
+        if (h === h2 && k1 !== 'c' && kinds.indexOf(k1) < kinds.indexOf(k2) + (k2 === 'c' ? 9 : 0)) add(2, { ...f2((a, b) => a === b), text: `${subj} ${has(k2, v2)}.` });
+        if (h !== h2 && k1 !== 'c' && k2 !== 'p') add(1, { ...f2((a, b) => a !== b), text: `${subj} ${hasNot(k2, v2)}.` });
+        if (h2 === h + 1) add(3, { ...f2((a, b) => b === a + 1), text: `${subj} ${verb} directly left of ${noun(k2, v2)}.` });
+        if (Math.abs(h - h2) === 1 && k1 < k2) add(3, { ...f2((a, b) => Math.abs(a - b) === 1), text: `${subj} ${verb} next to ${noun(k2, v2)}.` });
+        if (h < h2 - 1) add(1, { ...f2((a, b) => a < b - 1), text: `${subj} ${verb} somewhere left of ${noun(k2, v2)}, but not next to ${it}.` });
+      }
+    }
+    // Each clue is turned once into a table of which arrangements of its kinds it allows,
+    // so the solver only does lookups: one kind (120 arrangements) at a time.
+    function compile(c) {
+      if (c.tab) return c;
+      const a = kinds.indexOf(c.ks[0]), b = c.ks.length > 1 ? kinds.indexOf(c.ks[1]) : -1;
+      if (b < 0) { c.lo = a; c.tab = Uint8Array.from(P5, p => (c.f({ [kinds[a]]: p }) ? 1 : 0)); return c; }
+      c.lo = Math.min(a, b); c.hi = Math.max(a, b);
+      const tab = new Uint8Array(14400), s = {};
+      for (let i = 0; i < 120; i++) for (let j = 0; j < 120; j++) { s[kinds[c.lo]] = P5[i]; s[kinds[c.hi]] = P5[j]; tab[i * 120 + j] = c.f(s) ? 1 : 0; }
+      c.tab = tab;
+      return c;
+    }
+    function count(clues, limit) {
+      const unary = kinds.map(() => []), binary = kinds.map(() => []);
+      for (const c of clues) { compile(c); (c.hi === undefined ? unary[c.lo] : binary[c.hi]).push(c); }
+      const pick = new Int16Array(kinds.length);
+      let found = 0;
+      (function go(d) {
+        if (d === kinds.length) { found++; return; }
+        const U = unary[d], B = binary[d];
+        outer: for (let p = 0; p < 120; p++) {
+          for (const c of U) if (!c.tab[p]) continue outer;
+          for (const c of B) if (!c.tab[pick[c.lo] * 120 + p]) continue outer;
+          pick[d] = p;
+          go(d + 1);
+          if (found >= limit) return;
+        }
+      })(0);
+      return found;
+    }
+    let chosen = [];
+    const deck = r.shuffle(pool);
+    const seen = new Set();
+    for (const c of deck) {
+      if (seen.has(c.text)) continue;
+      seen.add(c.text);
+      chosen.push(c);
+      if (chosen.length >= 8 && count(chosen, 2) === 1) break;
+    }
+    if (count(chosen, 2) !== 1) return makeGrid(seed + 1, jobs);
+    // Remove every clue the others already imply.
+    for (const c of r.shuffle(chosen.slice())) {
+      const rest = chosen.filter(x => x !== c);
+      if (count(rest, 2) === 1) chosen = rest;
+    }
+    const zebra = names[sol.p.indexOf(at('t', 4))], water = names[sol.p.indexOf(at('d', 4))];
+    const table = [0, 1, 2, 3, 4].map(h => kinds.map(k => label(k)[sol[k].indexOf(h)]));
+    return {
+      _check: { clues: chosen, kinds, sol, count },
+      kind: 'grid', seed, jobs: !!jobs, names, kinds, values: kinds.map(k => label(k)), kindNames: kinds.map(k => KIND_NAME[k]),
+      title: jobs ? 'Five houses, five secrets' : 'Who owns the zebra?',
+      intro: `Five houses stand in a row, numbered 1 to 5 from the left. In each lives one person, and each house has a different colour, pet${jobs ? ', drink and job' : ' and drink'}. Every clue below is true, and together they allow only one arrangement.`,
+      clues: r.shuffle(chosen).map(c => c.text),
+      questions: [['Who owns the zebra?', zebra], ['Who drinks water?', water]],
+      table,
+      hints: [
+        'Start with clues that fix something to an exact house: the first, middle or last. Then use "directly left of" and "next to" clues to place neighbours. Mark what each house cannot be, too.',
+        (() => { const h = r.int(0, 4), ki = r.int(1, kinds.length - 1); return `In house ${h + 1}, the ${KIND_NAME[kinds[ki]].toLowerCase()} is ${table[h][ki]}.`; })(),
+        (() => { const h = r.int(0, 4); return `House ${h + 1} in full: ${table[h].join(', ')}.`; })(),
+      ],
+      solution: `${table.map((row, h) => `House ${h + 1}: ${row.join(', ')}`).join('. ')}. So ${zebra} owns the zebra and ${water} drinks water. The zebra and water are never mentioned: they are whatever is left over once everything else is placed.`,
+    };
+  }
+
+  /* ---------------- Code breaker ---------------- */
+  function feedback(g, c) {
+    let exact = 0, near = 0;
+    for (let i = 0; i < g.length; i++) { if (g[i] === c[i]) exact++; else if (c.includes(g[i])) near++; }
+    return [exact, near];
+  }
+  const CODES = {};
+  function codes(len) {
+    if (CODES[len]) return CODES[len];
+    const out = [];
+    (function go(pre) { if (pre.length === len) { out.push(pre); return; } for (let d = 0; d <= 9; d++) if (!pre.includes(d)) go(pre.concat(d)); })([]);
+    return (CODES[len] = out);
+  }
+  function makeCode(seed, len) {
+    const r = E.rng(seed >>> 0), all = codes(len), secret = r.pick(all);
+    let guesses = [], live = all;
+    while (live.length > 1) {
+      const g = r.pick(all);
+      const fb = feedback(g, secret);
+      if (fb[0] >= len - 1 || guesses.some(x => x.g.join('') === g.join(''))) continue;
+      const next = live.filter(c => { const f = feedback(g, c); return f[0] === fb[0] && f[1] === fb[1]; });
+      if (next.length < live.length) { guesses.push({ g, fb }); live = next; }
+    }
+    // Drop guesses the others already imply.
+    for (const x of r.shuffle(guesses.slice())) {
+      const rest = guesses.filter(y => y !== x);
+      if (all.filter(c => rest.every(y => { const f = feedback(y.g, c); return f[0] === y.fb[0] && f[1] === y.fb[1]; })).length === 1) guesses = rest;
+    }
+    const fbText = ([a, b]) => (a + b === 0 ? 'nothing is correct' : [a ? `${a} right and in the right place` : '', b ? `${b} right but in the wrong place` : ''].filter(Boolean).join(', '));
+    const inCode = r.shuffle(secret.slice()), posI = r.int(0, len - 1);
+    return {
+      kind: 'code', seed, len, secret: secret.join(''),
+      title: `The ${len}-digit lock`,
+      intro: `A lock has a ${len}-digit code, and no digit appears twice. Each line is an earlier guess and how close it came. Only one code fits every line.`,
+      guesses: r.shuffle(guesses).map(x => ({ g: x.g.join(''), fb: x.fb, text: fbText(x.fb) })),
+      hints: [
+        'Look for a guess where nothing is correct: it rules out several digits at once. Then compare guesses that share digits, and track each digit\'s possible positions in a small table.',
+        `${inCode[0]} and ${inCode[1]} are both in the code.`,
+        `Position ${posI + 1} is ${secret[posI]}.`,
+      ],
+      solution: `The code is ${secret.join('')}. Check: ${guesses.map(x => `${x.g.join('')} has ${fbText(feedback(x.g, secret))}`).join('; ')}.`,
+    };
+  }
+
+  /* ---------------- Who did it? ---------------- */
+  function makeCase(seed) {
+    const r = E.rng(seed >>> 0), names = r.shuffle(NAMES).slice(0, 5), n = 5;
+    const others = s => [...Array(n).keys()].filter(i => i !== s);
+    const makers = [
+      s => ({ text: 'I didn\'t do it.', f: (g) => g !== s }),
+      (s, o) => ({ text: `${names[o]} did it.`, f: (g) => g === o }),
+      (s, o) => ({ text: `${names[o]} didn't do it.`, f: (g) => g !== o }),
+      (s, o, p) => ({ text: `It was either ${names[o]} or ${names[p]}.`, f: (g) => g === o || g === p }),
+      (s, o) => ({ text: `${names[o]} is lying.`, f: (g, T) => !T[o] }),
+      (s, o) => ({ text: `${names[o]} is telling the truth.`, f: (g, T) => T[o] }),
+      (s, o) => ({ text: `Neither ${names[o]} nor I did it.`, f: (g) => g !== o && g !== s }),
+    ];
+    for (;;) {
+      const k = r.int(1, 3);
+      const st = [...Array(n).keys()].map(s => { const [o, p] = r.shuffle(others(s)); const m = r.int(0, makers.length - 1); return { s, m, ...makers[m](s, o, p) }; });
+      // Make it a real deduction: at least one statement about someone lying or telling the truth,
+      // and no more than two plain denials.
+      if (!st.some(x => x.m === 4 || x.m === 5) || st.filter(x => x.m === 0).length > 2) continue;
+      const sols = [];
+      for (let g = 0; g < n; g++) for (let m = 0; m < 32; m++) {
+        const T = [...Array(n).keys()].map(i => !!(m >> i & 1));
+        if (T.filter(Boolean).length !== k) continue;
+        if (st.every(x => x.f(g, T) === T[x.s])) sols.push({ g, T });
+      }
+      if (sols.length !== 1) continue;
+      const { g, T } = sols[0];
+      const liar = r.pick(st.filter(x => !T[x.s])), honest = st.filter(x => T[x.s]);
+      return {
+        _check: { st, T, g },
+        kind: 'case', seed, names, k, guilty: names[g],
+        title: 'Who did it?',
+        intro: `A cake has vanished from the staff kitchen. Exactly one of these five took it. Each makes one statement, and you know for certain that exactly ${k === 1 ? 'one statement is' : `${k} statements are`} true.`,
+        statements: st.map(x => `${names[x.s]}: “${x.text}”`),
+        hints: [
+          `Assume each suspect in turn is guilty, and count how many statements would then be true. Watch the statements about lying: they depend on the others, so check that each one agrees with itself.`,
+          `${names[liar.s]} is lying.`,
+          honest.length ? `${names[honest[0].s]} is telling the truth.` : 'Everyone except the culprit is lying.',
+        ],
+        solution: `${names[g]} took the cake. Then the true statement${k > 1 ? 's are' : ' is'} ${st.filter(x => T[x.s]).map(x => names[x.s] + "'s").join(' and ')}, and every other one is false: exactly ${k}, as required. Every other suspect gives the wrong number of true statements, or makes a "lying" statement contradict itself.`,
+      };
+    }
+  }
+
+  /* ---------------- Classics ---------------- */
+  // answer: a number, a list of numbers (any order) or one of `choices`.
+  const CLASSICS = [
+    { id: 'pirates', title: 'The pirates\' gold', field: 'Game theory', answer: 98, unit: 'coins',
+      text: 'Five pirates of strictly different seniority must split 100 gold coins. The most senior proposes how to divide them, and everyone, including the proposer, votes. If at least half vote yes, the split happens. Otherwise the proposer is thrown overboard and the next most senior proposes, and so on. Every pirate is perfectly logical: first they want to survive, then they want as many coins as possible, and if two outcomes are otherwise equal they would rather see someone thrown overboard. How many coins does the most senior pirate keep?',
+      hints: ['Work backwards: start with only two pirates left, then three, then four.', 'With two pirates, the senior keeps everything: his own vote is already half. With three, the senior only needs one more vote. Who is cheapest to buy?', 'A pirate votes yes only if he gets strictly more than he would get in the next round. Buy the pirates who would get nothing next round, with one coin each.'],
+      solution: 'Two pirates (D, E): D keeps all 100. Three (C, D, E): C needs one vote and gives E 1 coin (E gets 0 otherwise): C 99, D 0, E 1. Four (B–E): B needs one more vote and gives D 1: B 99, C 0, D 1, E 0. Five (A–E): A needs two more votes and buys C and E, who would get 0 under B, with 1 coin each. A keeps 98.' },
+    { id: 'islanders', title: 'The blue-eyed islanders', field: 'Logic', answer: 7, unit: 'night',
+      text: 'An island is home to perfectly logical people who can see everyone else\'s eye colour but never their own, and never discuss it. Anyone who works out that their own eyes are blue must leave on the ferry that night. Seven islanders have blue eyes; the rest have brown. One day a visitor announces to everyone: "I can see at least one person with blue eyes." Nobody had any doubt about that before. On which night after the announcement do the blue-eyed islanders leave?',
+      hints: ['Start with only one blue-eyed islander. What do they see, and what do they conclude?', 'With two blue-eyed islanders, each sees one other. If that other person does not leave on night 1, what does that tell them?', 'The announcement adds common knowledge: everyone knows that everyone knows… that there is at least one. That is what starts the countdown.'],
+      solution: 'With one blue-eyed islander, they see nobody with blue eyes, so they leave on night 1. With two, each expects the other to leave on night 1; when that does not happen, each realises they must also have blue eyes and both leave on night 2. By induction, n blue-eyed islanders all leave on night n. With seven, they leave on night 7.' },
+    { id: 'hats', title: 'Hats in a line', field: 'Logic', answer: 9, unit: 'prisoners',
+      text: 'Ten prisoners stand in a line, each facing forward, so each can see the hats of everyone in front but not their own or anyone behind. Each hat is red or blue, chosen at random. Starting from the back, each prisoner says one word, "red" or "blue", aloud. Those who name their own hat colour go free. They can agree a plan beforehand. What is the largest number the plan can guarantee to free?',
+      hints: ['The prisoner at the back can see nine hats but has no information about their own. Their word can carry information for everyone else.', 'One bit of information is enough if it is the right bit. Think about parity: odd or even.', 'Let the back prisoner say "red" if they see an odd number of red hats. Each later prisoner can then work out their own colour.'],
+      solution: 'The back prisoner says "red" if they see an odd number of red hats, otherwise "blue" (a 50% gamble for them). Each following prisoner counts the red hats they can see plus the red answers given behind them; the parity tells them their own hat. All nine others are certain to go free, so 9 is guaranteed.' },
+    { id: 'birthday', title: 'Cara\'s birthday', field: 'Logic', choices: ['May 15', 'May 16', 'May 19', 'June 17', 'June 18', 'July 14', 'July 16', 'August 14', 'August 15', 'August 17'], answer: 'July 16',
+      text: 'Alex and Beth want to know Cara\'s birthday. Cara gives them ten possible dates: May 15, May 16, May 19, June 17, June 18, July 14, July 16, August 14, August 15, August 17. She then tells Alex only the month and Beth only the day. Alex: "I don\'t know when it is, but I know Beth doesn\'t know either." Beth: "At first I didn\'t know, but now I do." Alex: "Then I know too." When is Cara\'s birthday?',
+      hints: ['Which days appear only once in the list? If Beth had one of those, she would know immediately.', 'Alex is sure Beth does not know, so Alex\'s month contains none of the unique days. That rules out two whole months.', 'After that, Beth knows. So her day appears only once among the remaining dates. Then Alex knows, so his month has only one such date left.'],
+      solution: 'Days 18 and 19 appear once, so they would give the answer away. Alex knows Beth cannot know, so his month is neither May nor June: July or August. Beth now knows, so her day is not 14 (in both July and August): July 16, August 15 or August 17 remain. Alex then knows, so his month has just one of these left: July. The birthday is July 16.' },
+    { id: 'sumproduct', title: 'Sum and product', field: 'Number theory', answer: [4, 13], unit: '',
+      text: 'Two different whole numbers x and y are chosen with 1 < x < y and x + y ≤ 100. Sam is told their sum and Polly their product. Polly: "I don\'t know the numbers." Sam: "I knew you didn\'t." Polly: "Now I know them." Sam: "Now I know them too." What are the two numbers? (Type both, like "3, 8".)',
+      hints: ['Polly would know at once if the product had only one valid factor pair, for example the product of two primes. So Sam\'s sum can never be split into two primes.', 'By Goldbach-style reasoning, Sam\'s sum must be odd, and sum − 2 must not be prime. List the sums that survive (11, 17, 23, 27, 29, 35, 37…).', 'For each candidate pair, ask: does Polly\'s product have exactly one factor pair whose sum is on Sam\'s list? Then, which sum on the list has exactly one such pair?'],
+      solution: 'Sam\'s sum must be one where no split gives a product Polly could decode at once; the sums that work are 11, 17, 23, 27, 29, 35, 37, 41, 47 and 53. Polly then knows, so her product has exactly one factor pair with a sum on that list. Sam then knows, so his sum has exactly one split with that property. Only the sum 17 does: 4 + 13, with product 52. The numbers are 4 and 13.' },
+    { id: 'coins12', title: 'The counterfeit coin', field: 'Logic', answer: 12, unit: 'coins',
+      text: 'You have a pile of identical-looking coins. All are genuine except one, which is either heavier or lighter, and you don\'t know which. With a balance scale and exactly three weighings, what is the largest number of coins for which you can always find the fake and say whether it is heavier or lighter?',
+      hints: ['Each weighing has three outcomes (left down, right down, balanced), so three weighings give 27 possible results. Each coin can be fake in two ways: heavy or light.', 'A coin that is heavy gives one pattern of results; the same coin being light gives the mirror-image pattern. "Balanced three times" tells you nothing. How many mirror pairs are left?', 'That counting allows 13 coins, but the first weighing must put equal numbers of coins on each pan. Check whether 13 can survive that.'],
+      solution: 'Three weighings give 27 outcomes. "Balanced, balanced, balanced" identifies nothing, and the other 26 pair up into 13 mirror pairs, one pair per coin (heavy versus light), so at most 13 coins. But 13 fails: the first weighing must put equal numbers on each pan, and whichever split you choose leaves too many cases for the two remaining weighings. Twelve can be done (start with 4 against 4 and branch carefully), so the answer is 12, which is (3³ − 3)/2.' },
+    { id: 'eggs', title: 'The egg drop', field: 'Optimisation', answer: 14, unit: 'drops',
+      text: 'You have two identical eggs and a 100-floor building. There is a floor at or below which an egg never breaks and above which it always breaks (it may be that every floor is safe). An egg that survives a drop can be reused. What is the smallest number of drops that always lets you find that floor, however unlucky you are?',
+      hints: ['With one egg, you have no choice: go up one floor at a time.', 'With the first egg, jump floors. If it breaks after jump k, the second egg covers the gap one floor at a time. Make every case cost the same total.', 'If the first jump is n floors, the next should be n − 1, then n − 2… so n + (n − 1) + … + 1 ≥ 100.'],
+      solution: 'Drop the first egg from floor n, then n + (n − 1), then n + (n − 1) + (n − 2), and so on; if it breaks, test the floors in between one by one with the second egg. Each case then takes at most n drops. You need n(n + 1)/2 ≥ 100, so n = 14 (14·15/2 = 105). Fourteen drops always suffice and thirteen cannot.' },
+    { id: 'torch', title: 'The bridge at night', field: 'Optimisation', answer: 17, unit: 'minutes',
+      text: 'Four people must cross a rickety bridge at night with one torch. At most two can cross at a time, and anyone crossing must carry the torch, so it has to be walked back each time. They take 1, 2, 5 and 10 minutes to cross; a pair moves at the slower person\'s pace. What is the shortest total time for everyone to get across?',
+      hints: ['The obvious plan, the fastest person escorting everyone, takes 19 minutes. You can beat it.', 'The two slowest people cost the most. What if they crossed together?', 'Send the two fastest over first, have one bring the torch back, then send the two slowest together.'],
+      solution: '1 and 2 cross (2 min). 1 returns (1). 5 and 10 cross (10). 2 returns (2). 1 and 2 cross (2). Total 2 + 1 + 10 + 2 + 2 = 17 minutes.' },
+    { id: 'torch5', title: 'The bridge, five travellers', field: 'Optimisation', answer: 29, unit: 'minutes',
+      text: 'Five people must cross a bridge at night with one torch, at most two at a time, and the torch must be carried on every crossing. They take 1, 3, 6, 8 and 12 minutes; a pair moves at the slower person\'s pace. What is the shortest total time for all five to get across?',
+      hints: ['Solve the four-person version (1, 2, 5, 10) first: the trick is to send the two slowest across together.', 'Here, get 8 and 12 across together using the 1 and 3 as torch carriers, then deal with the 6.', 'Compare two ways of moving the slow pair: escorting each with the fastest, or sending them together. Pick the cheaper at each stage.'],
+      solution: '1 and 3 cross (3). 1 returns (1). 8 and 12 cross (12). 3 returns (3). 1 and 6 cross (6). 1 returns (1). 1 and 3 cross (3). Total 3 + 1 + 12 + 3 + 6 + 1 + 3 = 29 minutes.' },
+    { id: 'river', title: 'Missionaries and cannibals', field: 'Search', answer: 11, unit: 'crossings',
+      text: 'Three missionaries and three cannibals must cross a river in a boat that holds at most two people and needs at least one to row. On either bank, if missionaries are present they must never be outnumbered by cannibals (counting the people in the boat as on the bank where it has landed). What is the smallest number of boat crossings that gets everyone across?',
+      hints: ['Write each state as (missionaries, cannibals, boat side) on the starting bank, and search outward from (3, 3, start).', 'Early on, ferry cannibals across first so missionaries are never outnumbered.', 'The tricky middle step moves two missionaries while a missionary and a cannibal come back together.'],
+      solution: 'One shortest plan: CC over, C back, CC over, C back, MM over, MC back, MM over, C back, CC over, C back, CC over. That is 11 crossings, and a search of every state confirms nothing shorter works.' },
+    { id: 'josephus', title: 'The circle of 41', field: 'Recurrences', answer: 31, unit: 'position',
+      text: '41 people stand in a circle, numbered 1 to 41. Counting starts at person 1, and every third person is removed: 3, 6, 9, and so on round the circle, skipping anyone already removed. Where should you stand (which number) to be the last one left?',
+      hints: ['Try small circles by hand (2, 3, 4, 5 people) and look for a pattern.', 'There is a recurrence: if J(n) is the survivor for n people, then J(n) = (J(n − 1) + 3) mod n, counting positions from 0.', 'Start from J(1) = 0 and apply the recurrence up to 41, then add 1 to convert to the numbering 1–41.'],
+      solution: 'With positions counted from 0, J(1) = 0 and J(n) = (J(n − 1) + 3) mod n. Running this up to n = 41 gives J(41) = 30, so in the numbering 1–41 you should stand at position 31.' },
+    { id: 'rats', title: 'The poisoned wine', field: 'Information', answer: 10, unit: 'tasters',
+      text: 'A king has 1,000 bottles of wine, and exactly one is poisoned. The poison causes no symptoms until it kills, exactly 24 hours after even a drop is tasted. The party is in 24 hours and a little, so there is time for just one round of tasting. What is the smallest number of tasters that can identify the poisoned bottle with certainty?',
+      hints: ['Each taster ends up alive or dead: one bit of information each.', 'Number the bottles and write the numbers in binary.', 'Taster k sips from every bottle whose number has a 1 in binary digit k. How many binary digits do you need for 1,000 numbers?'],
+      solution: 'Write each bottle number in binary (1 to 1,000 fits in 10 digits, since 2¹⁰ = 1,024). Taster k sips every bottle with a 1 in digit k. The pattern of who dies spells the poisoned bottle\'s number in binary. Nine tasters only give 512 patterns, so 10 is the minimum.' },
+    { id: 'handshake', title: 'The handshake party', field: 'Logic', answer: 4, unit: 'handshakes',
+      text: 'You and your partner go to a party with four other couples, ten people in all. Some people shake hands, but nobody shakes hands with themselves or their own partner, and no pair shakes hands twice. At the end you ask the other nine people how many hands they shook, and all nine give different answers. How many hands did your partner shake?',
+      hints: ['Each person can shake between 0 and 8 hands, so the nine different answers must be exactly 0, 1, 2, … 8.', 'The person who shook 8 hands shook everyone\'s except their partner\'s. So their partner must be the one who shook 0.', 'Pair off 8 with 0, then 7 with 1, and so on. Who is left over?'],
+      solution: 'The answers are 0 to 8. The 8-shaker shook everyone except their partner, so their partner is the 0-shaker. Remove that couple and the same argument pairs 7 with 1, then 6 with 2, then 5 with 3. The only one left is 4, and that person must be your partner. Your partner shook 4 hands (and so did you).' },
+    { id: 'rects', title: 'Rectangles on a chessboard', field: 'Combinatorics', answer: 1296, unit: 'rectangles',
+      text: 'How many rectangles of any size (squares included) can be traced along the grid lines of an ordinary 8 × 8 chessboard?',
+      hints: ['A rectangle is fixed by its two vertical sides and its two horizontal sides.', 'An 8 × 8 board has 9 vertical lines and 9 horizontal lines.', 'Choose 2 of the 9 vertical lines and 2 of the 9 horizontal lines.'],
+      solution: 'Choose two of the 9 vertical lines (C(9, 2) = 36 ways) and two of the 9 horizontal lines (36 ways). That gives 36 × 36 = 1,296 rectangles.' },
+    { id: 'overlaps', title: 'Overlapping hands', field: 'Logic', answer: 22, unit: 'times',
+      text: 'In one full day, from midnight to the next midnight (count midnight at the start, not the end), how many times are the hour and minute hands of a clock exactly on top of each other?',
+      hints: ['The minute hand laps the hour hand. How many laps does it make in 12 hours?', 'In 12 hours the minute hand goes round 12 times but the hour hand once, so it passes the hour hand 11 times.', 'Double it for a full day, and check whether midnight is counted once.'],
+      solution: 'The minute hand gains one full lap on the hour hand every 12/11 hours, so they meet 11 times in 12 hours (at 12:00, about 1:05, 2:11, …, but never between 11 and 12). Over 24 hours that is 22 times, counting the starting midnight once.' },
+    { id: 'tiles', title: 'Tiling the strip', field: 'Recurrences', answer: 89, unit: 'ways',
+      text: 'In how many different ways can a 2 × 10 strip be completely covered with 1 × 2 dominoes (each domino may be placed upright or lying flat)?',
+      hints: ['Look at the left end of the strip. Either one domino stands upright there, or two lie flat one above the other.', 'If T(n) is the number of tilings of a 2 × n strip, then T(n) = T(n − 1) + T(n − 2).', 'T(1) = 1 and T(2) = 2. Keep going to T(10).'],
+      solution: 'The left end is either an upright domino (leaving a 2 × (n − 1) strip) or two flat dominoes (leaving 2 × (n − 2)). So T(n) = T(n − 1) + T(n − 2) with T(1) = 1, T(2) = 2: 1, 2, 3, 5, 8, 13, 21, 34, 55, 89. There are 89 tilings.' },
+  ];
+
+  function parseList(text) { return (String(text).match(/-?\d+(?:\.\d+)?/g) || []).map(Number); }
+  function checkClassic(c, input) {
+    if (c.choices) return String(input).trim().toLowerCase() === c.answer.toLowerCase();
+    const nums = parseList(input);
+    if (Array.isArray(c.answer)) return nums.length === c.answer.length && nums.slice().sort((a, b) => a - b).every((v, i) => v === c.answer.slice().sort((a, b) => a - b)[i]);
+    return nums.length >= 1 && nums[0] === c.answer;
+  }
+  root.QPuzzles = { makeGrid, makeCode, makeCase, feedback, CLASSICS, checkClassic, parseList };
+})(typeof window !== 'undefined' ? window : globalThis);
+</script>
+
 <script id="words">
 /* Word of the Day list: word | part of speech | meaning | example. Written for Quotient.
    Meanings are kept distinct from each other because the quiz uses other words' meanings as wrong answers. */
@@ -2316,7 +2650,7 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
   /* ---------- state + storage ---------- */
   // log rows: [time, catIndex, diffIndex, correct, seconds, usedHint, mode (0 daily, 1 practice), scoreAfter, catScoreAfter]
   const LS = 'quotient.v1';
-  const blank = () => ({ v: 1, updatedAt: 0, daily: {}, words: {}, cats: {}, diffs: {}, best: 0, xp: 0, R: 1000, rc: {}, n: 0, log: [], base: null, workouts: {}, bests: {}, tests: [], grids: {}, gridProg: {}, challenges: {}, xpWeek: {},
+  const blank = () => ({ v: 1, updatedAt: 0, daily: {}, words: {}, cats: {}, diffs: {}, best: 0, xp: 0, R: 1000, rc: {}, n: 0, log: [], base: null, workouts: {}, bests: {}, tests: [], grids: {}, gridProg: {}, challenges: {}, vault: {}, xpWeek: {},
     prefs: { diff: 'medium', cat: 'all', sound: true } });
   const hydrate = s => { const b = blank(); const out = Object.assign(b, s); out.prefs = Object.assign(blank().prefs, s.prefs || {}); return out; };
   let state = blank();
@@ -4536,6 +4870,273 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
     };
   })();
 
+
+  /* ---------- Puzzle Vault ---------- */
+  // Long problems you can come back to over days: working, notes and time are saved per puzzle.
+  const QP = window.QPuzzles;
+  let vaultOpen = null, vaultTimer = 0, vaultTick = 0;
+  const puzzleCache = {};
+  const weekId = () => `week:${weekKey(todayKey)}`;
+  function puzzleFor(id) {
+    if (puzzleCache[id]) return puzzleCache[id];
+    const [type, a, b] = id.split(':');
+    let pz;
+    if (type === 'week') pz = Object.assign(QP.makeGrid(E.hashStr(id), true), { title: 'Puzzle of the Week: five houses, five secrets' });
+    else if (type === 'grid') pz = QP.makeGrid(Number(a), b === '1');
+    else if (type === 'code') pz = QP.makeCode(Number(a), Number(b));
+    else if (type === 'case') pz = QP.makeCase(Number(a));
+    else { const c = QP.CLASSICS.find(x => x.id === a); pz = Object.assign({ kind: 'classic' }, c); }
+    return (puzzleCache[id] = pz);
+  }
+  const TYPE_LABEL = { grid: 'Logic grid', week: 'Puzzle of the Week', code: 'Code breaker', case: 'Who did it?', classic: 'Classic' };
+  const typeOf = id => id.split(':')[0];
+  const vaultEntry = id => state.vault[id] || (state.vault[id] = { started: Date.now(), secs: 0, hints: 0, tries: 0, notes: '', cells: [] });
+  function status(id) {
+    const v = state.vault[id];
+    if (!v) return ['New', ''];
+    if (v.solved) return ['Solved', 'solved'];
+    if (v.revealed) return ['Solution seen', 'revealed'];
+    return ['In progress', 'going'];
+  }
+  const hm2 = s => (s >= 3600 ? `${Math.floor(s / 3600)} h ${Math.floor(s / 60) % 60} min` : `${Math.max(1, Math.round(s / 60))} min`);
+  function pruneVault() {
+    const ids = Object.keys(state.vault);
+    if (ids.length <= 60) return;
+    ids.filter(i => state.vault[i].solved || state.vault[i].revealed).sort((x, y) => state.vault[x].started - state.vault[y].started)
+      .slice(0, ids.length - 60).forEach(i => { delete state.vault[i]; });
+  }
+  function openPuzzle(id) {
+    SFX.tap();
+    vaultOpen = id;
+    renderVault();
+    window.scrollTo({ top: 0, behavior: 'auto' });
+  }
+  function closePuzzle() {
+    clearInterval(vaultTimer);
+    if (vaultOpen && state.vault[vaultOpen]) save();
+    vaultOpen = null;
+    renderVault();
+  }
+  function renderVault() {
+    clearInterval(vaultTimer);
+    const host = $('view-vault');
+    host.textContent = '';
+    if (vaultOpen) return renderPuzzle(host, vaultOpen);
+    const wrap = el('div', 'vault');
+    host.appendChild(wrap);
+    const ids = Object.keys(state.vault);
+    const solved = ids.filter(i => state.vault[i].solved).length;
+    const going = ids.filter(i => !state.vault[i].solved && !state.vault[i].revealed);
+    const head = el('section', 'workout-card');
+    head.appendChild(el('h2', '', 'Puzzle Vault'));
+    head.appendChild(el('p', '', 'Long logic problems for when you have time to think. Take days if you like: your working, notes and time are saved. Hints come in three stages, and the full solution is always there if you want it.'));
+    const st = el('div', 'vstats');
+    [[solved, 'solved'], [going.length, 'in progress'], [hm2(ids.reduce((a, i) => a + state.vault[i].secs, 0)), 'spent thinking']].forEach(([v, l]) => { const x = el('span', ''); x.appendChild(el('b', '', String(v))); x.appendChild(document.createTextNode(' ' + l)); st.appendChild(x); });
+    head.appendChild(st);
+    wrap.appendChild(head);
+
+    // Puzzle of the Week
+    const wk = el('section', 'panel');
+    wk.appendChild(el('h2', '', 'Puzzle of the Week'));
+    wk.appendChild(el('p', 'sub', 'A five-house logic grid with jobs as well, the hardest kind. A new one every Monday.'));
+    wk.appendChild(puzzleRow(weekId(), 'Five houses, five secrets', `Logic grid · ${weekLabel()}`));
+    wrap.appendChild(wk);
+
+    const inProg = going.filter(i => i !== weekId() && !i.startsWith('week:'));
+    if (inProg.length) {
+      const pp = el('section', 'panel');
+      pp.appendChild(el('h2', '', 'Carry on'));
+      const list = el('div', 'vlist');
+      inProg.sort((a, b) => state.vault[b].started - state.vault[a].started).forEach(i => list.appendChild(puzzleRow(i, puzzleTitle(i), `${TYPE_LABEL[typeOf(i)]} · ${hm2(state.vault[i].secs)} so far`)));
+      pp.appendChild(list);
+      wrap.appendChild(pp);
+    }
+
+    const mk = el('section', 'panel');
+    mk.appendChild(el('h2', '', 'Make a new puzzle'));
+    mk.appendChild(el('p', 'sub', 'Generated fresh each time, always with exactly one answer'));
+    const grid = el('div', 'vmakers');
+    const maker = (title, text, buttons) => {
+      const c = el('div', 'vmaker');
+      c.appendChild(el('h3', '', title)); c.appendChild(el('p', '', text));
+      buttons.forEach(([l, make]) => { const b = el('button', 'press btn', l); b.type = 'button'; b.addEventListener('click', () => openPuzzle(make())); c.appendChild(b); });
+      grid.appendChild(c);
+    };
+    const seed = () => (Math.random() * 2147483647) >>> 0;
+    maker('Logic grid', 'Five houses, a dozen or more clues. Who owns the zebra, and who drinks water? 20–60 minutes.', [['New grid', () => `grid:${seed()}:0`], ['Harder: with jobs', () => `grid:${seed()}:1`]]);
+    maker('Code breaker', 'Deduce a lock code from earlier guesses and how close each came. 10–30 minutes.', [['4-digit code', () => `code:${seed()}:4`], ['5-digit code', () => `code:${seed()}:5`]]);
+    maker('Who did it?', 'Five suspects, five statements, and you know how many are true. 10–20 minutes.', [['New case', () => `case:${seed()}`]]);
+    mk.appendChild(grid);
+    wrap.appendChild(mk);
+
+    const cl = el('section', 'panel');
+    cl.appendChild(el('h2', '', 'Classics'));
+    cl.appendChild(el('p', 'sub', 'Famous problems that reward patience. Most take a good while; some take days.'));
+    const clist = el('div', 'vlist');
+    QP.CLASSICS.forEach(c => clist.appendChild(puzzleRow(`classic:${c.id}`, c.title, c.field)));
+    cl.appendChild(clist);
+    wrap.appendChild(cl);
+    if (view === 'vault') Peanut.say(going.length ? 'Welcome back. Your working is just where you left it.' : 'These are the slow-burners. Pick one and give it time: sleeping on it really helps.', 'think', 1800);
+  }
+  function weekLabel() { const d = parseKey(weekKey(todayKey)); return `week of ${short(d)}`; }
+  function puzzleTitle(id) { const t = typeOf(id); if (t === 'classic') return QP.CLASSICS.find(c => `classic:${c.id}` === id).title; if (t === 'code') return `The ${id.split(':')[2]}-digit lock`; if (t === 'case') return 'Who did it?'; return id.endsWith(':1') ? 'Five houses, five secrets' : 'Who owns the zebra?'; }
+  function puzzleRow(id, title, sub) {
+    const row = el('div', 'vrow');
+    const t = el('div', 't'); t.appendChild(el('b', '', title)); t.appendChild(el('span', '', sub)); row.appendChild(t);
+    const [sl, sc] = status(id);
+    row.appendChild(el('span', 'vchip ' + sc, sl));
+    const b = el('button', 'press btn' + (sl === 'New' ? ' primary' : ''), sl === 'New' ? 'Start' : sl === 'In progress' ? 'Continue' : 'Open');
+    b.type = 'button'; b.addEventListener('click', () => openPuzzle(id));
+    row.appendChild(b);
+    return row;
+  }
+
+  function renderPuzzle(host, id) {
+    const back = el('button', 'press btn vback', '← All puzzles'); back.type = 'button';
+    back.addEventListener('click', closePuzzle);
+    host.appendChild(back);
+    const slot = el('div', ''); slot.style.marginTop = '14px';
+    host.appendChild(slot);
+    const t = typeOf(id);
+    if (!puzzleCache[id] && (t === 'grid' || t === 'week')) slot.appendChild(el('div', 'empty', 'Building your puzzle and checking it has exactly one answer…'));
+    setTimeout(() => { if (vaultOpen === id) { slot.textContent = ''; drawPuzzle(slot, id); } }, puzzleCache[id] ? 0 : 30);
+  }
+  function drawPuzzle(host, id) {
+    const pz = puzzleFor(id), v = vaultEntry(id), t = typeOf(id), done = v.solved || v.revealed;
+    const card = el('article', 'sheet');
+    host.appendChild(card);
+    const meta = el('div', 'meta'), left = el('div', 'left');
+    const tag = el('span', 'cat-tag', TYPE_LABEL[t]); tag.style.background = 'var(--c-logic)';
+    left.appendChild(tag);
+    const [sl, sc] = status(id); left.appendChild(el('span', 'vchip ' + sc, sl));
+    meta.appendChild(left);
+    const clock = el('span', 'timer'); clock.innerHTML = CLOCK; const cnum = el('span', '', hm2(v.secs)); clock.appendChild(cnum);
+    meta.appendChild(clock);
+    card.appendChild(meta);
+    card.appendChild(el('h2', 'prompt', pz.title));
+    if (pz.intro) card.appendChild(el('p', 'chal-text', pz.intro));
+    if (pz.kind === 'classic') card.appendChild(el('p', 'chal-text', pz.text));
+    if (pz.kind === 'grid') {
+      const ol = el('ol', 'vclues'); pz.clues.forEach(c => ol.appendChild(el('li', '', c))); card.appendChild(ol);
+      card.appendChild(el('h3', 'ctl-label', 'Your working: fill in what you know'));
+      const wrapT = el('div', 'vtablewrap'), tbl = el('table', 'vgrid'), hr = el('tr');
+      hr.appendChild(el('th', 'k', ''));
+      for (let h = 0; h < 5; h++) hr.appendChild(el('th', '', `House ${h + 1}`));
+      tbl.appendChild(hr);
+      pz.kinds.forEach((k, ki) => {
+        const tr = el('tr'); tr.appendChild(el('th', 'k', pz.kindNames[ki]));
+        for (let h = 0; h < 5; h++) {
+          const td = el('td'), sel = el('select'); sel.id = `cell-${ki}-${h}`; sel.setAttribute('aria-label', `House ${h + 1} ${pz.kindNames[ki]}`);
+          ['', ...pz.values[ki]].forEach(o => { const op = el('option', '', o || '?'); op.value = o; sel.appendChild(op); });
+          const cur = done ? pz.table[h][ki] : v.cells[ki * 5 + h] || '';
+          sel.value = cur; sel.classList.toggle('set', !!cur); sel.disabled = done;
+          sel.addEventListener('change', () => { v.cells[ki * 5 + h] = sel.value; sel.classList.toggle('set', !!sel.value); saveLocal(); });
+          td.appendChild(sel); tr.appendChild(td);
+        }
+        tbl.appendChild(tr);
+      });
+      wrapT.appendChild(tbl); card.appendChild(wrapT);
+    }
+    if (pz.kind === 'code') {
+      const list = el('div', '');
+      pz.guesses.forEach(gs => { const row = el('div', 'vguess'); const d = el('div', 'digits'); gs.g.split('').forEach(ch => d.appendChild(el('span', '', ch))); row.appendChild(d); row.appendChild(el('span', 'fb', cap1(gs.text))); list.appendChild(row); });
+      card.appendChild(list);
+    }
+    if (pz.kind === 'case') { const ul = el('ul', 'stem-lines'); pz.statements.forEach(x => ul.appendChild(el('li', '', x))); card.appendChild(ul); }
+
+    // Notes
+    card.appendChild(el('h3', 'ctl-label', 'Notes'));
+    const notes = el('textarea', 'vnotes'); notes.id = 'vault-notes'; notes.placeholder = 'Jot down deductions as you go. They are saved with the puzzle.';
+    notes.value = v.notes || ''; notes.maxLength = 3000;
+    let nt = 0;
+    notes.addEventListener('input', () => { clearTimeout(nt); nt = setTimeout(() => { v.notes = notes.value; saveLocal(); }, 500); });
+    card.appendChild(notes);
+
+    // Hints
+    const hb = el('div', 'vhints');
+    const drawHints = () => {
+      hb.textContent = '';
+      pz.hints.slice(0, done ? 3 : v.hints).forEach((h, i) => { const p = el('p', 'hint'); p.textContent = `Hint ${i + 1}: ${h}`; hb.appendChild(p); });
+    };
+    drawHints();
+    card.appendChild(hb);
+    if (done) {
+      const vd = el('div', 'verdict ' + (v.solved ? 'good' : 'bad'));
+      const h = el('h3', '', v.solved ? `Solved in ${hm2(v.secs)}!` : 'The solution');
+      if (v.xp) h.appendChild(el('span', 'xp-gain', `+${v.xp} XP`));
+      vd.appendChild(h);
+      if (v.solved) vd.appendChild(el('p', '', `${v.hints ? `${v.hints} hint${v.hints > 1 ? 's' : ''}` : 'No hints'}, ${v.tries} ${v.tries === 1 ? 'try' : 'tries'}.`));
+      vd.appendChild(el('p', '', pz.solution));
+      card.appendChild(vd);
+      return;
+    }
+    const tools = el('div', 'actions');
+    const hintBtn = el('button', 'btn quiet', ''); hintBtn.type = 'button';
+    const setHintLabel = () => { hintBtn.textContent = v.hints < 3 ? `Show hint ${v.hints + 1} of 3` : 'No more hints'; hintBtn.disabled = v.hints >= 3; };
+    setHintLabel();
+    hintBtn.addEventListener('click', () => { if (v.hints >= 3) return; v.hints++; save(); drawHints(); setHintLabel(); SFX.hint(); Peanut.say(v.hints < 3 ? 'There you go. Keep going from there.' : 'That is the biggest nudge I have. The rest is yours.', 'think', 1800); });
+    tools.appendChild(hintBtn);
+    const giveUp = el('button', 'btn quiet', 'Show the solution'); giveUp.type = 'button';
+    tools.appendChild(giveUp);
+
+    // Answer
+    card.appendChild(el('h3', 'ctl-label', 'Your answer'));
+    const ans = el('div', 'vanswer');
+    const fields = [];
+    const select = (labelText, options, idv) => { const l = el('label', '', labelText); l.htmlFor = idv; const sel = el('select'); sel.id = idv; ['', ...options].forEach(o => { const op = el('option', '', o || 'Choose…'); op.value = o; sel.appendChild(op); }); ans.append(l, sel); fields.push(sel); };
+    if (pz.kind === 'grid') pz.questions.forEach(([q], i) => select(q, pz.names, `vans-${i}`));
+    else if (pz.kind === 'case') select('Who took the cake?', pz.names, 'vans-0');
+    else if (pz.kind === 'classic' && pz.choices) select('Answer:', pz.choices, 'vans-0');
+    else { const inp = el('input'); inp.id = 'vans-0'; inp.type = 'text'; inp.autocomplete = 'off'; inp.inputMode = pz.kind === 'code' ? 'numeric' : 'text'; inp.placeholder = pz.kind === 'code' ? `${pz.len} digits` : Array.isArray(pz.answer) ? 'e.g. 3, 8' : 'Your answer'; ans.appendChild(inp); if (pz.unit) ans.appendChild(el('span', 'unit', pz.unit)); fields.push(inp); inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); check(); } }); }
+    const go = el('button', 'press btn primary', 'Check'); go.type = 'button';
+    ans.appendChild(go);
+    card.appendChild(ans);
+    const fb = el('p', 'chal-feedback'); fb.hidden = true; fb.setAttribute('aria-live', 'polite');
+    card.appendChild(fb);
+    card.appendChild(tools);
+    const confirm = el('div', 'chal-confirm'); confirm.hidden = true;
+    confirm.appendChild(el('span', '', 'See the full solution? The puzzle will be marked as not solved.'));
+    const yes = el('button', 'press btn', 'Show it'); yes.type = 'button';
+    const no = el('button', 'press btn primary', 'Keep thinking'); no.type = 'button';
+    confirm.append(yes, no); card.appendChild(confirm);
+    giveUp.addEventListener('click', () => { confirm.hidden = false; });
+    no.addEventListener('click', () => { confirm.hidden = true; });
+    yes.addEventListener('click', () => { v.revealed = true; v.xp = gainXP(5); save(); host.textContent = ''; drawPuzzle(host, id); Peanut.say('Read it slowly and see where your reasoning split off. That is where the learning is.', 'idle', 2200); });
+    function check() {
+      const vals = fields.map(f => f.value.trim());
+      if (vals.some(x => !x)) { fb.hidden = false; fb.className = 'chal-feedback bad'; fb.textContent = 'Fill in every answer first.'; return; }
+      v.tries++;
+      let ok;
+      if (pz.kind === 'grid') ok = pz.questions.every(([, a], i) => vals[i] === a);
+      else if (pz.kind === 'case') ok = vals[0] === pz.guilty;
+      else if (pz.kind === 'code') ok = vals[0].replace(/\D/g, '') === pz.secret;
+      else ok = QP.checkClassic(pz, vals[0]);
+      if (ok) {
+        v.solved = true;
+        v.xp = gainXP(Math.max(40, 150 - 30 * v.hints - 10 * (v.tries - 1)) + (t === 'week' ? 50 : 0));
+        pruneVault(); save();
+        SFX.level(); burst(); setTimeout(() => burst(innerWidth / 4, innerHeight / 2, 50), 250);
+        Peanut.say(`Solved! ${hm2(v.secs)} of real thinking. That is the good stuff.`, 'happy', 3000);
+        host.textContent = ''; drawPuzzle(host, id);
+      } else {
+        save();
+        fb.hidden = false; fb.className = 'chal-feedback bad';
+        fb.textContent = pz.kind === 'grid' && pz.questions.some(([, a], i) => vals[i] === a) ? 'One of those is right, one is not. Keep going.' : 'Not quite. Check your working against every clue, then try again.';
+        SFX.wrong();
+        Peanut.say('Not yet. Go back to the clue you were least sure about.', 'think', 2000);
+      }
+    }
+    go.addEventListener('click', check);
+    // Count time only while the puzzle is open and the page is visible.
+    vaultTimer = setInterval(() => {
+      if (document.hidden || view !== 'vault' || vaultOpen !== id) return;
+      v.secs++;
+      if (v.secs % 30 === 0) { cnum.textContent = hm2(v.secs); saveLocal(); }
+    }, 1000);
+    if (view === 'vault') Peanut.say(v.secs > 60 ? `Welcome back. ${hm2(v.secs)} in so far, and your working is saved.` : 'Take your time. Write things down, and come back tomorrow if you get stuck.', 'think', 1800);
+  }
+  const cap1 = t => t[0].toUpperCase() + t.slice(1);
+
   /* ---------- Practice ---------- */
   let practiceSheet = null, sessionSeen = 0, sessionRight = 0, combo = 0, recentVerbal = [];
   function renderControls() {
@@ -4961,17 +5562,20 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
   let view = 'daily';
   const current = () => (view === 'daily' ? (workout ? workout.cur : (gridGame && gridGame.active && !(dailySheet && !dailySheet.done) ? gridGame : dailySheet)) : view === 'practice' ? practiceSheet : view === 'test' ? (test && test.running ? test.cur : null) : null);
   function show(v) {
+    // Leaving a puzzle saves the time and working spent on it.
+    if (view === 'vault' && v !== 'vault' && vaultOpen && state.vault[vaultOpen]) save();
     view = v;
-    ['daily', 'practice', 'test', 'progress'].forEach(n => {
+    ['daily', 'practice', 'test', 'vault', 'progress'].forEach(n => {
       $('view-' + n).hidden = n !== v;
       $('tab-' + n).setAttribute('aria-selected', String(n === v));
     });
     if (v === 'practice') { if (!practiceSheet || practiceSheet.done) nextPractice(); else Peanut.say('Pick a difficulty and a category, or just keep going.', 'idle'); }
     if (v === 'progress') renderProgress();
     if (v === 'test') showTest();
+    if (v === 'vault') renderVault();
     if (v === 'daily') { if (!dailySheet) renderDaily(); else dailyGreet(); }
   }
-  ['daily', 'practice', 'test', 'progress'].forEach(n => $('tab-' + n).addEventListener('click', () => { SFX.tap(); show(n); }));
+  ['daily', 'practice', 'test', 'vault', 'progress'].forEach(n => $('tab-' + n).addEventListener('click', () => { SFX.tap(); show(n); }));
   document.addEventListener('keydown', e => {
     if (e.metaKey || e.ctrlKey || e.altKey || /INPUT|TEXTAREA/.test(e.target.tagName)) return;
     const s = current();
