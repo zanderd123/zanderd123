@@ -2494,9 +2494,9 @@ details.numbers summary { cursor: pointer; color: var(--muted); font-weight: 800
 </script>
 
 <script id="words">
-/* Word of the Day list: word | part of speech | meaning | example. Written for Quotient.
+/* Word of the Day lists: word | part of speech | meaning | example. Written for Quotient.
    Meanings are kept distinct from each other because the quiz uses other words' meanings as wrong answers. */
-window.QWords = `
+window.QWordsV1 = `
 serendipity|noun|finding good things by happy accident|It was pure serendipity that we sat next to each other on the train.
 ephemeral|adjective|lasting a very short time|The rainbow was ephemeral, gone before she found her camera.
 ubiquitous|adjective|seeming to be everywhere at once|Phones are so ubiquitous that it's rare to see someone without one.
@@ -2622,6 +2622,188 @@ rambunctious|adjective|noisy and hard to control|The rambunctious puppies knocke
 spurious|adjective|false, though it appears genuine|The ad made spurious claims about curing colds.
 venerable|adjective|respected because of age or wisdom|The venerable oak has stood for 400 years.
 wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
+`.trim().split('\n').map(l => { const [word, pos, meaning, example] = l.split('|'); return { word, pos, meaning, example }; });
+/* From 14 November 2026: rarer words, chosen so that even a keen reader is likely to learn something.
+   Meanings are kept distinct from each other because the quiz uses other words' meanings as wrong answers. */
+window.QWords = `
+apricity|noun|the warmth of the sun in winter|We sat on the bench soaking up the apricity of a January noon.
+defenestration|noun|the act of throwing someone out of a window|The 1618 defenestration of Prague helped start the Thirty Years' War.
+sesquipedalian|adjective|given to using long words|His sesquipedalian lectures sent half the class to the dictionary.
+tmesis|noun|splitting a word by putting another word inside it|"Abso-blooming-lutely" is a cheerful example of tmesis.
+lalochezia|noun|relief from stress or pain gained by swearing|After stubbing his toe, a burst of lalochezia helped more than ice.
+psithurism|noun|the rustling sound of wind in the trees|We fell asleep to the psithurism of the pines.
+borborygmus|noun|a rumbling noise from the intestines|A loud borborygmus broke the silence of the exam hall.
+crapulent|adjective|ill from eating or drinking too much|Crapulent guests lingered over coffee the morning after the wedding.
+ultracrepidarian|noun|someone who gives opinions on matters beyond their knowledge|The ultracrepidarian at the party lectured a surgeon on surgery.
+snollygoster|noun|a shrewd, unprincipled person, especially a politician|The snollygoster promised every town a new bridge.
+kakistocracy|noun|government by the least competent people|Critics called the scandal-ridden council a kakistocracy.
+pandiculation|noun|stretching and yawning, as when waking up|The cat's morning pandiculation took a full minute.
+hiraeth|noun|a homesick longing for a home you cannot return to|Old photographs of the valley filled her with hiraeth.
+limerence|noun|the obsessive early stage of romantic infatuation|In the grip of limerence, he checked his phone every few seconds.
+absquatulate|verb|to leave abruptly, without saying goodbye|He absquatulated just before the bill arrived.
+bloviate|verb|to talk at length in a pompous, empty way|The host bloviated for twenty minutes before the first act.
+cachinnate|verb|to laugh loudly and immoderately|The audience cachinnated at every pratfall.
+deliquesce|verb|to dissolve slowly by absorbing moisture from the air|Left uncovered, the salt began to deliquesce.
+excoriate|verb|to criticise very severely|The review excoriated the film's lazy script.
+obnubilate|verb|to cloud over or obscure|Fog obnubilated the harbour lights.
+tergiversate|verb|to keep changing your position; to be evasive|Pressed for an answer, the minister tergiversated.
+vitiate|verb|to spoil or impair the quality of|One careless error vitiated the whole experiment.
+inveigle|verb|to win someone over by deception or flattery|She inveigled her way into the VIP area.
+remonstrate|verb|to protest forcefully and reproachfully|Neighbours remonstrated with him about the noise.
+gainsay|verb|to deny or contradict|Nobody could gainsay the evidence.
+adumbrate|verb|to outline faintly, or to foreshadow|The opening chapter adumbrates the tragedy to come.
+expatiate|verb|to speak or write at great length on a subject|He expatiated on the history of every vase in the room.
+peregrinate|verb|to travel from place to place, especially on foot|They peregrinated across Europe one long summer.
+temporize|verb|to delay a decision in order to gain time|The manager temporized, hoping the problem would vanish.
+obviate|verb|to remove a need or difficulty in advance|A good map obviates the need to ask for directions.
+extirpate|verb|to destroy completely; to root out|The campaign aimed to extirpate the invasive weed.
+palliate|verb|to make something less severe without curing it|The medicine palliates the pain but not its cause.
+abrogate|verb|to repeal or formally abolish a law or agreement|The treaty was abrogated after the war.
+countenance|verb|to tolerate or give approval to|The school will not countenance cheating.
+desiccate|verb|to remove all the moisture from|The summer sun desiccated the fallen leaves.
+effloresce|verb|to burst into flower; to blossom|Ideas began to effloresce once the team relaxed.
+vouchsafe|verb|to grant or give, often in a condescending way|She did not vouchsafe a reply.
+gormandize|verb|to eat greedily|They gormandized at the wedding buffet.
+quiddity|noun|the inherent nature or essence of something|Poets try to catch the quiddity of a single moment.
+apophenia|noun|the tendency to see meaningful patterns in random things|Seeing faces in clouds is a harmless kind of apophenia.
+anosognosia|noun|being unaware of one's own illness or disability|Anosognosia meant he insisted his weakened arm was fine.
+sprezzatura|noun|studied carelessness that makes something difficult look effortless|The pianist played with a sprezzatura that hid years of practice.
+weltschmerz|noun|weary sorrow at the state of the world|Reading the news each morning gave her a dose of weltschmerz.
+hapax|noun|a word that appears only once in a body of writing|"Honorificabilitudinitatibus" is a hapax in Shakespeare's plays.
+cynosure|noun|a person or thing that is the centre of attention|The new sculpture became the cynosure of the square.
+sinecure|noun|a position that pays well but requires little work|His seat on the board was a comfortable sinecure.
+bathos|noun|an abrupt slide from the serious to the trivial|The speech's bathos, from world peace to parking fines, drew laughs.
+apothegm|noun|a short, witty, instructive saying|"Less is more" is an apothegm of modern design.
+shibboleth|noun|a custom or word that marks someone as belonging to a group|Using the right jargon was the shibboleth of the club.
+palimpsest|noun|something reused or altered that still shows traces of its earlier form|The city is a palimpsest of Roman, medieval and modern streets.
+eschatology|noun|the part of theology concerned with the end of the world|Medieval eschatology filled church walls with scenes of judgement.
+synecdoche|noun|a figure of speech in which a part stands for the whole|"All hands on deck" is synecdoche: hands means sailors.
+litotes|noun|understatement made by denying the opposite|"Not bad at all" is litotes for "very good".
+zeugma|noun|one word applied to two others in different senses|"She lost her keys and her temper" is a zeugma.
+chiasmus|noun|reversing the order of words in two parallel phrases|"Ask not what your country can do for you…" is a famous chiasmus.
+aposiopesis|noun|breaking off in the middle of a sentence for effect|"If you don't stop that, I'll —" ends in aposiopesis.
+pleonasm|noun|using more words than needed to express an idea|"Free gift" is a pleonasm: gifts are free already.
+amphigory|noun|nonsense verse that sounds as if it means something|Lewis Carroll's "Jabberwocky" is a famous amphigory.
+caesura|noun|a pause in the middle of a line of verse|The caesura splits the line into two breaths.
+epistemology|noun|the theory of knowledge: how we know what we know|Epistemology asks how you can be sure of anything at all.
+teleology|noun|explaining things by the purpose they serve|"Eyes exist so that we can see" is a teleological explanation.
+solipsism|noun|the view that only your own mind is sure to exist|Solipsism makes every other person a possible illusion.
+anhedonia|noun|the inability to feel pleasure|Anhedonia is a common symptom of depression.
+alexithymia|noun|difficulty identifying and describing your own emotions|With alexithymia, "I'm fine" may be the only words that come.
+prosopagnosia|noun|the inability to recognise faces|With prosopagnosia, she recognised friends by their voices.
+hypnagogic|adjective|relating to the drowsy state just before sleep|Hypnagogic images flickered as he dozed off.
+crepuscular|adjective|active or appearing at twilight|Deer are crepuscular, feeding mostly at dawn and dusk.
+fissiparous|adjective|inclined to split into factions|The fissiparous party split twice in a decade.
+otiose|adjective|serving no practical purpose; pointless|The extra paragraph was otiose and was cut.
+pellucid|adjective|translucently clear, in water or in writing|Her prose stays pellucid even on difficult topics.
+rebarbative|adjective|unattractive and off-putting|His rebarbative manner drove customers away.
+saturnine|adjective|gloomy and sullen in temperament|The saturnine detective rarely smiled.
+tendentious|adjective|promoting a particular, often controversial, point of view|The documentary's tendentious editing left out every opposing voice.
+velleity|noun|a wish too weak to lead to any action|He had a velleity to learn the piano but never bought one.
+widdershins|adverb|anticlockwise; against the direction of the sun|Walking widdershins round a church was once thought unlucky.
+yclept|adjective|by the name of; called (old-fashioned)|A knight yclept Sir Gawain rode into the hall.
+zugzwang|noun|a position in chess where any move you make weakens you|In zugzwang, she wished she could simply pass her turn.
+kenspeckle|adjective|easily recognised; conspicuous (Scottish)|His kenspeckle orange coat made him easy to find in a crowd.
+gallimaufry|noun|a confused jumble or medley of things|The attic held a gallimaufry of toys, tools and old letters.
+brummagem|adjective|cheap, showy and fake|The brummagem jewellery turned his finger green.
+mumpsimus|noun|someone who clings to an error after it has been shown to be wrong|The old mumpsimus still insisted the bridge could never fall.
+quidnunc|noun|a nosy person who always wants the latest gossip|The village quidnunc knew of the engagement before the bride did.
+lickspittle|noun|a fawning flatterer of people in power|The director surrounded himself with lickspittles.
+tatterdemalion|noun|a person in ragged clothes|A tatterdemalion begged at the station gates.
+hobbledehoy|noun|a clumsy, awkward youth|At fifteen he was a gangly hobbledehoy.
+cacoethes|noun|an irresistible urge to do something unwise|He had a cacoethes for buying gadgets he never used.
+ataraxia|noun|a state of serene, untroubled calm|The monks sought ataraxia through long meditation.
+eudaimonia|noun|human flourishing; a life well lived|Aristotle saw eudaimonia as the goal of ethics.
+akrasia|noun|acting against your better judgement through weakness of will|Akrasia is reaching for the second slice of cake you know you'll regret.
+aporia|noun|an unresolvable puzzle, or a state of doubt about it|The dialogue ends in aporia, the question still open.
+orrery|noun|a clockwork model of the solar system|The orrery's brass planets crept slowly around the sun.
+clepsydra|noun|an ancient water clock|A clepsydra timed each speaker in the Athenian courts.
+aglet|noun|the plastic or metal tip at the end of a shoelace|Without its aglet, the lace frayed within a week.
+ferrule|noun|a metal cap protecting the end of a stick or handle|The umbrella's ferrule tapped along the pavement.
+philtrum|noun|the vertical groove between the nose and upper lip|A raindrop ran down his philtrum.
+glabella|noun|the smooth patch of skin between the eyebrows|She rubbed her glabella as she thought.
+lunule|noun|the pale crescent at the base of a fingernail|The lunule is easiest to see on the thumb.
+tittle|noun|the dot over a lowercase i or j|Not one jot or tittle of the contract was changed.
+interrobang|noun|a punctuation mark combining a question mark and an exclamation mark|"You did what‽" ends with an interrobang.
+octothorpe|noun|the # symbol|Press the octothorpe key to continue.
+pilcrow|noun|the ¶ symbol marking a new paragraph|Editors used a pilcrow to show where a paragraph should break.
+grawlix|noun|a string of symbols standing in for a swear word, like @#$%!|The cartoon dog's outburst was a single grawlix.
+obelus|noun|the ÷ division sign|Write the obelus between the two numbers.
+horripilation|noun|goosebumps; hair standing on end from cold or fear|The ghost story brought on a wave of horripilation.
+sternutation|noun|the act of sneezing|Black pepper set off a fit of sternutation.
+eructation|noun|a belch|The baby's eructation drew applause from the table.
+jentacular|adjective|relating to breakfast|A jentacular stroll before work cleared his head.
+postprandial|adjective|happening after a meal|They took a postprandial walk along the river.
+matutinal|adjective|relating to or happening in the morning|The matutinal chorus of birds woke them at five.
+gongoozler|noun|someone who idly watches boats on a canal|Gongoozlers lined the lock to watch the barges rise.
+mondegreen|noun|a misheard song lyric or phrase|"There's a bathroom on the right" is a classic mondegreen.
+eggcorn|noun|a word swapped for a similar-sounding one that seems to make sense|"For all intensive purposes" is a well-known eggcorn.
+snowclone|noun|a reusable phrase template, like "X is the new Y"|"Orange is the new black" is one instance of a snowclone.
+retronym|noun|a new name for an old thing, needed because of something newer|"Acoustic guitar" is a retronym coined after electric guitars arrived.
+contronym|noun|a word that can mean its own opposite|"Sanction" is a contronym: it can mean allow or forbid.
+scintilla|noun|a tiny trace or spark of something|There wasn't a scintilla of evidence against her.
+rodomontade|noun|boastful, inflated talk|His rodomontade about the fish grew with every telling.
+persiflage|noun|light, teasing banter|Their persiflage hid real affection.
+logorrhoea|noun|a flood of excessive, rambling talk|The interview dissolved into logorrhoea.
+sophistry|noun|clever but deliberately misleading argument|The advert's claims were pure sophistry.
+obloquy|noun|strong public criticism, and the disgrace it brings|He faced public obloquy after the scandal.
+hauteur|noun|haughtiness of manner|She dismissed him with icy hauteur.
+fugacious|adjective|tending to fade or disappear quickly|The fugacious blossoms lasted barely a week.
+pulchritude|noun|physical beauty|The judges claimed to value talent over pulchritude.
+ineffable|adjective|too great to be expressed in words|The view from the summit was ineffable.
+numinous|adjective|having a strong spiritual, awe-inspiring quality|The cathedral's silence felt numinous.
+liminal|adjective|relating to a threshold or a transitional stage|Airports are liminal spaces between one place and the next.
+chthonic|adjective|relating to the underworld|Hades was the chief of the chthonic gods.
+sylvan|adjective|relating to woods; wooded|They camped in a sylvan glade.
+littoral|adjective|relating to the shore of a sea or lake|Littoral birds fed along the tide line.
+riparian|adjective|relating to the banks of a river|Willows thrive in riparian soil.
+mephitic|adjective|foul-smelling and noxious|A mephitic smell rose from the drains.
+fulsome|adjective|excessively flattering|Her fulsome praise made him uneasy.
+plangent|adjective|loud, resonant and mournful in sound|The plangent cry of the gulls followed the boat.
+stentorian|adjective|very loud and powerful (of a voice)|The sergeant's stentorian voice carried across the field.
+louche|adjective|disreputable, but in an attractive way|The louche jazz club stayed open till dawn.
+insouciant|adjective|showing casual, carefree indifference|She gave an insouciant shrug and walked on.
+callow|adjective|young and inexperienced|A callow recruit, he saluted the wrong officer.
+sedulous|adjective|showing dedication and steady diligence|Sedulous research in the archive uncovered the letters.
+punctilious|adjective|showing great attention to correct behaviour and detail|A punctilious host, he labelled every place card.
+sybaritic|adjective|fond of luxury and pleasure|They lived a sybaritic life of spa days and champagne.
+bibulous|adjective|excessively fond of drinking alcohol|The bibulous uncle toasted everything, including the weather.
+edacious|adjective|having a huge appetite; voracious|The edacious teenager emptied the fridge in an hour.
+pervicacious|adjective|very obstinate; wilful|The pervicacious toddler refused every vegetable.
+ludic|adjective|playful; relating to play|The museum took a ludic approach with hands-on games.
+apotropaic|adjective|intended to ward off evil|Horseshoes over doors were apotropaic charms.
+eldritch|adjective|weird and sinister; unearthly|An eldritch light flickered over the marsh.
+cicerone|noun|a guide who shows and explains sights to visitors|Our cicerone knew the story of every fresco in Florence.
+amanuensis|noun|an assistant who takes dictation or copies manuscripts|Blind in later life, Milton dictated Paradise Lost to amanuenses.
+factotum|noun|an employee who does all kinds of jobs|The factotum fixed the boiler and then served lunch.
+autodidact|noun|a self-taught person|An autodidact, she learned calculus from library books.
+flâneur|noun|someone who strolls about observing city life|As a flâneur, he spent his afternoons watching Paris go by.
+sobriquet|noun|a nickname|"The Iron Lady" was Margaret Thatcher's sobriquet.
+bumbershoot|noun|an umbrella (playful)|Grab your bumbershoot, it's pouring.
+taradiddle|noun|a petty lie, or pretentious nonsense|His excuse was a transparent taradiddle.
+nudiustertian|adjective|relating to the day before yesterday|My nudiustertian sandwich is still in the fridge.
+overmorrow|adverb|on the day after tomorrow (old-fashioned)|The fair opens overmorrow.
+lucubration|noun|laborious study, especially late at night|His lucubrations produced a 900-page thesis.
+lagniappe|noun|a small extra gift given with a purchase|The baker added a cookie as lagniappe.
+vagitus|noun|the cry of a newborn baby|A vagitus filled the delivery room.
+psephology|noun|the statistical study of elections|Psephology predicted the result to within a single seat.
+sciolism|noun|a superficial show of learning|His talk was sciolism dressed up in jargon.
+vexillology|noun|the study of flags|Vexillology explains why so many flags use red.
+oology|noun|the study or collecting of birds' eggs|Oology was a popular Victorian hobby.
+campanology|noun|the art or study of bell-ringing|Campanology demands perfect timing from every ringer.
+dendrochronology|noun|dating events by counting tree rings|Dendrochronology dated the roof beam to 1342.
+horology|noun|the study of measuring time, and clockmaking|Horology fascinated him, from sundials to atomic clocks.
+syzygy|noun|the lining up of three celestial bodies|An eclipse happens during a syzygy of Sun, Moon and Earth.
+perihelion|noun|the point in an orbit closest to the Sun|Earth reaches perihelion in early January.
+gnomon|noun|the part of a sundial that casts the shadow|The gnomon's shadow pointed straight at noon.
+drumlin|noun|an oval hill shaped by a glacier|The field was dotted with grassy drumlins.
+scree|noun|loose stones covering a mountain slope|They slid down the scree into the valley.
+sastrugi|noun|wave-like ridges carved in snow by the wind|Sastrugi made the polar sledge ride bumpy.
+katabatic|adjective|(of a wind) flowing down a slope|Katabatic winds roared off the ice sheet.
+ensorcell|verb|to enchant or fascinate|The storyteller ensorcelled the children for an hour.
+susurrate|verb|to whisper or murmur softly|The audience susurrated as the lights went down.
+obsecrate|verb|to beg or implore earnestly|She obsecrated the judge for mercy.
+perorate|verb|to sum up a speech grandly at its end|The barrister perorated for a full ten minutes.
 `.trim().split('\n').map(l => { const [word, pos, meaning, example] = l.split('|'); return { word, pos, meaning, example }; });
 </script>
 
@@ -3118,28 +3300,35 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
   }
 
   // Words come in a fixed shuffled order, one per day, so a word only repeats after the whole list.
-  const WORD_ORDER = (() => {
-    const idx = WORDS.map((_, i) => i);
-    let h = E.hashStr('words');
+  const shuffled = (list, salt) => {
+    const idx = list.map((_, i) => i);
+    let h = E.hashStr(salt);
     for (let i = idx.length - 1; i > 0; i--) { h = Math.imul(h ^ (h >>> 15), 2246822519) >>> 0; const j = h % (i + 1); [idx[i], idx[j]] = [idx[j], idx[i]]; }
     return idx;
-  })();
+  };
+  // The rarer list starts on day 21 (14 November 2026). Earlier days, and a day already
+  // answered from the first list, keep the first list so past answers still match.
+  const WORDS_V1 = window.QWordsV1, WORD_CUT = 21;
+  const ORDER_V1 = shuffled(WORDS_V1, 'words'), ORDER_V2 = shuffled(WORDS, 'words-v2');
   function wordFor(key) {
-    const i = ((dayIndex(key) % WORDS.length) + WORDS.length) % WORDS.length;
-    const w = WORDS[WORD_ORDER[i]];
+    const rec = state.words[key], v1 = dayIndex(key) < WORD_CUT || (rec && !rec.v2);
+    const LIST = v1 ? WORDS_V1 : WORDS, ORDER = v1 ? ORDER_V1 : ORDER_V2;
+    const n = v1 ? dayIndex(key) : dayIndex(key) - WORD_CUT;
+    const i = ((n % LIST.length) + LIST.length) % LIST.length;
+    const w = LIST[ORDER[i]];
     // Wrong answers are other words' meanings, preferably the same part of speech.
     let h = E.hashStr('w:' + key);
     const rnd = () => { h = Math.imul(h ^ (h >>> 13), 3266489917) >>> 0; return h / 4294967296; };
-    const same = WORDS.filter(x => x !== w && x.pos === w.pos);
-    const pool = same.length >= 3 ? same : WORDS.filter(x => x !== w);
+    const same = LIST.filter(x => x !== w && x.pos === w.pos);
+    const pool = same.length >= 3 ? same : LIST.filter(x => x !== w);
     const picks = [];
     while (picks.length < 3) { const c = pool[Math.floor(rnd() * pool.length)]; if (!picks.includes(c)) picks.push(c); }
     const opts = picks.map(p => p.meaning).concat(w.meaning);
     for (let k = opts.length - 1; k > 0; k--) { const j = Math.floor(rnd() * (k + 1)); [opts[k], opts[j]] = [opts[j], opts[k]]; }
-    return { w, opts, answer: opts.indexOf(w.meaning) };
+    return { w, opts, answer: opts.indexOf(w.meaning), v2: !v1 };
   }
   function renderWord(host, onDone) {
-    const { w, opts, answer } = wordFor(todayKey);
+    const wf = wordFor(todayKey), { w, opts, answer } = wf;
     const card = el('article', 'sheet wotd');
     host.appendChild(card);
     const meta = el('div', 'meta');
@@ -3185,7 +3374,7 @@ wry|adjective|dryly or mockingly humorous|He gave a wry smile at the irony.
     function choose(i) {
       if (state.words[todayKey]) return;
       const ok = i === answer;
-      state.words[todayKey] = { choice: i, ok };
+      state.words[todayKey] = { choice: i, ok, v2: wf.v2 };
       const xp = gainXP(ok ? 10 : 3);
       save();
       reveal(i, xp);

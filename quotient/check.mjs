@@ -87,15 +87,21 @@ for (const diff of E.DIFFS) {
   }
 }
 
-// Word list: no duplicate words or meanings, every field present.
-const words = new Set(), meanings = new Set();
-for (const w of WORDS) {
-  if (!w.word || !w.pos || !w.meaning || !w.example) { failures++; console.log('FAIL incomplete word', w.word); }
-  if (words.has(w.word) || meanings.has(w.meaning)) { failures++; console.log('FAIL duplicate word', w.word); }
-  words.add(w.word); meanings.add(w.meaning);
+// Word lists: no duplicate words or meanings within a list, every field present,
+// and the newer, rarer list shares no word with the first one.
+const WORDS_V1 = ctx.QWordsV1;
+for (const list of [WORDS_V1, WORDS]) {
+  const words = new Set(), meanings = new Set();
+  for (const w of list) {
+    if (!w.word || !w.pos || !w.meaning || !w.example) { failures++; console.log('FAIL incomplete word', w.word); }
+    if (words.has(w.word) || meanings.has(w.meaning)) { failures++; console.log('FAIL duplicate word', w.word); }
+    words.add(w.word); meanings.add(w.meaning);
+  }
 }
+const oldWords = new Set(WORDS_V1.map(w => w.word));
+for (const w of WORDS) if (oldWords.has(w.word)) { failures++; console.log('FAIL word in both lists', w.word); }
 
-console.log(`${seenDaily.size} distinct daily questions over 10 years (${rerolled} re-rolled), ${WORDS.length} words`);
+console.log(`${seenDaily.size} distinct daily questions over 10 years (${rerolled} re-rolled), ${WORDS.length} rare words (+${WORDS_V1.length} earlier)`);
 console.log(`${gridCount} Daily Grid puzzles checked for a single solution`);
 console.log(`${total} questions checked, ${failures} failures`);
 process.exit(failures ? 1 : 0);

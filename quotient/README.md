@@ -70,7 +70,8 @@ reasoning (which shape is turned rather than flipped), plus the three games.
 Every question except verbal is generated from a seed, so practice never runs
 out. The Question of the Day is fixed for its date and is re-rolled if it
 would match any earlier day. Verbal reasoning has 34 hand-written items and
-the Word of the Day list has 125 words, one per day in a fixed shuffled order.
+the Word of the Day uses 178 rare words (from 14 November 2026; the first
+125-word list stays for earlier days), one per day in a fixed shuffled order.
 
 Brain Score works like a chess rating: everyone starts at 1000, right answers
 raise it, and harder questions move it more. Every answer comes with a
