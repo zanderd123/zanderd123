@@ -490,6 +490,40 @@ details.numbers summary { cursor: pointer; color: var(--muted); font-weight: 800
 .vback { align-self: flex-start; }
 @media (max-width: 560px) { .vmakers { grid-template-columns: 1fr; } }
 
+/* Friends */
+.friends-btn { cursor: pointer; position: relative; }
+.friends-btn .badge { position: absolute; top: -8px; right: -8px; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 999px; background: var(--accent); color: var(--accent-ink); border: 2px solid var(--ink); font-size: 0.78rem; display: grid; place-items: center; }
+.fr { display: flex; flex-direction: column; gap: 16px; }
+.fr-form { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.fr-form input { flex: 1 1 200px; min-width: 0; font: inherit; font-weight: 700; font-size: 1.05rem; padding: 10px 14px; border: 2.5px solid var(--ink); border-radius: 12px; background: var(--soft); color: var(--ink); }
+.fr-form input.code { font-family: var(--display); font-weight: 600; letter-spacing: 0.15em; text-transform: uppercase; }
+.fr-msg { margin: 0; font-weight: 800; }
+.fr-msg.bad { color: var(--bad); } .fr-msg.good { color: var(--good); }
+.mycode { font-family: var(--display); font-weight: 700; font-size: 1.9rem; letter-spacing: 0.12em; }
+.av { width: 40px; height: 40px; border-radius: 50%; border: 2.5px solid var(--ink); display: grid; place-items: center; font-family: var(--display); font-weight: 700; color: var(--card); flex: none; }
+.fcard { display: flex; flex-direction: column; gap: 8px; padding: 14px; border: 2px solid var(--line); border-radius: 16px; background: var(--card); }
+.fcard .top { display: flex; gap: 12px; align-items: center; }
+.fcard .who { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.fcard .who b { font-family: var(--display); font-weight: 600; font-size: 1.15rem; overflow: hidden; text-overflow: ellipsis; }
+.fcard .who span { color: var(--muted); font-weight: 700; font-size: 0.85rem; }
+.fcard .today { font-weight: 700; font-size: 0.92rem; }
+.fcard .acts { display: flex; gap: 8px; flex-wrap: wrap; }
+.fcard .acts .btn { padding: 6px 12px; font-size: 0.9rem; }
+.cmp { display: flex; flex-direction: column; gap: 6px; }
+.cmp-row { display: grid; grid-template-columns: 84px 1fr 1fr; gap: 8px; align-items: center; font-size: 0.85rem; font-weight: 800; }
+.cmp-row .bar { height: 10px; border-radius: 5px; background: var(--soft); border: 1.5px solid var(--ink); overflow: hidden; }
+.cmp-row .bar i { display: block; height: 100%; }
+.feed { display: flex; flex-direction: column; gap: 10px; }
+.fitem { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 2px solid var(--line); border-radius: 14px; background: var(--card); }
+.fitem .body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.fitem .body p { margin: 0; font-weight: 600; }
+.fitem .body small { color: var(--muted); font-weight: 700; }
+.cheers { display: flex; gap: 6px; flex-wrap: wrap; }
+.cheers button { border: 2px solid var(--line); background: var(--soft); border-radius: 999px; padding: 2px 10px; cursor: pointer; font-size: 0.95rem; }
+.cheers button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); }
+.switch { display: flex; gap: 10px; align-items: center; font-weight: 800; }
+.switch input { width: 22px; height: 22px; accent-color: var(--accent); }
+
 /* Test mode */
 .test-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .test-bar .lbl { font-family: var(--display); font-weight: 600; font-size: 1.1rem; }
@@ -567,6 +601,10 @@ details.numbers summary { cursor: pointer; color: var(--muted); font-weight: 800
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5l2.8 5.9 6.4.8-4.7 4.4 1.2 6.4L12 16.9 6.3 20l1.2-6.4L2.8 9.2l6.4-.8z" fill="var(--gold)" stroke="var(--ink)" stroke-width="2" stroke-linejoin="round"/></svg>
         <div class="lvl"><span>Level <span id="lvl-num">1</span></span><div class="xpbar"><i id="xp-fill"></i></div><small id="xp-text">0 / 100 XP</small></div>
       </div>
+      <button class="press pill friends-btn" id="friends-btn" type="button" hidden aria-label="Friends">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.5" fill="var(--ele)" stroke="var(--ink)" stroke-width="2"/><circle cx="16.5" cy="9.5" r="2.8" fill="var(--ele-pink)" stroke="var(--ink)" stroke-width="2"/><path d="M2.5 20c.6-3.8 3.3-6 6.5-6s5.9 2.2 6.5 6z" fill="var(--ele)" stroke="var(--ink)" stroke-width="2" stroke-linejoin="round"/><path d="M14.5 14.6c.6-.3 1.3-.5 2-.5 2.6 0 4.6 1.8 5 5" fill="none" stroke="var(--ink)" stroke-width="2" stroke-linecap="round"/></svg>
+        <span>Friends</span><span class="badge" id="friends-badge" hidden></span>
+      </button>
       <button class="press sound" id="sound-btn" type="button" aria-pressed="true" aria-label="Sound effects"></button>
     </div>
   </header>
@@ -641,6 +679,8 @@ details.numbers summary { cursor: pointer; color: var(--muted); font-weight: 800
   <section id="view-test" hidden></section>
 
   <section id="view-vault" hidden></section>
+
+  <section id="view-friends" hidden></section>
 
   <section id="view-progress" hidden></section>
 
@@ -2908,6 +2948,7 @@ perorate|verb|to sum up a speech grandly at its end|The barrister perorated for 
     board.push();
     const after = levelOf(state.xp).L;
     renderHUD(true);
+    if (after > before) social.event('level', { level: after }, 'level:' + after);
     if (after > before) setTimeout(() => { Peanut.say(`Level ${after}! My trunk is trumpeting for you.`, 'happy', 2600); SFX.level(); burst(); }, 900);
     return xp;
   }
@@ -3260,6 +3301,8 @@ perorate|verb|to sum up a speech grandly at its end|The barrister perorated for 
     const xp = record(q, ok, secs, hint, 0, ok ? 15 : 0);
     const s = streak();
     if (s > state.best) state.best = s;
+    social.event('qotd', { ok: ok ? 1 : 0, secs }, 'qotd:' + todayKey);
+    if ([3, 7, 14, 30, 50, 100, 200, 365].includes(s)) social.event('streak', { days: s }, `streak:${todayKey}`);
     prune(); save(); renderHUD(true);
     return xp;
   }
@@ -4202,7 +4245,7 @@ perorate|verb|to sum up a speech grandly at its end|The barrister perorated for 
     const xp = record(res.item, ok, res.secs, false, mode, 0, res.s);
     const [bk, bv] = res.best;
     const isBest = bv > 0 && bv > (state.bests[bk] || 0);
-    if (isBest) state.bests[bk] = bv;
+    if (isBest) { state.bests[bk] = bv; social.event('best', { game: `${CAT[res.item.cat].name} (${DIFF_LABEL[res.item.diff]})`, summary: res.summary }, `best:${bk}:${bv}`); }
     save();
     const v = el('div', 'verdict ' + (ok ? 'good' : 'bad'));
     const h = el('h3', '', ok ? pick(['Great round!', 'Brain on fire!', 'Sharp!']) : 'Good effort!');
@@ -4321,6 +4364,7 @@ perorate|verb|to sum up a speech grandly at its end|The barrister perorated for 
     const xp = state.xp - w.xp0;
     const prevW = state.workouts[todayKey];
     state.workouts[todayKey] = { secs, xp, n: ((prevW && prevW.n) || 0) + 1 };
+    social.event('workout', { secs, xp }, `workout:${todayKey}:${state.workouts[todayKey].n}`);
     save();
     lbl.textContent = 'Workout complete!';
     dots.textContent = '';
@@ -4479,6 +4523,7 @@ perorate|verb|to sum up a speech grandly at its end|The barrister perorated for 
     const rec = { t: Date.now(), score: testEstimate(items), right, n: items.length, total: TEST_N, secs, bycat, timeUp: !!timeUp };
     if (items.length) {
       state.tests.push(rec);
+      social.event('test', { score: rec.score }, 'test:' + rec.t);
       if (state.tests.length > 100) state.tests.splice(0, state.tests.length - 100);
       gainXP(items.length >= TEST_N ? 50 : 20);
       save();
@@ -4683,6 +4728,7 @@ perorate|verb|to sum up a speech grandly at its end|The barrister perorated for 
       st.tries++;
       if (C.isRight(c, val)) {
         st.ok = true; st.end = Date.now(); st.last = inp.value.trim();
+        social.event('challenge', { secs: Math.round((st.end - st.start) / 1000), title: c.title }, 'challenge:' + todayKey);
         st.xp = gainXP(Math.max(30, 100 - 10 * (st.tries - 1)) - (st.hint ? 20 : 0));
         save(); board.push(); renderChallenge(host);
         SFX.level(); burst(); setTimeout(() => burst(innerWidth / 4, innerHeight / 2, 50), 250);
@@ -4755,6 +4801,7 @@ perorate|verb|to sum up a speech grandly at its end|The barrister perorated for 
       onSolved(secs) {
         const t = state.grids[todayKey] || (state.grids[todayKey] = {});
         t[gridDiff] = { secs };
+        social.event('grid', { diff: gridDiff, secs }, `grid:${todayKey}:${gridDiff}`);
         delete state.gridProg[`${todayKey}-${gridDiff}`];
         const xp = gainXP(GRID_XP[gridDiff]);
         save(); board.push();
@@ -5038,7 +5085,7 @@ perorate|verb|to sum up a speech grandly at its end|The barrister perorated for 
       },
       mount(h) { host = h; draw(); },
       off() { off = true; draw(); },
-      push() { clearTimeout(timer); timer = setTimeout(write, 1500); },
+      push() { social.sync(); clearTimeout(timer); timer = setTimeout(write, 1500); },
     };
   })();
 
@@ -5285,6 +5332,7 @@ perorate|verb|to sum up a speech grandly at its end|The barrister perorated for 
       else ok = QP.checkClassic(pz, vals[0]);
       if (ok) {
         v.solved = true;
+        social.event('puzzle', { title: pz.title, secs: v.secs }, 'puzzle:' + id);
         v.xp = gainXP(Math.max(40, 150 - 30 * v.hints - 10 * (v.tries - 1)) + (t === 'week' ? 50 : 0));
         pruneVault(); save();
         SFX.level(); burst(); setTimeout(() => burst(innerWidth / 4, innerHeight / 2, 50), 250);
@@ -5308,6 +5356,379 @@ perorate|verb|to sum up a speech grandly at its end|The barrister perorated for 
     if (view === 'vault') Peanut.say(v.secs > 60 ? `Welcome back. ${hm2(v.secs)} in so far, and your working is saved.` : 'Take your time. Write things down, and come back tomorrow if you get stuck.', 'think', 1800);
   }
   const cap1 = t => t[0].toUpperCase() + t.slice(1);
+
+
+  /* ---------- Friends (installed app, through Supabase) ---------- */
+  // Only the installed app has Supabase settings; inside claude.ai this stays switched off.
+  const social = (() => {
+    const cfg = window.QUOTIENT_CONFIG || {};
+    const on = !!(window.supabase && cfg.supabaseUrl && cfg.supabaseAnonKey);
+    let sb = null, me = null, profile = null, data = null, stage = 'loading', email = '', msg = null, poll = 0, pushT = 0;
+    const open = { compare: null, more: null, confirmDelete: false };
+    if (on) sb = window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false } });
+    const sent = () => state.socialSent || (state.socialSent = []);
+    const errText = e => (e && (e.message || e.error_description || e.msg)) || 'Something went wrong. Check your connection and try again.';
+    const say = (text, kind) => { msg = { text, kind }; draw(); };
+    const ago = t => { const s = (Date.now() - new Date(t).getTime()) / 1000; return s < 90 ? 'just now' : s < 3600 ? `${Math.round(s / 60)} min ago` : s < 86400 ? `${Math.round(s / 3600)} h ago` : `${Math.round(s / 86400)} d ago`; };
+    const COLS = ['--c-sequences', '--c-matrices', '--c-arithmetic', '--c-logic', '--c-letters', '--c-verbal', '--c-spatial', '--c-memory'];
+    function avatar(id, name) {
+      const a = el('span', 'av', (name || '?').trim()[0].toUpperCase());
+      a.style.background = `var(${COLS[E.hashStr(id) % COLS.length]})`;
+      return a;
+    }
+    async function init() {
+      if (!on) return;
+      $('friends-btn').hidden = false;
+      $('friends-btn').addEventListener('click', () => { SFX.tap(); show('friends'); });
+      try {
+        const { data: d } = await sb.auth.getSession();
+        me = d && d.session ? d.session.user : null;
+      } catch (e) { me = null; }
+      sb.auth.onAuthStateChange((_ev, session) => { const was = me && me.id; me = session ? session.user : null; if ((me && me.id) !== was) loadProfile(); });
+      await loadProfile();
+      setInterval(() => { if (profile && view !== 'friends') refresh(true); }, 5 * 60000);
+    }
+    async function loadProfile() {
+      if (!me) { profile = null; data = null; stage = 'signin'; updateBadge(); return draw(); }
+      const { data: p, error } = await sb.from('profiles').select('*').eq('id', me.id).maybeSingle();
+      if (error) { stage = 'error'; msg = { text: errText(error), kind: 'bad' }; return draw(); }
+      profile = p; stage = p ? 'main' : 'name';
+      if (p) { await pushStats(); await refresh(); } else draw();
+    }
+    async function refresh(quiet) {
+      if (!profile) return;
+      const { data: fr, error } = await sb.from('friendships').select('*');
+      if (error) { if (!quiet) say(errText(error), 'bad'); return; }
+      const other = f => (f.user_a === me.id ? f.user_b : f.user_a);
+      const accepted = fr.filter(f => f.status === 'accepted').map(other);
+      const incoming = fr.filter(f => f.status === 'pending' && f.requested_by !== me.id).map(other);
+      const outgoing = fr.filter(f => f.status === 'pending' && f.requested_by === me.id).map(other);
+      const blocked = fr.filter(f => f.status === 'blocked').map(other);
+      const ids = [...new Set(accepted.concat(incoming, outgoing))];
+      const [pr, st, ev] = await Promise.all([
+        ids.length ? sb.from('profiles').select('id, display_name').in('id', ids) : Promise.resolve({ data: [] }),
+        sb.from('stats').select('*'),
+        sb.from('events').select('*').order('created_at', { ascending: false }).limit(60),
+      ]);
+      const events = ev.data || [];
+      const ch = events.length ? await sb.from('cheers').select('*').in('event_id', events.map(e => e.id)) : { data: [] };
+      const names = Object.fromEntries((pr.data || []).map(x => [x.id, x.display_name]));
+      names[me.id] = profile.display_name;
+      data = { accepted, incoming, outgoing, blocked, names, stats: Object.fromEntries((st.data || []).map(x => [x.user_id, x])), events, cheers: ch.data || [] };
+      updateBadge();
+      if (view === 'friends') draw();
+    }
+    function updateBadge() {
+      const n = data ? data.incoming.length : 0, b = $('friends-badge');
+      if (!b) return;
+      b.hidden = !n; b.textContent = String(n);
+    }
+    // What friends see: a small summary, never the full history.
+    function snapshot() {
+      const d = state.daily[todayKey], gs = state.grids[todayKey] || {}, ch = state.challenges[todayKey], wk = state.workouts[todayKey];
+      const today = { date: todayKey };
+      if (d) today.q = [d.correct ? 1 : 0, d.secs];
+      const best = ['hard', 'medium', 'easy'].find(x => gs[x]);
+      if (best) today.g = [best, gs[best].secs];
+      if (ch && (ch.ok || ch.gaveUp)) today.c = [ch.ok ? 1 : 0, Math.round((ch.end - ch.start) / 1000)];
+      if (wk) today.w = wk.secs;
+      return {
+        user_id: me.id, level: levelOf(state.xp).L, xp: state.xp, streak: streak(), best_streak: Math.max(state.best, streak()),
+        brain_score: state.R, week_xp: state.xpWeek[weekKey(todayKey)] || 0,
+        puzzles_solved: Object.values(state.vault).filter(v => v.solved).length,
+        skills: Object.fromEntries(Object.entries(state.rc).map(([k, v]) => [k, Math.round(v)])), today, updated_at: new Date().toISOString(),
+      };
+    }
+    async function pushStats() { if (profile) { try { await sb.from('stats').upsert(snapshot()); } catch (e) {} } }
+    function sync() { if (!on || !profile) return; clearTimeout(pushT); pushT = setTimeout(pushStats, 2000); }
+    // Posts one activity item. `key` stops the same achievement being posted twice.
+    function event(kind, payload, key) {
+      if (!on || !profile) return;
+      sync();
+      if (!profile.share_activity) return;
+      if (key) { if (sent().includes(key)) return; sent().push(key); if (sent().length > 300) sent().splice(0, sent().length - 300); saveLocal(); }
+      sb.from('events').insert({ kind, payload }).then(() => { if (view === 'friends') refresh(true); }, () => {});
+    }
+    function eventText(e) {
+      const p = e.payload || {};
+      switch (e.kind) {
+        case 'qotd': return p.ok ? `got the Question of the Day right in ${fmtTime(p.secs || 0)}` : 'had a go at the Question of the Day';
+        case 'grid': return `solved the ${DIFF_LABEL[p.diff] || ''} Daily Grid in ${fmtTime(p.secs || 0)}`;
+        case 'challenge': return `cracked the Challenge of the Day${p.title ? `, “${p.title}”,` : ''} in ${fmtTime(p.secs || 0)}`;
+        case 'workout': return `finished the daily workout in ${fmtTime(p.secs || 0)}`;
+        case 'puzzle': return `solved “${p.title || 'a puzzle'}” in the Puzzle Vault after ${hm2(p.secs || 60)}`;
+        case 'level': return `reached level ${p.level}`;
+        case 'streak': return `is on a ${p.days}-day streak`;
+        case 'best': return `set a personal best in ${p.game}: ${p.summary}`;
+        case 'test': return `scored ${p.score} on the practice test`;
+      }
+      return 'made some progress';
+    }
+    function todayLine(st) {
+      const t = st && st.today;
+      if (!t || t.date !== todayKey) return 'Nothing yet today.';
+      const parts = [];
+      if (t.q) parts.push(`Question ${t.q[0] ? '✅' : '❌'} ${fmtTime(t.q[1])}`);
+      if (t.g) parts.push(`Grid ${DIFF_LABEL[t.g[0]]} ${fmtTime(t.g[1])}`);
+      if (t.c) parts.push(`Challenge ${t.c[0] ? '✅' : '❌'} ${fmtTime(t.c[1])}`);
+      if (t.w) parts.push(`Workout ${fmtTime(t.w)}`);
+      return parts.length ? 'Today: ' + parts.join(' · ') : 'Nothing yet today.';
+    }
+    async function run(promise, okText) {
+      const { data: res, error } = await promise;
+      if (error) { say(errText(error), 'bad'); return null; }
+      if (okText) msg = { text: okText, kind: 'good' };
+      await refresh();
+      return res;
+    }
+
+    function draw() {
+      const host = $('view-friends');
+      if (!host || view !== 'friends') return;
+      host.textContent = '';
+      const wrap = el('div', 'fr');
+      host.appendChild(wrap);
+      const head = el('section', 'workout-card');
+      head.appendChild(el('h2', '', 'Friends'));
+      head.appendChild(el('p', '', 'Add friends with a code, see each other\'s streaks and results, and cheer each other on.'));
+      wrap.appendChild(head);
+      const note = () => { if (msg) { wrap.appendChild(el('p', 'fr-msg ' + msg.kind, msg.text)); msg = null; } };
+      if (stage === 'loading') { wrap.appendChild(el('div', 'empty', 'Connecting…')); return; }
+      if (stage === 'error') {
+        note();
+        const b = el('button', 'press btn', 'Try again'); b.type = 'button'; b.addEventListener('click', loadProfile); wrap.appendChild(b);
+        return;
+      }
+      if (stage === 'signin' || stage === 'code') {
+        const pnl = el('section', 'panel');
+        pnl.appendChild(el('h2', '', stage === 'signin' ? 'Sign in' : 'Check your email'));
+        pnl.appendChild(el('p', 'sub', stage === 'signin' ? 'We\'ll email you a 6-digit code. No password needed. Your progress on this device stays as it is.' : `Enter the 6-digit code sent to ${email}.`));
+        const f = el('form', 'fr-form');
+        const inp = el('input'); inp.id = stage === 'signin' ? 'fr-email' : 'fr-otp';
+        if (stage === 'signin') { inp.type = 'email'; inp.autocomplete = 'email'; inp.placeholder = 'you@example.com'; inp.value = email; }
+        else { inp.inputMode = 'numeric'; inp.autocomplete = 'one-time-code'; inp.placeholder = '123456'; inp.maxLength = 10; inp.className = 'code'; }
+        inp.setAttribute('aria-label', stage === 'signin' ? 'Email address' : 'Code from the email');
+        const go = el('button', 'press btn primary', stage === 'signin' ? 'Email me a code' : 'Sign in'); go.type = 'submit';
+        f.append(inp, go);
+        f.addEventListener('submit', async e => {
+          e.preventDefault();
+          go.disabled = true;
+          if (stage === 'signin') {
+            email = inp.value.trim();
+            const { error } = await sb.auth.signInWithOtp({ email, options: { shouldCreateUser: true } });
+            if (error) { go.disabled = false; return say(errText(error), 'bad'); }
+            stage = 'code'; say('Code sent. It can take a minute to arrive; check spam too.', 'good');
+          } else {
+            const { error } = await sb.auth.verifyOtp({ email, token: inp.value.replace(/\s/g, ''), type: 'email' });
+            if (error) { go.disabled = false; return say('That code did not work. Check it, or ask for a new one.', 'bad'); }
+            msg = null;
+          }
+        });
+        pnl.appendChild(f);
+        if (stage === 'code') { const back = el('button', 'btn quiet', 'Use a different email'); back.type = 'button'; back.addEventListener('click', () => { stage = 'signin'; draw(); }); pnl.appendChild(back); }
+        wrap.appendChild(pnl);
+        note();
+        setTimeout(() => inp.focus(), 0);
+        return;
+      }
+      if (stage === 'name') {
+        const pnl = el('section', 'panel');
+        pnl.appendChild(el('h2', '', 'Choose a display name'));
+        pnl.appendChild(el('p', 'sub', 'Friends will see this name with your level, streak, Brain Score and daily results. You can turn off sharing your activity at any time.'));
+        const f = el('form', 'fr-form');
+        const inp = el('input'); inp.id = 'fr-name'; inp.maxLength = 24; inp.placeholder = 'Your name'; inp.setAttribute('aria-label', 'Display name');
+        const go = el('button', 'press btn primary', 'Continue'); go.type = 'submit';
+        f.append(inp, go);
+        f.addEventListener('submit', async e => {
+          e.preventDefault();
+          const name = inp.value.trim();
+          if (name.length < 2) return say('Use at least 2 characters.', 'bad');
+          const { error } = await sb.from('profiles').insert({ id: me.id, display_name: name });
+          if (error) return say(errText(error), 'bad');
+          await loadProfile();
+          Peanut.say(`Welcome, ${name}! Share your friend code to add your first friend.`, 'happy', 2400);
+        });
+        pnl.appendChild(f);
+        wrap.appendChild(pnl);
+        note();
+        return;
+      }
+      // Signed in.
+      const mine = el('section', 'panel');
+      mine.appendChild(el('h2', '', 'Your friend code'));
+      mine.appendChild(el('p', 'sub', `Share it so friends can add you, ${profile.display_name}.`));
+      const row = el('div', 'fr-form');
+      row.appendChild(el('span', 'mycode', profile.friend_code));
+      const copy = el('button', 'press btn', 'Copy'); copy.type = 'button';
+      copy.addEventListener('click', () => {
+        const text = `Add me on Quotient: my friend code is ${profile.friend_code}`;
+        if (navigator.share) { navigator.share({ text }).catch(() => {}); return; }
+        try { navigator.clipboard.writeText(text).then(() => { copy.textContent = 'Copied!'; setTimeout(() => { copy.textContent = 'Copy'; }, 1800); }, () => {}); } catch (e) {}
+      });
+      row.appendChild(copy);
+      mine.appendChild(row);
+      const add = el('form', 'fr-form');
+      const code = el('input'); code.id = 'fr-add'; code.className = 'code'; code.placeholder = 'Friend code'; code.maxLength = 8; code.autocomplete = 'off'; code.setAttribute('aria-label', 'Friend code to add');
+      const addBtn = el('button', 'press btn primary', 'Add friend'); addBtn.type = 'submit';
+      add.append(code, addBtn);
+      add.addEventListener('submit', async e => {
+        e.preventDefault();
+        const res = await run(sb.rpc('send_friend_request', { code: code.value.trim() }));
+        if (res === null) return;
+        say({ sent: 'Request sent. They\'ll see it next time they open Friends.', accepted: 'They had already asked you: you\'re now friends!', already_sent: 'You\'ve already sent them a request.', already_friends: 'You\'re already friends.' }[res] || 'Done.', 'good');
+      });
+      mine.appendChild(add);
+      wrap.appendChild(mine);
+      note();
+      if (!data) { wrap.appendChild(el('div', 'empty', 'Loading your friends…')); return; }
+      const nm = id => data.names[id] || 'Someone';
+
+      if (data.incoming.length || data.outgoing.length) {
+        const rq = el('section', 'panel');
+        rq.appendChild(el('h2', '', 'Requests'));
+        data.incoming.forEach(id => {
+          const r = el('div', 'vrow'); r.appendChild(avatar(id, nm(id)));
+          const t = el('div', 't'); t.appendChild(el('b', '', nm(id))); t.appendChild(el('span', '', 'wants to be friends')); r.appendChild(t);
+          const yes = el('button', 'press btn primary', 'Accept'); yes.type = 'button';
+          yes.addEventListener('click', () => run(sb.rpc('respond_friend_request', { other: id, accept: true }), `You and ${nm(id)} are now friends.`));
+          const no = el('button', 'press btn', 'Decline'); no.type = 'button';
+          no.addEventListener('click', () => run(sb.rpc('respond_friend_request', { other: id, accept: false })));
+          r.append(yes, no); rq.appendChild(r);
+        });
+        data.outgoing.forEach(id => {
+          const r = el('div', 'vrow'); r.appendChild(avatar(id, nm(id)));
+          const t = el('div', 't'); t.appendChild(el('b', '', nm(id))); t.appendChild(el('span', '', 'request sent, waiting')); r.appendChild(t);
+          const cancel = el('button', 'press btn', 'Cancel'); cancel.type = 'button';
+          cancel.addEventListener('click', () => run(sb.rpc('remove_friend', { other: id })));
+          r.appendChild(cancel); rq.appendChild(r);
+        });
+        wrap.appendChild(rq);
+      }
+
+      const fp = el('section', 'panel');
+      fp.appendChild(el('h2', '', `Your friends${data.accepted.length ? ` (${data.accepted.length})` : ''}`));
+      if (!data.accepted.length) fp.appendChild(el('div', 'empty', 'No friends yet. Share your code above, or add theirs.'));
+      const myStats = snapshot();
+      data.accepted.slice().sort((a, b) => ((data.stats[b] || {}).week_xp || 0) - ((data.stats[a] || {}).week_xp || 0)).forEach(id => {
+        const st = data.stats[id] || {};
+        const c = el('div', 'fcard');
+        const top = el('div', 'top'); top.appendChild(avatar(id, nm(id)));
+        const who = el('div', 'who'); who.appendChild(el('b', '', nm(id)));
+        who.appendChild(el('span', '', `Level ${st.level || 1} · 🔥 ${st.streak || 0} day${st.streak === 1 ? '' : 's'} · Brain Score ${st.brain_score || 1000} · ${st.week_xp || 0} XP this week`));
+        top.appendChild(who); c.appendChild(top);
+        c.appendChild(el('p', 'today', todayLine(st)));
+        if (st.updated_at) c.appendChild(el('small', 'note', `Updated ${ago(st.updated_at)} · ${st.puzzles_solved || 0} vault puzzles solved`));
+        const acts = el('div', 'acts');
+        const cmpBtn = el('button', 'press btn', open.compare === id ? 'Hide comparison' : 'Compare skills'); cmpBtn.type = 'button';
+        cmpBtn.addEventListener('click', () => { open.compare = open.compare === id ? null : id; draw(); });
+        const more = el('button', 'btn quiet', 'More…'); more.type = 'button';
+        more.addEventListener('click', () => { open.more = open.more === id ? null : id; draw(); });
+        acts.append(cmpBtn, more); c.appendChild(acts);
+        if (open.compare === id) {
+          const cmp = el('div', 'cmp');
+          const head2 = el('div', 'cmp-row'); head2.append(el('span', '', ''), el('span', '', 'You'), el('span', '', nm(id))); cmp.appendChild(head2);
+          CATS.forEach(cat => {
+            const a = myStats.skills[cat], b = (st.skills || {})[cat];
+            if (!a && !b) return;
+            const r = el('div', 'cmp-row'); r.appendChild(el('span', '', CAT[cat].short));
+            [a, b].forEach(v => { const bar = el('div', 'bar'), i = el('i'); i.style.width = v ? Math.max(4, Math.min(100, (v - 600) / 10)) + '%' : '0'; i.style.background = `var(--c-${cat})`; bar.appendChild(i); bar.title = v ? String(v) : 'not tried'; r.appendChild(bar); });
+            cmp.appendChild(r);
+          });
+          c.appendChild(cmp);
+        }
+        if (open.more === id) {
+          const m = el('div', 'chal-confirm');
+          const rm = el('button', 'press btn', 'Remove friend'); rm.type = 'button';
+          rm.addEventListener('click', () => { open.more = null; run(sb.rpc('remove_friend', { other: id }), `${nm(id)} has been removed.`); });
+          const bl = el('button', 'press btn', 'Block'); bl.type = 'button';
+          bl.addEventListener('click', () => { open.more = null; run(sb.rpc('block_user', { other: id }), `${nm(id)} is blocked and can't send you requests.`); });
+          const rp = el('button', 'press btn', 'Report'); rp.type = 'button';
+          rp.addEventListener('click', async () => {
+            open.more = null;
+            const { error } = await sb.from('reports').insert({ reported: id, reason: 'Reported from the friends list' });
+            if (error) return say(errText(error), 'bad');
+            await run(sb.rpc('block_user', { other: id }), `Thanks. ${nm(id)} has been reported and blocked.`);
+          });
+          m.append(rm, bl, rp); c.appendChild(m);
+        }
+        fp.appendChild(c);
+      });
+      wrap.appendChild(fp);
+
+      const feed = el('section', 'panel');
+      feed.appendChild(el('h2', '', 'Activity'));
+      const list = el('div', 'feed');
+      if (!data.events.length) list.appendChild(el('div', 'empty', 'Nothing here yet. Your friends\' results will show up as they play.'));
+      data.events.forEach(e => {
+        const it = el('div', 'fitem'); it.appendChild(avatar(e.user_id, nm(e.user_id)));
+        const body = el('div', 'body');
+        const pTxt = el('p', ''); const strong = el('b', '', e.user_id === me.id ? 'You' : nm(e.user_id));
+        pTxt.append(strong, document.createTextNode(' ' + eventText(e)));
+        body.appendChild(pTxt);
+        body.appendChild(el('small', '', ago(e.created_at)));
+        const ch = el('div', 'cheers');
+        ['👏', '🔥', '🧠', '🐘'].forEach(emo => {
+          const all = data.cheers.filter(x => x.event_id === e.id && x.emoji === emo), mineC = all.find(x => x.user_id === me.id);
+          const b = el('button', '', `${emo}${all.length ? ' ' + all.length : ''}`); b.type = 'button';
+          b.setAttribute('aria-pressed', String(!!mineC));
+          b.setAttribute('aria-label', `${emo} ${all.length} cheers${mineC ? ', including yours' : ''}`);
+          b.title = all.map(x => (x.user_id === me.id ? 'You' : nm(x.user_id))).join(', ');
+          b.addEventListener('click', () => {
+            SFX.tap();
+            run(mineC ? sb.from('cheers').delete().eq('event_id', e.id).eq('user_id', me.id) : sb.from('cheers').upsert({ event_id: e.id, user_id: me.id, emoji: emo }));
+          });
+          ch.appendChild(b);
+        });
+        body.appendChild(ch);
+        it.appendChild(body); list.appendChild(it);
+      });
+      feed.appendChild(list);
+      wrap.appendChild(feed);
+
+      const setp = el('section', 'panel');
+      setp.appendChild(el('h2', '', 'Settings'));
+      const sw = el('label', 'switch'); const cb = el('input'); cb.type = 'checkbox'; cb.id = 'fr-share'; cb.checked = profile.share_activity;
+      cb.addEventListener('change', async () => {
+        const { error } = await sb.from('profiles').update({ share_activity: cb.checked }).eq('id', me.id);
+        if (error) return say(errText(error), 'bad');
+        profile.share_activity = cb.checked;
+        say(cb.checked ? 'Friends can see your activity again.' : 'Your activity is now hidden. Friends still see your level, streak and Brain Score.', 'good');
+      });
+      sw.append(cb, document.createTextNode('Share my activity with friends'));
+      setp.appendChild(sw);
+      const acts = el('div', 'actions');
+      const out = el('button', 'press btn', 'Sign out'); out.type = 'button';
+      out.addEventListener('click', async () => { await sb.auth.signOut(); });
+      const del = el('button', 'btn quiet', 'Delete my account'); del.type = 'button';
+      del.addEventListener('click', () => { open.confirmDelete = true; draw(); });
+      acts.append(out, del); setp.appendChild(acts);
+      if (open.confirmDelete) {
+        const cf = el('div', 'chal-confirm');
+        cf.appendChild(el('span', '', 'Delete your Friends account? Your profile, friends, shared stats and activity are removed for good. Your progress on this device stays.'));
+        const yes = el('button', 'press btn', 'Delete it'); yes.type = 'button';
+        yes.addEventListener('click', async () => {
+          open.confirmDelete = false;
+          const { error } = await sb.rpc('delete_account');
+          if (error) return say(errText(error), 'bad');
+          state.socialSent = []; saveLocal();
+          await sb.auth.signOut();
+          say('Your account has been deleted.', 'good');
+        });
+        const no = el('button', 'press btn primary', 'Keep it'); no.type = 'button';
+        no.addEventListener('click', () => { open.confirmDelete = false; draw(); });
+        cf.append(yes, no); setp.appendChild(cf);
+      }
+      wrap.appendChild(setp);
+    }
+    function showView() {
+      draw();
+      if (profile) refresh(true);
+      clearInterval(poll);
+      poll = setInterval(() => { if (view === 'friends' && profile && !document.hidden) refresh(true); else if (view !== 'friends') clearInterval(poll); }, 60000);
+      Peanut.say(profile ? 'Here\'s what your friends have been up to.' : 'Sign in to add friends and see how they\'re getting on.', 'idle', 1600);
+    }
+    return { on, init, sync, event, showView };
+  })();
 
   /* ---------- Practice ---------- */
   let practiceSheet = null, sessionSeen = 0, sessionRight = 0, combo = 0, recentVerbal = [];
@@ -5741,6 +6162,8 @@ perorate|verb|to sum up a speech grandly at its end|The barrister perorated for 
       $('view-' + n).hidden = n !== v;
       $('tab-' + n).setAttribute('aria-selected', String(n === v));
     });
+    $('view-friends').hidden = v !== 'friends';
+    if (v === 'friends') social.showView();
     if (v === 'practice') { if (!practiceSheet || practiceSheet.done) nextPractice(); else Peanut.say('Pick a difficulty and a category, or just keep going.', 'idle'); }
     if (v === 'progress') renderProgress();
     if (v === 'test') showTest();
@@ -5767,5 +6190,6 @@ perorate|verb|to sum up a speech grandly at its end|The barrister perorated for 
   }
   renderAll();
   connect();
+  social.init();
 })();
 </script>
