@@ -45,6 +45,18 @@ A daily brain workout: one IQ-style question a day, plus unlimited practice.
   accuracy trends (7 days to all time), skill per category, personal bests
   for every game, and the daily calendar.
 - XP, levels, practice combos, confetti and optional sound effects.
+- **Accounts** (installed and store apps): create an account with email and
+  password (13+, agree to the Terms and Privacy Policy), confirm it with a
+  6-digit emailed code, log in by password or emailed code, change the
+  password, and delete the account in the app. Progress is backed up to the
+  account and the newest copy wins on each device. **Friends** adds people by
+  friend code, with friend cards, an activity feed, cheers, Block and Report.
+  Setup: `FRIENDS-SETUP.md`.
+- **Daily reminder** (iPhone and Android apps): one notification a day at a
+  chosen time, set on the Progress tab.
+- **App stores**: `APP-STORE-STEPS.md` is the step-by-step guide; the Capacitor
+  projects are in `../quotient-mobile`, and the Terms of Use and Privacy Policy
+  are in `legal/`.
 
 Difficulty moved up a full step in November 2026: Easy now serves what was
 Medium, Medium what was Hard, and Hard is an expert tier (digit-sum and

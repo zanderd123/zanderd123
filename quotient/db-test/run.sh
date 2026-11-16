@@ -7,6 +7,8 @@ db=quotient_social_test
 dropdb --if-exists "$db" 2>/dev/null || true
 createdb "$db"
 psql -q -v ON_ERROR_STOP=1 -d "$db" -f "$here/prelude.sql"
-PGOPTIONS="-c client_min_messages=warning" psql -q -v ON_ERROR_STOP=1 -d "$db" -f "$here/../../supabase/migrations/20261115000000_quotient_social.sql"
+for m in "$here"/../../supabase/migrations/*.sql; do
+  PGOPTIONS="-c client_min_messages=warning" psql -q -v ON_ERROR_STOP=1 -d "$db" -f "$m"
+done
 psql -q -v ON_ERROR_STOP=1 -d "$db" -f "$here/tests.sql" 2>&1 | grep -E "ok:|FAIL|ERROR" | sed 's/^.*NOTICE: */  /'
 dropdb "$db"

@@ -1,0 +1,11 @@
+{
+  "appId": "com.zanderd123.quotient",
+  "appName": "Quotient",
+  "webDir": "../quotient/app",
+  "backgroundColor": "#d9eeff",
+  "ios": { "contentInset": "never" },
+  "android": { "allowMixedContent": false },
+  "plugins": {
+    "LocalNotifications": { "iconColor": "#ff7a45" }
+  }
+}

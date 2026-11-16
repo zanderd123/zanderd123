@@ -1,7 +1,10 @@
-# Switching on Friends
+# Switching on accounts and Friends
 
-Friends (friend codes, friend cards, the activity feed and cheers) runs on your
-Supabase project. Everything is built; these steps connect it. Allow about 15
+> The short version of these steps, plus everything for the app stores, is in
+> **`APP-STORE-STEPS.md`** (Part A).
+
+Accounts (create account, log in, cloud backup of progress) and Friends (friend
+codes, friend cards, the activity feed and cheers) run on your Supabase project. Everything is built; these steps connect it. Allow about 15
 minutes.
 
 Friends only appears in the **installed app** (`quotient/app`). The claude.ai
@@ -9,8 +12,9 @@ version cannot reach outside servers, so it never shows the Friends button.
 
 ## 1. Create the database tables
 
-The whole database is one file: `supabase/migrations/20261115000000_quotient_social.sql`.
-Use either way:
+The database is two files in `supabase/migrations/`:
+`20261115000000_quotient_social.sql` and `20261116000000_quotient_accounts.sql`
+(cloud saves). Use either way:
 
 **A. Through the GitHub link you set up (automatic)**
 1. Supabase dashboard → your project → **Project Settings → Integrations → GitHub**.
@@ -18,25 +22,22 @@ Use either way:
    production branch `main`, and switch on **Deploy to production**.
 3. Merge the `claude/bold-davinci-cedvn3` branch into `main`. Supabase applies the
    migration on the merge. Check **Database → Tables**: you should see `profiles`,
-   `friendships`, `stats`, `events`, `cheers` and `reports`.
+   `friendships`, `stats`, `events`, `cheers`, `reports` and `saves`.
 
 **B. By hand (works straight away)**
 1. Supabase dashboard → **SQL Editor → New query**.
-2. Paste the whole file, press **Run**. It should finish with "Success. No rows returned".
+2. Paste the first file, press **Run**. It should finish with "Success. No rows returned".
+   Then do the same with the second file.
 
-## 2. Send a 6-digit code instead of a link
+## 2. Email + password, with 6-digit codes
 
-The app signs people in with a code they type, which works inside a phone app.
-
-1. **Authentication → Emails → Templates → Magic Link**.
-2. Replace the body with something like:
-
-   ```html
-   <h2>Your Quotient sign-in code</h2>
-   <p>Enter this code in the app: <strong>{{ .Token }}</strong></p>
-   <p>It expires in an hour. If you didn't ask for it, ignore this email.</p>
-   ```
-3. Save. (**Authentication → Sign In / Providers → Email** should be on; it is by default.)
+1. **Authentication → Sign In / Providers → Email**: provider on, **Confirm email**
+   on, minimum password length **8**.
+2. **Authentication → Emails → Templates**, change two templates so they send a
+   code the player types (links don't work well inside a phone app):
+   - **Confirm signup**: `<h2>Welcome to Quotient!</h2><p>Your confirmation code is <strong>{{ .Token }}</strong></p>`
+   - **Magic Link** (for "Email me a code" and forgotten passwords):
+     `<h2>Your Quotient sign-in code</h2><p>Enter this code in the app: <strong>{{ .Token }}</strong></p>`
 
 **Before friends can sign in:** Supabase's built-in email sender only delivers to
 members of your Supabase team and only a few emails an hour. For real users, add
@@ -64,8 +65,8 @@ share or ship the `service_role` key.
 
 ## 4. Try it
 
-Open the installed app, tap **Friends**, sign in with your email and the code,
-choose a name, and you'll get a friend code. Sign in on a second device (or a
+Open the installed app, tap **Sign in → Create account**, enter the code from the
+email, choose a name, and you'll get a friend code. Sign in on a second device (or a
 second email) and add each other.
 
 ## What the database protects
@@ -74,5 +75,5 @@ second email) and add each other.
 rule: strangers see nothing of each other; a pending request shows only a name;
 stats and activity are visible only to accepted friends; the sharing switch hides
 activity; blocks are invisible to the blocked person and stop new requests;
-friendships can only change through the request functions; and deleting an
-account removes all of its data.
+friendships can only change through the request functions; cloud saves are private to their owner; reports
+older than a year are cleared; and deleting an account removes all of its data.

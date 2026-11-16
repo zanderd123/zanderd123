@@ -88,10 +88,30 @@ select t((select count(*) from friendships) = 0, 'and cannot see that she was bl
 do $$ declare code text; begin select friend_code into code from profiles limit 0; perform send_friend_request((select friend_code from public.profiles where id = '00000000-0000-0000-0000-00000000000b')); raise exception 'FAIL: request through a block'; exception when raise_exception then raise notice 'ok: requests cannot get past a block'; end $$;
 commit;
 
+-- Cloud saves are private to their owner.
+begin; set local role authenticated; select set_config('request.jwt.claim.sub', :'A', true);
+insert into saves (data) values ('{"xp": 120}');
+update saves set data = '{"xp": 130}', updated_at = now() where user_id = :'A';
+select t((select (data->>'xp')::int from saves) = 130, 'Ava saves and updates her progress');
+commit;
+begin; set local role authenticated; select set_config('request.jwt.claim.sub', :'B', true);
+select t((select count(*) from saves) = 0, 'Ben cannot read Ava''s save');
+update saves set data = '{"xp": 0}' where user_id = :'A';
+commit;
+select t((select (data->>'xp')::int from saves where user_id = :'A') = 130, 'and cannot overwrite it');
+begin; set local role authenticated; select set_config('request.jwt.claim.sub', :'C', true);
+insert into saves (data) values ('{"xp": 5}');
+commit;
+
+-- Reports older than a year are cleared out.
+insert into reports (reporter, reported, reason, created_at) values (:'A', :'B', 'old report', now() - interval '13 months');
 -- Reports and account deletion.
 begin; set local role authenticated; select set_config('request.jwt.claim.sub', :'C', true);
 insert into reports (reported, reason) values (:'A', 'test report');
 select t((select count(*) from profiles) = 1, 'reporters cannot read reports or other profiles');
+reset role;
+select t(not exists (select 1 from reports where reason = 'old report') and exists (select 1 from reports where reason = 'test report'), 'reports older than a year are deleted');
+set local role authenticated;
 select delete_account();
 commit;
-select t(not exists (select 1 from auth.users where id = :'C') and not exists (select 1 from profiles where id = :'C') and not exists (select 1 from stats where user_id = :'C'), 'deleting an account removes the user and all their data');
+select t(not exists (select 1 from auth.users where id = :'C') and not exists (select 1 from profiles where id = :'C') and not exists (select 1 from stats where user_id = :'C') and not exists (select 1 from saves where user_id = :'C'), 'deleting an account removes the user and all their data, cloud save included');

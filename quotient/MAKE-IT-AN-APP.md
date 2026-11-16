@@ -1,5 +1,9 @@
 # Turning Quotient into an app
 
+> **Going to the App Store and Google Play?** Follow **`APP-STORE-STEPS.md`**:
+> the full checklist, with accounts, legal pages, the native projects in
+> `quotient-mobile/` and the store forms. This page covers hosting and installing.
+
 Quotient already works as an **installable web app**: `quotient/app/` has the
 page, an app manifest, Peanut icons and a service worker so it opens offline.
 What's left is putting it online, installing it on your phone, and, if you
@@ -43,10 +47,9 @@ There are three stages. Each one works on its own, so you can stop after any of 
 
 After that, Quotient opens from its Peanut icon with no browser bars, and works without a connection.
 
-> **Your progress:** the installed app saves progress on that device only.
-> It doesn't share progress with the claude.ai version or with your other
-> devices. Syncing would need an online account system (see *Later
-> improvements*).
+> **Your progress:** the installed app saves progress on the device, and once
+> you create an account (the **Sign in** button) it is backed up and follows you
+> to your other devices. It doesn't share progress with the claude.ai version.
 
 ## Stage 3: The app stores
 
@@ -87,20 +90,19 @@ app goes inside a native shell built with **Capacitor**. You need:
 - the **Apple Developer Program** ($99 a year),
 - **Node.js** installed on the Mac.
 
-From the repository folder on the Mac:
+The native project is already set up in `quotient-mobile/` (Capacitor 8.6, app
+id `com.zanderd123.quotient`, Peanut icons, splash screen and a daily reminder).
+On the Mac:
 
 ```sh
-npm install --save-dev @capacitor/cli @capacitor/core @capacitor/ios
-npx cap init Quotient com.zanderd123.quotient --web-dir quotient/app
-npx cap add ios
-node quotient/build.mjs && npx cap sync ios
-npx cap open ios
+cd quotient-mobile
+npm install
+npm run ios        # rebuilds quotient/app, copies it in, opens Xcode
 ```
 
 Then, in Xcode:
 1. Select the **App** target → **Signing & Capabilities** → choose your team.
-2. Set the app icon: drag `quotient/app/icons/icon-1024.png` into
-   **Assets → AppIcon**.
+2. (The app icon is already in place.)
 3. **Product → Archive**, then **Distribute App → App Store Connect**.
 4. In **App Store Connect**: create the app record, add screenshots,
    description, privacy details and a privacy policy link, test it with
@@ -108,23 +110,20 @@ Then, in Xcode:
 
 **Review tip:** Apple rejects apps that are "just a website" (guideline 4.2,
 minimum functionality). Quotient works offline and is a full game, which helps.
-Adding one native feature makes approval far more likely. The best fit is
-**daily reminder notifications** using `@capacitor/local-notifications`
-("Peanut's waiting with today's question!").
+It also has a native feature: **daily reminder notifications** (Progress tab,
+only shown in the store apps).
 
-Capacitor can build the Android app too (`@capacitor/android`, then open in
-Android Studio). Use it if you'd rather have one native project for both stores than the PWABuilder route.
+Capacitor builds the Android app too: `cd quotient-mobile && npm run android`
+opens it in Android Studio. That's the recommended route (one project for both
+stores, plus reminders); the PWABuilder route above still works if you prefer it.
 
 ### Before submitting to either store
 
 - **Name:** search both stores for "Quotient". If it's taken, or close to an
   existing brand, pick a variant such as "Quotient: Brain Workout".
-- **Privacy policy:** both stores require a public page. Quotient's is
-  simple: progress is stored only on the device, there are no accounts, ads or
-  tracking. One thing to mention: the fonts load from Google Fonts, which
-  means Google sees the device's IP address when the fonts download. If you
-  want to say "no third parties", copy the font files into `quotient/app/`
-  and load them from there. You can host the policy as another page in the repository.
+- **Privacy policy and terms:** written for you in `quotient/legal/` (fill in the
+  placeholders), shown in the app and published with the site at
+  `.../quotient/app/privacy.html` and `.../terms.html`.
 - **Screenshots:** take them from the installed app on a phone. The stores
   want specific sizes, which their upload pages list.
 - **Claims:** describe Quotient as puzzles and brain games. Don't claim it
@@ -135,9 +134,6 @@ Android Studio). Use it if you'd rather have one native project for both stores 
 
 ## Later improvements
 
-- **Daily reminders:** one push notification a day (needs the native shell from Stage 3).
-- **Sync across devices:** an account system such as Supabase or Firebase
-  to store progress online instead of only on the device.
 - **Offline fonts:** bundle the two Google Fonts so nothing loads from outside the app.
 
 ## Files
@@ -145,6 +141,8 @@ Android Studio). Use it if you'd rather have one native project for both stores 
     quotient/quotient.html        the app itself (also what the claude.ai version runs)
     quotient/build.mjs            node quotient/build.mjs -> rebuilds quotient/app/
     quotient/make-icons.mjs       node quotient/make-icons.mjs -> redraws the icons from Peanut
+    quotient/legal/               Terms of Use and Privacy Policy (copied into app/)
+    quotient-mobile/              Capacitor iOS and Android projects (npm run ios / android)
     quotient/app/                 the folder to host or wrap
       index.html                  page plus app metadata
       manifest.webmanifest        name, colours, icons
@@ -157,16 +155,16 @@ Friends adds accounts, which the stores check for. Quotient already covers the
 main rules:
 
 - **Account deletion inside the app** (required by Apple and Google): Friends →
-  Settings → Delete my account removes the account and all its data.
+  Account → Delete my account removes the account and all its data.
 - **Blocking and reporting** (Apple guideline 1.2 for anything people share):
   each friend card has Block and Report. Reports land in the `reports` table in
   your Supabase dashboard; check it now and then.
 - **Sign in with Apple** is only required when an app offers sign-in through
-  Google, Facebook and similar. Quotient uses an emailed code, so it is not needed.
+  Google, Facebook and similar. Quotient uses its own email accounts, so it is not needed.
 
 What to declare in the privacy forms (Apple's "App Privacy" and Google Play's
-"Data safety"): **email address** (sign-in), **name** (the display name you
+"Data safety"): **email address** (sign-in), **user ID**, **name** (the display name you
 choose), and **gameplay data** (level, streak, Brain Score, daily results,
-activity), all linked to the account, used only for app functionality, not for
+activity, and the progress backup), all linked to the account, used only for app functionality, not for
 tracking or advertising, and deletable in the app. The privacy policy needs the
 same list. Setup steps for Friends are in `FRIENDS-SETUP.md`.

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
 <meta name="description" content="A few minutes a day to get your brain going: puzzles, memory, speed and focus games with Peanut the elephant.">
 <meta name="theme-color" content="#d9eeff">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -542,6 +542,24 @@ details.numbers summary { cursor: pointer; color: var(--muted); font-weight: 800
 .cheers button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); }
 .switch { display: flex; gap: 10px; align-items: center; font-weight: 800; }
 .switch input { width: 22px; height: 22px; accent-color: var(--accent); }
+
+.fr-col { display: flex; flex-direction: column; gap: 8px; max-width: 420px; }
+.fr-col input[type="email"], .fr-col input[type="password"] { font: inherit; font-weight: 700; font-size: 1.05rem; padding: 10px 14px; border: 2.5px solid var(--ink); border-radius: 12px; background: var(--soft); color: var(--ink); width: 100%; }
+.fr-col .btn { align-self: flex-start; margin-top: 4px; }
+.rem-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.rem-row select { font: inherit; font-weight: 700; font-size: 1rem; padding: 8px 10px; border: 2.5px solid var(--ink); border-radius: 12px; background: var(--soft); color: var(--ink); }
+.fr-col .switch { display: flex; gap: 10px; align-items: flex-start; margin: 6px 0; }
+.fr-col .switch input { width: 24px; height: 24px; flex: none; margin: 2px 0 0; accent-color: var(--accent); }
+.fr-label { font-weight: 800; font-size: 0.9rem; margin-top: 4px; }
+.doc-link { color: var(--accent); font-weight: 800; }
+.doc-overlay { position: fixed; inset: 0; z-index: 30; background: rgba(28, 43, 74, 0.55); display: flex; align-items: center; justify-content: center; padding: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
+.doc-box { background: var(--card); border: 2.5px solid var(--ink); border-radius: 20px; width: 100%; max-width: 680px; max-height: 100%; min-height: 0; display: flex; flex-direction: column; gap: 10px; padding: 14px; }
+.doc-box > .btn { align-self: flex-end; }
+.doc-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; padding: 0 6px 10px; line-height: 1.55; }
+.doc-body h1 { font-family: var(--display); font-size: 1.5rem; margin: 0 0 6px; }
+.doc-body h2 { font-family: var(--display); font-size: 1.15rem; margin: 18px 0 6px; }
+.doc-body .meta { color: var(--muted, inherit); font-size: 0.85rem; }
+.doc-body .fill { background: #fff3b0; color: #3d3200; border-radius: 4px; padding: 0 3px; }
 
 /* Test mode */
 .test-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
@@ -2894,7 +2912,8 @@ perorate|verb|to sum up a speech grandly at its end|The barrister perorated for 
     if (again) { again = false; pushRemote(); }
   }
   function saveLocal() { try { localStorage.setItem(LS, JSON.stringify(state)); } catch (e) {} }
-  function save() { state.updatedAt = Date.now(); saveLocal(); pushRemote(); }
+  let onSaved = null; // set by the account layer in the installed app
+  function save() { state.updatedAt = Date.now(); saveLocal(); pushRemote(); if (onSaved) onSaved(); }
   function setSync(t) { $('sync').textContent = t; }
   setSync('Saved on this device');
 
@@ -5377,12 +5396,52 @@ perorate|verb|to sum up a speech grandly at its end|The barrister perorated for 
   const cap1 = t => t[0].toUpperCase() + t.slice(1);
 
 
+  /* ---------- Daily reminder (iPhone and Android apps only) ---------- */
+  // One local notification a day at the chosen time. Nothing leaves the device.
+  const reminder = (() => {
+    const LN = window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform() && window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications;
+    const ID = 1001;
+    async function apply(r) {
+      await LN.cancel({ notifications: [{ id: ID }] }).catch(() => {});
+      if (!r || !r.on) return true;
+      const perm = await LN.requestPermissions();
+      if (perm.display !== 'granted') return false;
+      await LN.schedule({ notifications: [{ id: ID, title: 'Quotient', body: 'Peanut has today\'s question ready. A few minutes is all it takes!', schedule: { on: { hour: r.hour, minute: 0 }, allowWhileIdle: true } }] });
+      return true;
+    }
+    function mount(host) {
+      if (!LN) return;
+      const r = state.prefs.reminder || { on: false, hour: 19 };
+      const pnl = el('section', 'panel');
+      pnl.appendChild(el('h2', '', 'Daily reminder'));
+      const row = el('div', 'rem-row');
+      const lab = el('label', 'switch'); const cb = el('input'); cb.type = 'checkbox'; cb.checked = !!r.on;
+      lab.append(cb, el('span', '', 'Remind me every day at'));
+      const sel = el('select'); sel.setAttribute('aria-label', 'Reminder time');
+      for (let h = 6; h <= 22; h++) { const o = el('option', '', `${h % 12 || 12}:00 ${h < 12 ? 'am' : 'pm'}`); o.value = h; if (h === r.hour) o.selected = true; sel.appendChild(o); }
+      row.append(lab, sel); pnl.appendChild(row);
+      const msg = el('p', 'note', ''); pnl.appendChild(msg);
+      const update = async () => {
+        const next = { on: cb.checked, hour: Number(sel.value) };
+        const ok = await apply(next).catch(() => false);
+        if (!ok) { cb.checked = false; next.on = false; msg.textContent = 'Notifications are switched off for Quotient. Turn them on in your phone\'s Settings, then try again.'; }
+        else msg.textContent = next.on ? `Peanut will nudge you at ${sel.options[sel.selectedIndex].text}.` : '';
+        state.prefs.reminder = next; save();
+      };
+      cb.addEventListener('change', update); sel.addEventListener('change', () => { if (cb.checked) update(); else { state.prefs.reminder = { on: false, hour: Number(sel.value) }; save(); } });
+      host.appendChild(pnl);
+    }
+    return { mount };
+  })();
+
   /* ---------- Friends (installed app, through Supabase) ---------- */
   // Only the installed app has Supabase settings; inside claude.ai this stays switched off.
   const social = (() => {
     const cfg = window.QUOTIENT_CONFIG || {};
     const on = !!(window.supabase && cfg.supabaseUrl && cfg.supabaseAnonKey);
     let sb = null, me = null, profile = null, data = null, stage = 'loading', email = '', msg = null, poll = 0, pushT = 0;
+    let mode = 'create', codeFor = 'login', cloudT = 0, lastSync = 0;
+    const TERMS_VERSION = '2026-11-16';
     const open = { compare: null, more: null, confirmDelete: false };
     if (on) sb = window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false } });
     const sent = () => state.socialSent || (state.socialSent = []);
@@ -5395,10 +5454,34 @@ perorate|verb|to sum up a speech grandly at its end|The barrister perorated for 
       a.style.background = `var(${COLS[E.hashStr(id) % COLS.length]})`;
       return a;
     }
+    // Cloud save: one copy of the whole progress per account, newest wins.
+    async function pullSave() {
+      const { data: row, error } = await sb.from('saves').select('data, updated_at').eq('user_id', me.id).maybeSingle();
+      if (error) return;
+      const theirs = row && row.data;
+      if (theirs && theirs.v === 1 && (theirs.updatedAt || 0) > (state.updatedAt || 0)) {
+        state = migrate(hydrate(theirs)); saveLocal(); renderAll();
+        Peanut.say('Welcome back! Your progress from your account is loaded on this device.', 'happy', 2400);
+        lastSync = Date.now();
+      } else await pushSave();
+    }
+    async function pushSave() {
+      if (!me) return;
+      clearTimeout(cloudT); cloudT = 0;
+      const { error } = await sb.from('saves').upsert({ user_id: me.id, data: state, updated_at: new Date().toISOString() }).then(r => r, e => ({ error: e }));
+      if (!error) { lastSync = Date.now(); setSync('Progress backed up to your account'); }
+    }
+    function queueSave() { if (me) { clearTimeout(cloudT); cloudT = setTimeout(pushSave, 4000); } }
+    function updateButton() {
+      const b = $('friends-btn');
+      if (b) b.querySelector('span').textContent = me ? 'Friends' : 'Sign in';
+    }
     async function init() {
       if (!on) return;
       $('friends-btn').hidden = false;
       $('friends-btn').addEventListener('click', () => { SFX.tap(); show('friends'); });
+      onSaved = queueSave;
+      document.addEventListener('visibilitychange', () => { if (document.hidden && cloudT) pushSave(); });
       try {
         const { data: d } = await sb.auth.getSession();
         me = d && d.session ? d.session.user : null;
@@ -5408,7 +5491,9 @@ perorate|verb|to sum up a speech grandly at its end|The barrister perorated for 
       setInterval(() => { if (profile && view !== 'friends') refresh(true); }, 5 * 60000);
     }
     async function loadProfile() {
+      updateButton();
       if (!me) { profile = null; data = null; stage = 'signin'; updateBadge(); return draw(); }
+      await pullSave().catch(() => {}); // a failed backup never blocks Friends
       const { data: p, error } = await sb.from('profiles').select('*').eq('id', me.id).maybeSingle();
       if (error) { stage = 'error'; msg = { text: errText(error), kind: 'bad' }; return draw(); }
       profile = p; stage = p ? 'main' : 'name';
@@ -5508,8 +5593,8 @@ perorate|verb|to sum up a speech grandly at its end|The barrister perorated for 
       const wrap = el('div', 'fr');
       host.appendChild(wrap);
       const head = el('section', 'workout-card');
-      head.appendChild(el('h2', '', 'Friends'));
-      head.appendChild(el('p', '', 'Add friends with a code, see each other\'s streaks and results, and cheer each other on.'));
+      head.appendChild(el('h2', '', me && profile ? 'Friends' : 'Your Quotient account'));
+      head.appendChild(el('p', '', me && profile ? 'Add friends with a code, see each other\'s streaks and results, and cheer each other on.' : 'An account backs up your progress so it follows you to any device, and lets you add friends.'));
       wrap.appendChild(head);
       const note = () => { if (msg) { wrap.appendChild(el('p', 'fr-msg ' + msg.kind, msg.text)); msg = null; } };
       if (stage === 'loading') { wrap.appendChild(el('div', 'empty', 'Connecting…')); return; }
@@ -5518,33 +5603,100 @@ perorate|verb|to sum up a speech grandly at its end|The barrister perorated for 
         const b = el('button', 'press btn', 'Try again'); b.type = 'button'; b.addEventListener('click', loadProfile); wrap.appendChild(b);
         return;
       }
-      if (stage === 'signin' || stage === 'code') {
+      if (stage === 'signin') {
         const pnl = el('section', 'panel');
-        pnl.appendChild(el('h2', '', stage === 'signin' ? 'Sign in' : 'Check your email'));
-        pnl.appendChild(el('p', 'sub', stage === 'signin' ? 'We\'ll email you a 6-digit code. No password needed. Your progress on this device stays as it is.' : `Enter the 6-digit code sent to ${email}.`));
+        const tabs = el('div', 'rangebar');
+        [['create', 'Create account'], ['login', 'Log in']].forEach(([k, l]) => {
+          const b = el('button', 'press chip', l); b.type = 'button';
+          b.setAttribute('aria-pressed', String(mode === k || (k === 'login' && mode === 'code')));
+          b.addEventListener('click', () => { mode = k; msg = null; draw(); });
+          tabs.appendChild(b);
+        });
+        pnl.appendChild(tabs);
+        const f = el('form', 'fr-col');
+        const field = (id, label, type, extra) => {
+          const l = el('label', 'fr-label', label); l.htmlFor = id;
+          const i = el('input'); i.id = id; i.type = type; Object.assign(i, extra || {});
+          f.append(l, i);
+          return i;
+        };
+        const em = field('fr-email', 'Email', 'email', { autocomplete: 'email', placeholder: 'you@example.com', value: email, required: true });
+        let pw = null, agree = null;
+        if (mode !== 'code') pw = field('fr-password', 'Password', 'password', { autocomplete: mode === 'create' ? 'new-password' : 'current-password', minLength: 8, placeholder: mode === 'create' ? 'At least 8 characters' : '', required: true });
+        if (mode === 'create') {
+          const lab = el('label', 'switch');
+          agree = el('input'); agree.type = 'checkbox'; agree.id = 'fr-agree';
+          const txt = el('span', '');
+          txt.append(document.createTextNode('I am 13 or older and I agree to the '), docLink('terms.html', 'Terms of Use'), document.createTextNode(' and the '), docLink('privacy.html', 'Privacy Policy'), document.createTextNode('.'));
+          lab.append(agree, txt);
+          f.appendChild(lab);
+        } else {
+          const legal = el('p', 'note');
+          legal.append(document.createTextNode('By continuing you agree to the '), docLink('terms.html', 'Terms of Use'), document.createTextNode(' and the '), docLink('privacy.html', 'Privacy Policy'), document.createTextNode('.'));
+          f.appendChild(legal);
+        }
+        const go = el('button', 'press btn primary', mode === 'create' ? 'Create account' : mode === 'login' ? 'Log in' : 'Email me a code'); go.type = 'submit';
+        f.appendChild(go);
+        f.addEventListener('submit', async e => {
+          e.preventDefault();
+          email = em.value.trim();
+          if (mode === 'create' && !agree.checked) return say('Tick the box to agree to the Terms of Use and Privacy Policy.', 'bad');
+          if (pw && pw.value.length < 8) return say('Passwords need at least 8 characters.', 'bad');
+          go.disabled = true;
+          if (mode === 'create') {
+            const { data: res, error } = await sb.auth.signUp({ email, password: pw.value, options: { data: { terms_version: TERMS_VERSION, terms_accepted_at: new Date().toISOString(), age_13_plus: true } } });
+            go.disabled = false;
+            if (error) return say(errText(error), 'bad');
+            if (!res || !res.session) { stage = 'verify'; codeFor = 'signup'; say(`Nearly there: we emailed a 6-digit code to ${email} to confirm it's yours.`, 'good'); }
+          } else if (mode === 'login') {
+            const { error } = await sb.auth.signInWithPassword({ email, password: pw.value });
+            go.disabled = false;
+            if (error) {
+              if (/confirm/i.test(errText(error))) { stage = 'verify'; codeFor = 'signup'; await sb.auth.resend({ type: 'signup', email }); return say('Your email isn\'t confirmed yet. We\'ve sent a new code.', 'bad'); }
+              return say('That email and password don\'t match. Try again, or use "Email me a code".', 'bad');
+            }
+          } else {
+            const { error } = await sb.auth.signInWithOtp({ email, options: { shouldCreateUser: false } });
+            go.disabled = false;
+            if (error) return say(errText(error), 'bad');
+            stage = 'verify'; codeFor = 'login'; say('Code sent. It can take a minute to arrive; check spam too.', 'good');
+          }
+        });
+        pnl.appendChild(f);
+        if (mode === 'login') { const alt = el('button', 'btn quiet', 'Forgot your password? Email me a code instead'); alt.type = 'button'; alt.addEventListener('click', () => { mode = 'code'; msg = null; draw(); }); pnl.appendChild(alt); }
+        if (mode === 'code') { const alt = el('button', 'btn quiet', 'Log in with a password instead'); alt.type = 'button'; alt.addEventListener('click', () => { mode = 'login'; msg = null; draw(); }); pnl.appendChild(alt); }
+        wrap.appendChild(pnl);
+        note();
+        return;
+      }
+      if (stage === 'verify') {
+        const pnl = el('section', 'panel');
+        pnl.appendChild(el('h2', '', 'Check your email'));
+        pnl.appendChild(el('p', 'sub', `Enter the 6-digit code we sent to ${email}.`));
         const f = el('form', 'fr-form');
-        const inp = el('input'); inp.id = stage === 'signin' ? 'fr-email' : 'fr-otp';
-        if (stage === 'signin') { inp.type = 'email'; inp.autocomplete = 'email'; inp.placeholder = 'you@example.com'; inp.value = email; }
-        else { inp.inputMode = 'numeric'; inp.autocomplete = 'one-time-code'; inp.placeholder = '123456'; inp.maxLength = 10; inp.className = 'code'; }
-        inp.setAttribute('aria-label', stage === 'signin' ? 'Email address' : 'Code from the email');
-        const go = el('button', 'press btn primary', stage === 'signin' ? 'Email me a code' : 'Sign in'); go.type = 'submit';
+        const inp = el('input'); inp.id = 'fr-otp'; inp.inputMode = 'numeric'; inp.autocomplete = 'one-time-code'; inp.placeholder = '123456'; inp.maxLength = 10; inp.className = 'code';
+        inp.setAttribute('aria-label', 'Code from the email');
+        const go = el('button', 'press btn primary', 'Confirm'); go.type = 'submit';
         f.append(inp, go);
         f.addEventListener('submit', async e => {
           e.preventDefault();
           go.disabled = true;
-          if (stage === 'signin') {
-            email = inp.value.trim();
-            const { error } = await sb.auth.signInWithOtp({ email, options: { shouldCreateUser: true } });
-            if (error) { go.disabled = false; return say(errText(error), 'bad'); }
-            stage = 'code'; say('Code sent. It can take a minute to arrive; check spam too.', 'good');
-          } else {
-            const { error } = await sb.auth.verifyOtp({ email, token: inp.value.replace(/\s/g, ''), type: 'email' });
-            if (error) { go.disabled = false; return say('That code did not work. Check it, or ask for a new one.', 'bad'); }
-            msg = null;
-          }
+          const token = inp.value.replace(/\s/g, '');
+          let { error } = await sb.auth.verifyOtp({ email, token, type: codeFor === 'signup' ? 'signup' : 'email' });
+          if (error && codeFor === 'signup') ({ error } = await sb.auth.verifyOtp({ email, token, type: 'email' }));
+          go.disabled = false;
+          if (error) return say('That code did not work. Check it, or send a new one.', 'bad');
+          msg = null;
         });
         pnl.appendChild(f);
-        if (stage === 'code') { const back = el('button', 'btn quiet', 'Use a different email'); back.type = 'button'; back.addEventListener('click', () => { stage = 'signin'; draw(); }); pnl.appendChild(back); }
+        const again = el('button', 'btn quiet', 'Send a new code'); again.type = 'button';
+        again.addEventListener('click', async () => {
+          const { error } = codeFor === 'signup' ? await sb.auth.resend({ type: 'signup', email }) : await sb.auth.signInWithOtp({ email, options: { shouldCreateUser: false } });
+          say(error ? errText(error) : 'A new code is on its way.', error ? 'bad' : 'good');
+        });
+        const back = el('button', 'btn quiet', 'Use a different email'); back.type = 'button';
+        back.addEventListener('click', () => { stage = 'signin'; msg = null; draw(); });
+        pnl.append(again, back);
         wrap.appendChild(pnl);
         note();
         setTimeout(() => inp.focus(), 0);
@@ -5552,7 +5704,7 @@ perorate|verb|to sum up a speech grandly at its end|The barrister perorated for 
       }
       if (stage === 'name') {
         const pnl = el('section', 'panel');
-        pnl.appendChild(el('h2', '', 'Choose a display name'));
+        pnl.appendChild(el('h2', '', 'Finish your account: choose a display name'));
         pnl.appendChild(el('p', 'sub', 'Friends will see this name with your level, streak, Brain Score and daily results. You can turn off sharing your activity at any time.'));
         const f = el('form', 'fr-form');
         const inp = el('input'); inp.id = 'fr-name'; inp.maxLength = 24; inp.placeholder = 'Your name'; inp.setAttribute('aria-label', 'Display name');
@@ -5705,7 +5857,8 @@ perorate|verb|to sum up a speech grandly at its end|The barrister perorated for 
       wrap.appendChild(feed);
 
       const setp = el('section', 'panel');
-      setp.appendChild(el('h2', '', 'Settings'));
+      setp.appendChild(el('h2', '', 'Account'));
+      setp.appendChild(el('p', 'sub', `${me.email || 'Signed in'} · progress backed up${lastSync ? ' ' + ago(lastSync) : ''}`));
       const sw = el('label', 'switch'); const cb = el('input'); cb.type = 'checkbox'; cb.id = 'fr-share'; cb.checked = profile.share_activity;
       cb.addEventListener('change', async () => {
         const { error } = await sb.from('profiles').update({ share_activity: cb.checked }).eq('id', me.id);
@@ -5715,15 +5868,32 @@ perorate|verb|to sum up a speech grandly at its end|The barrister perorated for 
       });
       sw.append(cb, document.createTextNode('Share my activity with friends'));
       setp.appendChild(sw);
+      const pwBtn = el('button', 'btn quiet', open.password ? 'Cancel password change' : 'Change password'); pwBtn.type = 'button';
+      pwBtn.addEventListener('click', () => { open.password = !open.password; draw(); });
+      setp.appendChild(pwBtn);
+      if (open.password) {
+        const pf = el('form', 'fr-form');
+        const np = el('input'); np.id = 'fr-newpw'; np.type = 'password'; np.autocomplete = 'new-password'; np.minLength = 8; np.placeholder = 'New password (8+ characters)'; np.setAttribute('aria-label', 'New password');
+        const sv = el('button', 'press btn primary', 'Save password'); sv.type = 'submit';
+        pf.append(np, sv);
+        pf.addEventListener('submit', async e => {
+          e.preventDefault();
+          if (np.value.length < 8) return say('Passwords need at least 8 characters.', 'bad');
+          const { error } = await sb.auth.updateUser({ password: np.value });
+          if (error) return say(errText(error), 'bad');
+          open.password = false; say('Password changed.', 'good');
+        });
+        setp.appendChild(pf);
+      }
       const acts = el('div', 'actions');
       const out = el('button', 'press btn', 'Sign out'); out.type = 'button';
-      out.addEventListener('click', async () => { await sb.auth.signOut(); });
+      out.addEventListener('click', async () => { await pushSave(); await sb.auth.signOut(); });
       const del = el('button', 'btn quiet', 'Delete my account'); del.type = 'button';
       del.addEventListener('click', () => { open.confirmDelete = true; draw(); });
       acts.append(out, del); setp.appendChild(acts);
       if (open.confirmDelete) {
         const cf = el('div', 'chal-confirm');
-        cf.appendChild(el('span', '', 'Delete your Friends account? Your profile, friends, shared stats and activity are removed for good. Your progress on this device stays.'));
+        cf.appendChild(el('span', '', 'Delete your account? Your login, cloud backup, profile, friends, shared stats and activity are removed for good. Your progress on this device stays.'));
         const yes = el('button', 'press btn', 'Delete it'); yes.type = 'button';
         yes.addEventListener('click', async () => {
           open.confirmDelete = false;
@@ -5737,14 +5907,41 @@ perorate|verb|to sum up a speech grandly at its end|The barrister perorated for 
         no.addEventListener('click', () => { open.confirmDelete = false; draw(); });
         cf.append(yes, no); setp.appendChild(cf);
       }
+      const legal = el('p', 'note');
+      legal.append(docLink('terms.html', 'Terms of Use'), document.createTextNode(' · '), docLink('privacy.html', 'Privacy Policy'));
+      setp.appendChild(legal);
       wrap.appendChild(setp);
+    }
+    // Terms and Privacy open inside the app, from files shipped with it (they work offline).
+    function docLink(href, label) {
+      const a = el('a', 'doc-link', label); a.href = href;
+      a.addEventListener('click', e => { e.preventDefault(); showDoc(href, label); });
+      return a;
+    }
+    async function showDoc(href, label) {
+      const ov = el('div', 'doc-overlay'); ov.setAttribute('role', 'dialog'); ov.setAttribute('aria-modal', 'true'); ov.setAttribute('aria-label', label);
+      const box = el('div', 'doc-box');
+      const close = el('button', 'press btn', 'Close'); close.type = 'button';
+      const body = el('div', 'doc-body', 'Loading…');
+      box.append(close, body); ov.appendChild(box); document.body.appendChild(ov);
+      const shut = () => { ov.remove(); document.removeEventListener('keydown', esc); };
+      const esc = e => { if (e.key === 'Escape') shut(); };
+      close.addEventListener('click', shut); ov.addEventListener('click', e => { if (e.target === ov) shut(); });
+      document.addEventListener('keydown', esc);
+      close.focus();
+      try {
+        const doc = new DOMParser().parseFromString(await (await fetch(href)).text(), 'text/html');
+        body.textContent = '';
+        body.append(...[...(doc.querySelector('main') || doc.body).childNodes].map(n => document.importNode(n, true)));
+        body.querySelectorAll('a[href$=".html"]').forEach(a => a.addEventListener('click', e => { e.preventDefault(); shut(); showDoc(a.getAttribute('href'), a.textContent); }));
+      } catch (e) { body.textContent = `Couldn't open the ${label} right now.`; }
     }
     function showView() {
       draw();
       if (profile) refresh(true);
       clearInterval(poll);
       poll = setInterval(() => { if (view === 'friends' && profile && !document.hidden) refresh(true); else if (view !== 'friends') clearInterval(poll); }, 60000);
-      Peanut.say(profile ? 'Here\'s what your friends have been up to.' : 'Sign in to add friends and see how they\'re getting on.', 'idle', 1600);
+      Peanut.say(profile ? 'Here\'s what your friends have been up to.' : 'With an account your progress is safe on every device, and you can add friends.', 'idle', 1600);
     }
     return { on, init, sync, event, showView };
   })();
@@ -6006,6 +6203,7 @@ perorate|verb|to sum up a speech grandly at its end|The barrister perorated for 
     host.textContent = '';
     const wrap = el('div', 'pview');
     host.appendChild(wrap);
+    reminder.mount(wrap);
     const now = Date.now();
     const wk = windowStats(now - 7 * DAY, now + 1), prev = windowStats(now - 14 * DAY, now - 7 * DAY);
 

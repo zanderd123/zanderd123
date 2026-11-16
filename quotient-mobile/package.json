@@ -1,0 +1,21 @@
+{
+  "name": "quotient-mobile",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Native iOS and Android shells for Quotient, built with Capacitor. The app itself is ../quotient/app.",
+  "scripts": {
+    "build": "node ../quotient/build.mjs",
+    "sync": "node ../quotient/build.mjs && cap sync",
+    "ios": "node ../quotient/build.mjs && cap sync ios && cap open ios",
+    "android": "node ../quotient/build.mjs && cap sync android && cap open android"
+  },
+  "dependencies": {
+    "@capacitor/android": "8.6.0",
+    "@capacitor/core": "8.6.0",
+    "@capacitor/ios": "8.6.0",
+    "@capacitor/local-notifications": "8.3.1"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "8.6.0"
+  }
+}
