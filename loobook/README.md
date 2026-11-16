@@ -13,6 +13,7 @@ _"LooBook" is a working title. 100 alternatives are in [docs/names.md](docs/name
 | Minimum age | 13, or higher where local law requires it |
 | Where | Worldwide from day one. Distances show in miles or km to match the phone's settings. |
 | Money | Optional tips through in-app purchase, plus a small banner ad on the place and profile screens (never on the map) |
+| Pin colours | Red = has a code. Green = no code needed (someone logged a visit and walked right in). Pale red or green = may be out of date. White = known place, nothing logged yet. |
 | Anonymous posting | A checkbox when adding a code. Others see "Anonymous"; moderators can still see who posted it. Enforced by the database, not just the app. |
 | Passwords | At least 8 characters with a letter, a number and a special character. A checklist shows as you type. |
 | Email verification | Email sign-ups get a 6-digit code and can't log in until they enter it. Forgot password works the same way. Setup: [docs/email-verification-setup.md](docs/email-verification-setup.md) |

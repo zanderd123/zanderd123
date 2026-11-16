@@ -14,7 +14,7 @@ export default function LocationPrimer() {
         <View style={{ gap: 18 }}>
           <View style={{ height: 140, alignItems: "center", justifyContent: "center" }}>
             <View style={{ position: "absolute", left: 30, top: 20 }}><Pin state="code" /></View>
-            <View style={{ position: "absolute", right: 40, top: 50 }}><Pin state="code" /></View>
+            <View style={{ position: "absolute", right: 40, top: 50 }}><Pin state="open" /></View>
             <View style={{ position: "absolute", left: 120, bottom: 4 }}><Pin state="none" /></View>
             <MeDot />
           </View>

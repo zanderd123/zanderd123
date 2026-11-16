@@ -35,6 +35,8 @@ export default function PlaceScreen() {
   const cur = place.current;
   const fresh = cur ? freshness(cur) : null;
   const access = cur ? accessLabel(cur) : null;
+  const isOpen = cur?.kind === "open";
+  const visit = () => router.push({ pathname: "/add", params: { placeId: place.id, placeName: place.name, mode: "open" } });
 
   const copy = async () => {
     if (!cur?.code) return;
@@ -65,8 +67,8 @@ export default function PlaceScreen() {
       {cur && access && fresh ? (
         <>
           <View>
-            <View style={{ position: "absolute", left: 4, top: 4, right: -4, bottom: -4, backgroundColor: colors.margin, borderRadius: 14 }} />
-            <View style={{ borderWidth: 2.5, borderColor: colors.ink, borderRadius: 14, backgroundColor: colors.paper, padding: 16, gap: 10 }}>
+            <View style={{ position: "absolute", left: 4, top: 4, right: -4, bottom: -4, backgroundColor: isOpen ? colors.open : colors.margin, borderRadius: 14 }} />
+            <View style={{ borderWidth: 2.5, borderColor: colors.ink, borderRadius: 14, backgroundColor: isOpen ? colors.openTint : colors.paper, padding: 16, gap: 10 }}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
                 <View style={{ flex: 1 }}>
                   <Label>{access.title}</Label>
@@ -94,18 +96,18 @@ export default function PlaceScreen() {
 
           <View style={{ gap: 4 }}>
             <Body><B>Added {ago(cur.addedAt)}</B> · {shortDate(cur.addedAt)}</Body>
-            <Body>Last confirmed working {ago(cur.lastConfirmed)}</Body>
-            <Body>Shared by <B>{cur.anonymous ? "Anonymous" : cur.addedBy ? `@${cur.addedBy}` : "a former member"}</B> · {cur.worked} worked, {cur.failed} didn't</Body>
+            <Body>Last confirmed {isOpen ? "open" : "working"} {ago(cur.lastConfirmed)}</Body>
+            <Body>Shared by <B>{cur.anonymous ? "Anonymous" : cur.addedBy ? `@${cur.addedBy}` : "a former member"}</B> · {cur.worked} {isOpen ? "said still open" : "worked"}, {cur.failed} {isOpen ? "found it locked" : "didn't"}</Body>
           </View>
 
           <View style={{ gap: 8 }}>
-            <Label>Did it work for you?</Label>
+            <Label>{isOpen ? "Was it still open?" : "Did it work for you?"}</Label>
             {place.myVote !== null ? (
-              <Body><B>Thanks!</B> You said it {place.myVote ? "worked" : "didn't work"}.</Body>
+              <Body><B>Thanks!</B> You said {isOpen ? (place.myVote ? "it was still open" : "it was locked") : (place.myVote ? "it worked" : "it didn't work")}.</Body>
             ) : (
               <View style={{ flexDirection: "row", gap: 10 }}>
-                <Button small title="Worked" disabled={voting} onPress={() => vote(true)} style={{ flex: 1 }} />
-                <Button small title="Didn't work" disabled={voting} onPress={() => vote(false)} style={{ flex: 1 }} />
+                <Button small title={isOpen ? "Still open" : "Worked"} disabled={voting} onPress={() => vote(true)} style={{ flex: 1 }} />
+                <Button small title={isOpen ? "Locked now" : "Didn't work"} disabled={voting} onPress={() => vote(false)} style={{ flex: 1 }} />
               </View>
             )}
           </View>
@@ -125,7 +127,7 @@ export default function PlaceScreen() {
           )}
 
           <View style={{ flexDirection: "row", gap: 10 }}>
-            <Button variant="ink" title="Update code" style={{ flex: 1 }} onPress={() => router.push({ pathname: "/add", params: { placeId: place.id, placeName: place.name } })} />
+            <Button variant="ink" title={isOpen ? "It has a code now" : "Update code"} style={{ flex: 1 }} onPress={() => router.push({ pathname: "/add", params: { placeId: place.id, placeName: place.name } })} />
             <Button title="Directions" style={{ flex: 1 }} onPress={directions} />
           </View>
         </>
@@ -136,9 +138,10 @@ export default function PlaceScreen() {
         </View>
       ) : (
         <View style={{ borderWidth: 2, borderStyle: "dashed", borderColor: colors.ink3, borderRadius: 14, padding: 18, gap: 12, alignItems: "center" }}>
-          <Text style={{ fontFamily: fonts.hand, fontSize: 22, color: colors.ink2 }}>No code yet</Text>
-          <Body small muted style={{ textAlign: "center" }}>Been here? If staff gave you the code or it's on your receipt, add it for the next person.</Body>
+          <Text style={{ fontFamily: fonts.hand, fontSize: 22, color: colors.ink2 }}>Nothing logged yet</Text>
+          <Body small muted style={{ textAlign: "center" }}>Been here? Add the code if there was one, or let people know they can walk right in.</Body>
           <Button variant="red" title="Add the code" onPress={() => router.push({ pathname: "/add", params: { placeId: place.id, placeName: place.name } })} />
+          <Button variant="green" title="No code needed" onPress={visit} />
         </View>
       )}
 

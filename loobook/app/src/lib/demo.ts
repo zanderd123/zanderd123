@@ -106,6 +106,7 @@ export const demoApi: Api = {
       ["Sample: Main St. Diner", "restaurant", o(-0.0024, 0.0016), [code("keypad", "2468", 200, "demo_lou", 3, 1)]],
       ["Sample: Fuel Stop", "gas", o(0.0031, 0.0029), [code("ask", null, 60, "demo_ri", 2, 0)]],
       ["Sample: Book Nook", "retail", o(-0.0012, -0.0034), []],
+      ["Sample: Park Café", "coffee", o(-0.0029, -0.0008), [code("open", null, 8, "demo_amy", 4, 0, "Walk right in, upstairs on the left.", 1)]],
       ["Sample: Burger Barn", "fastfood", o(0.0006, 0.0041), [code("receipt", null, 30, "demo_ken", 5, 0)]],
     ];
     near.forEach(([name, cat, [la, ln], codes], i) => places.push(place(`near${i}`, name, cat, "Demo place near you", la, ln, codes)));

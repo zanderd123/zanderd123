@@ -1,11 +1,12 @@
 import { memo } from "react";
 import { View } from "react-native";
+import type { PinState } from "../lib/format";
 import { colors } from "../lib/theme";
 
-/** Teardrop pin: red = has a code, pale red = may have changed, white = no code yet. */
-export const Pin = memo(function Pin({ state, selected }: { state: "code" | "stale" | "none"; selected?: boolean }) {
+/** Teardrop pin: red = has a code, green = no code needed, pale = may be out of date, white = nothing logged yet. */
+export const Pin = memo(function Pin({ state, selected }: { state: PinState; selected?: boolean }) {
   const s = selected ? 40 : 32;
-  const fill = state === "code" ? colors.margin : state === "stale" ? colors.stalePin : colors.paper;
+  const fill = { code: colors.margin, stale: colors.stalePin, open: colors.open, openStale: colors.openSoft, none: colors.paper }[state];
   return (
     <View style={{ width: s + 4, height: s + 8, alignItems: "center" }}>
       {/* ink shadow */}

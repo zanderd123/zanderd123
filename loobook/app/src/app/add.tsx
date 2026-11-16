@@ -9,7 +9,7 @@ import { CODE_PATTERN, distanceMeters, formatDistance } from "../lib/format";
 import { colors, fonts } from "../lib/theme";
 import { CATEGORY_LABEL, type AccessKind, type Category, type PlaceSummary } from "../lib/types";
 
-const KINDS: [AccessKind, string][] = [["keypad", "Keypad code"], ["receipt", "On the receipt"], ["ask", "Ask staff / key"], ["open", "No code needed"]];
+const CODE_KINDS: [AccessKind, string][] = [["keypad", "Keypad code"], ["receipt", "On the receipt"], ["ask", "Ask staff / key"]];
 const NEW_CATS: Category[] = ["coffee", "restaurant", "fastfood", "grocery", "gas", "retail", "bar", "other"];
 
 function Option({ selected, onPress, title, sub, right }: { selected: boolean; onPress: () => void; title: string; sub?: string | null; right?: string }) {
@@ -36,14 +36,17 @@ function Option({ selected, onPress, title, sub, right }: { selected: boolean; o
 }
 
 export default function AddCode() {
-  const params = useLocalSearchParams<{ placeId?: string; placeName?: string; lat?: string; lng?: string }>();
+  const params = useLocalSearchParams<{ placeId?: string; placeName?: string; lat?: string; lng?: string; mode?: string }>();
   const fixedId = params.placeId || null;
   const here = { lat: Number(params.lat ?? 0), lng: Number(params.lng ?? 0) };
   const [nearby, setNearby] = useState<(PlaceSummary & { d: number })[]>([]);
   const [where, setWhere] = useState<string | null>(fixedId);
   const [newName, setNewName] = useState("");
   const [newCat, setNewCat] = useState<Category>("restaurant");
-  const [kind, setKind] = useState<AccessKind>("keypad");
+  // "code": there's a code or key; "open": logging a visit where no code was needed (green pin)
+  const [mode, setMode] = useState<"code" | "open">(params.mode === "open" ? "open" : "code");
+  const [codeKind, setCodeKind] = useState<AccessKind>("keypad");
+  const kind: AccessKind = mode === "open" ? "open" : codeKind;
   const [code, setCode] = useState("");
   const [note, setNote] = useState("");
   const [ok, setOk] = useState(false);
@@ -67,10 +70,10 @@ export default function AddCode() {
   const submit = async () => {
     setError(null);
     const value = code.trim().toUpperCase();
-    if (!where) return setError("Pick the place this code is for.");
+    if (!where) return setError("Pick the place you visited.");
     if (where === "new" && newName.trim().length < 2) return setError("Add the name of the place.");
     if (kind === "keypad" && !CODE_PATTERN.test(value)) return setError("Codes are 3 to 12 numbers or letters. # and * are fine.");
-    if (!ok) return setError("Please confirm the code was given to customers or posted publicly.");
+    if (mode === "code" && !ok) return setError("Please confirm the code was given to customers or posted publicly.");
     setBusy(true);
     try {
       const placeId = await api.addCode({
@@ -89,7 +92,29 @@ export default function AddCode() {
   };
 
   return (
-    <Sheet title={fixedId ? "Update the code" : "Add a code"} subtitle={fixedId ? params.placeName : "Thanks for helping the next person out."}>
+    <Sheet title={fixedId ? "Update this place" : "Add a code or visit"} subtitle={fixedId ? params.placeName : "Thanks for helping the next person out."}>
+      <View style={{ gap: 8 }}>
+        <Label>What did you find?</Label>
+        <View style={{ flexDirection: "row", gap: 10 }}>
+          {([
+            ["code", "There's a code", "Keypad, receipt or a key", colors.margin],
+            ["open", "No code needed", "I walked right in", colors.open],
+          ] as const).map(([m, title, sub, dot]) => (
+            <Pressable key={m} onPress={() => setMode(m)} accessibilityRole="radio" accessibilityState={{ selected: mode === m }}
+              style={{
+                flex: 1, padding: 12, gap: 4, borderRadius: 12, borderWidth: mode === m ? 2.5 : 1.5, borderColor: colors.ink,
+                backgroundColor: mode === m ? (m === "open" ? colors.openTint : colors.marginSoft) : colors.paper,
+              }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <View style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: dot, borderWidth: 1.5, borderColor: colors.ink }} />
+                <Text style={{ fontFamily: fonts.bodyBold, fontSize: 15, color: colors.ink, flexShrink: 1 }}>{title}</Text>
+              </View>
+              <Text style={{ fontFamily: fonts.body, fontSize: 13, color: colors.ink2 }}>{sub}</Text>
+            </Pressable>
+          ))}
+        </View>
+      </View>
+
       {!fixedId && (
         <View style={{ gap: 8 }}>
           <Label>Where?</Label>
@@ -113,17 +138,17 @@ export default function AddCode() {
         </View>
       )}
 
-      <View style={{ gap: 8 }}>
-        <Label>What kind of access?</Label>
+      {mode === "code" && <View style={{ gap: 8 }}>
+        <Label>How do you get in?</Label>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-          {KINDS.map(([k, label]) => (
-            <Pressable key={k} onPress={() => setKind(k)} accessibilityRole="radio" accessibilityState={{ selected: kind === k }}
+          {CODE_KINDS.map(([k, label]) => (
+            <Pressable key={k} onPress={() => setCodeKind(k)} accessibilityRole="radio" accessibilityState={{ selected: kind === k }}
               style={{ flexBasis: "47%", flexGrow: 1, minHeight: 46, alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: colors.ink, borderRadius: 12, backgroundColor: kind === k ? colors.ink : colors.paper }}>
               <Text style={{ fontFamily: fonts.bodyBold, fontSize: 14, color: kind === k ? colors.paper : colors.ink }}>{label}</Text>
             </Pressable>
           ))}
         </View>
-      </View>
+      </View>}
 
       {kind === "keypad" && (
         <Field
@@ -132,17 +157,24 @@ export default function AddCode() {
           style={{ fontFamily: fonts.code, fontSize: 26, letterSpacing: 4, textAlign: "center" }}
         />
       )}
-      <Field label="Tip (optional)" value={note} onChangeText={setNote} maxLength={140} multiline placeholder="e.g. Door is past the kitchen, on the left." style={{ minHeight: 76, paddingTop: 12, textAlignVertical: "top" }} />
+      <Field label="Tip (optional)" value={note} onChangeText={setNote} maxLength={140} multiline placeholder={mode === "open" ? "e.g. Upstairs on the left. Clean and well stocked." : "e.g. Door is past the kitchen, on the left."} style={{ minHeight: 76, paddingTop: 12, textAlignVertical: "top" }} />
 
       <Checkbox checked={anonymous} onChange={setAnonymous}>
-        <Body small><B>Post anonymously.</B> Other people won't see your name on this code. LooBook keeps a private record of who posted it, only to stop spam and abuse.</Body>
+        <Body small><B>Post anonymously.</B> Other people won't see your name on this. LooBook keeps a private record of who posted it, only to stop spam and abuse.</Body>
       </Checkbox>
-      <Checkbox checked={ok} onChange={setOk}>
-        <Body small>Staff gave me this code, or it's printed on a receipt or posted in public. It's not an employee-only or private code.</Body>
-      </Checkbox>
+      {mode === "code" && (
+        <Checkbox checked={ok} onChange={setOk}>
+          <Body small>Staff gave me this code, or it's printed on a receipt or posted in public. It's not an employee-only or private code.</Body>
+        </Checkbox>
+      )}
       {error && <ErrorText>{error}</ErrorText>}
-      <Button variant="red" title="Post code" busy={busy} onPress={submit} />
-      <Body small muted>{anonymous ? "The code will show as shared by Anonymous, with the time it was added." : "Your display name and the time will show next to the code."}</Body>
+      {mode === "open"
+        ? <Button variant="green" title="Log visit: no code needed" busy={busy} onPress={submit} />
+        : <Button variant="red" title="Post code" busy={busy} onPress={submit} />}
+      <Body small muted>
+        {mode === "open" ? "The place turns green on the map so people know they can walk right in. " : ""}
+        {anonymous ? "It will show as shared by Anonymous, with the time it was added." : "Your display name and the time will show with it."}
+      </Body>
     </Sheet>
   );
 }

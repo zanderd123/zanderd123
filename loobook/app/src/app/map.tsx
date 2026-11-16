@@ -10,12 +10,12 @@ import { Chip } from "../components/ui";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { DEMO } from "../lib/config";
-import { ago, distanceMeters, formatDistance, freshness } from "../lib/format";
+import { ago, distanceMeters, formatDistance, pinState } from "../lib/format";
 import { geocode, useMyLocation } from "../lib/location";
 import { colors, fonts, mapStyle } from "../lib/theme";
 import { FOOD, type PlaceSummary } from "../lib/types";
 
-type Filter = "codes" | "fresh" | "food" | "shops";
+type Filter = "codes" | "open" | "fresh" | "food" | "shops";
 type Result =
   | { kind: "place"; place: PlaceSummary }
   | { kind: "area"; label: string; lat: number; lng: number };
@@ -85,7 +85,10 @@ export default function MapScreen() {
 
   /* ---------- filters ---------- */
   const shown = useMemo(() => places.filter((p) => {
-    if (filters.has("codes") && !p.current) return false;
+    const hasCode = !!p.current && p.current.kind !== "open";
+    const isOpen = p.current?.kind === "open";
+    // "Has a code" and "No code needed" can both be on: show either kind.
+    if ((filters.has("codes") || filters.has("open")) && !((filters.has("codes") && hasCode) || (filters.has("open") && isOpen))) return false;
     if (filters.has("fresh") && (!p.current || Date.now() - new Date(p.current.addedAt).getTime() > WEEK)) return false;
     if (filters.has("food") && !FOOD.includes(p.category)) return false;
     if (filters.has("shops") && FOOD.includes(p.category)) return false;
@@ -162,10 +165,10 @@ export default function MapScreen() {
             anchor={{ x: 0.5, y: 1 }}
             tracksViewChanges={track}
             zIndex={p.current ? 2 : 1}
-            accessibilityLabel={`${p.name}, ${p.current ? "has a code" : "no code yet"}`}
+            accessibilityLabel={`${p.name}, ${!p.current ? "nothing logged yet" : p.current.kind === "open" ? "no code needed" : "has a code"}`}
             onPress={() => router.push(`/place/${p.id}`)}
           >
-            <Pin state={!p.current ? "none" : freshness(p.current).level === "stale" ? "stale" : "code"} />
+            <Pin state={pinState(p)} />
           </Marker>
         ))}
         {me && (
@@ -226,7 +229,8 @@ export default function MapScreen() {
         )}
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 2 }}>
-          <Chip title="Has a code" dot selected={filters.has("codes")} onPress={() => toggle("codes")} />
+          <Chip title="Has a code" dot={colors.margin} selected={filters.has("codes")} onPress={() => toggle("codes")} />
+          <Chip title="No code needed" dot={colors.open} selected={filters.has("open")} onPress={() => toggle("open")} />
           <Chip title="Added this week" selected={filters.has("fresh")} onPress={() => toggle("fresh")} />
           <Chip title="Food & coffee" selected={filters.has("food")} onPress={() => toggle("food")} />
           <Chip title="Stores & gas" selected={filters.has("shops")} onPress={() => toggle("shops")} />
@@ -244,7 +248,9 @@ export default function MapScreen() {
           style={[s.nearby, { bottom: insets.bottom + 20 }]}
           accessibilityRole="button"
         >
-          <Text style={s.nearLabel}>{nearest.fromMe ? "CLOSEST CODE TO YOU" : "CLOSEST CODE HERE"}</Text>
+          <Text style={[s.nearLabel, nearest.p.current?.kind === "open" && { color: colors.open }]}>
+            {nearest.p.current?.kind === "open" ? "CLOSEST RESTROOM, NO CODE NEEDED" : "CLOSEST CODE"}{nearest.fromMe ? " TO YOU" : " HERE"}
+          </Text>
           <Text style={s.nearName} numberOfLines={1}>{nearest.p.name}</Text>
           <Text style={s.resultSub}>{formatDistance(nearest.d)} away · added {ago(nearest.p.current!.addedAt)}</Text>
         </Pressable>
@@ -255,7 +261,7 @@ export default function MapScreen() {
       <Pressable
         onPress={() => router.push({ pathname: "/add", params: { lat: String(me?.lat ?? region.latitude), lng: String(me?.lng ?? region.longitude) } })}
         style={[s.fab, { bottom: insets.bottom + 18 }]}
-        accessibilityLabel="Add a code"
+        accessibilityLabel="Add a code or log a visit"
       >
         <Text style={{ color: "#fff", fontSize: 34, lineHeight: 38, fontFamily: fonts.bodyBold }}>+</Text>
       </Pressable>

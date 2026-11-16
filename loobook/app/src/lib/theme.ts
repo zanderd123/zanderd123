@@ -9,6 +9,9 @@ export const colors = {
   margin: "#d7263d",
   marginSoft: "#fbe3e6",
   stalePin: "#f2a3ad",
+  open: "#1f9d55",       // green pin: restroom with no code needed
+  openSoft: "#a9dcbd",   // green pin that may be out of date
+  openTint: "#e3f4e9",
   ok: "#1f7a4d",
   warn: "#9a6400",
 };

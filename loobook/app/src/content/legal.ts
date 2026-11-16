@@ -412,6 +412,10 @@ export const LEGAL: Record<"terms" | "privacy" | "guidelines", LegalBlock[]> = {
   },
   {
    "t": "li",
+   "text": "Restrooms that don't need a code. Log them as No code needed so they show green on the map."
+  },
+  {
+   "t": "li",
    "text": "Helpful notes, such as \"door is past the kitchen\" or \"ask for the key at the counter\"."
   },
   {

@@ -423,10 +423,12 @@ function freshness(code) {
   return { cls: "good", text: "Recently confirmed" };
 }
 
-function pinSvg(has, stale) {
-  const fill = has ? (stale ? "#f2a3ad" : "#d7263d") : "#ffffff";
+function pinSvg(has, stale, open) {
+  const fill = !has ? "#ffffff" : open ? (stale ? "#a9dcbd" : "#1f9d55") : (stale ? "#f2a3ad" : "#d7263d");
   const stroke = "#111";
-  const inner = has
+  const inner = has && open
+    ? `<path d="M11.5 14.5l3.8 3.8 7.2-7.6" fill="none" stroke="#fff" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>`
+    : has
     ? `<rect x="12" y="11" width="10" height="8" rx="1.5" fill="#fff"/><path d="M14 11V9a3 3 0 0 1 6 0v2" fill="none" stroke="#fff" stroke-width="2"/>`
     : `<circle cx="17" cy="14" r="3.2" fill="none" stroke="#8c8c88" stroke-width="2"/>`;
   return `<svg viewBox="0 0 34 42" aria-hidden="true"><path d="M17 2C9 2 3 8 3 15.5 3 26 17 40 17 40s14-14 14-24.5C31 8 25 2 17 2z" fill="${fill}" stroke="${stroke}" stroke-width="2.4"/>${inner}</svg>`;
@@ -434,7 +436,8 @@ function pinSvg(has, stale) {
 
 function visible(p) {
   const cur = current(p);
-  if (filters.has("codes") && !cur) return false;
+  const hasCode = !!cur && cur.kind !== "open", isOpen = !!cur && cur.kind === "open";
+  if ((filters.has("codes") || filters.has("open")) && !((filters.has("codes") && hasCode) || (filters.has("open") && isOpen))) return false;
   if (filters.has("fresh") && (!cur || now() - cur.at > 7 * D)) return false;
   if (filters.has("food") && !FOOD.has(p.type)) return false;
   if (filters.has("shops") && FOOD.has(p.type)) return false;
@@ -450,7 +453,7 @@ function renderMarkers() {
     const stale = cur && freshness(cur).cls === "stale";
     const icon = L.divIcon({
       className: "",
-      html: `<div class="pin${p.id === selectedId ? " selected" : ""}">${pinSvg(!!cur, stale)}<span class="pin-label">${esc(p.name)}</span></div>`,
+      html: `<div class="pin${p.id === selectedId ? " selected" : ""}">${pinSvg(!!cur, stale, cur && cur.kind === "open")}<span class="pin-label">${esc(p.name)}</span></div>`,
       iconSize: [34, 42], iconAnchor: [17, 40],
     });
     const m = L.marker([p.lat, p.lng], {
@@ -489,9 +492,11 @@ function updateNearby() {
   if (!best || best.d > 8000) { box.hidden = true; return; }
   box.hidden = false;
   box.dataset.id = best.p.id;
-  $("#nearby-label").textContent = ref ? "Closest code to you" : "Closest code to the map centre";
-  $("#nearby-name").textContent = best.p.name;
   const cur = current(best.p);
+  const open = cur.kind === "open";
+  box.classList.toggle("open", open);
+  $("#nearby-label").textContent = (open ? "Closest restroom, no code needed" : "Closest code") + (ref ? " to you" : " here");
+  $("#nearby-name").textContent = best.p.name;
   $("#nearby-sub").textContent = `${fmtDist(best.d)} away · added ${ago(cur.at)}`;
 }
 $("#nearby").addEventListener("click", (e) => openPlace(e.currentTarget.dataset.id));
@@ -631,11 +636,11 @@ function openPlace(id) {
     const f = freshness(cur);
     const isText = cur.kind !== "keypad";
     body = `
-      <div class="codecard">
+      <div class="codecard${cur.kind === "open" ? " open" : ""}">
         <div class="code-row">
           <div>
-            <p class="label">${cur.kind === "keypad" ? "Restroom code" : cur.kind === "receipt" ? "Where to find it" : cur.kind === "ask" ? "How to get in" : "Access"}</p>
-            <p class="code${isText ? " text" : ""}" id="the-code">${esc(cur.code)}</p>
+            <p class="label">${cur.kind === "keypad" ? "Restroom code" : cur.kind === "receipt" ? "Where to find it" : cur.kind === "ask" ? "How to get in" : "No code needed"}</p>
+            <p class="code${isText ? " text" : ""}" id="the-code">${cur.kind === "open" ? "Just walk in" : esc(cur.code)}</p>
           </div>
           ${cur.kind === "keypad" ? `<button class="btn flat" id="copy" style="flex:none">Copy</button>` : ""}
         </div>
@@ -644,14 +649,14 @@ function openPlace(id) {
       ${cur.note ? `<p>“${esc(cur.note)}”</p>` : ""}
       <div class="meta">
         <div>${CLOCK}<span><strong>Added ${ago(cur.at)}</strong> · ${fmtDate(cur.at)}</span></div>
-        <div>${CHECK}<span>Last confirmed working ${ago(cur.confirmedAt)}</span></div>
-        <div>${USER}<span>Shared by <strong>${cur.anon ? "Anonymous" : "@" + esc(cur.by)}</strong> · ${cur.confirms} worked, ${cur.fails} didn't</span></div>
+        <div>${CHECK}<span>Last confirmed ${cur.kind === "open" ? "open" : "working"} ${ago(cur.confirmedAt)}</span></div>
+        <div>${USER}<span>Shared by <strong>${cur.anon ? "Anonymous" : "@" + esc(cur.by)}</strong> · ${cur.confirms} ${cur.kind === "open" ? "said still open" : "worked"}, ${cur.fails} ${cur.kind === "open" ? "found it locked" : "didn't"}</span></div>
       </div>
       <div>
-        <p class="label" style="margin-bottom:8px">Did it work for you?</p>
+        <p class="label" style="margin-bottom:8px">${cur.kind === "open" ? "Was it still open?" : "Did it work for you?"}</p>
         <div class="row">
-          <button class="btn flat" data-vote="yes" ${myVote ? "disabled" : ""}>${myVote === "yes" ? "Thanks!" : "Worked"}</button>
-          <button class="btn flat" data-vote="no" ${myVote ? "disabled" : ""}>${myVote === "no" ? "Noted" : "Didn't work"}</button>
+          <button class="btn flat" data-vote="yes" ${myVote ? "disabled" : ""}>${myVote === "yes" ? "Thanks!" : cur.kind === "open" ? "Still open" : "Worked"}</button>
+          <button class="btn flat" data-vote="no" ${myVote ? "disabled" : ""}>${myVote === "no" ? "Noted" : cur.kind === "open" ? "Locked now" : "Didn't work"}</button>
         </div>
       </div>
       ${p.codes.length > 1 ? `
@@ -660,15 +665,15 @@ function openPlace(id) {
         <ul class="history">${p.codes.slice(1).map((o) => `<li><s>${esc(o.code)}</s><span class="tiny">${fmtDate(o.at)}</span></li>`).join("")}</ul>
       </div>` : ""}
       <div class="row">
-        <button class="btn ink" data-update>Update code</button>
+        <button class="btn ink" data-update>${cur.kind === "open" ? "It has a code now" : "Update code"}</button>
         <a class="btn" href="https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lng}" target="_blank" rel="noopener">Directions</a>
       </div>`;
   } else {
     body = `
       <div class="nocode">
-        <h3>No code yet</h3>
+        <h3>Nothing logged yet</h3>
         <p class="small muted">Been here? If staff gave you the code or it's on your receipt, add it for the next person.</p>
-        <button class="btn red" data-update>Add the code</button>
+        <div class="row"><button class="btn red" data-update>Add the code</button><button class="btn green" data-visit>No code needed</button></div>
       </div>`;
   }
 
@@ -699,13 +704,14 @@ function openPlace(id) {
       openPlace(p.id);
     }));
     $("[data-update]", sheet).addEventListener("click", () => openAdd(p.id));
+    const v = $("[data-visit]", sheet); if (v) v.addEventListener("click", () => openAdd(p.id, null, "open"));
     $("[data-report]", sheet).addEventListener("click", () => openReport(p));
   });
 }
 
 /* ---------- add / update a code ---------- */
 let pendingPin = null;
-function openAdd(placeId, droppedAt) {
+function openAdd(placeId, droppedAt, mode = "code") {
   const ref = me || map.getCenter();
   const near = places
     .map((p) => ({ p, d: distM(ref, p) }))
@@ -722,7 +728,7 @@ function openAdd(placeId, droppedAt) {
 
   openSheet(`
     <div class="sheet-head">
-      <div><h2>${placeId ? "Update the code" : "Add a code"}</h2><p class="small muted">Thanks for helping the next person out.</p></div>
+      <div><h2>${placeId ? "Update this place" : "Add a code or visit"}</h2><p class="small muted">Thanks for helping the next person out.</p></div>
       <button class="close" data-close aria-label="Close">${X}</button>
     </div>
     <form id="add-form" novalidate style="display:grid;gap:18px">
@@ -744,12 +750,19 @@ function openAdd(placeId, droppedAt) {
       </fieldset>
 
       <fieldset style="border:0;padding:0;margin:0">
-        <legend class="label" style="margin-bottom:8px">What kind of access?</legend>
+        <legend class="label" style="margin-bottom:8px">What did you find?</legend>
+        <div class="modes">
+          <label><input type="radio" name="mode" value="code" ${mode === "code" ? "checked" : ""}><span><b>There's a code</b>Keypad, receipt or a key</span></label>
+          <label class="m-open"><input type="radio" name="mode" value="open" ${mode === "open" ? "checked" : ""}><span><b>No code needed</b>I walked right in</span></label>
+        </div>
+      </fieldset>
+
+      <fieldset style="border:0;padding:0;margin:0" id="kind-wrap">
+        <legend class="label" style="margin-bottom:8px">How do you get in?</legend>
         <div class="seg">
           <label><input type="radio" name="kind" value="keypad" checked><span>Keypad code</span></label>
           <label><input type="radio" name="kind" value="receipt"><span>On the receipt</span></label>
           <label><input type="radio" name="kind" value="ask"><span>Ask staff / key</span></label>
-          <label><input type="radio" name="kind" value="open"><span>No code needed</span></label>
         </div>
       </fieldset>
 
@@ -765,23 +778,34 @@ function openAdd(placeId, droppedAt) {
 
       <label class="check">
         <input type="checkbox" id="new-anon">
-        <span><strong>Post anonymously.</strong> Other people won't see your name on this code. LooBook keeps a private record of who posted it, only to stop spam and abuse.</span>
+        <span><strong>Post anonymously.</strong> Other people won't see your name on this. LooBook keeps a private record of who posted it, only to stop spam and abuse.</span>
       </label>
-      <label class="check">
+      <label class="check" id="ok-wrap">
         <input type="checkbox" id="new-ok">
         <span>Staff gave me this code, or it's printed on a receipt or posted in public. It's not an employee-only or private code.</span>
       </label>
       <p class="form-error" id="add-error" role="alert" hidden></p>
-      <button class="btn red block" type="submit">Post code</button>
-      <p class="tiny">Your display name and the time will show next to the code.</p>
+      <button class="btn red block" type="submit" id="add-submit">Post code</button>
+      <p class="tiny" id="add-foot">Your display name and the time will show next to the code.</p>
     </form>
   `, (sheet) => {
     const kindInputs = $$('input[name="kind"]', sheet);
     const syncKind = () => {
+      const open = $('input[name="mode"]:checked', sheet).value === "open";
       const k = $('input[name="kind"]:checked', sheet).value;
-      $("#code-wrap", sheet).hidden = k !== "keypad";
+      $("#kind-wrap", sheet).hidden = open;
+      $("#code-wrap", sheet).hidden = open || k !== "keypad";
+      $("#ok-wrap", sheet).hidden = open;
+      const b = $("#add-submit", sheet);
+      b.textContent = open ? "Log visit: no code needed" : "Post code";
+      b.classList.toggle("green", open); b.classList.toggle("red", !open);
+      $("#add-foot", sheet).textContent = open
+        ? "The place turns green on the map so people know they can walk right in."
+        : "Your display name and the time will show next to the code.";
     };
     kindInputs.forEach((i) => i.addEventListener("change", syncKind));
+    $$('input[name="mode"]', sheet).forEach((i) => i.addEventListener("change", syncKind));
+    syncKind();
     $$('input[name="place"]', sheet).forEach((i) => i.addEventListener("change", () => {
       if (i.value === "new" && i.checked && !droppedAt) {
         closeSheet(); startDrop(); return;
@@ -792,14 +816,14 @@ function openAdd(placeId, droppedAt) {
     $("#add-form", sheet).addEventListener("submit", (e) => {
       e.preventDefault();
       const where = ($('input[name="place"]:checked', sheet) || {}).value;
-      const kind = $('input[name="kind"]:checked', sheet).value;
+      const kind = $('input[name="mode"]:checked', sheet).value === "open" ? "open" : $('input[name="kind"]:checked', sheet).value;
       const raw = $("#new-code", sheet).value.trim().toUpperCase();
       const note = $("#new-note", sheet).value.trim();
       if (!where) return err("Pick the place this code is for.");
       if (where === "new" && !droppedAt) return err("Drop a pin on the map first.");
       if (where === "new" && $("#new-name", sheet).value.trim().length < 2) return err("Add the name of the place.");
       if (kind === "keypad" && !/^[0-9A-Z#*]{3,12}$/.test(raw)) return err("Codes are 3 to 12 numbers or letters. # and * are fine.");
-      if (!$("#new-ok", sheet).checked) return err("Please confirm the code was given to customers or posted publicly.");
+      if (kind !== "open" && !$("#new-ok", sheet).checked) return err("Please confirm the code was given to customers or posted publicly.");
 
       const code = {
         code: kind === "keypad" ? raw : kind === "receipt" ? "On your receipt" : kind === "ask" ? "Ask staff for key" : "No code needed",
@@ -818,7 +842,7 @@ function openAdd(placeId, droppedAt) {
       closeSheet();
       renderMarkers();
       map.flyTo([p.lat, p.lng], Math.max(map.getZoom(), 16), { duration: 0.8 });
-      toast("Code posted. Thanks for sharing!");
+      toast(kind === "open" ? "Visit logged. Thanks!" : "Code posted. Thanks for sharing!");
       setTimeout(() => openPlace(p.id), 850);
     });
   });

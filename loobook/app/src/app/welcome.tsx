@@ -6,9 +6,9 @@ import { DEMO } from "../lib/config";
 import { colors, fonts, MARGIN_X } from "../lib/theme";
 
 const STEPS = [
-  ["Look at the map.", "Red pins have a code."],
+  ["Look at the map.", "Red pins have a code. Green pins don't need one."],
   ["Tap a pin", "to see the code and when it was added."],
-  ["Tap +", "to add a code you were given."],
+  ["Tap +", "to add a code, or to log a restroom with no code."],
 ];
 
 export default function Welcome() {

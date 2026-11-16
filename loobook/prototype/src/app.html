@@ -18,6 +18,8 @@
   --rule: #e4e6ea;
   --margin: #d7263d;      /* the red margin line, and every pin that has a code */
   --margin-soft: #fbe3e6;
+  --open: #1f9d55;        /* green pin: no code needed */
+  --open-tint: #e3f4e9;
   --ok: #1f7a4d;
   --warn: #9a6400;
   --font-hand: "Kalam", "Comic Sans MS", "Segoe Print", cursive;
@@ -200,6 +202,20 @@ textarea.input { min-height: 76px; resize: vertical; }
 }
 .chip[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
 .chip .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--margin); }
+.chip .dot.green { background: var(--open); }
+.btn.green { background: var(--open); color: #fff; }
+.codecard.open { background: var(--open-tint); box-shadow: 4px 4px 0 var(--open); }
+.nearby.open .label { color: var(--open); }
+.modes { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.modes label { position: relative; }
+.modes input { position: absolute; opacity: 0; inset: 0; }
+.modes span { display: grid; gap: 2px; padding: 12px; border: 1.5px solid var(--ink); border-radius: 12px; background: var(--paper); font-size: .82rem; color: var(--ink-2); height: 100%; }
+.modes b { display: flex; align-items: center; gap: 8px; font-size: .95rem; color: var(--ink); }
+.modes b::before { content: ""; width: 12px; height: 12px; border-radius: 50%; border: 1.5px solid var(--ink); background: var(--margin); flex: none; }
+.modes .m-open b::before { background: var(--open); }
+.modes input:checked + span { border-width: 2.5px; background: var(--margin-soft); }
+.modes .m-open input:checked + span { background: var(--open-tint); }
+.modes input:focus-visible + span { outline: 3px solid var(--margin); outline-offset: 2px; }
 .chip .dot.hollow { background: var(--paper); border: 2px solid var(--ink-3); }
 
 .nearby {
@@ -383,9 +399,9 @@ textarea.input { min-height: 76px; resize: vertical; }
       <h1>Find the code.<br><em>Skip the ask.</em></h1>
       <p class="muted">Restroom codes for restaurants, cafés and stores, shared by people like you, all over the world.</p>
       <ul class="welcome-steps">
-        <li><b>1.</b><span><strong>Look at the map.</strong> Red pins have a code.</span></li>
+        <li><b>1.</b><span><strong>Look at the map.</strong> Red pins have a code. Green pins don't need one.</span></li>
         <li><b>2.</b><span><strong>Tap a pin</strong> to see the code and when it was added.</span></li>
-        <li><b>3.</b><span><strong>Tap +</strong> to add a code you were given.</span></li>
+        <li><b>3.</b><span><strong>Tap +</strong> to add a code, or to log a restroom with no code.</span></li>
       </ul>
     </div>
     <div class="welcome-actions">
@@ -499,6 +515,7 @@ textarea.input { min-height: 76px; resize: vertical; }
       <div class="results" id="results" hidden></div>
       <div class="chips" id="chips">
         <button class="chip" aria-pressed="false" data-filter="codes"><span class="dot"></span>Has a code</button>
+        <button class="chip" aria-pressed="false" data-filter="open"><span class="dot green"></span>No code needed</button>
         <button class="chip" aria-pressed="false" data-filter="fresh">Added this week</button>
         <button class="chip" aria-pressed="false" data-filter="food">Food &amp; coffee</button>
         <button class="chip" aria-pressed="false" data-filter="shops">Stores &amp; gas</button>
@@ -518,7 +535,7 @@ textarea.input { min-height: 76px; resize: vertical; }
     <button class="locate" id="locate" aria-label="Show my location">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
     </button>
-    <button class="fab" id="fab" aria-label="Add a code">
+    <button class="fab" id="fab" aria-label="Add a code or log a visit">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
     </button>
   </section>

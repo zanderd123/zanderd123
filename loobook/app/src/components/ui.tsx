@@ -38,15 +38,15 @@ export function B({ children }: { children: ReactNode }) {
 }
 
 /* ---------- hand-drawn button with an ink shadow ---------- */
-type Variant = "paper" | "ink" | "red" | "ghost";
+type Variant = "paper" | "ink" | "red" | "green" | "ghost";
 export function Button({
   title, onPress, variant = "paper", icon, disabled, busy, small, style, accessibilityLabel,
 }: {
   title: string; onPress?: () => void; variant?: Variant; icon?: ReactNode; disabled?: boolean;
   busy?: boolean; small?: boolean; style?: StyleProp<ViewStyle>; accessibilityLabel?: string;
 }) {
-  const bg = variant === "ink" ? colors.ink : variant === "red" ? colors.margin : variant === "ghost" ? "transparent" : colors.paper;
-  const fg = variant === "ink" || variant === "red" ? "#fff" : colors.ink;
+  const bg = { ink: colors.ink, red: colors.margin, green: colors.open, ghost: "transparent", paper: colors.paper }[variant];
+  const fg = variant === "ink" || variant === "red" || variant === "green" ? "#fff" : colors.ink;
   const shadow = variant !== "ghost" && !small;
   return (
     <Pressable
@@ -110,7 +110,7 @@ export function Checkbox({ checked, onChange, children }: { checked: boolean; on
   );
 }
 
-export function Chip({ title, selected, onPress, dot }: { title: string; selected?: boolean; onPress: () => void; dot?: boolean }) {
+export function Chip({ title, selected, onPress, dot }: { title: string; selected?: boolean; onPress: () => void; dot?: string }) {
   return (
     <Pressable
       onPress={onPress}
@@ -118,7 +118,7 @@ export function Chip({ title, selected, onPress, dot }: { title: string; selecte
       accessibilityState={{ selected: !!selected }}
       style={[c.chip, selected && { backgroundColor: colors.ink }]}
     >
-      {dot && <View style={c.dot} />}
+      {dot && <View style={[c.dot, { backgroundColor: dot }]} />}
       <Text style={[c.text, selected && { color: colors.paper }]}>{title}</Text>
     </Pressable>
   );

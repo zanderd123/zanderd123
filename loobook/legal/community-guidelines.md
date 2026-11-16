@@ -6,6 +6,7 @@ LooBook only works if the codes are right and the businesses on the map are trea
 
 - Codes printed on a receipt or given to customers by staff.
 - Codes posted on a sign or door where anyone can see them.
+- Restrooms that don't need a code. Log them as **No code needed** so they show green on the map.
 - Helpful notes, such as "door is past the kitchen" or "ask for the key at the counter".
 
 ## Do not share

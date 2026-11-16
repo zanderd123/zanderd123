@@ -1,5 +1,5 @@
 import { getLocales } from "expo-localization";
-import type { CodeEntry } from "./types";
+import type { CodeEntry, PlaceSummary } from "./types";
 
 const HOUR = 3600e3;
 const DAY = 24 * HOUR;
@@ -60,8 +60,18 @@ export function accessLabel(c: CodeEntry): { title: string; value: string; isCod
     case "keypad": return { title: "Restroom code", value: c.code ?? "", isCode: true };
     case "receipt": return { title: "Where to find it", value: "On your receipt", isCode: false };
     case "ask": return { title: "How to get in", value: "Ask staff for the key", isCode: false };
-    case "open": return { title: "Access", value: "No code needed", isCode: false };
+    case "open": return { title: "No code needed", value: "Just walk in", isCode: false };
   }
+}
+
+export type PinState = "code" | "stale" | "open" | "openStale" | "none";
+
+/** Red = has a code, green = no code needed, pale = may be out of date, white = nothing logged yet. */
+export function pinState(p: PlaceSummary): PinState {
+  if (!p.current) return "none";
+  const stale = freshness(p.current).level === "stale";
+  if (p.current.kind === "open") return stale ? "openStale" : "open";
+  return stale ? "stale" : "code";
 }
 
 export const CODE_PATTERN = /^[0-9A-Z#*]{3,12}$/;
