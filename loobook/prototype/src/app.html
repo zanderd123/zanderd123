@@ -314,7 +314,10 @@ textarea.input { min-height: 76px; resize: vertical; }
 .page-body { flex: 1; padding: 20px max(20px, env(safe-area-inset-right, 0px)) 40px max(56px, env(safe-area-inset-left, 0px)); display: grid; gap: 22px; align-content: start; }
 .me-card { display: flex; gap: 14px; align-items: center; }
 .me-card .avatar { width: 64px; height: 64px; font-size: 1.6rem; }
-.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.tipcard { display: grid; gap: 4px; text-align: left; width: 100%; padding: 14px 16px; border: 2px solid var(--ink); border-radius: var(--sketch); background: var(--margin-soft); box-shadow: var(--shadow); }
+.tipcard b { font-family: var(--font-hand); font-size: 1.35rem; line-height: 1.1; }
+.adslot { height: 56px; border: 1.5px dashed var(--ink-3); border-radius: 10px; display: grid; place-items: center; font-size: .72rem; font-weight: 700; letter-spacing: .08em; color: var(--ink-3); background: var(--paper); }
 .stat { border: 2px solid var(--ink); border-radius: var(--sketch-2); padding: 10px 8px; text-align: center; background: var(--paper); }
 .stat b { display: block; font-family: var(--font-hand); font-size: 1.8rem; line-height: 1; font-variant-numeric: tabular-nums; }
 .stat span { font-size: .75rem; color: var(--ink-2); }
@@ -508,8 +511,11 @@ textarea.input { min-height: 76px; resize: vertical; }
       <div class="stats">
         <div class="stat"><b id="st-added">0</b><span>codes added</span></div>
         <div class="stat"><b id="st-confirm">0</b><span>confirmed</span></div>
-        <div class="stat"><b id="st-helped">0</b><span>people helped</span></div>
       </div>
+      <button class="tipcard" id="open-tips">
+        <b>Keep LooBook free</b>
+        <span class="small">Leave a tip to help pay for servers and keep ads to a minimum.</span>
+      </button>
       <div>
         <p class="label" style="margin-bottom:6px">Settings</p>
         <div class="list">
@@ -518,6 +524,7 @@ textarea.input { min-height: 76px; resize: vertical; }
           <button data-doc="guidelines"><span>Community Guidelines</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 6l6 6-6 6"/></svg></button>
           <button data-doc="terms"><span>Terms of Service</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 6l6 6-6 6"/></svg></button>
           <button data-doc="privacy"><span>Privacy Policy</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 6l6 6-6 6"/></svg></button>
+          <button id="ad-choices"><span>Ad privacy choices</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 6l6 6-6 6"/></svg></button>
           <button id="support"><span>Help &amp; contact</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 6l6 6-6 6"/></svg></button>
           <button id="signout"><span>Sign out</span></button>
           <button id="delete-acct"><span class="danger">Delete account</span></button>

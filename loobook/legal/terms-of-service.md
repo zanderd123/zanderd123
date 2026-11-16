@@ -6,7 +6,7 @@ These Terms of Service ("Terms") are an agreement between you and [COMPANY NAME]
 
 ## 1. Who can use LooBook
 
-You must be at least 13 years old to use the Service. If you are under the age of majority where you live, you may use the Service only with the permission of a parent or legal guardian. You may not use the Service if we have previously suspended or removed your account.
+LooBook is available worldwide. You must be at least 13 years old to use the Service, or older if the law where you live sets a higher minimum age for using online services without a parent's consent (for example, 16 in some European countries). If you are under the age of majority where you live, you may use the Service only with the permission of a parent or legal guardian. You may not use the Service if we have previously suspended or removed your account.
 
 ## 2. What LooBook is
 
@@ -22,7 +22,7 @@ A code shown in LooBook does not give you permission to enter any place. Each bu
 
 ## 5. Your account
 
-You can sign in with Apple, Google or an email address. Keep your login details private. You are responsible for activity on your account. Tell us right away at [SUPPORT EMAIL] if you think someone else has used it.
+You need an account to view or add codes. You can sign in with Apple, Google or an email address. Keep your login details private. You are responsible for activity on your account. Tell us right away at [SUPPORT EMAIL] if you think someone else has used it.
 
 You can delete your account at any time from Profile, then Delete account. When you delete your account we remove your personal information as described in our Privacy Policy. Codes you posted may stay on the map without your name attached, so the community does not lose useful information.
 
@@ -47,7 +47,7 @@ We may review, edit, hide or remove any Content, and suspend or close any accoun
 
 ## 9. Requests from businesses
 
-If you own or manage a business and want a code removed or corrected, contact us at [BUSINESS EMAIL] or use "Report, then Business asked to remove" on the place. We will review and act on valid requests promptly.
+If you own or manage a business and want the code for your location removed, contact us at [BUSINESS EMAIL] or use "Report a problem", then "I own this business and want it removed" on the place. After we confirm you are connected to the business, we will remove the code and stop new codes being posted for that location. Businesses cannot edit, post or claim listings.
 
 ## 10. Location
 
@@ -57,34 +57,38 @@ The map can show your position and places near you if you allow location access.
 
 You agree not to: copy or scrape the Service or its data in bulk; use bots or automated accounts; try to break, overload or get around the security of the Service; sell or resell access to the data; use the Service for anything illegal; or pretend to be someone else.
 
-## 12. Paid features
+## 12. Donations
 
-The Service is currently free. If we add paid features, we will show the price and terms before you buy. Purchases made through the Apple App Store or Google Play are also governed by their terms, and refunds are handled by them.
+LooBook is free. You can choose to leave a tip to support it. Tips are voluntary, give you no extra features or rights, and are processed by the Apple App Store or Google Play under their terms. Refunds are handled by Apple or Google under their policies. [COMPANY NAME] is not a charity, so tips are not tax-deductible.
 
-## 13. Disclaimers
+## 13. Advertising
+
+The Service shows ads supplied by third parties such as Google AdMob. We do not endorse advertised products, and your dealings with advertisers are between you and them. How ad partners use data is explained in our Privacy Policy.
+
+## 14. Disclaimers
 
 To the fullest extent allowed by law, the Service is provided without warranties of any kind, whether express or implied, including warranties of accuracy, fitness for a particular purpose and non-infringement.
 
-## 14. Limitation of liability
+## 15. Limitation of liability
 
 To the fullest extent allowed by law, we are not liable for any indirect, incidental, special or consequential damages, or for anything that happens to you at a location you found through the Service. Our total liability for any claim is limited to the greater of the amount you paid us in the 12 months before the claim, or US $50. Some places do not allow these limits, so they may not apply to you.
 
-## 15. Indemnity
+## 16. Indemnity
 
 You agree to cover our reasonable costs, including legal fees, if a claim is made against us because of Content you posted or your breach of these Terms.
 
-## 16. Changes to these Terms
+## 17. Changes to these Terms
 
 We may update these Terms. If a change is significant, we will tell you in the app before it takes effect. If you keep using the Service after that, you accept the new Terms.
 
-## 17. Governing law
+## 18. Governing law
 
-These Terms are governed by the laws of [STATE / COUNTRY], without regard to conflict-of-law rules. Disputes will be handled in the courts of [COUNTY, STATE], unless the law where you live gives you the right to bring a claim locally.
+These Terms are governed by the laws of [STATE / COUNTRY], without regard to conflict-of-law rules. Disputes will be handled in the courts of [COUNTY, STATE]. If you live in the European Union, the United Kingdom or another country whose consumer laws give you rights that cannot be waived, nothing in these Terms takes those rights away, and you may bring a claim in your local courts.
 
-## 18. Apple and Google
+## 19. Apple and Google
 
 These Terms are between you and us, not Apple or Google. Apple and Google are not responsible for the Service or its content. Apple and its subsidiaries are third-party beneficiaries of these Terms and may enforce them against you.
 
-## 19. Contact
+## 20. Contact
 
 [COMPANY NAME], [ADDRESS]. Email: [SUPPORT EMAIL].

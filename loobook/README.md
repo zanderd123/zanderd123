@@ -1,42 +1,83 @@
 # LooBook
 
-A community map of restroom codes for restaurants, cafés and stores. Open the map, see red pins near you, tap one for the code and when it was added, and tap **+** to share a code you were given.
+A worldwide community map of restroom codes for restaurants, cafés and stores. Sign in, see red pins near you, tap one for the code and when it was added, and tap **+** to share a code you were given.
 
-_"LooBook" is a working title: a notebook (the design) for the loo (the subject). Easy to change._
+_"LooBook" is a working title. 100 alternatives are in [docs/names.md](docs/names.md)._
+
+## Decisions so far
+
+| Topic | Decision |
+|---|---|
+| Who can see codes | Signed-in members only. No anonymous browsing. |
+| Businesses | Can ask for their code to be removed. Nothing else: no claiming, editing or posting. A removed location shows "Code removed" and blocks new codes. |
+| Minimum age | 13, or higher where local law requires it |
+| Where | Worldwide from day one. Distances show in miles or km to match the phone's settings. |
+| Money | Optional tips through in-app purchase, plus a small banner ad on the place and profile screens (never on the map) |
 
 ## What's here
 
 ```
 loobook/
-  prototype/          clickable mockup (runs in any phone browser)
-    src/app.html      screens and styles
-    src/app.js        behaviour and sample data
-    build.mjs         bundles everything into one file
-    dist/index.html   open this on a phone
-  legal/              draft Terms, Privacy Policy, Community Guidelines
-  docs/               App Store / Google Play checklist
-  backend/schema.sql  database design for Supabase
+  app/                 the real iPhone + Android app (Expo / React Native, TypeScript)
+  supabase/            backend: database, security rules, account deletion
+  legal/               Terms, Privacy Policy, Community Guidelines (drafts for a lawyer)
+  web/                 account-deletion page Google Play requires
+  docs/                store checklist, name ideas
+  prototype/           the clickable web mockup from the first draft
 ```
 
-Build the prototype: `node loobook/prototype/build.mjs`, then open `loobook/prototype/dist/index.html`.
+## Try the app on your phone today (demo mode)
 
-## The mockup covers
+Demo mode runs on sample data with no backend. Any sign-in works, and sample places appear around wherever you are.
 
-- **Welcome → sign up / log in** with Apple, Google or email, and a required "I agree to the Terms" box.
-- **Location primer** that explains why before the phone asks (both stores expect this).
-- **Map**: scroll anywhere on the globe. Red pins have a code; white pins are known places with no code yet; pale red pins are codes that may have changed.
-- **Search bar** for city, state, ZIP code or place name.
-- **"Closest code to you"** card, plus filters (has a code, added this week, food, stores).
-- **Place sheet**: the code, when it was added, when it was last confirmed, who shared it, Worked / Didn't work buttons, older codes, Update code, Directions, Report.
-- **+ button**: pick a nearby place or drop a pin, choose keypad / receipt / ask staff / no code, add a tip, confirm it's a public code.
-- **Profile**: stats, location and notification settings, legal pages, sign out, **delete account**.
+1. Install **Expo Go** from the App Store or Google Play.
+2. On a computer with Node.js 20+:
+   ```
+   cd loobook/app
+   npm install
+   npx expo start
+   ```
+3. Scan the QR code with your phone's camera (iPhone) or with Expo Go (Android).
 
-It's a prototype: sample places are made up, nothing is sent to a server, and the map shows hand-inked outlines instead of real streets when it runs inside Claude (real street tiles load when it's hosted normally).
+Expo Go can't run ads or tips, so those show placeholders. Everything else works: map, location, search, place details, add a code, report, profile, delete account.
 
-## Suggested path to the real app
+## Connecting the real backend
 
-1. **App**: React Native with Expo. One codebase for iPhone and Android, and the screens above port over directly.
-2. **Map**: Apple Maps on iPhone / Google Maps on Android via `react-native-maps`, or Mapbox for one custom black-and-white style on both.
-3. **Places and search**: Google Places or Foursquare for business names and addresses, so people pick a real place instead of typing one.
-4. **Backend**: Supabase (sign-in with Apple/Google/email, Postgres database, row-level security). The schema is in `backend/schema.sql`.
-5. **Launch**: work through `docs/app-store-checklist.md`, have a lawyer review `legal/`, and run a TestFlight / Play closed test.
+1. Create a free project at supabase.com.
+2. Install the Supabase CLI, then from `loobook/`:
+   ```
+   supabase link --project-ref <your-project-ref>
+   supabase db push                         # creates the tables and security rules
+   supabase functions deploy delete-account
+   ```
+3. In Supabase → Authentication → Providers, turn on **Email**, **Apple** and **Google**. Add `loobook://auth` to the allowed redirect URLs.
+4. Copy `app/.env.example` to `app/.env.local` and fill in the project URL and anon key.
+
+## Building for the stores
+
+Ads, tips and Sign in with Apple need a real build rather than Expo Go:
+
+```
+cd loobook/app
+npx eas-cli@latest build --profile development   # a test build for your own phone
+npx eas-cli@latest build --profile production    # the store build
+npx eas-cli@latest submit                         # upload to App Store Connect / Play Console
+```
+
+Before production:
+- Replace the Google test ad IDs in `app/app.json` with your AdMob app IDs, and set the banner IDs in `.env.local`.
+- Create tip products (consumables, for example $0.99 / $2.99 / $4.99 / $9.99) in App Store Connect and Play Console. Add them to a RevenueCat offering named `tips` and put the RevenueCat keys in `.env.local`.
+- Add a Google Maps Android API key in `app/app.json`.
+- Change `com.loobook.app` to your own bundle ID once you pick a name.
+- Work through [docs/app-store-checklist.md](docs/app-store-checklist.md).
+
+## Checks
+
+- `npm run typecheck` in `app/` passes.
+- `npx expo export` bundles for iPhone and Android.
+- The database migration was run against Postgres 16 with PostGIS. Tested: members-only access, people can only edit their own data, invalid codes rejected, votes counted, removed codes hidden and blocked, and codes kept without a name after account deletion.
+- Not yet run on a physical phone.
+
+## Editing the legal text
+
+Edit the files in `legal/`, then run `npm run legal` in `app/` to copy them into the app.

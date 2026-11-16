@@ -633,6 +633,7 @@ function openPlace(id) {
     </div>
     ${body}
     <button class="btn ghost" data-report style="justify-self:start;padding:0">Report a problem</button>
+    <div class="adslot" aria-label="Ad space">AD SPACE · 320 × 50</div>
   `, (sheet) => {
     const cp = $("#copy", sheet);
     if (cp) cp.addEventListener("click", async () => {
@@ -826,7 +827,6 @@ function renderProfile() {
   $("#p-sub").textContent = `Signed in with ${s.via === "email" ? "email" : s.via} · joined ${fmtDate(s.since)}`;
   $("#st-added").textContent = s.added || 0;
   $("#st-confirm").textContent = s.confirmed || 0;
-  $("#st-helped").textContent = (s.added || 0) * 12 + (s.confirmed || 0) * 3;
   $("#set-loc").checked = !!store.get("loc", false);
 }
 $("#open-profile").addEventListener("click", () => { closeSheet(); results.hidden = true; show("profile"); });
@@ -837,6 +837,22 @@ $("#set-loc").addEventListener("change", async (e) => {
   else { me = null; if (meMarker) { meMarker.remove(); meMarker = null; } toast("Location turned off"); }
 });
 $("#set-notif").addEventListener("change", (e) => toast(e.target.checked ? "We'll let you know." : "Notifications off"));
+$("#ad-choices").addEventListener("click", () => toast("In the app this opens Google's ad privacy form."));
+$("#open-tips").addEventListener("click", () => {
+  openSheet(`
+    <div class="sheet-head">
+      <div><h2>Keep LooBook free</h2><p class="small muted">Tips are optional and don't unlock anything.</p></div>
+      <button class="close" data-close aria-label="Close">${X}</button>
+    </div>
+    <p>LooBook is built by the people who use it. Tips cover servers and map costs, so there can be fewer ads.</p>
+    <div style="display:grid;gap:10px">
+      ${["$0.99", "$2.99", "$4.99", "$9.99"].map((p) => `<button class="btn" data-tip="${p}">Tip ${p}</button>`).join("")}
+    </div>
+    <p class="tiny">Payment is handled by the App Store or Google Play. Tips aren't tax-deductible.</p>
+  `, (sheet) => {
+    $$("[data-tip]", sheet).forEach((b) => b.addEventListener("click", () => { closeSheet(); toast(`Thank you! (${b.dataset.tip} tip, preview only)`); }));
+  });
+});
 $("#support").addEventListener("click", () => toast("Support email goes here, e.g. help@yourdomain.com"));
 
 function modal(html, onMount) {
