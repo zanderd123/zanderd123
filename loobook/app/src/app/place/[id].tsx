@@ -95,7 +95,7 @@ export default function PlaceScreen() {
           <View style={{ gap: 4 }}>
             <Body><B>Added {ago(cur.addedAt)}</B> · {shortDate(cur.addedAt)}</Body>
             <Body>Last confirmed working {ago(cur.lastConfirmed)}</Body>
-            <Body>Shared by <B>{cur.addedBy ? `@${cur.addedBy}` : "a former member"}</B> · {cur.worked} worked, {cur.failed} didn't</Body>
+            <Body>Shared by <B>{cur.anonymous ? "Anonymous" : cur.addedBy ? `@${cur.addedBy}` : "a former member"}</B> · {cur.worked} worked, {cur.failed} didn't</Body>
           </View>
 
           <View style={{ gap: 8 }}>

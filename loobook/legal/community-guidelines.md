@@ -18,6 +18,7 @@ LooBook only works if the codes are right and the businesses on the map are trea
 
 ## Keep it accurate
 
+- Posting anonymously hides your name from other people, not from our moderators. The same rules apply.
 - Tap **Worked** or **Didn't work** after you try a code. This is how everyone knows a code is still good.
 - If a code has changed, use **Update code** rather than adding a second place.
 

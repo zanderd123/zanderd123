@@ -185,7 +185,7 @@ const ZIPS = [
 /* navigation                                                          */
 /* ------------------------------------------------------------------ */
 let session = store.get("session", null);
-const screens = ["welcome", "login", "permission", "map", "profile", "doc"];
+const screens = ["welcome", "login", "verify", "permission", "map", "profile", "doc"];
 function show(name) {
   screens.forEach((s) => { $("#s-" + s).hidden = s !== name; });
   if (name === "map") { initMap(); setTimeout(() => map && map.invalidateSize(), 30); }
@@ -221,6 +221,7 @@ function setMode(m) {
   $("#f-name").hidden = m !== "signup";
   $("#f-terms").hidden = m !== "signup";
   $("#forgot").hidden = m !== "signin";
+  $("#pwrules").hidden = m !== "signup";
   $("#in-pass").setAttribute("autocomplete", m === "signup" ? "new-password" : "current-password");
   $("#login-submit").textContent = m === "signup" ? "Create account" : "Log in";
   $("#login-error").hidden = true;
@@ -253,9 +254,57 @@ $("#login-form").addEventListener("submit", (e) => {
   const email = $("#in-email").value.trim(), pass = $("#in-pass").value, name = $("#in-name").value.trim();
   if (mode === "signup" && name.length < 3) return loginError("Pick a display name with at least 3 characters.");
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return loginError("Enter an email like name@example.com.");
-  if (pass.length < 8) return loginError("Passwords need at least 8 characters.");
-  if (mode === "signup" && !$("#in-terms").checked) return loginError("Please tick the box to agree to the Terms first.");
-  finishLogin(name || email.split("@")[0], "email");
+  if (mode === "signup") {
+    const missing = PW_RULES.filter((r) => !r.test(pass)).map((r) => r.label.toLowerCase());
+    if (missing.length) return loginError(`Your password needs ${missing.join(", ")}.`);
+    if (!$("#in-terms").checked) return loginError("Please tick the box to agree to the Terms first.");
+    pendingSignup = { name: name || email.split("@")[0] };
+    $("#verify-email").textContent = email;
+    $("#in-otp").value = ""; $("#verify-error").hidden = true;
+    show("verify");
+    startResendTimer();
+    setTimeout(() => $("#in-otp").focus(), 50);
+    return;
+  }
+  if (!pass) return loginError("Enter your password.");
+  finishLogin(email.split("@")[0], "email");
+});
+
+/* password rules + email code */
+const PW_RULES = [
+  { id: "length", label: "At least 8 characters", test: (p) => p.length >= 8 },
+  { id: "letter", label: "A letter (a–z)", test: (p) => /[A-Za-z]/.test(p) },
+  { id: "number", label: "A number", test: (p) => /[0-9]/.test(p) },
+  { id: "special", label: "A special character", test: (p) => /[^A-Za-z0-9\s]/.test(p) },
+];
+$("#in-pass").addEventListener("input", (e) => {
+  const v = e.target.value;
+  PW_RULES.forEach((r) => $(`#pwrules [data-rule="${r.id}"]`).classList.toggle("met", r.test(v)));
+});
+let pendingSignup = null, resendTimer = null;
+function startResendTimer() {
+  let left = 60;
+  const b = $("#verify-resend");
+  b.disabled = true;
+  clearInterval(resendTimer);
+  resendTimer = setInterval(() => {
+    left--;
+    if (left <= 0) { clearInterval(resendTimer); b.disabled = false; b.textContent = "Send a new code"; }
+    else b.textContent = `Send a new code in ${left}s`;
+  }, 1000);
+  b.textContent = "Send a new code in 60s";
+}
+$("#verify-resend").addEventListener("click", () => { toast("New code sent"); startResendTimer(); });
+$("#in-otp").addEventListener("input", (e) => {
+  e.target.value = e.target.value.replace(/\D/g, "").slice(0, 6);
+  if (e.target.value.length === 6) $("#verify-go").click();
+});
+$("#verify-go").addEventListener("click", () => {
+  const v = $("#in-otp").value;
+  if (!/^\d{6}$/.test(v)) { const er = $("#verify-error"); er.textContent = "Enter the 6-digit code from the email."; er.hidden = false; return; }
+  clearInterval(resendTimer);
+  toast("Email confirmed");
+  finishLogin(pendingSignup ? pendingSignup.name : "you", "email");
 });
 
 /* ------------------------------------------------------------------ */
@@ -596,7 +645,7 @@ function openPlace(id) {
       <div class="meta">
         <div>${CLOCK}<span><strong>Added ${ago(cur.at)}</strong> · ${fmtDate(cur.at)}</span></div>
         <div>${CHECK}<span>Last confirmed working ${ago(cur.confirmedAt)}</span></div>
-        <div>${USER}<span>Shared by <strong>@${esc(cur.by)}</strong> · ${cur.confirms} worked, ${cur.fails} didn't</span></div>
+        <div>${USER}<span>Shared by <strong>${cur.anon ? "Anonymous" : "@" + esc(cur.by)}</strong> · ${cur.confirms} worked, ${cur.fails} didn't</span></div>
       </div>
       <div>
         <p class="label" style="margin-bottom:8px">Did it work for you?</p>
@@ -715,6 +764,10 @@ function openAdd(placeId, droppedAt) {
       </div>
 
       <label class="check">
+        <input type="checkbox" id="new-anon">
+        <span><strong>Post anonymously.</strong> Other people won't see your name on this code. LooBook keeps a private record of who posted it, only to stop spam and abuse.</span>
+      </label>
+      <label class="check">
         <input type="checkbox" id="new-ok">
         <span>Staff gave me this code, or it's printed on a receipt or posted in public. It's not an employee-only or private code.</span>
       </label>
@@ -750,7 +803,7 @@ function openAdd(placeId, droppedAt) {
 
       const code = {
         code: kind === "keypad" ? raw : kind === "receipt" ? "On your receipt" : kind === "ask" ? "Ask staff for key" : "No code needed",
-        kind, note, by: session ? session.name : "you", at: now(), confirms: 0, fails: 0, confirmedAt: now(),
+        kind, note, by: session ? session.name : "you", anon: $("#new-anon", sheet).checked, at: now(), confirms: 0, fails: 0, confirmedAt: now(),
       };
       let p;
       if (where === "new") {

@@ -1,0 +1,8 @@
+<!-- Sent when someone signs up with email. {{ .Token }} is the 6-digit code; {{ .ConfirmationURL }} is a fallback link. -->
+<div style="font-family: Arial, Helvetica, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px; color: #111111; background: #ffffff;">
+  <h1 style="font-size: 24px; margin: 0 0 16px;">Welcome to LooBook</h1>
+  <p style="font-size: 16px; line-height: 1.5; margin: 0 0 16px;">Enter this code in the app to confirm your email:</p>
+  <p style="font-family: 'Courier New', monospace; font-size: 34px; font-weight: bold; letter-spacing: 8px; margin: 0 0 16px; padding: 14px 18px; border: 2px solid #111111; border-radius: 10px; display: inline-block;">{{ .Token }}</p>
+  <p style="font-size: 14px; line-height: 1.5; color: #4a4a48; margin: 0 0 16px;">The code works for 1 hour. On the phone where LooBook is installed, you can also <a href="{{ .ConfirmationURL }}" style="color: #d7263d;">tap here to confirm</a>.</p>
+  <p style="font-size: 13px; line-height: 1.5; color: #8c8c88; margin: 0;">If you didn't sign up for LooBook, you can ignore this email. No account is created until the code is entered.</p>
+</div>

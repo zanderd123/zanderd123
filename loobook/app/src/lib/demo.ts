@@ -10,7 +10,7 @@ interface DemoPlace { id: string; name: string; category: Category; address: str
 
 let n = 0;
 const code = (kind: AccessKind, value: string | null, hoursAgo: number, by: string, worked: number, failed: number, note = "", confirmedHoursAgo = hoursAgo): DemoCode => ({
-  id: `c${++n}`, kind, code: value, note: note || null, addedAt: iso(hoursAgo), addedBy: by,
+  id: `c${++n}`, kind, code: value, note: note || null, addedAt: iso(hoursAgo), addedBy: by, anonymous: false,
   worked, failed, lastConfirmed: iso(confirmedHoursAgo), votes: new Map(),
 });
 const place = (id: string, name: string, category: Category, address: string, lat: number, lng: number, codes: DemoCode[] = []): DemoPlace =>
@@ -41,7 +41,7 @@ const summary = (p: DemoPlace): PlaceSummary => {
   const c = p.codes[0];
   return {
     id: p.id, name: p.name, category: p.category, address: p.address, lat: p.lat, lng: p.lng,
-    current: c ? { id: c.id, kind: c.kind, code: c.code, note: c.note, addedAt: c.addedAt, addedBy: c.addedBy, worked: c.worked, failed: c.failed, lastConfirmed: c.lastConfirmed } : null,
+    current: c ? { id: c.id, kind: c.kind, code: c.code, note: c.note, addedAt: c.addedAt, addedBy: c.anonymous ? null : c.addedBy, anonymous: c.anonymous, worked: c.worked, failed: c.failed, lastConfirmed: c.lastConfirmed } : null,
   };
 };
 
@@ -75,7 +75,9 @@ export const demoApi: Api = {
       places.push(p);
     }
     if (!p) return Promise.reject(new Error("Pick a place first."));
-    p.codes.unshift(code(c.kind, c.kind === "keypad" ? c.code ?? null : null, 0, profile?.displayName ?? "you", 0, 0, c.note));
+    const entry = code(c.kind, c.kind === "keypad" ? c.code ?? null : null, 0, profile?.displayName ?? "you", 0, 0, c.note);
+    entry.anonymous = !!c.anonymous;
+    p.codes.unshift(entry);
     if (profile) profile.codesAdded++;
     return wait(p.id);
   },

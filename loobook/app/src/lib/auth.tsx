@@ -16,10 +16,15 @@ interface AuthState {
   status: Status;
   profile: Profile | null;
   signInEmail(email: string, password: string): Promise<void>;
+  /** Creates the account and emails a 6-digit code. Nothing works until the code is entered. */
   signUpEmail(email: string, password: string): Promise<{ needsConfirm: boolean }>;
+  verifyEmailCode(email: string, code: string): Promise<void>;
+  resendEmailCode(email: string): Promise<void>;
   signInApple(): Promise<void>;
   signInGoogle(): Promise<void>;
-  resetPassword(email: string): Promise<void>;
+  /** Emails a 6-digit code for choosing a new password. */
+  sendResetCode(email: string): Promise<void>;
+  resetWithCode(email: string, code: string, newPassword: string): Promise<void>;
   completeProfile(displayName: string): Promise<void>;
   refreshProfile(): Promise<void>;
   signOut(): Promise<void>;
@@ -34,8 +39,30 @@ export function useAuth(): AuthState {
   return v;
 }
 
-/** Turns an OAuth redirect (loobook://auth?code=...) into a session. */
-async function finishOAuth(url: string) {
+/** Thrown when someone logs in before entering the code from their email. */
+export class EmailNotConfirmedError extends Error {
+  constructor() { super("Please confirm your email first. We've sent you a new code."); }
+}
+
+/** Plain-language versions of Supabase Auth errors. */
+function friendly(error: { message: string; code?: string }): Error {
+  switch (error.code) {
+    case "invalid_credentials": return new Error("That email and password don't match.");
+    case "weak_password": return new Error("That password is too easy to guess. Add a number and a special character.");
+    case "otp_expired": return new Error("That code has expired or is wrong. Tap \"Send a new code\".");
+    case "over_email_send_rate_limit":
+    case "over_request_rate_limit": return new Error("Too many tries. Wait a minute, then try again.");
+    case "user_already_exists":
+    case "email_exists": return new Error("There's already an account with that email. Log in instead.");
+    case "same_password": return new Error("Choose a password you haven't used here before.");
+    default:
+      if (error.message === "Invalid login credentials") return new Error("That email and password don't match.");
+      return new Error(error.message);
+  }
+}
+
+/** Turns a sign-in or email-link redirect (loobook://auth?code=...) into a session. */
+export async function finishOAuth(url: string) {
   const { queryParams } = Linking.parse(url);
   const code = typeof queryParams?.code === "string" ? queryParams.code : null;
   const err = typeof queryParams?.error_description === "string" ? queryParams.error_description : null;
@@ -81,14 +108,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async signInEmail(email, password) {
       if (!supabase) return demoIn();
       const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) throw new Error(error.message === "Invalid login credentials" ? "That email and password don't match." : error.message);
+      if (error?.code === "email_not_confirmed") {
+        await supabase.auth.resend({ type: "signup", email }).catch(() => {});
+        throw new EmailNotConfirmedError();
+      }
+      if (error) throw friendly(error);
     },
 
     async signUpEmail(email, password) {
-      if (!supabase) { await demoIn(); return { needsConfirm: false }; }
+      if (!supabase) return { needsConfirm: true };   // demo: show the code screen; any 6 digits work
       const { data, error } = await supabase.auth.signUp({ email, password, options: { emailRedirectTo: Linking.createURL("auth") } });
-      if (error) throw new Error(error.message);
+      if (error) throw friendly(error);
       return { needsConfirm: !data.session };
+    },
+
+    async verifyEmailCode(email, code) {
+      if (!/^\d{6}$/.test(code)) throw new Error("Enter the 6-digit code from the email.");
+      if (!supabase) return demoIn();
+      const { error } = await supabase.auth.verifyOtp({ email, token: code, type: "email" });
+      if (error) throw friendly(error);
+    },
+
+    async resendEmailCode(email) {
+      if (!supabase) return;
+      const { error } = await supabase.auth.resend({ type: "signup", email });
+      if (error) throw friendly(error);
     },
 
     async signInApple() {
@@ -113,10 +157,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await oauth("google");
     },
 
-    async resetPassword(email) {
+    async sendResetCode(email) {
       if (!supabase) return;
       const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: Linking.createURL("auth") });
-      if (error) throw new Error(error.message);
+      if (error) throw friendly(error);
+    },
+
+    async resetWithCode(email, code, newPassword) {
+      if (!/^\d{6}$/.test(code)) throw new Error("Enter the 6-digit code from the email.");
+      if (!supabase) return demoIn();
+      // The code signs the person in; set the new password straight away.
+      const v = await supabase.auth.verifyOtp({ email, token: code, type: "recovery" });
+      if (v.error) throw friendly(v.error);
+      const u = await supabase.auth.updateUser({ password: newPassword });
+      if (u.error) throw friendly(u.error);
     },
 
     async completeProfile(displayName) {

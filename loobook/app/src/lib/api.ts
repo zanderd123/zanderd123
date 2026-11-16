@@ -29,14 +29,14 @@ interface PlaceRow {
   id: string; name: string; category: Category; address: string | null; lat: number; lng: number;
   code_id: string | null; kind: AccessKind | null; code: string | null; note: string | null;
   added_at: string | null; added_by: string | null; worked: number | null; failed: number | null;
-  last_confirmed: string | null; locked: boolean | null;
+  last_confirmed: string | null; locked: boolean | null; anonymous: boolean | null;
 }
 
 function toSummary(r: PlaceRow): PlaceSummary {
   const current: CodeEntry | null = r.code_id && r.kind && r.added_at
     ? {
         id: r.code_id, kind: r.kind, code: r.code, note: r.note, addedAt: r.added_at,
-        addedBy: r.added_by, worked: Number(r.worked ?? 0), failed: Number(r.failed ?? 0),
+        addedBy: r.added_by, anonymous: !!r.anonymous, worked: Number(r.worked ?? 0), failed: Number(r.failed ?? 0),
         lastConfirmed: r.last_confirmed,
       }
     : null;
@@ -94,6 +94,7 @@ const supabaseApi = (): Api => {
         p_kind: c.kind,
         p_code: c.kind === "keypad" ? c.code ?? null : null,
         p_note: c.note || null,
+        p_anonymous: !!c.anonymous,
       }));
     },
 

@@ -14,7 +14,7 @@ import { colors } from "../lib/theme";
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
-const PUBLIC = new Set(["welcome", "sign-in", "legal"]);
+const PUBLIC = new Set(["welcome", "sign-in", "verify", "reset", "auth", "legal"]);
 
 /** Sends people to the right place: signed out → welcome, new account → profile setup, else the map. */
 function Gate() {
@@ -39,6 +39,9 @@ function Gate() {
       <Stack.Screen name="index" />
       <Stack.Screen name="welcome" />
       <Stack.Screen name="sign-in" />
+      <Stack.Screen name="verify" />
+      <Stack.Screen name="reset" />
+      <Stack.Screen name="auth" />
       <Stack.Screen name="profile-setup" />
       <Stack.Screen name="location" />
       <Stack.Screen name="map" />

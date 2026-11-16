@@ -13,13 +13,16 @@ _"LooBook" is a working title. 100 alternatives are in [docs/names.md](docs/name
 | Minimum age | 13, or higher where local law requires it |
 | Where | Worldwide from day one. Distances show in miles or km to match the phone's settings. |
 | Money | Optional tips through in-app purchase, plus a small banner ad on the place and profile screens (never on the map) |
+| Anonymous posting | A checkbox when adding a code. Others see "Anonymous"; moderators can still see who posted it. Enforced by the database, not just the app. |
+| Passwords | At least 8 characters with a letter, a number and a special character. A checklist shows as you type. |
+| Email verification | Email sign-ups get a 6-digit code and can't log in until they enter it. Forgot password works the same way. Setup: [docs/email-verification-setup.md](docs/email-verification-setup.md) |
 
 ## What's here
 
 ```
 loobook/
   app/                 the real iPhone + Android app (Expo / React Native, TypeScript)
-  supabase/            backend: database, security rules, account deletion
+  supabase/            backend: database, security rules, auth settings, email designs, account deletion
   legal/               Terms, Privacy Policy, Community Guidelines (drafts for a lawyer)
   web/                 account-deletion page Google Play requires
   docs/                store checklist, name ideas
@@ -50,7 +53,7 @@ Expo Go can't run ads or tips, so those show placeholders. Everything else works
    supabase db push                         # creates the tables and security rules
    supabase functions deploy delete-account
    ```
-3. In Supabase → Authentication → Providers, turn on **Email**, **Apple** and **Google**. Add `loobook://auth` to the allowed redirect URLs.
+3. Set up email sending, then run `supabase config push`. This turns on email verification, the password rules and the email designs. Steps: [docs/email-verification-setup.md](docs/email-verification-setup.md). Apple and Google sign-in keys go in `supabase/.env` (see `supabase/.env.example`).
 4. Copy `app/.env.example` to `app/.env.local` and fill in the project URL and anon key.
 
 ## Building for the stores
@@ -75,7 +78,13 @@ Before production:
 
 - `npm run typecheck` in `app/` passes.
 - `npx expo export` bundles for iPhone and Android.
-- The database migration was run against Postgres 16 with PostGIS. Tested: members-only access, people can only edit their own data, invalid codes rejected, votes counted, removed codes hidden and blocked, and codes kept without a name after account deletion.
+- Both database migrations were run against Postgres 16 with PostGIS. Tested:
+  - members-only access, and people can only edit their own data
+  - invalid codes are rejected and votes are counted
+  - removed codes are hidden and new ones blocked
+  - codes stay, without a name, after account deletion
+  - anonymous codes show no name, and other members can't look up who posted them, even by querying the database directly
+  - other people's votes are private, and blocking hides that person's codes
 - Not yet run on a physical phone.
 
 ## Editing the legal text

@@ -3,8 +3,10 @@ import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { PasswordChecklist } from "../components/PasswordChecklist";
 import { Body, Button, ErrorText, Field, Paper, t } from "../components/ui";
-import { useAuth } from "../lib/auth";
+import { EmailNotConfirmedError, useAuth } from "../lib/auth";
+import { passwordProblem } from "../lib/password";
 import { colors, fonts, MARGIN_X } from "../lib/theme";
 
 export default function SignIn() {
@@ -21,6 +23,10 @@ export default function SignIn() {
     setError(null); setInfo(null); setBusy(key);
     try { await fn(); }
     catch (e) {
+      if (e instanceof EmailNotConfirmedError) {
+        router.push({ pathname: "/verify", params: { email: email.trim() } });
+        return;
+      }
       const msg = (e as Error).message ?? "Something went wrong.";
       if (!/cancel/i.test(msg) && (e as { code?: string }).code !== "ERR_REQUEST_CANCELED") setError(msg);
     } finally { setBusy(null); }
@@ -28,10 +34,14 @@ export default function SignIn() {
 
   const submit = () => run("email", async () => {
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim())) throw new Error("Enter an email like name@example.com.");
-    if (password.length < 8) throw new Error("Passwords need at least 8 characters.");
-    if (mode === "signin") return auth.signInEmail(email.trim(), password);
+    if (mode === "signin") {
+      if (!password) throw new Error("Enter your password.");
+      return auth.signInEmail(email.trim(), password);
+    }
+    const problem = passwordProblem(password);
+    if (problem) throw new Error(problem);
     const { needsConfirm } = await auth.signUpEmail(email.trim(), password);
-    if (needsConfirm) setInfo(`We sent a link to ${email.trim()}. Open it on this phone to finish signing up.`);
+    if (needsConfirm) router.push({ pathname: "/verify", params: { email: email.trim() } });
   });
 
   return (
@@ -78,14 +88,11 @@ export default function SignIn() {
               label="Password" value={password} onChangeText={setPassword} secureTextEntry
               autoComplete={mode === "signup" ? "new-password" : "current-password"}
               textContentType={mode === "signup" ? "newPassword" : "password"}
-              placeholder="At least 8 characters" onSubmitEditing={submit}
+              placeholder={mode === "signup" ? "8+ characters, a number and a symbol" : ""} onSubmitEditing={submit}
             />
+            {mode === "signup" && <PasswordChecklist value={password} />}
             {mode === "signin" && (
-              <Pressable onPress={() => run("reset", async () => {
-                if (!email.includes("@")) throw new Error("Type your email above first.");
-                await auth.resetPassword(email.trim());
-                setInfo("If that email has an account, a reset link is on its way.");
-              })}>
+              <Pressable onPress={() => router.push({ pathname: "/reset", params: { email: email.trim() } })} accessibilityRole="link">
                 <Text style={t.link}>Forgot password?</Text>
               </Pressable>
             )}

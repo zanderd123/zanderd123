@@ -3,7 +3,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { Sheet } from "../components/Sheet";
-import { Body, Button, Checkbox, ErrorText, Field, Label } from "../components/ui";
+import { B, Body, Button, Checkbox, ErrorText, Field, Label } from "../components/ui";
 import { api } from "../lib/api";
 import { CODE_PATTERN, distanceMeters, formatDistance } from "../lib/format";
 import { colors, fonts } from "../lib/theme";
@@ -47,6 +47,7 @@ export default function AddCode() {
   const [code, setCode] = useState("");
   const [note, setNote] = useState("");
   const [ok, setOk] = useState(false);
+  const [anonymous, setAnonymous] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -75,7 +76,7 @@ export default function AddCode() {
       const placeId = await api.addCode({
         placeId: where === "new" ? undefined : where,
         newPlace: where === "new" ? { name: newName.trim(), category: newCat, lat: here.lat, lng: here.lng } : undefined,
-        kind, code: value, note: note.trim(),
+        kind, code: value, note: note.trim(), anonymous,
       });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       router.dismissAll();
@@ -133,12 +134,15 @@ export default function AddCode() {
       )}
       <Field label="Tip (optional)" value={note} onChangeText={setNote} maxLength={140} multiline placeholder="e.g. Door is past the kitchen, on the left." style={{ minHeight: 76, paddingTop: 12, textAlignVertical: "top" }} />
 
+      <Checkbox checked={anonymous} onChange={setAnonymous}>
+        <Body small><B>Post anonymously.</B> Other people won't see your name on this code. LooBook keeps a private record of who posted it, only to stop spam and abuse.</Body>
+      </Checkbox>
       <Checkbox checked={ok} onChange={setOk}>
         <Body small>Staff gave me this code, or it's printed on a receipt or posted in public. It's not an employee-only or private code.</Body>
       </Checkbox>
       {error && <ErrorText>{error}</ErrorText>}
       <Button variant="red" title="Post code" busy={busy} onPress={submit} />
-      <Body small muted>Your display name and the time will show next to the code.</Body>
+      <Body small muted>{anonymous ? "The code will show as shared by Anonymous, with the time it was added." : "Your display name and the time will show next to the code."}</Body>
     </Sheet>
   );
 }

@@ -84,6 +84,10 @@ export const LEGAL: Record<"terms" | "privacy" | "guidelines", LegalBlock[]> = {
   },
   {
    "t": "p",
+   "text": "You can choose to post a code anonymously. Other users then won't see your display name on it, but we still keep a private record of which account posted it, to fight spam and abuse and to respond to valid legal requests. The rules in these Terms apply the same way to anonymous posts."
+  },
+  {
+   "t": "p",
    "text": "You may not post content that is false on purpose, hateful, harassing, sexual, violent, spam, advertising, or that shares anyone's personal information. Full rules are in our Community Guidelines."
   },
   {
@@ -222,7 +226,7 @@ export const LEGAL: Record<"terms" | "privacy" | "guidelines", LegalBlock[]> = {
   },
   {
    "t": "li",
-   "text": "Content you post. Codes, notes, confirmations (\"worked\" or \"didn't work\") and reports, with the time you posted them."
+   "text": "Content you post. Codes, notes, confirmations (\"worked\" or \"didn't work\") and reports, with the time you posted them. If you post a code anonymously, we still store which account posted it, but we never show it to other users."
   },
   {
    "t": "li",
@@ -250,7 +254,11 @@ export const LEGAL: Record<"terms" | "privacy" | "guidelines", LegalBlock[]> = {
   },
   {
    "t": "li",
-   "text": "To show who added a code and when (by display name only)."
+   "text": "To show who added a code and when (by display name only, and not at all for anonymous posts)."
+  },
+  {
+   "t": "li",
+   "text": "To confirm your email address with a one-time code before your account can be used."
   },
   {
    "t": "li",
@@ -298,7 +306,7 @@ export const LEGAL: Record<"terms" | "privacy" | "guidelines", LegalBlock[]> = {
   },
   {
    "t": "li",
-   "text": "Other users see your display name next to codes you add. They never see your email or location."
+   "text": "Other users see your display name next to codes you add, unless you post anonymously. They never see your email, your location or how you voted."
   },
   {
    "t": "li",
@@ -433,6 +441,10 @@ export const LEGAL: Record<"terms" | "privacy" | "guidelines", LegalBlock[]> = {
   {
    "t": "h2",
    "text": "Keep it accurate"
+  },
+  {
+   "t": "li",
+   "text": "Posting anonymously hides your name from other people, not from our moderators. The same rules apply."
   },
   {
    "t": "li",

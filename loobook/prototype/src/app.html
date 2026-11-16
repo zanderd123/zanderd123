@@ -131,6 +131,11 @@ textarea.input { min-height: 76px; resize: vertical; }
 .tab { background: none; border: 0; padding: 4px 0; font-family: var(--font-hand); font-size: 1.5rem; font-weight: 700; color: var(--ink-3); }
 .tab[aria-selected="true"] { color: var(--ink); text-decoration: underline; text-decoration-thickness: 3px; text-underline-offset: 6px; text-decoration-color: var(--margin); }
 .form-error { color: var(--margin); font-weight: 700; font-size: .9rem; }
+.pwrules { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 4px; font-size: .88rem; color: var(--ink-2); }
+.pwrules li { display: flex; align-items: center; gap: 8px; }
+.pwrules li::before { content: ""; width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--ink-3); flex: none; }
+.pwrules li.met { color: var(--ok); font-weight: 700; }
+.pwrules li.met::before { background: var(--ok); border-color: var(--ok); box-shadow: inset 0 0 0 2px #fff; }
 .back { display: inline-flex; align-items: center; gap: 6px; background: none; border: 0; padding: 6px 0; font-weight: 700; }
 .back svg { width: 20px; height: 20px; }
 
@@ -420,7 +425,13 @@ textarea.input { min-height: 76px; resize: vertical; }
         </div>
         <div class="field">
           <label class="label" for="in-pass">Password</label>
-          <input class="input" id="in-pass" type="password" autocomplete="new-password" placeholder="At least 8 characters">
+          <input class="input" id="in-pass" type="password" autocomplete="new-password" placeholder="8+ characters, a number and a symbol">
+          <ul class="pwrules" id="pwrules" aria-label="Password requirements">
+            <li data-rule="length">At least 8 characters</li>
+            <li data-rule="letter">A letter (a–z)</li>
+            <li data-rule="number">A number</li>
+            <li data-rule="special">A special character, like ! @ # $ ?</li>
+          </ul>
         </div>
         <button type="button" class="link small" id="forgot" hidden style="justify-self:start">Forgot password?</button>
         <label class="check" id="f-terms">
@@ -431,6 +442,21 @@ textarea.input { min-height: 76px; resize: vertical; }
         <button class="btn red block" type="submit" id="login-submit">Create account</button>
       </form>
       <p class="tiny">This is a prototype. Nothing you type here leaves your phone.</p>
+    </div>
+  </section>
+
+  <!-- ============ VERIFY EMAIL ============ -->
+  <section id="s-verify" class="screen ruled" aria-label="Confirm your email" hidden>
+    <div class="scroll" style="padding:28px max(24px, env(safe-area-inset-right, 0px)) 40px max(56px, env(safe-area-inset-left, 0px));display:grid;gap:18px;align-content:start">
+      <button class="back" data-go="login"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>Back</button>
+      <h1 style="font-size:2.4rem">Check your email</h1>
+      <p>We sent a 6-digit code to <strong id="verify-email"></strong>. Enter it below to finish creating your account.</p>
+      <p class="tiny">Prototype: any 6 digits work.</p>
+      <input class="input code" id="in-otp" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000" aria-label="6-digit code">
+      <p class="form-error" id="verify-error" role="alert" hidden></p>
+      <button class="btn red block" id="verify-go">Confirm email</button>
+      <button class="btn ghost" id="verify-resend" disabled>Send a new code in 60s</button>
+      <p class="small muted">Can't find it? Check your spam or junk folder. The code works for 1 hour.</p>
     </div>
   </section>
 

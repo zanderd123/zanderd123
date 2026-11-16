@@ -16,7 +16,8 @@ export interface CodeEntry {
   code: string | null;     // only for keypad
   note: string | null;
   addedAt: string;         // ISO time
-  addedBy: string | null;  // display name, null if the account was deleted
+  addedBy: string | null;  // display name; null if posted anonymously or the account was deleted
+  anonymous: boolean;
   worked: number;
   failed: number;
   lastConfirmed: string | null;
@@ -58,4 +59,5 @@ export interface NewCode {
   kind: AccessKind;
   code?: string;
   note?: string;
+  anonymous?: boolean;
 }

@@ -35,6 +35,8 @@ When you add a code, note, rating or report ("Content"), you confirm that:
 - you did not get it by breaking a rule, a law, or a promise to keep it private;
 - it is accurate to the best of your knowledge.
 
+You can choose to post a code anonymously. Other users then won't see your display name on it, but we still keep a private record of which account posted it, to fight spam and abuse and to respond to valid legal requests. The rules in these Terms apply the same way to anonymous posts.
+
 You may not post content that is false on purpose, hateful, harassing, sexual, violent, spam, advertising, or that shares anyone's personal information. Full rules are in our Community Guidelines.
 
 ## 7. Licence to your Content

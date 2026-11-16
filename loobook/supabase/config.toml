@@ -1,0 +1,68 @@
+# Supabase settings for LooBook. Push the auth settings to your hosted project with:
+#   supabase config push
+# Values written as env(NAME) are read from your shell or loobook/supabase/.env (never commit that file).
+
+project_id = "loobook"
+
+[auth]
+enabled = true
+# Where email links send people when the app isn't installed. Use your website.
+site_url = "https://example.com"
+additional_redirect_urls = ["loobook://auth", "exp://**"]
+enable_signup = true
+jwt_expiry = 3600
+enable_refresh_token_rotation = true
+
+# Password rules. The app also requires a special character (see app/src/lib/password.ts):
+# Supabase can't require symbols without also requiring upper AND lower case letters
+# ("lower_upper_letters_digits_symbols"). Switch to that here and in the app if you want it stricter.
+minimum_password_length = 8
+password_requirements = "letters_digits"
+
+[auth.rate_limit]
+# Emails sent per hour across the whole project (needs custom SMTP below to go above 2).
+email_sent = 60
+# Code checks per 5 minutes per IP, to stop guessing.
+token_verifications = 30
+
+[auth.email]
+enable_signup = true
+# People must confirm their email before they can log in.
+enable_confirmations = true
+double_confirm_changes = true
+secure_password_change = true
+# Wait between "send a new code" requests (matches the 60s timer in the app).
+max_frequency = "60s"
+otp_length = 6
+# Codes work for 1 hour.
+otp_expiry = 3600
+
+[auth.email.template.confirmation]
+subject = "Your LooBook code: {{ .Token }}"
+content_path = "./supabase/templates/confirmation.html"
+
+[auth.email.template.recovery]
+subject = "Reset your LooBook password"
+content_path = "./supabase/templates/recovery.html"
+
+# A real email service is required: Supabase's built-in sender only delivers to
+# your own team's addresses and only a couple per hour. Any SMTP provider works,
+# e.g. Resend, Postmark, Amazon SES, SendGrid, Brevo.
+[auth.email.smtp]
+enabled = true
+host = "smtp.resend.com"
+port = 465
+user = "resend"
+pass = "env(SMTP_PASSWORD)"
+admin_email = "no-reply@example.com"
+sender_name = "LooBook"
+
+[auth.external.apple]
+enabled = true
+client_id = "env(APPLE_SERVICES_ID)"
+secret = "env(APPLE_CLIENT_SECRET)"
+
+[auth.external.google]
+enabled = true
+client_id = "env(GOOGLE_CLIENT_ID)"
+secret = "env(GOOGLE_CLIENT_SECRET)"
