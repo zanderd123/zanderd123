@@ -45,6 +45,15 @@ A daily brain workout: one IQ-style question a day, plus unlimited practice.
   accuracy trends (7 days to all time), skill per category, personal bests
   for every game, and the daily calendar.
 - XP, levels, practice combos, confetti and optional sound effects.
+- **Today's set**: a checklist at the top of Today (workout, question, word,
+  grid, challenge) with a progress ring; each chip jumps to its section, and
+  once all five are done it counts down to the next set.
+- **Streak freezes**: earn one every 7 days of streak (hold up to 2). A missed
+  day is covered automatically, and the 🧊 shows on the streak pill.
+- **Badges**: 18 to earn (streaks, levels, workouts, words, Grid, Challenge,
+  Vault, all nine games, the test, a perfect week), shown on Progress. Once
+  earned they stay, even after the history behind them is trimmed.
+- Question time only counts while the app is on screen.
 - **Accounts** (installed and store apps): create an account with email and
   password (13+, agree to the Terms and Privacy Policy), confirm it with a
   6-digit emailed code, log in by password or emailed code, change the

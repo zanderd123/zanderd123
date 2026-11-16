@@ -12,16 +12,15 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="preload" href="fonts/nunito-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/fredoka-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="fonts/fonts.css">
 <script src="config.js"></script>
-<script src="vendor/supabase/supabase.js"></script>
 <style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}[hidden]{display:none!important}</style>
 </head>
 <body>
 <title>Quotient</title>
 <meta name="claude:viewport-fit-sides" content="cover">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:ital,wght@0,500;0,700;0,800;1,500&display=swap">
 <style>
 /* Layout: a sticker-book page. Peanut the elephant sits above every view and talks you through it;
    the question card below is the thing you play with. One bright look on purpose, whatever the OS theme. */
@@ -561,6 +560,23 @@ details.numbers summary { cursor: pointer; color: var(--muted); font-weight: 800
 .doc-body .meta { color: var(--muted, inherit); font-size: 0.85rem; }
 .doc-body .fill { background: #fff3b0; color: #3d3200; border-radius: 4px; padding: 0 3px; }
 
+.freeze { font-size: 0.85rem; margin-left: 2px; }
+.today-set { background: var(--card); border: 2.5px solid var(--ink); border-radius: 20px; padding: 14px 16px; box-shadow: 0 4px 0 var(--ink); }
+.ts-head { display: flex; gap: 14px; align-items: center; }
+.ts-head h2 { font-family: var(--display); font-size: 1.2rem; margin: 0; }
+.ts-head .sub { margin: 2px 0 0; color: var(--muted); font-weight: 700; font-size: 0.92rem; }
+.ts-ring { --p: 0; flex: none; width: 56px; height: 56px; border-radius: 50%; display: grid; place-items: center; background: conic-gradient(var(--good) calc(var(--p) * 360deg), var(--soft) 0); border: 2.5px solid var(--ink); }
+.ts-ring b { background: var(--card); border-radius: 50%; width: 40px; height: 40px; display: grid; place-items: center; font-family: var(--display); font-size: 0.95rem; }
+.ts-items { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.ts-item { font: inherit; font-weight: 800; font-size: 0.85rem; padding: 6px 11px; border: 2px solid var(--ink); border-radius: 999px; background: var(--soft); color: var(--ink); min-height: 34px; }
+.ts-item.done { background: var(--good-soft); border-color: var(--good); }
+.badges { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 6px; }
+.badge-tile { display: flex; flex-direction: column; gap: 2px; padding: 8px; min-width: 0; overflow-wrap: anywhere; border: 2px solid var(--line); border-radius: 14px; background: var(--soft); opacity: 0.6; }
+.badge-tile.got { opacity: 1; border-color: var(--ink); background: var(--card); }
+.badge-tile .bi { font-size: 1.6rem; line-height: 1.2; }
+.badge-tile b { font-size: 0.82rem; line-height: 1.2; }
+.badge-tile small { font-size: 0.72rem; color: var(--muted); line-height: 1.3; }
+
 /* Test mode */
 .test-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .test-bar .lbl { font-family: var(--display); font-weight: 600; font-size: 1.1rem; }
@@ -633,6 +649,7 @@ details.numbers summary { cursor: pointer; color: var(--muted); font-weight: 800
       <div class="pill" id="streak-pill" title="Days in a row you've answered the daily puzzle">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2c1 4 5 5.5 5 11a5 5 0 0 1-10 0c0-2.5 1.2-4 2.4-5 .1 1.6.8 2.7 1.8 3.2C11 8 11.2 5 12 2z" fill="var(--accent)" stroke="var(--ink)" stroke-width="2" stroke-linejoin="round"/></svg>
         <span><span id="streak-num">0</span> day<span id="streak-s">s</span></span>
+        <span class="freeze" id="streak-freeze" hidden title="Streak freezes: each one covers a missed day"></span>
       </div>
       <div class="pill" id="level-pill" title="Earn XP for every answer">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5l2.8 5.9 6.4.8-4.7 4.4 1.2 6.4L12 16.9 6.3 20l1.2-6.4L2.8 9.2l6.4-.8z" fill="var(--gold)" stroke="var(--ink)" stroke-width="2" stroke-linejoin="round"/></svg>
@@ -2885,14 +2902,15 @@ perorate|verb|to sum up a speech grandly at its end|The barrister perorated for 
   const parseKey = k => { const [y, m, d] = k.split('-').map(Number); return new Date(y, m - 1, d); };
   const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
   const dayIndex = k => Math.round((parseKey(k) - parseKey(START)) / 86400000);
-  const short = d => d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  const SHORT_FMT = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }), LONG_FMT = new Intl.DateTimeFormat(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
+  const short = d => SHORT_FMT.format(d);
   let todayKey = dkey(new Date());
   const DAY = 86400000;
 
   /* ---------- state + storage ---------- */
   // log rows: [time, catIndex, diffIndex, correct, seconds, usedHint, mode (0 daily, 1 practice), scoreAfter, catScoreAfter]
   const LS = 'quotient.v1';
-  const blank = () => ({ v: 1, updatedAt: 0, daily: {}, words: {}, cats: {}, diffs: {}, best: 0, xp: 0, R: 1000, rc: {}, n: 0, log: [], base: null, workouts: {}, bests: {}, tests: [], grids: {}, gridProg: {}, challenges: {}, vault: {}, xpWeek: {},
+  const blank = () => ({ v: 1, updatedAt: 0, daily: {}, words: {}, cats: {}, diffs: {}, best: 0, xp: 0, R: 1000, rc: {}, n: 0, log: [], base: null, workouts: {}, bests: {}, tests: [], grids: {}, gridProg: {}, challenges: {}, vault: {}, xpWeek: {}, freezes: 0, frozen: {}, badges: {},
     prefs: { diff: 'medium', cat: 'all', sound: true } });
   const hydrate = s => { const b = blank(); const out = Object.assign(b, s); out.prefs = Object.assign(blank().prefs, s.prefs || {}); return out; };
   let state = blank();
@@ -2912,8 +2930,42 @@ perorate|verb|to sum up a speech grandly at its end|The barrister perorated for 
     if (again) { again = false; pushRemote(); }
   }
   function saveLocal() { try { localStorage.setItem(LS, JSON.stringify(state)); } catch (e) {} }
-  let onSaved = null; // set by the account layer in the installed app
-  function save() { state.updatedAt = Date.now(); saveLocal(); pushRemote(); if (onSaved) onSaved(); }
+  const saveHooks = []; // cloud backup, Today's set, reminders
+  function save() { checkBadges(); state.updatedAt = Date.now(); saveLocal(); pushRemote(); saveHooks.forEach(f => f()); }
+
+  /* ---------- badges ---------- */
+  // Earned once and kept, even after the history behind them is pruned.
+  const count = (o, f) => Object.values(o).filter(f).length;
+  const BADGES = [
+    ['first', '🌱', 'First step', 'Answer your first Question of the Day', () => Object.keys(state.daily).length >= 1],
+    ['streak7', '🔥', 'One week', 'Reach a 7-day streak', () => state.best >= 7],
+    ['streak30', '☄️', 'Month of thinking', 'Reach a 30-day streak', () => state.best >= 30],
+    ['streak100', '💯', 'Hundred club', 'Reach a 100-day streak', () => state.best >= 100],
+    ['streak365', '🏆', 'A whole year', 'Reach a 365-day streak', () => state.best >= 365],
+    ['sharp', '🎯', 'Sharp week', 'Get 7 Questions of the Day right in a row', () => { let n = 0, d = parseKey(todayKey); for (let i = 0; i < 8 && n < 7; i++, d = addDays(d, -1)) { const r = state.daily[dkey(d)]; if (r && r.correct) n++; else if (i) break; } return n >= 7; }],
+    ['level10', '⭐', 'Level 10', 'Reach level 10', () => levelOf(state.xp).L >= 10],
+    ['level25', '🌟', 'Level 25', 'Reach level 25', () => levelOf(state.xp).L >= 25],
+    ['workout', '🏋️', 'Warmed up', 'Finish a daily workout', () => Object.keys(state.workouts).length >= 1],
+    ['workout30', '💪', 'Regular', 'Finish 30 daily workouts', () => Object.keys(state.workouts).length >= 30],
+    ['words30', '📚', 'Word collector', 'Get 30 Words of the Day right', () => count(state.words, w => w.ok) >= 30],
+    ['gridhard', '🔢', 'Grid master', 'Solve a Hard Daily Grid', () => count(state.grids, g => g.hard) >= 1],
+    ['challenge', '🧪', 'Deep thinker', 'Solve a Challenge of the Day', () => count(state.challenges, c => c.ok) >= 1],
+    ['vault', '🔐', 'Safecracker', 'Solve a Puzzle Vault problem', () => count(state.vault, v => v.solved) >= 1],
+    ['vault10', '🗝️', 'Vault keeper', 'Solve 10 Puzzle Vault problems', () => count(state.vault, v => v.solved) >= 10],
+    ['allgames', '🎮', 'All-rounder', 'Set a best score in all 9 games', () => new Set(Object.keys(state.bests).map(k => k.split('-')[0])).size >= 9],
+    ['test', '📝', 'Test taker', 'Finish a practice test', () => state.tests.length >= 1],
+    ['freeze', '🧊', 'Saved by the ice', 'Have a streak freeze keep your streak alive', () => Object.keys(state.frozen).length >= 1],
+  ];
+  function checkBadges() {
+    const fresh = BADGES.filter(b => { if (state.badges[b[0]]) return false; try { return b[4](); } catch (e) { return false; } });
+    if (!fresh.length) return;
+    fresh.forEach(b => { state.badges[b[0]] = todayKey; });
+    setTimeout(() => {
+      if (fresh.length === 1) Peanut.say(`New badge: ${fresh[0][1]} ${fresh[0][2]}! ${fresh[0][3]}. Your badges are on the Progress tab.`, 'happy', 3200);
+      else Peanut.say(`You've earned ${fresh.length} badges: ${fresh.map(b => b[1]).join(' ')}. See them on the Progress tab.`, 'happy', 3200);
+      burst(); SFX.level();
+    }, 2200);
+  }
   function setSync(t) { $('sync').textContent = t; }
   setSync('Saved on this device');
 
@@ -2993,7 +3045,8 @@ perorate|verb|to sum up a speech grandly at its end|The barrister perorated for 
   function streak() {
     let n = 0, d = parseKey(todayKey);
     if (!state.daily[todayKey]) d = addDays(d, -1);
-    while (state.daily[dkey(d)]) { n++; d = addDays(d, -1); }
+    // A day covered by a streak freeze keeps the streak going but doesn't add to it.
+    for (;;) { const k = dkey(d); if (state.daily[k]) n++; else if (!state.frozen[k]) break; d = addDays(d, -1); }
     return n;
   }
   const baseR = () => (state.base ? state.base.R : 1000);
@@ -3092,13 +3145,19 @@ perorate|verb|to sum up a speech grandly at its end|The barrister perorated for 
     'Elephants can tell human languages apart. I can tell a triangle from a square.',
   ];
   const pick = a => a[Math.floor(Math.random() * a.length)];
+  // A clock that pauses while the app is in the background, so time away doesn't count as thinking time.
+  let awayMs = 0, hidAt = document.hidden ? Date.now() : 0;
+  document.addEventListener('visibilitychange', () => { if (document.hidden) hidAt = Date.now(); else if (hidAt) { awayMs += Date.now() - hidAt; hidAt = 0; } });
+  const clock = () => Date.now() - awayMs - (hidAt ? Date.now() - hidAt : 0);
+  // Restarts a CSS animation without forcing the browser to lay out the page again.
+  const replay = (n, c) => { n.classList.remove(c); requestAnimationFrame(() => requestAnimationFrame(() => n.classList.add(c))); };
   const Peanut = {
     svg: $('peanut-svg'), bub: $('bubble'), text: $('bubble-text'), extra: $('bubble-extra'), t: 0,
     say(msg, mood, ms, extra) {
       this.text.textContent = msg;
       this.extra.textContent = '';
       if (extra) this.extra.appendChild(extra);
-      this.bub.classList.remove('pop'); void this.bub.offsetWidth; this.bub.classList.add('pop');
+      replay(this.bub, 'pop');
       this.mood(mood || 'idle');
       clearTimeout(this.t);
       if (ms) this.t = setTimeout(() => this.mood('idle'), ms);
@@ -3110,7 +3169,7 @@ perorate|verb|to sum up a speech grandly at its end|The barrister perorated for 
   };
   $('peanut').addEventListener('click', () => {
     const btn = $('peanut');
-    btn.classList.remove('wiggle'); void btn.offsetWidth; btn.classList.add('wiggle');
+    replay(btn, 'wiggle');
     SFX.toot();
     const s = current();
     if (view === 'test' && test && test.running) Peanut.say('Shh! No help from me during the test. You\'ve got this.', 'idle');
@@ -3221,8 +3280,8 @@ perorate|verb|to sum up a speech grandly at its end|The barrister perorated for 
     sheet.appendChild(after);
 
     let done = false, hinted = false, nudged = false;
-    const t0 = Date.now();
-    const elapsed = () => (Date.now() - t0) / 1000;
+    const t0 = clock();
+    const elapsed = () => (clock() - t0) / 1000;
     const tick = () => {
       if (done) return;
       tnum.textContent = fmtTime(Math.floor(elapsed()));
@@ -3297,13 +3356,55 @@ perorate|verb|to sum up a speech grandly at its end|The barrister perorated for 
     return q;
   }
   const greeting = () => { const h = new Date().getHours(); return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening'; };
+  let todaySet = null;
+  const untilMidnight = () => { const m = Math.max(0, Math.round((addDays(parseKey(todayKey), 1) - new Date()) / 60000)); return m >= 60 ? `${Math.floor(m / 60)} h ${m % 60} min` : `${m} min`; };
+  function drawTodaySet() {
+    if (!todaySet || !todaySet.host.isConnected) return;
+    const ch = state.challenges[todayKey], gs = state.grids[todayKey] || {};
+    const items = [
+      ['workout', 'Workout', !!state.workouts[todayKey]],
+      ['question', 'Question', !!state.daily[todayKey]],
+      ['word', 'Word', !!state.words[todayKey]],
+      ['grid', 'Grid', Object.keys(gs).length > 0],
+      ['challenge', 'Challenge', !!(ch && (ch.ok || ch.gaveUp))],
+    ];
+    const n = items.filter(i => i[2]).length;
+    const box = el('section', 'today-set');
+    const head = el('div', 'ts-head');
+    const ring = el('div', 'ts-ring'); ring.style.setProperty('--p', n / items.length); ring.appendChild(el('b', '', `${n}/${items.length}`));
+    const txt = el('div', '');
+    txt.appendChild(el('h2', '', n === items.length ? 'Today\'s set: all done!' : 'Today\'s set'));
+    const s = streak();
+    let line;
+    if (n === items.length) line = `Brilliant. A fresh set arrives in `;
+    else if (!state.daily[todayKey] && s > 0) line = `Answer today's question to keep your ${s}-day streak. `;
+    else if (!state.daily[todayKey]) line = 'Answer today\'s question to start a streak. ';
+    else line = `${items.length - n} more to finish the set. `;
+    const p = el('p', 'sub', line);
+    if (n === items.length) { const c = el('b', '', untilMidnight()); c.id = 'next-in'; p.appendChild(c); p.appendChild(document.createTextNode('.')); }
+    if (state.freezes) p.appendChild(el('span', 'ts-fz', ` 🧊 ${state.freezes} streak freeze${state.freezes > 1 ? 's' : ''} ready.`));
+    txt.appendChild(p);
+    head.append(ring, txt); box.appendChild(head);
+    const row = el('div', 'ts-items');
+    items.forEach(([k, label, ok]) => {
+      const b = el('button', 'press ts-item' + (ok ? ' done' : ''), (ok ? '✓ ' : '') + label); b.type = 'button';
+      b.setAttribute('aria-label', `${label}: ${ok ? 'done' : 'not done yet'}. Go to it.`);
+      b.addEventListener('click', () => { SFX.tap(); todaySet.at[k].scrollIntoView({ behavior: 'smooth', block: 'start' }); });
+      row.appendChild(b);
+    });
+    box.appendChild(row);
+    todaySet.host.textContent = ''; todaySet.host.appendChild(box);
+  }
+  saveHooks.push(drawTodaySet);
   function renderDaily() {
     const host = $('view-daily');
     host.textContent = '';
     if (dailySheet) dailySheet.stop();
     const kHost = el('div', ''), qHost = el('div', ''), gHost = el('div', ''), cHost = el('div', ''), wHost = el('div', ''), bHost = el('div', '');
-    [qHost, gHost, cHost, wHost, bHost].forEach(h => { h.style.marginTop = '22px'; });
-    host.append(kHost, qHost, gHost, cHost, wHost, bHost);
+    [kHost, qHost, gHost, cHost, wHost, bHost].forEach(h => { h.style.marginTop = '22px'; });
+    todaySet = { host: el('div', ''), at: { workout: kHost, question: qHost, word: wHost, grid: gHost, challenge: cHost } };
+    host.append(todaySet.host, kHost, qHost, gHost, cHost, wHost, bHost);
+    drawTodaySet();
     renderGridCard(gHost);
     renderChallenge(cHost);
     board.mount(bHost);
@@ -3334,11 +3435,29 @@ perorate|verb|to sum up a speech grandly at its end|The barrister perorated for 
     renderWord(wHost);
     dailyGreet();
   }
+  // Streak freezes: one is earned every 7 days of streak (hold up to 2), and each covers one missed day.
+  let freezeNote = 0;
+  function applyFreezes() {
+    const have = state.freezes || 0;
+    if (!have) return;
+    const gap = [];
+    let d = addDays(parseKey(todayKey), -1);
+    while (gap.length <= have && !state.daily[dkey(d)] && !state.frozen[dkey(d)]) { gap.push(dkey(d)); d = addDays(d, -1); }
+    if (!gap.length || gap.length > have) return; // nothing missed, or more missed days than freezes
+    gap.forEach(k => { state.frozen[k] = 1; });
+    state.freezes = have - gap.length;
+    freezeNote = gap.length;
+    saveLocal(); // keeps updatedAt, so a newer copy from another device still wins
+  }
   function answerDaily(q, choice, ok, secs, hint) {
     state.daily[todayKey] = { choice, correct: ok, secs, hint };
     const xp = record(q, ok, secs, hint, 0, ok ? 15 : 0);
     const s = streak();
     if (s > state.best) state.best = s;
+    if (s > 0 && s % 7 === 0 && (state.freezes || 0) < 2) {
+      state.freezes = (state.freezes || 0) + 1;
+      setTimeout(() => Peanut.say(`${s} days in a row! You earned a streak freeze 🧊. If you miss a day, it keeps your streak alive.`, 'happy', 3600), 1800);
+    }
     social.event('qotd', { ok: ok ? 1 : 0, secs }, 'qotd:' + todayKey);
     if ([3, 7, 14, 30, 50, 100, 200, 365].includes(s)) social.event('streak', { days: s }, `streak:${todayKey}`);
     prune(); save(); renderHUD(true);
@@ -3352,14 +3471,17 @@ perorate|verb|to sum up a speech grandly at its end|The barrister perorated for 
       else if (!state.words[todayKey]) Peanut.say('You did today\'s question. Have you guessed the Word of the Day yet? It\'s below.', 'idle');
       else Peanut.say(`All done for today. Practice is open if you want more. You're on a ${streak()} day streak.`, 'happy', 1400);
     }
+    if (freezeNote) { Peanut.say(`Phew! A streak freeze 🧊 covered ${freezeNote === 1 ? 'yesterday' : `the last ${freezeNote} days`}, so your ${streak()}-day streak is safe. Answer today's question to keep it going.`, 'happy', 4000); freezeNote = 0; }
   }
   function prune() {
     const cutoff = dkey(addDays(parseKey(todayKey), -400));
-    for (const k of Object.keys(state.daily)) if (k < cutoff) delete state.daily[k];
+    // Old days shrink to whether you got them right, so streaks of 400+ days still count.
+    for (const k of Object.keys(state.daily)) if (k < cutoff && Object.keys(state.daily[k]).length > 1) state.daily[k] = { correct: state.daily[k].correct };
     for (const k of Object.keys(state.words)) if (k < cutoff) delete state.words[k];
     for (const k of Object.keys(state.workouts)) if (k < cutoff) delete state.workouts[k];
     for (const k of Object.keys(state.grids)) if (k < cutoff) delete state.grids[k];
     for (const k of Object.keys(state.challenges)) if (k < cutoff) delete state.challenges[k];
+    for (const k of Object.keys(state.frozen)) if (k < cutoff) delete state.frozen[k];
     for (const k of Object.keys(state.gridProg)) if (k.slice(0, 10) < dkey(addDays(parseKey(todayKey), -2))) delete state.gridProg[k];
   }
 
@@ -5400,15 +5522,32 @@ perorate|verb|to sum up a speech grandly at its end|The barrister perorated for 
   // One local notification a day at the chosen time. Nothing leaves the device.
   const reminder = (() => {
     const LN = window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform() && window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications;
-    const ID = 1001;
+    // The next week of reminders is planned ahead, skipping today once it's done, and
+    // re-planned whenever progress is saved, so the wording always fits.
+    const IDS = [1001, 1002, 1003, 1004, 1005, 1006, 1007];
+    const LATER = ['Peanut has a fresh puzzle for you. A few minutes is all it takes!', 'A new Question of the Day is waiting.', 'Five minutes for your brain today?', 'Today\'s Word of the Day is a good one.', 'The Daily Grid has reset. Fancy a go?'];
     async function apply(r) {
-      await LN.cancel({ notifications: [{ id: ID }] }).catch(() => {});
+      await LN.cancel({ notifications: IDS.map(id => ({ id })) }).catch(() => {});
       if (!r || !r.on) return true;
-      const perm = await LN.requestPermissions();
+      let perm = await LN.checkPermissions();
+      if (perm.display !== 'granted') perm = await LN.requestPermissions();
       if (perm.display !== 'granted') return false;
-      await LN.schedule({ notifications: [{ id: ID, title: 'Quotient', body: 'Peanut has today\'s question ready. A few minutes is all it takes!', schedule: { on: { hour: r.hour, minute: 0 }, allowWhileIdle: true } }] });
+      const s = streak(), doneToday = !!state.daily[todayKey], list = [];
+      IDS.forEach((id, i) => {
+        const at = addDays(parseKey(todayKey), i); at.setHours(r.hour, 0, 0, 0);
+        if (at <= new Date() || (i === 0 && doneToday)) return;
+        let body = LATER[(dayIndex(dkey(at)) % LATER.length + LATER.length) % LATER.length];
+        if (i === 0 && s > 0) body = `Your ${s}-day streak ends at midnight. Today's question takes a few minutes!`;
+        if (i === 1 && doneToday && s > 0) body = `Keep your ${s}-day streak going: today's question is ready.`;
+        list.push({ id, title: 'Quotient', body, schedule: { at, allowWhileIdle: true } });
+      });
+      if (list.length) await LN.schedule({ notifications: list });
       return true;
     }
+    let planT = 0;
+    const replan = () => { const r = state.prefs.reminder; if (LN && r && r.on) { clearTimeout(planT); planT = setTimeout(() => apply(r).catch(() => {}), 1500); } };
+    saveHooks.push(replan);
+    replan();
     function mount(host) {
       if (!LN) return;
       const r = state.prefs.reminder || { on: false, hour: 19 };
@@ -5431,19 +5570,18 @@ perorate|verb|to sum up a speech grandly at its end|The barrister perorated for 
       cb.addEventListener('change', update); sel.addEventListener('change', () => { if (cb.checked) update(); else { state.prefs.reminder = { on: false, hour: Number(sel.value) }; save(); } });
       host.appendChild(pnl);
     }
-    return { mount };
+    return { mount, replan };
   })();
 
   /* ---------- Friends (installed app, through Supabase) ---------- */
   // Only the installed app has Supabase settings; inside claude.ai this stays switched off.
   const social = (() => {
     const cfg = window.QUOTIENT_CONFIG || {};
-    const on = !!(window.supabase && cfg.supabaseUrl && cfg.supabaseAnonKey);
+    const on = !!(cfg.supabaseUrl && cfg.supabaseAnonKey);
     let sb = null, me = null, profile = null, data = null, stage = 'loading', email = '', msg = null, poll = 0, pushT = 0;
     let mode = 'create', codeFor = 'login', cloudT = 0, lastSync = 0;
     const TERMS_VERSION = '2026-11-16';
     const open = { compare: null, more: null, confirmDelete: false };
-    if (on) sb = window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false } });
     const sent = () => state.socialSent || (state.socialSent = []);
     const errText = e => (e && (e.message || e.error_description || e.msg)) || 'Something went wrong. Check your connection and try again.';
     const say = (text, kind) => { msg = { text, kind }; draw(); };
@@ -5480,15 +5618,22 @@ perorate|verb|to sum up a speech grandly at its end|The barrister perorated for 
       if (!on) return;
       $('friends-btn').hidden = false;
       $('friends-btn').addEventListener('click', () => { SFX.tap(); show('friends'); });
-      onSaved = queueSave;
+      saveHooks.push(queueSave);
       document.addEventListener('visibilitychange', () => { if (document.hidden && cloudT) pushSave(); });
+      // The sign-in library (110 KB) loads after the app is on screen, not before.
+      if (!window.supabase) {
+        try {
+          await new Promise((ok, fail) => { const sc = document.createElement('script'); sc.src = 'vendor/supabase/supabase.js'; sc.onload = ok; sc.onerror = fail; document.head.appendChild(sc); });
+        } catch (e) { stage = 'error'; msg = { text: 'Couldn\'t load sign-in. Check your connection and reopen the app.', kind: 'bad' }; return draw(); }
+      }
+      sb = window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false } });
       try {
         const { data: d } = await sb.auth.getSession();
         me = d && d.session ? d.session.user : null;
       } catch (e) { me = null; }
       sb.auth.onAuthStateChange((_ev, session) => { const was = me && me.id; me = session ? session.user : null; if ((me && me.id) !== was) loadProfile(); });
       await loadProfile();
-      setInterval(() => { if (profile && view !== 'friends') refresh(true); }, 5 * 60000);
+      setInterval(() => { if (profile && view !== 'friends' && !document.hidden) refresh(true); }, 5 * 60000);
     }
     async function loadProfile() {
       updateButton();
@@ -6204,8 +6349,21 @@ perorate|verb|to sum up a speech grandly at its end|The barrister perorated for 
     const wrap = el('div', 'pview');
     host.appendChild(wrap);
     reminder.mount(wrap);
+    const badgeP = el('section', 'panel');
+    badgeP.appendChild(el('h2', '', `Badges · ${Object.keys(state.badges).length} of ${BADGES.length}`));
+    const badgeG = el('div', 'badges');
+    [...BADGES].sort((a, b) => !state.badges[a[0]] - !state.badges[b[0]]).forEach(([id, icon, name, desc]) => {
+      const got = state.badges[id];
+      const t = el('div', 'badge-tile' + (got ? ' got' : ''));
+      t.append(el('span', 'bi', got ? icon : '🔒'), el('b', '', name), el('small', '', desc));
+      if (got) t.title = `Earned ${short(parseKey(got))}`;
+      badgeG.appendChild(t);
+    });
+    badgeP.appendChild(badgeG);
     const now = Date.now();
     const wk = windowStats(now - 7 * DAY, now + 1), prev = windowStats(now - 14 * DAY, now - 7 * DAY);
+
+    wrap.appendChild(badgeP);
 
     // This week vs last week
     const rep = el('section', 'panel');
@@ -6359,15 +6517,18 @@ perorate|verb|to sum up a speech grandly at its end|The barrister perorated for 
 
   /* ---------- shell ---------- */
   function renderHUD(bump) {
-    $('today-label').textContent = parseKey(todayKey).toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
+    $('today-label').textContent = LONG_FMT.format(parseKey(todayKey));
     const s = streak();
     $('streak-num').textContent = s;
     $('streak-s').textContent = s === 1 ? '' : 's';
+    const fz = state.freezes || 0;
+    $('streak-freeze').hidden = !fz;
+    $('streak-freeze').textContent = '🧊'.repeat(fz);
     const lv = levelOf(state.xp);
     $('lvl-num').textContent = lv.L;
     $('xp-fill').style.width = (100 * lv.into / lv.need) + '%';
     $('xp-text').textContent = `${lv.into} / ${lv.need} XP`;
-    if (bump) ['level-pill', 'streak-pill'].forEach(id => { const n = $(id); n.classList.remove('bump'); void n.offsetWidth; n.classList.add('bump'); });
+    if (bump) ['level-pill', 'streak-pill'].forEach(id => replay($(id), 'bump'));
   }
   let view = 'daily';
   const current = () => (view === 'daily' ? (workout ? workout.cur : (gridGame && gridGame.active && !(dailySheet && !dailySheet.done) ? gridGame : dailySheet)) : view === 'practice' ? practiceSheet : view === 'test' ? (test && test.running ? test.cur : null) : null);
@@ -6396,9 +6557,10 @@ perorate|verb|to sum up a speech grandly at its end|The barrister perorated for 
   let rt = 0;
   addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => { if (view === 'progress') renderProgress(); }, 200); });
   // Roll over to the next day's question if the page stays open past midnight.
-  setInterval(() => { const k = dkey(new Date()); if (k !== todayKey) { todayKey = k; renderAll(); } }, 60000);
+  setInterval(() => { const k = dkey(new Date()); if (k !== todayKey) { todayKey = k; renderAll(); } else { const c = $('next-in'); if (c) c.textContent = untilMidnight(); } }, 60000);
 
   function renderAll() {
+    applyFreezes();
     renderHUD();
     renderSound();
     renderControls();
@@ -6412,7 +6574,20 @@ perorate|verb|to sum up a speech grandly at its end|The barrister perorated for 
 </script>
 
 <script>
-if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js');
+if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+  // The app opens from its saved copy straight away. When a new version has been
+  // downloaded in the background, offer to switch to it.
+  const had = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.register('sw.js');
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!had || document.getElementById('update-toast')) return;
+    const b = document.createElement('button');
+    b.id = 'update-toast'; b.type = 'button'; b.textContent = 'Quotient has been updated. Tap to reload.';
+    b.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:40;font:800 0.95rem/1.2 Nunito,system-ui,sans-serif;padding:12px 18px;border-radius:999px;border:2.5px solid #1c2b4a;background:#ff7a45;color:#fff;box-shadow:0 4px 0 #1c2b4a;max-width:calc(100% - 32px)';
+    b.addEventListener('click', () => location.reload());
+    document.body.appendChild(b);
+  });
+}
 </script>
 </body>
 </html>

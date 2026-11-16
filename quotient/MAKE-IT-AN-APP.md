@@ -123,7 +123,9 @@ stores, plus reminders); the PWABuilder route above still works if you prefer it
   existing brand, pick a variant such as "Quotient: Brain Workout".
 - **Privacy policy and terms:** written for you in `quotient/legal/` (fill in the
   placeholders), shown in the app and published with the site at
-  `.../quotient/app/privacy.html` and `.../terms.html`.
+  `.../quotient/app/privacy.html` and `.../terms.html`. The installed and store
+  apps carry their own fonts, so they don't contact Google or any other third
+  party unless someone creates an account (then Supabase, as the policy says).
 - **Screenshots:** take them from the installed app on a phone. The stores
   want specific sizes, which their upload pages list.
 - **Claims:** describe Quotient as puzzles and brain games. Don't claim it
@@ -131,10 +133,6 @@ stores, plus reminders); the PWABuilder route above still works if you prefer it
   health claims strictly, and the Test tab already says its score is not an IQ.
 
 ---
-
-## Later improvements
-
-- **Offline fonts:** bundle the two Google Fonts so nothing loads from outside the app.
 
 ## Files
 
