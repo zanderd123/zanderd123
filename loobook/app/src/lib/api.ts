@@ -18,7 +18,8 @@ export interface Api {
   report(placeId: string, codeId: string | null, reason: ReportReason, details?: string): Promise<void>;
   getProfile(): Promise<Profile | null>;
   createProfile(displayName: string): Promise<void>;
-  deleteAccount(): Promise<void>;
+  /** appleAuthCode: a fresh Sign in with Apple code, so the server can revoke Apple's tokens. */
+  deleteAccount(appleAuthCode?: string): Promise<void>;
   /** demo only: put a few sample places around the person so the map isn't empty */
   seedAround?(lat: number, lng: number): void;
 }
@@ -50,6 +51,9 @@ function must<T>(res: { data: T | null; error: { message: string } | null }): T 
 
 const supabaseApi = (): Api => {
   const db = supabase!;
+  // The signed-in person's id from the locally stored session: no network call,
+  // and a dropped connection can't be mistaken for "signed out".
+  const myId = async () => (await db.auth.getSession()).data.session?.user.id ?? null;
   return {
     async placesInView(b) {
       const rows = must<PlaceRow[]>(await db.rpc("places_in_view", {
@@ -66,18 +70,20 @@ const supabaseApi = (): Api => {
     },
 
     async getPlace(id) {
-      const rows = must<PlaceRow[]>(await db.rpc("place_by_id", { pid: id }));
+      // Place and history in parallel; history uses the same visibility rules as the current code.
+      const [placeRes, historyRes, me] = await Promise.all([
+        db.rpc("place_by_id", { pid: id }),
+        db.rpc("place_history", { pid: id }),
+        myId(),
+      ]);
+      const rows = must<PlaceRow[]>(placeRes);
       if (!rows.length) return null;
       const base = toSummary(rows[0]);
-      const history = must<{ code: string | null; kind: AccessKind; created_at: string }[]>(
-        await db.from("codes").select("code, kind, created_at").eq("place_id", id)
-          .order("created_at", { ascending: false }).range(1, 10),
-      );
+      const history = must<{ code: string | null; kind: AccessKind; created_at: string }[]>(historyRes);
       let myVote: boolean | null = null;
-      const { data: user } = await db.auth.getUser();
-      if (base.current && user.user) {
+      if (base.current && me) {
         const v = await db.from("confirmations").select("worked")
-          .eq("code_id", base.current.id).eq("user_id", user.user.id).maybeSingle();
+          .eq("code_id", base.current.id).eq("user_id", me).maybeSingle();
         myVote = v.data ? v.data.worked : null;
       }
       return { ...base, history: history.map((h) => ({ code: h.code, kind: h.kind, addedAt: h.created_at })), myVote };
@@ -99,25 +105,29 @@ const supabaseApi = (): Api => {
     },
 
     async vote(codeId, worked) {
-      const { data } = await db.auth.getUser();
-      if (!data.user) throw new Error("Sign in to vote.");
-      must(await db.from("confirmations").upsert({ code_id: codeId, user_id: data.user.id, worked }));
+      const me = await myId();
+      if (!me) throw new Error("Sign in to vote.");
+      must(await db.from("confirmations").upsert({ code_id: codeId, user_id: me, worked }));
     },
 
     async report(placeId, codeId, reason, details) {
-      const { data } = await db.auth.getUser();
+      const me = await myId();
       must(await db.from("reports").insert({
-        place_id: placeId, code_id: codeId, reason, details: details || null, user_id: data.user?.id,
+        place_id: placeId, code_id: codeId, reason, details: details || null, user_id: me,
       }));
     },
 
     async getProfile() {
-      const { data } = await db.auth.getUser();
-      if (!data.user) return null;
-      const p = await db.from("profiles").select("id, display_name, created_at").eq("id", data.user.id).maybeSingle();
+      const me = await myId();
+      if (!me) return null;
+      // Any failure here throws, so callers can tell "no profile yet" from "couldn't check".
+      const [p, statsRes] = await Promise.all([
+        db.from("profiles").select("id, display_name, created_at").eq("id", me).maybeSingle(),
+        db.rpc("my_stats"),
+      ]);
       if (p.error) throw new Error(p.error.message);
       if (!p.data) return null;
-      const stats = must<{ codes_added: number; confirmations: number }[]>(await db.rpc("my_stats"));
+      const stats = must<{ codes_added: number; confirmations: number }[]>(statsRes);
       return {
         id: p.data.id, displayName: p.data.display_name, createdAt: p.data.created_at,
         codesAdded: Number(stats[0]?.codes_added ?? 0), confirmations: Number(stats[0]?.confirmations ?? 0),
@@ -125,15 +135,21 @@ const supabaseApi = (): Api => {
     },
 
     async createProfile(displayName) {
-      const { data } = await db.auth.getUser();
-      if (!data.user) throw new Error("Not signed in.");
-      const res = await db.from("profiles").insert({ id: data.user.id, display_name: displayName, terms_accepted_at: new Date().toISOString() });
-      if (res.error?.code === "23505") throw new Error("That display name is taken. Try another.");
+      const me = await myId();
+      if (!me) throw new Error("Not signed in.");
+      const res = await db.from("profiles").insert({ id: me, display_name: displayName, terms_accepted_at: new Date().toISOString() });
+      if (res.error?.code === "23505") {
+        if (res.error.message.includes("profiles_pkey")) return;   // profile already exists: nothing to do
+        throw new Error("That display name is taken. Try another.");
+      }
       must(res);
     },
 
-    async deleteAccount() {
-      must(await db.functions.invoke("delete-account", { method: "POST" }));
+    async deleteAccount(appleAuthCode) {
+      must(await db.functions.invoke("delete-account", {
+        method: "POST",
+        body: appleAuthCode ? { apple_authorization_code: appleAuthCode } : {},
+      }));
       await db.auth.signOut();
     },
   };

@@ -20,6 +20,7 @@ What each store requires, and where LooBook stands on it. ✅ = in the mockup, �
 | **Sign in with Apple** if you offer Google sign-in | 4.8 | ✅ Both buttons on the login screen |
 | Email sign-ups are verified before use | – | ✅ 6-digit code; ⬜ set up email sending ([guide](email-verification-setup.md)) |
 | **Delete account inside the app** | 5.1.1(v) | ✅ Profile → Delete account |
+| Deleting an account revokes Sign in with Apple | 5.1.1(v) | ✅ in `delete-account`; ⬜ set the Apple key secrets (see `supabase/.env.example`) |
 | Privacy policy link in the app and on the store page | 5.1.1 | ✅ in app; ⬜ host it at a public URL |
 | **User-generated content controls:** filter, report, block abusive users, publish contact info | 1.2 | ✅ Report button, guidelines, auto-hide after 3 reports, daily posting limit; ⬜ a "Block user" button (the database already supports it) and a word filter |
 | Explain why you need location (permission text) | 5.1.1 | ✅ Primer screen and permission text in `app/app.json` |

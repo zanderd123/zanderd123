@@ -10,7 +10,8 @@ import type { Profile } from "./types";
 
 WebBrowser.maybeCompleteAuthSession();
 
-type Status = "loading" | "signedOut" | "needsProfile" | "ready";
+// "offline": signed in, but we couldn't reach the server to load the profile.
+type Status = "loading" | "signedOut" | "needsProfile" | "ready" | "offline";
 
 interface AuthState {
   status: Status;
@@ -82,7 +83,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setProfile(p);
       setStatus(p ? "ready" : "needsProfile");
     } catch {
-      setStatus("needsProfile");
+      // A failed check isn't "no profile": keep a profile we already have, otherwise show a retry screen.
+      setStatus((s) => (s === "ready" ? "ready" : "offline"));
     }
   }, []);
 
@@ -119,6 +121,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!supabase) return { needsConfirm: true };   // demo: show the code screen; any 6 digits work
       const { data, error } = await supabase.auth.signUp({ email, password, options: { emailRedirectTo: Linking.createURL("auth") } });
       if (error) throw friendly(error);
+      // An already-registered email comes back as a user with no identities (and no email is sent).
+      if (data.user && data.user.identities?.length === 0) {
+        throw new Error("There's already an account with that email. Log in, or tap \"Forgot password?\".");
+      }
       return { needsConfirm: !data.session };
     },
 
@@ -186,7 +192,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
 
     async deleteAccount() {
-      await api.deleteAccount();
+      // Apple requires revoking Sign in with Apple tokens when an account is deleted.
+      // A fresh authorization code from Apple lets the server do that.
+      let appleAuthCode: string | undefined;
+      if (supabase && Platform.OS === "ios") {
+        const { data } = await supabase.auth.getSession();
+        const providers = (data.session?.user.app_metadata?.providers as string[] | undefined) ?? [];
+        if (providers.includes("apple")) {
+          try {
+            const cred = await AppleAuthentication.signInAsync({ requestedScopes: [] });
+            appleAuthCode = cred.authorizationCode ?? undefined;
+          } catch {
+            throw new Error("To delete an account made with Apple, confirm with Apple when asked.");
+          }
+        }
+      }
+      await api.deleteAccount(appleAuthCode);
       setProfile(null); setStatus("signedOut");
     },
   }), [status, profile, loadProfile, demoIn]);

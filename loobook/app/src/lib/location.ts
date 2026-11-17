@@ -24,31 +24,52 @@ export function useMyLocation() {
   const [perm, setPerm] = useState<Perm>("unknown");
   const [me, setMe] = useState<LatLng | null>(null);
   const sub = useRef<Location.LocationSubscription | null>(null);
+  // One start at a time, and a counter that stop() bumps, so a start that
+  // finishes after the app was backgrounded (or the screen closed) cleans up
+  // after itself instead of leaving GPS running.
+  const starting = useRef<Promise<void> | null>(null);
+  const generation = useRef(0);
 
-  const stop = () => { sub.current?.remove(); sub.current = null; };
+  const stop = useCallback(() => {
+    generation.current++;
+    sub.current?.remove();
+    sub.current = null;
+  }, []);
 
-  const start = useCallback(async () => {
-    const p = await Location.getForegroundPermissionsAsync();
-    setPerm(p.granted ? "granted" : p.canAskAgain ? "unknown" : "denied");
-    if (!p.granted || sub.current) return;
-    const last = await Location.getLastKnownPositionAsync();
-    if (last) setMe({ lat: last.coords.latitude, lng: last.coords.longitude });
-    sub.current = await Location.watchPositionAsync(
-      { accuracy: Location.Accuracy.Balanced, distanceInterval: 25, timeInterval: 10000 },
-      (pos) => setMe({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-    );
+  const start = useCallback(() => {
+    if (starting.current) return starting.current;
+    const gen = generation.current;
+    starting.current = (async () => {
+      const p = await Location.getForegroundPermissionsAsync();
+      if (gen !== generation.current) return;
+      setPerm(p.granted ? "granted" : p.canAskAgain ? "unknown" : "denied");
+      if (!p.granted || sub.current) return;
+      const last = await Location.getLastKnownPositionAsync();
+      if (gen !== generation.current) return;
+      if (last) setMe({ lat: last.coords.latitude, lng: last.coords.longitude });
+      const s = await Location.watchPositionAsync(
+        { accuracy: Location.Accuracy.Balanced, distanceInterval: 25, timeInterval: 10000 },
+        (pos) => setMe({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      );
+      if (gen !== generation.current) { s.remove(); return; }   // stopped while we were starting
+      sub.current = s;
+    })().finally(() => { starting.current = null; });
+    return starting.current;
   }, []);
 
   useEffect(() => {
     start();
     const s = AppState.addEventListener("change", (st) => (st === "active" ? start() : stop()));
     return () => { s.remove(); stop(); };
-  }, [start]);
+  }, [start, stop]);
 
   const ask = useCallback(async () => {
     const ok = await requestLocation();
     setPerm(ok ? "granted" : "denied");
-    if (ok) await start();
+    if (ok) {
+      await starting.current;   // a start already in flight may have checked before permission was granted
+      await start();
+    }
     return ok;
   }, [start]);
 

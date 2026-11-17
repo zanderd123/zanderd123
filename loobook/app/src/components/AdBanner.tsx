@@ -1,5 +1,6 @@
+import { useSyncExternalStore } from "react";
 import { View, Text } from "react-native";
-import { adsAvailable, adsModule, adsPersonalized, bannerUnitId } from "../lib/monetization";
+import { adsAvailable, adsModule, adsPersonalized, bannerUnitId, subscribeAds } from "../lib/monetization";
 import { DEMO } from "../lib/config";
 import { colors, fonts } from "../lib/theme";
 
@@ -9,8 +10,9 @@ import { colors, fonts } from "../lib/theme";
  * In demo mode a placeholder shows where the ad would sit.
  */
 export function AdBanner() {
+  const ready = useSyncExternalStore(subscribeAds, adsAvailable);   // shows up as soon as ads finish loading
   const m = adsModule();
-  if (!adsAvailable() || !m) {
+  if (!ready || !m) {
     if (!DEMO) return null;
     return (
       <View style={{ height: 56, borderWidth: 1.5, borderStyle: "dashed", borderColor: colors.ink3, borderRadius: 10, alignItems: "center", justifyContent: "center" }}>

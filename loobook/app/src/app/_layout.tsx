@@ -25,6 +25,7 @@ function Gate() {
   useEffect(() => {
     if (status === "loading") return;
     SplashScreen.hideAsync().catch(() => {});
+    if (status === "offline") { if (first !== "") router.replace("/"); return; }   // index shows "Try again"
     if (status === "signedOut" && !PUBLIC.has(first)) router.replace("/welcome");
     else if (status === "needsProfile" && first !== "profile-setup" && first !== "legal") router.replace("/profile-setup");
     else if (status === "ready" && (PUBLIC.has(first) && first !== "legal" || first === "profile-setup" || first === "")) {

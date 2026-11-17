@@ -53,6 +53,7 @@ Expo Go can't run ads or tips, so those show placeholders. Everything else works
    supabase link --project-ref <your-project-ref>
    supabase db push                         # creates the tables and security rules
    supabase functions deploy delete-account
+   supabase secrets set --env-file supabase/.env   # Apple key, so account deletion revokes Sign in with Apple
    ```
 3. Set up email sending, then run `supabase config push`. This turns on email verification, the password rules and the email designs. Steps: [docs/email-verification-setup.md](docs/email-verification-setup.md). Apple and Google sign-in keys go in `supabase/.env` (see `supabase/.env.example`).
 4. Copy `app/.env.example` to `app/.env.local` and fill in the project URL and anon key.
@@ -85,7 +86,10 @@ Before production:
   - removed codes are hidden and new ones blocked
   - codes stay, without a name, after account deletion
   - anonymous codes show no name, and other members can't look up who posted them, even by querying the database directly
-  - other people's votes are private, and blocking hides that person's codes
+  - other people's votes are private, and blocking hides that person's codes (including in a place's older codes)
+  - a place a business asked to remove can't be re-added under a similar name nearby
+  - search treats `%` and `_` as ordinary characters and needs at least 2 characters
+- The `delete-account` function passes `deno check`.
 - Not yet run on a physical phone.
 
 ## Editing the legal text

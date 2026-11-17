@@ -22,6 +22,15 @@ let ads: AdsModule | null = null;
 let adsReady = false;
 let personalized = false;
 
+// AdBanner subscribes, so banners appear as soon as ads finish starting up.
+const listeners = new Set<() => void>();
+function setAdsReady(v: boolean) {
+  if (adsReady === v) return;
+  adsReady = v;
+  listeners.forEach((fn) => fn());
+}
+export function subscribeAds(fn: () => void) { listeners.add(fn); return () => { listeners.delete(fn); }; }
+
 function loadAds(): AdsModule | null {
   if (IN_EXPO_GO) return null;
   if (!ads) {
@@ -44,9 +53,9 @@ export async function startAds(): Promise<void> {
       personalized = true;
     }
     await m.default().initialize();
-    adsReady = true;
+    setAdsReady(true);
   } catch {
-    adsReady = false;
+    setAdsReady(false);
   }
 }
 

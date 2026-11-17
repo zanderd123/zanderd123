@@ -54,6 +54,7 @@ export const demoApi: Api = {
 
   searchPlaces: (q) => {
     const t = q.trim().toLowerCase();
+    if (t.length < 2) return wait([]);   // same rule as the server
     return wait(places.filter((p) => p.name.toLowerCase().includes(t) || p.address.toLowerCase().includes(t)).slice(0, 20).map(summary));
   },
 
